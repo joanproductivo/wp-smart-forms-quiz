@@ -22,6 +22,7 @@ define('SFQ_PLUGIN_BASENAME', plugin_basename(__FILE__));
 
 // Cargar clases principales
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-utils.php';
+require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-security.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-activator.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-loader.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-database.php';
@@ -48,6 +49,9 @@ add_action('plugins_loaded', 'sfq_init');
 function sfq_init() {
     // Cargar textdomain para traducciones
     load_plugin_textdomain('smart-forms-quiz', false, dirname(SFQ_PLUGIN_BASENAME) . '/languages');
+    
+    // Añadir headers de seguridad
+    add_action('init', array('SFQ_Security', 'add_security_headers'));
     
     // Inicializar componentes
     $loader = new SFQ_Loader();

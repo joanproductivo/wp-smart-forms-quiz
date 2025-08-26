@@ -35,13 +35,19 @@ class SFQ_Ajax {
         add_action('wp_ajax_sfq_get_submissions', array($this, 'get_submissions'));
         add_action('wp_ajax_sfq_get_submission_detail', array($this, 'get_submission_detail'));
         add_action('wp_ajax_sfq_reset_form_stats', array($this, 'reset_form_stats'));
+        
     }
     
     /**
      * Obtener formulario (REST API)
      */
     public function get_form($request) {
-        $form_id = $request['id'];
+        $form_id = intval($request['id']);
+        
+        if (!$form_id || $form_id < 1) {
+            return new WP_Error('invalid_form_id', __('ID de formulario inválido', 'smart-forms-quiz'), array('status' => 400));
+        }
+        
         $form = $this->database->get_form($form_id);
         
         if (!$form) {
@@ -199,12 +205,31 @@ class SFQ_Ajax {
         // Verificar nonce
         if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
             wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
         }
         
-        $form_id = intval($_POST['form_id']);
-        $event_type = sanitize_text_field($_POST['event_type']);
+        $form_id = intval($_POST['form_id'] ?? 0);
+        $event_type = sanitize_text_field($_POST['event_type'] ?? '');
         $event_data = json_decode(stripslashes($_POST['event_data'] ?? '{}'), true);
-        $session_id = sanitize_text_field($_POST['session_id']);
+        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
+        
+        // Validar datos requeridos
+        if (!$form_id || !$event_type || !$session_id) {
+            wp_send_json_error(__('Datos incompletos', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Validar que event_data sea un array
+        if (!is_array($event_data)) {
+            $event_data = array();
+        }
+        
+        // Validar tipos de eventos permitidos
+        $allowed_events = array('view', 'start', 'completed', 'question_answered', 'form_abandoned');
+        if (!in_array($event_type, $allowed_events)) {
+            wp_send_json_error(__('Tipo de evento no válido', 'smart-forms-quiz'));
+            return;
+        }
         
         // Usar los métodos específicos de la base de datos según el tipo de evento
         switch ($event_type) {
@@ -237,12 +262,24 @@ class SFQ_Ajax {
         // Verificar nonce
         if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
             wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
         }
         
-        $form_id = intval($_POST['form_id']);
-        $current_question_id = intval($_POST['current_question_id']);
-        $answer = sanitize_text_field($_POST['answer']);
+        $form_id = intval($_POST['form_id'] ?? 0);
+        $current_question_id = intval($_POST['current_question_id'] ?? 0);
+        $answer = sanitize_text_field($_POST['answer'] ?? '');
         $variables = json_decode(stripslashes($_POST['variables'] ?? '{}'), true);
+        
+        // Validar datos requeridos
+        if (!$form_id || !$current_question_id) {
+            wp_send_json_error(__('Datos incompletos', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Validar que variables sea un array
+        if (!is_array($variables)) {
+            $variables = array();
+        }
         
         // Obtener condiciones de la pregunta actual
         $conditions = $this->get_question_conditions($current_question_id);
@@ -1433,4 +1470,5 @@ class SFQ_Ajax {
         // Usar método centralizado de la clase Utils
         return SFQ_Utils::format_time($seconds);
     }
+    
 }

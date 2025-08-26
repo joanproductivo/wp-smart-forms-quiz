@@ -692,6 +692,10 @@
                     body: formData
                 });
 
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
                 const result = await response.json();
                 console.log('Submit response:', result);
 
@@ -726,11 +730,44 @@
                     // PRIORITY 3: Mostrar pantalla de agradecimiento normal
                     this.showThankYouScreen();
                 } else {
-                    throw new Error(result.data?.message || 'Error al enviar el formulario');
+                    // Manejo mejorado de errores del servidor
+                    let errorMessage = 'Error al enviar el formulario';
+                    
+                    if (result.data) {
+                        if (typeof result.data === 'string') {
+                            errorMessage = result.data;
+                        } else if (result.data.message) {
+                            errorMessage = result.data.message;
+                        } else if (result.data.code) {
+                            switch (result.data.code) {
+                                case 'INVALID_NONCE':
+                                    errorMessage = 'Error de seguridad. Por favor, recarga la página e intenta de nuevo.';
+                                    break;
+                                case 'RATE_LIMIT_EXCEEDED':
+                                    errorMessage = 'Demasiadas peticiones. Por favor, espera un momento antes de intentar de nuevo.';
+                                    break;
+                                case 'INSUFFICIENT_PERMISSIONS':
+                                    errorMessage = 'No tienes permisos para realizar esta acción.';
+                                    break;
+                                default:
+                                    errorMessage = `Error: ${result.data.code}`;
+                            }
+                        }
+                    }
+                    
+                    throw new Error(errorMessage);
                 }
             } catch (error) {
                 console.error('Error submitting form:', error);
-                this.showError('Ha ocurrido un error al enviar el formulario. Por favor, intenta de nuevo.');
+                
+                // Mostrar mensaje de error más específico
+                let errorMessage = 'Ha ocurrido un error al enviar el formulario. Por favor, intenta de nuevo.';
+                
+                if (error.message && error.message !== 'Error al enviar el formulario') {
+                    errorMessage = error.message;
+                }
+                
+                this.showError(errorMessage);
             } finally {
                 this.hideLoading();
             }

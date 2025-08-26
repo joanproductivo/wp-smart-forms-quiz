@@ -103,6 +103,7 @@ class SFQ_Loader {
         $plugin_pages = array(
             'toplevel_page_smart-forms-quiz',
             'smart-forms_page_sfq-new-form',
+            'smart-forms_page_sfq-submissions',
             'smart-forms_page_sfq-analytics',
             'smart-forms_page_sfq-settings'
         );

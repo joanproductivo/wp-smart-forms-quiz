@@ -161,6 +161,11 @@ class SFQ_Admin {
                                 <button class="button sfq-duplicate-form" data-form-id="<?php echo $form->id; ?>">
                                     <?php _e('Duplicar', 'smart-forms-quiz'); ?>
                                 </button>
+                                <a href="<?php echo admin_url('admin.php?page=sfq-submissions&form_id=' . $form->id); ?>" 
+                                   class="button sfq-view-responses" 
+                                   title="<?php _e('Ver todas las respuestas de este formulario', 'smart-forms-quiz'); ?>">
+                                    <span class="dashicons dashicons-list-view"></span>
+                                </a>
                                 <button class="button sfq-reset-stats" data-form-id="<?php echo $form->id; ?>" title="<?php _e('Borrar estadísticas', 'smart-forms-quiz'); ?>">
                                     <span class="dashicons dashicons-chart-line"></span>
                                     <?php _e('Reset', 'smart-forms-quiz'); ?>
@@ -199,6 +204,28 @@ class SFQ_Admin {
                 border-color: #dcdcde;
                 color: #a7aaad;
                 cursor: not-allowed;
+            }
+            
+            .sfq-view-responses {
+                background-color: #f0f0f1;
+                border-color: #dcdcde;
+                color: #007cba;
+                min-width: 40px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .sfq-view-responses:hover {
+                background-color: #007cba;
+                border-color: #007cba;
+                color: #fff;
+            }
+            
+            .sfq-view-responses .dashicons {
+                font-size: 16px;
+                width: 16px;
+                height: 16px;
             }
         </style>
         
@@ -249,34 +276,6 @@ class SFQ_Admin {
                 }, 1000);
             });
             
-            // Duplicar formulario
-            $('.sfq-duplicate-form').on('click', function() {
-                const formId = $(this).data('form-id');
-                
-                if (!confirm('¿Estás seguro de que quieres duplicar este formulario?')) {
-                    return;
-                }
-                
-                $.ajax({
-                    url: ajaxurl,
-                    type: 'POST',
-                    data: {
-                        action: 'sfq_duplicate_form',
-                        nonce: '<?php echo wp_create_nonce('sfq_nonce'); ?>',
-                        form_id: formId
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            location.reload();
-                        } else {
-                            alert('Error al duplicar el formulario: ' + (response.data.message || 'Error desconocido'));
-                        }
-                    },
-                    error: function() {
-                        alert('Error al duplicar el formulario');
-                    }
-                });
-            });
             
             // Resetear estadísticas del formulario
             $('.sfq-reset-stats').on('click', function() {
@@ -1068,23 +1067,539 @@ class SFQ_Admin {
      * Renderizar página de configuración
      */
     public function render_settings_page() {
+        // Procesar formulario si se envía
+        if (isset($_POST['submit']) && check_admin_referer('sfq_settings_nonce')) {
+            $this->save_settings();
+        }
+        
+        // Obtener configuraciones actuales
+        $settings = get_option('sfq_settings', array());
+        $security_settings = get_option('sfq_security_settings', array());
+        
+        // Valores por defecto
+        $defaults = array(
+            'rate_limit_requests' => 10,
+            'rate_limit_window' => 300,
+            'max_response_length' => 2000,
+            'json_max_depth' => 10,
+            'enable_security_headers' => true,
+            'enable_xss_protection' => true,
+            'enable_rate_limiting' => true,
+            'log_security_events' => true,
+            'block_suspicious_ips' => false,
+            'allowed_html_tags' => '',
+            'enable_honeypot' => false,
+            'session_timeout' => 3600
+        );
+        
+        $security_settings = wp_parse_args($security_settings, $defaults);
         ?>
-        <div class="wrap">
-            <h1><?php _e('Configuración', 'smart-forms-quiz'); ?></h1>
-            <form method="post" action="options.php">
-                <?php settings_fields('sfq_settings'); ?>
-                <table class="form-table">
-                    <tr>
-                        <th scope="row"><?php _e('Configuración General', 'smart-forms-quiz'); ?></th>
-                        <td>
-                            <!-- Configuraciones generales del plugin -->
-                        </td>
-                    </tr>
-                </table>
-                <?php submit_button(); ?>
+        <div class="wrap sfq-settings-wrap">
+            <h1><?php _e('Configuración de Smart Forms Quiz', 'smart-forms-quiz'); ?></h1>
+            
+            <div class="sfq-settings-tabs">
+                <nav class="nav-tab-wrapper">
+                    <a href="#general" class="nav-tab nav-tab-active"><?php _e('General', 'smart-forms-quiz'); ?></a>
+                    <a href="#security" class="nav-tab"><?php _e('Seguridad', 'smart-forms-quiz'); ?></a>
+                    <a href="#performance" class="nav-tab"><?php _e('Rendimiento', 'smart-forms-quiz'); ?></a>
+                    <a href="#notifications" class="nav-tab"><?php _e('Notificaciones', 'smart-forms-quiz'); ?></a>
+                </nav>
+            </div>
+            
+            <form method="post" action="">
+                <?php wp_nonce_field('sfq_settings_nonce'); ?>
+                
+                <!-- Tab General -->
+                <div id="general" class="sfq-tab-content active">
+                    <h2><?php _e('Configuración General', 'smart-forms-quiz'); ?></h2>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row"><?php _e('Capacidad requerida', 'smart-forms-quiz'); ?></th>
+                            <td>
+                                <select name="sfq_settings[required_capability]">
+                                    <option value="manage_options" <?php selected($settings['required_capability'] ?? 'manage_options', 'manage_options'); ?>>
+                                        <?php _e('Administrador (manage_options)', 'smart-forms-quiz'); ?>
+                                    </option>
+                                    <option value="edit_pages" <?php selected($settings['required_capability'] ?? 'manage_options', 'edit_pages'); ?>>
+                                        <?php _e('Editor (edit_pages)', 'smart-forms-quiz'); ?>
+                                    </option>
+                                    <option value="edit_posts" <?php selected($settings['required_capability'] ?? 'manage_options', 'edit_posts'); ?>>
+                                        <?php _e('Autor (edit_posts)', 'smart-forms-quiz'); ?>
+                                    </option>
+                                </select>
+                                <p class="description"><?php _e('Capacidad mínima requerida para gestionar formularios', 'smart-forms-quiz'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php _e('Eliminar datos al desinstalar', 'smart-forms-quiz'); ?></th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="sfq_settings[delete_data_on_uninstall]" value="1" 
+                                           <?php checked($settings['delete_data_on_uninstall'] ?? false); ?>>
+                                    <?php _e('Eliminar todos los datos del plugin al desinstalar', 'smart-forms-quiz'); ?>
+                                </label>
+                                <p class="description"><?php _e('⚠️ Esto eliminará permanentemente todos los formularios, respuestas y configuraciones', 'smart-forms-quiz'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php _e('Modo debug', 'smart-forms-quiz'); ?></th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="sfq_settings[debug_mode]" value="1" 
+                                           <?php checked($settings['debug_mode'] ?? false); ?>>
+                                    <?php _e('Activar modo debug (solo para desarrollo)', 'smart-forms-quiz'); ?>
+                                </label>
+                                <p class="description"><?php _e('Registra información adicional en los logs de WordPress', 'smart-forms-quiz'); ?></p>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <!-- Tab Seguridad -->
+                <div id="security" class="sfq-tab-content">
+                    <h2><?php _e('Configuración de Seguridad', 'smart-forms-quiz'); ?></h2>
+                    
+                    <div class="sfq-security-section">
+                        <h3><?php _e('🛡️ Rate Limiting', 'smart-forms-quiz'); ?></h3>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><?php _e('Activar Rate Limiting', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="sfq_security[enable_rate_limiting]" value="1" 
+                                               <?php checked($security_settings['enable_rate_limiting']); ?>>
+                                        <?php _e('Limitar número de envíos por usuario', 'smart-forms-quiz'); ?>
+                                    </label>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php _e('Máximo de envíos', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <input type="number" name="sfq_security[rate_limit_requests]" 
+                                           value="<?php echo esc_attr($security_settings['rate_limit_requests']); ?>" 
+                                           min="1" max="100" class="small-text">
+                                    <p class="description"><?php _e('Número máximo de envíos permitidos por ventana de tiempo', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php _e('Ventana de tiempo (segundos)', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <input type="number" name="sfq_security[rate_limit_window]" 
+                                           value="<?php echo esc_attr($security_settings['rate_limit_window']); ?>" 
+                                           min="60" max="3600" class="small-text">
+                                    <p class="description"><?php _e('Tiempo en segundos para el límite (300 = 5 minutos)', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="sfq-security-section">
+                        <h3><?php _e('🔒 Protección XSS', 'smart-forms-quiz'); ?></h3>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><?php _e('Protección XSS', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="sfq_security[enable_xss_protection]" value="1" 
+                                               <?php checked($security_settings['enable_xss_protection']); ?>>
+                                        <?php _e('Activar protección contra ataques XSS', 'smart-forms-quiz'); ?>
+                                    </label>
+                                    <p class="description"><?php _e('Elimina automáticamente código HTML/JavaScript malicioso', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php _e('Longitud máxima de respuesta', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <input type="number" name="sfq_security[max_response_length]" 
+                                           value="<?php echo esc_attr($security_settings['max_response_length']); ?>" 
+                                           min="100" max="10000" class="small-text">
+                                    <p class="description"><?php _e('Caracteres máximos permitidos por respuesta', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php _e('Tags HTML permitidos', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <input type="text" name="sfq_security[allowed_html_tags]" 
+                                           value="<?php echo esc_attr($security_settings['allowed_html_tags']); ?>" 
+                                           class="regular-text" placeholder="p,br,strong,em">
+                                    <p class="description"><?php _e('Tags HTML permitidos separados por comas (dejar vacío para eliminar todo HTML)', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="sfq-security-section">
+                        <h3><?php _e('📊 Validación de Datos', 'smart-forms-quiz'); ?></h3>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><?php _e('Profundidad máxima JSON', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <input type="number" name="sfq_security[json_max_depth]" 
+                                           value="<?php echo esc_attr($security_settings['json_max_depth']); ?>" 
+                                           min="5" max="50" class="small-text">
+                                    <p class="description"><?php _e('Niveles máximos de anidación en datos JSON', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php _e('Timeout de sesión', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <input type="number" name="sfq_security[session_timeout]" 
+                                           value="<?php echo esc_attr($security_settings['session_timeout']); ?>" 
+                                           min="300" max="7200" class="small-text">
+                                    <p class="description"><?php _e('Tiempo en segundos antes de que expire una sesión de formulario', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="sfq-security-section">
+                        <h3><?php _e('🌐 Headers de Seguridad', 'smart-forms-quiz'); ?></h3>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><?php _e('Headers de seguridad', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="sfq_security[enable_security_headers]" value="1" 
+                                               <?php checked($security_settings['enable_security_headers']); ?>>
+                                        <?php _e('Añadir headers de seguridad HTTP', 'smart-forms-quiz'); ?>
+                                    </label>
+                                    <p class="description"><?php _e('Incluye CSP, X-Frame-Options, X-XSS-Protection, etc.', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="sfq-security-section">
+                        <h3><?php _e('📝 Logging y Monitoreo', 'smart-forms-quiz'); ?></h3>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><?php _e('Log de eventos de seguridad', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="sfq_security[log_security_events]" value="1" 
+                                               <?php checked($security_settings['log_security_events']); ?>>
+                                        <?php _e('Registrar intentos de ataques y eventos sospechosos', 'smart-forms-quiz'); ?>
+                                    </label>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php _e('Bloquear IPs sospechosas', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="sfq_security[block_suspicious_ips]" value="1" 
+                                               <?php checked($security_settings['block_suspicious_ips']); ?>>
+                                        <?php _e('Bloquear automáticamente IPs con comportamiento sospechoso', 'smart-forms-quiz'); ?>
+                                    </label>
+                                    <p class="description"><?php _e('⚠️ Experimental: puede bloquear usuarios legítimos', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="sfq-security-section">
+                        <h3><?php _e('🍯 Protección Adicional', 'smart-forms-quiz'); ?></h3>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><?php _e('Campo Honeypot', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="sfq_security[enable_honeypot]" value="1" 
+                                               <?php checked($security_settings['enable_honeypot']); ?>>
+                                        <?php _e('Añadir campo oculto para detectar bots', 'smart-forms-quiz'); ?>
+                                    </label>
+                                    <p class="description"><?php _e('Campo invisible que solo los bots suelen rellenar', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="sfq-security-status">
+                        <h3><?php _e('📊 Estado de Seguridad', 'smart-forms-quiz'); ?></h3>
+                        <div class="sfq-security-indicators">
+                            <div class="sfq-indicator <?php echo $security_settings['enable_rate_limiting'] ? 'active' : 'inactive'; ?>">
+                                <span class="dashicons dashicons-shield-alt"></span>
+                                <span><?php _e('Rate Limiting', 'smart-forms-quiz'); ?></span>
+                            </div>
+                            <div class="sfq-indicator <?php echo $security_settings['enable_xss_protection'] ? 'active' : 'inactive'; ?>">
+                                <span class="dashicons dashicons-lock"></span>
+                                <span><?php _e('Protección XSS', 'smart-forms-quiz'); ?></span>
+                            </div>
+                            <div class="sfq-indicator <?php echo $security_settings['enable_security_headers'] ? 'active' : 'inactive'; ?>">
+                                <span class="dashicons dashicons-admin-network"></span>
+                                <span><?php _e('Headers Seguros', 'smart-forms-quiz'); ?></span>
+                            </div>
+                            <div class="sfq-indicator <?php echo $security_settings['log_security_events'] ? 'active' : 'inactive'; ?>">
+                                <span class="dashicons dashicons-visibility"></span>
+                                <span><?php _e('Monitoreo', 'smart-forms-quiz'); ?></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tab Rendimiento -->
+                <div id="performance" class="sfq-tab-content">
+                    <h2><?php _e('Configuración de Rendimiento', 'smart-forms-quiz'); ?></h2>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row"><?php _e('Cache de formularios', 'smart-forms-quiz'); ?></th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="sfq_settings[enable_form_cache]" value="1" 
+                                           <?php checked($settings['enable_form_cache'] ?? true); ?>>
+                                    <?php _e('Activar cache de formularios', 'smart-forms-quiz'); ?>
+                                </label>
+                                <p class="description"><?php _e('Mejora el rendimiento cacheando los formularios', 'smart-forms-quiz'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php _e('Minificar CSS/JS', 'smart-forms-quiz'); ?></th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="sfq_settings[minify_assets]" value="1" 
+                                           <?php checked($settings['minify_assets'] ?? false); ?>>
+                                    <?php _e('Minificar archivos CSS y JavaScript', 'smart-forms-quiz'); ?>
+                                </label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php _e('Cargar scripts solo cuando sea necesario', 'smart-forms-quiz'); ?></th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="sfq_settings[conditional_loading]" value="1" 
+                                           <?php checked($settings['conditional_loading'] ?? true); ?>>
+                                    <?php _e('Solo cargar scripts en páginas con formularios', 'smart-forms-quiz'); ?>
+                                </label>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <!-- Tab Notificaciones -->
+                <div id="notifications" class="sfq-tab-content">
+                    <h2><?php _e('Configuración de Notificaciones', 'smart-forms-quiz'); ?></h2>
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row"><?php _e('Email del administrador', 'smart-forms-quiz'); ?></th>
+                            <td>
+                                <input type="email" name="sfq_settings[admin_email]" 
+                                       value="<?php echo esc_attr($settings['admin_email'] ?? get_option('admin_email')); ?>" 
+                                       class="regular-text">
+                                <p class="description"><?php _e('Email para recibir notificaciones de nuevas respuestas', 'smart-forms-quiz'); ?></p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php _e('Notificar nuevas respuestas', 'smart-forms-quiz'); ?></th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="sfq_settings[notify_new_responses]" value="1" 
+                                           <?php checked($settings['notify_new_responses'] ?? false); ?>>
+                                    <?php _e('Enviar email cuando se reciba una nueva respuesta', 'smart-forms-quiz'); ?>
+                                </label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><?php _e('Notificar eventos de seguridad', 'smart-forms-quiz'); ?></th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="sfq_settings[notify_security_events]" value="1" 
+                                           <?php checked($settings['notify_security_events'] ?? false); ?>>
+                                    <?php _e('Enviar email cuando se detecten intentos de ataque', 'smart-forms-quiz'); ?>
+                                </label>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <?php submit_button(__('Guardar Configuración', 'smart-forms-quiz'), 'primary', 'submit'); ?>
             </form>
         </div>
+        
+        <style>
+            .sfq-settings-wrap {
+                max-width: 1200px;
+            }
+            
+            .sfq-settings-tabs {
+                margin-bottom: 20px;
+            }
+            
+            .sfq-tab-content {
+                display: none;
+                background: white;
+                padding: 20px;
+                border: 1px solid #ccd0d4;
+                box-shadow: 0 1px 1px rgba(0,0,0,.04);
+            }
+            
+            .sfq-tab-content.active {
+                display: block;
+            }
+            
+            .sfq-security-section {
+                margin-bottom: 30px;
+                padding: 20px;
+                background: #f8f9fa;
+                border-left: 4px solid #007cba;
+                border-radius: 4px;
+            }
+            
+            .sfq-security-section h3 {
+                margin-top: 0;
+                color: #007cba;
+            }
+            
+            .sfq-security-status {
+                background: #fff;
+                padding: 20px;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                margin-top: 20px;
+            }
+            
+            .sfq-security-indicators {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 15px;
+                margin-top: 15px;
+            }
+            
+            .sfq-indicator {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 15px;
+                border-radius: 6px;
+                font-weight: 500;
+            }
+            
+            .sfq-indicator.active {
+                background: #d1eddb;
+                color: #155724;
+                border: 1px solid #c3e6cb;
+            }
+            
+            .sfq-indicator.inactive {
+                background: #f8d7da;
+                color: #721c24;
+                border: 1px solid #f5c6cb;
+            }
+            
+            .sfq-indicator .dashicons {
+                font-size: 20px;
+                width: 20px;
+                height: 20px;
+            }
+            
+            .form-table th {
+                width: 250px;
+            }
+            
+            .description {
+                font-style: italic;
+                color: #666;
+            }
+        </style>
+        
+        <script>
+        jQuery(document).ready(function($) {
+            // Manejo de tabs
+            $('.nav-tab').on('click', function(e) {
+                e.preventDefault();
+                
+                // Remover clase activa de todos los tabs
+                $('.nav-tab').removeClass('nav-tab-active');
+                $('.sfq-tab-content').removeClass('active');
+                
+                // Activar tab clickeado
+                $(this).addClass('nav-tab-active');
+                const target = $(this).attr('href');
+                $(target).addClass('active');
+            });
+            
+            // Mostrar/ocultar configuraciones dependientes
+            $('input[name="sfq_security[enable_rate_limiting]"]').on('change', function() {
+                const relatedRows = $(this).closest('table').find('tr').slice(1, 3);
+                if ($(this).is(':checked')) {
+                    relatedRows.show();
+                } else {
+                    relatedRows.hide();
+                }
+            }).trigger('change');
+            
+            // Validación de formulario
+            $('form').on('submit', function(e) {
+                const rateLimit = parseInt($('input[name="sfq_security[rate_limit_requests]"]').val());
+                const timeWindow = parseInt($('input[name="sfq_security[rate_limit_window]"]').val());
+                
+                if (rateLimit < 1 || rateLimit > 100) {
+                    alert('El número de envíos debe estar entre 1 y 100');
+                    e.preventDefault();
+                    return false;
+                }
+                
+                if (timeWindow < 60 || timeWindow > 3600) {
+                    alert('La ventana de tiempo debe estar entre 60 y 3600 segundos');
+                    e.preventDefault();
+                    return false;
+                }
+            });
+        });
+        </script>
         <?php
+    }
+    
+    /**
+     * Guardar configuraciones
+     */
+    private function save_settings() {
+        // Validar permisos
+        if (!current_user_can('manage_options')) {
+            wp_die(__('No tienes permisos para realizar esta acción', 'smart-forms-quiz'));
+        }
+        
+        // Sanitizar y guardar configuraciones generales
+        $general_settings = array();
+        if (isset($_POST['sfq_settings'])) {
+            $general_settings = array(
+                'required_capability' => sanitize_text_field($_POST['sfq_settings']['required_capability'] ?? 'manage_options'),
+                'delete_data_on_uninstall' => isset($_POST['sfq_settings']['delete_data_on_uninstall']),
+                'debug_mode' => isset($_POST['sfq_settings']['debug_mode']),
+                'enable_form_cache' => isset($_POST['sfq_settings']['enable_form_cache']),
+                'minify_assets' => isset($_POST['sfq_settings']['minify_assets']),
+                'conditional_loading' => isset($_POST['sfq_settings']['conditional_loading']),
+                'admin_email' => sanitize_email($_POST['sfq_settings']['admin_email'] ?? get_option('admin_email')),
+                'notify_new_responses' => isset($_POST['sfq_settings']['notify_new_responses']),
+                'notify_security_events' => isset($_POST['sfq_settings']['notify_security_events'])
+            );
+        }
+        
+        // Sanitizar y guardar configuraciones de seguridad
+        $security_settings = array();
+        if (isset($_POST['sfq_security'])) {
+            $security_settings = array(
+                'enable_rate_limiting' => isset($_POST['sfq_security']['enable_rate_limiting']),
+                'rate_limit_requests' => max(1, min(100, intval($_POST['sfq_security']['rate_limit_requests'] ?? 10))),
+                'rate_limit_window' => max(60, min(3600, intval($_POST['sfq_security']['rate_limit_window'] ?? 300))),
+                'enable_xss_protection' => isset($_POST['sfq_security']['enable_xss_protection']),
+                'max_response_length' => max(100, min(10000, intval($_POST['sfq_security']['max_response_length'] ?? 2000))),
+                'allowed_html_tags' => sanitize_text_field($_POST['sfq_security']['allowed_html_tags'] ?? ''),
+                'json_max_depth' => max(5, min(50, intval($_POST['sfq_security']['json_max_depth'] ?? 10))),
+                'session_timeout' => max(300, min(7200, intval($_POST['sfq_security']['session_timeout'] ?? 3600))),
+                'enable_security_headers' => isset($_POST['sfq_security']['enable_security_headers']),
+                'log_security_events' => isset($_POST['sfq_security']['log_security_events']),
+                'block_suspicious_ips' => isset($_POST['sfq_security']['block_suspicious_ips']),
+                'enable_honeypot' => isset($_POST['sfq_security']['enable_honeypot'])
+            );
+        }
+        
+        // Guardar en la base de datos
+        update_option('sfq_settings', $general_settings);
+        update_option('sfq_security_settings', $security_settings);
+        
+        // Mostrar mensaje de éxito
+        add_action('admin_notices', function() {
+            echo '<div class="notice notice-success is-dismissible"><p>' . __('Configuración guardada correctamente', 'smart-forms-quiz') . '</p></div>';
+        });
     }
     
 }
