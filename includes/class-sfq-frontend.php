@@ -101,9 +101,11 @@ class SFQ_Frontend {
                         
                         <div class="sfq-question-content">
                             <!-- Número de pregunta -->
-                            <div class="sfq-question-number">
-                                <?php echo sprintf(__('Pregunta %d de %d', 'smart-forms-quiz'), $index + 1, count($form->questions)); ?>
-                            </div>
+                            <?php if (!empty($settings['show_question_numbers'])) : ?>
+                                <div class="sfq-question-number">
+                                    <?php echo sprintf(__('Pregunta %d de %d', 'smart-forms-quiz'), $index + 1, count($form->questions)); ?>
+                                </div>
+                            <?php endif; ?>
                             
                             <!-- Texto de la pregunta -->
                             <h3 class="sfq-question-text">

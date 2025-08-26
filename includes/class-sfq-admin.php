@@ -463,6 +463,13 @@ class SFQ_Admin {
                         
                         <div class="sfq-field-group">
                             <label>
+                                <input type="checkbox" id="show-question-numbers">
+                                <?php _e('Mostrar número de preguntas (ej: Pregunta 1 de 4)', 'smart-forms-quiz'); ?>
+                            </label>
+                        </div>
+                        
+                        <div class="sfq-field-group">
+                            <label>
                                 <input type="checkbox" id="auto-advance" checked>
                                 <?php _e('Avanzar automáticamente al seleccionar respuesta', 'smart-forms-quiz'); ?>
                             </label>

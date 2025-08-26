@@ -181,6 +181,7 @@
             // Settings
             const settings = formData.settings || {};
             $('#show-progress-bar').prop('checked', settings.show_progress_bar !== false);
+            $('#show-question-numbers').prop('checked', settings.show_question_numbers === false);
             $('#auto-advance').prop('checked', settings.auto_advance !== false);
             $('#allow-back').prop('checked', settings.allow_back === true);
             $('#randomize-questions').prop('checked', settings.randomize_questions === true);
@@ -295,6 +296,7 @@
                 redirect_url: $('#redirect-url').val(),
                 settings: {
                     show_progress_bar: $('#show-progress-bar').is(':checked'),
+                    show_question_numbers: $('#show-question-numbers').is(':checked'),
                     auto_advance: $('#auto-advance').is(':checked'),
                     allow_back: $('#allow-back').is(':checked'),
                     randomize_questions: $('#randomize-questions').is(':checked'),
