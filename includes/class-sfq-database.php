@@ -144,6 +144,9 @@ class SFQ_Database {
         dbDelta($sql_analytics);
         dbDelta($sql_conditions);
         
+        // Añadir índices adicionales para optimizar rendimiento
+        $this->add_performance_indexes();
+        
         // Guardar versión de la base de datos
         update_option('sfq_db_version', '1.0.0');
     }
@@ -303,87 +306,24 @@ class SFQ_Database {
      * Procesar opciones de pregunta
      */
     private function process_question_options($options) {
-        if (empty($options)) {
-            return [];
-        }
-        
-        // Decodificar JSON si es string
-        if (is_string($options)) {
-            $decoded = json_decode(stripslashes($options), true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                $options = $decoded;
-            } else {
-                return [];
-            }
-        }
-        
-        if (!is_array($options)) {
-            return [];
-        }
-        
-        // Procesar opciones
-        $processed_options = [];
-        foreach ($options as $option) {
-            if (is_string($option)) {
-                $processed_options[] = [
-                    'text' => $option,
-                    'value' => $option
-                ];
-            } elseif (is_array($option) || is_object($option)) {
-                $option = (array) $option;
-                $processed_options[] = [
-                    'text' => $option['text'] ?? $option['value'] ?? '',
-                    'value' => $option['value'] ?? $option['text'] ?? ''
-                ];
-            }
-        }
-        
-        // Filtrar opciones vacías
-        return array_values(array_filter($processed_options, function($option) {
-            return !empty(trim($option['text']));
-        }));
+        // Usar método centralizado de la clase Utils
+        return SFQ_Utils::process_question_options($options);
     }
     
     /**
      * Procesar configuraciones de pregunta
      */
     private function process_question_settings($settings) {
-        if (empty($settings)) {
-            return [];
-        }
-        
-        if (is_string($settings)) {
-            $decoded = json_decode($settings, true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                return $decoded;
-            }
-        }
-        
-        if (is_array($settings)) {
-            return $settings;
-        }
-        
-        return [];
+        // Usar método centralizado de la clase Utils
+        return SFQ_Utils::process_question_settings($settings);
     }
     
     /**
      * Procesar campo required
      */
     private function process_required_field($required) {
-        if (is_bool($required)) {
-            return $required ? 1 : 0;
-        }
-        
-        if (is_numeric($required)) {
-            return intval($required) ? 1 : 0;
-        }
-        
-        if (is_string($required)) {
-            $required = strtolower(trim($required));
-            return in_array($required, ['1', 'true', 'yes', 'on']) ? 1 : 0;
-        }
-        
-        return 0;
+        // Usar método centralizado de la clase Utils
+        return SFQ_Utils::process_required_field($required);
     }
     
     /**
@@ -711,17 +651,48 @@ class SFQ_Database {
     }
     
     /**
+     * Añadir índices de rendimiento adicionales
+     */
+    private function add_performance_indexes() {
+        global $wpdb;
+        
+        // Índices compuestos para mejorar rendimiento de consultas comunes
+        $indexes = array(
+            // Analytics: consultas por formulario, tipo de evento y sesión
+            "ALTER TABLE {$this->analytics_table} ADD INDEX IF NOT EXISTS idx_analytics_performance (form_id, event_type, session_id, created_at)",
+            
+            // Submissions: consultas por formulario, estado y fecha
+            "ALTER TABLE {$this->submissions_table} ADD INDEX IF NOT EXISTS idx_submissions_performance (form_id, status, created_at)",
+            
+            // Questions: lookup optimizado por formulario y posición
+            "ALTER TABLE {$this->questions_table} ADD INDEX IF NOT EXISTS idx_questions_lookup (form_id, order_position)",
+            
+            // Responses: consultas por submission y pregunta
+            "ALTER TABLE {$this->responses_table} ADD INDEX IF NOT EXISTS idx_responses_lookup (submission_id, question_id)",
+            
+            // Analytics: consultas por sesión y tipo de evento
+            "ALTER TABLE {$this->analytics_table} ADD INDEX IF NOT EXISTS idx_session_events (session_id, event_type, form_id)",
+            
+            // Submissions: consultas por usuario y formulario
+            "ALTER TABLE {$this->submissions_table} ADD INDEX IF NOT EXISTS idx_user_submissions (user_id, form_id, status)",
+            
+            // Forms: consultas por tipo y estado
+            "ALTER TABLE {$this->forms_table} ADD INDEX IF NOT EXISTS idx_forms_type_status (type, status, created_at)"
+        );
+        
+        foreach ($indexes as $index_sql) {
+            $result = $wpdb->query($index_sql);
+            if ($result === false) {
+                error_log('SFQ Database: Failed to create index: ' . $index_sql . ' - Error: ' . $wpdb->last_error);
+            }
+        }
+    }
+    
+    /**
      * Obtener IP del usuario
      */
     private function get_user_ip() {
-        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
-        
-        if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
-            $ip = $_SERVER['HTTP_CLIENT_IP'];
-        } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
-        }
-        
-        return sanitize_text_field($ip);
+        // Usar método centralizado de la clase Utils
+        return SFQ_Utils::get_user_ip();
     }
 }

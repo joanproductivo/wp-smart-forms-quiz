@@ -487,17 +487,8 @@ class SFQ_Analytics {
      * Formatear tiempo en formato legible
      */
     private function format_time($seconds) {
-        if ($seconds < 60) {
-            return $seconds . ' ' . __('segundos', 'smart-forms-quiz');
-        } elseif ($seconds < 3600) {
-            $minutes = floor($seconds / 60);
-            $seconds = $seconds % 60;
-            return $minutes . ' ' . __('min', 'smart-forms-quiz') . ' ' . $seconds . ' ' . __('seg', 'smart-forms-quiz');
-        } else {
-            $hours = floor($seconds / 3600);
-            $minutes = floor(($seconds % 3600) / 60);
-            return $hours . ' ' . __('h', 'smart-forms-quiz') . ' ' . $minutes . ' ' . __('min', 'smart-forms-quiz');
-        }
+        // Usar método centralizado de la clase Utils
+        return SFQ_Utils::format_time($seconds);
     }
     
     /**

@@ -21,6 +21,7 @@ define('SFQ_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('SFQ_PLUGIN_BASENAME', plugin_basename(__FILE__));
 
 // Cargar clases principales
+require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-utils.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-activator.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-loader.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-database.php';

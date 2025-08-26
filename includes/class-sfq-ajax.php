@@ -524,15 +524,8 @@ class SFQ_Ajax {
      * Obtener IP del usuario
      */
     private function get_user_ip() {
-        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
-        
-        if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
-            $ip = $_SERVER['HTTP_CLIENT_IP'];
-        } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
-        }
-        
-        return sanitize_text_field($ip);
+        // Usar método centralizado de la clase Utils
+        return SFQ_Utils::get_user_ip();
     }
     
     /**
@@ -985,57 +978,16 @@ class SFQ_Ajax {
      * Validar petición AJAX (método auxiliar)
      */
     private function validate_ajax_request($capability = 'manage_smart_forms') {
-        // Verificar permisos
-        if (!current_user_can($capability) && !current_user_can('manage_options')) {
-            wp_send_json_error(array(
-                'message' => __('No tienes permisos para realizar esta acción', 'smart-forms-quiz'),
-                'code' => 'INSUFFICIENT_PERMISSIONS'
-            ));
-            return false;
-        }
-        
-        // Verificar nonce
-        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
-            wp_send_json_error(array(
-                'message' => __('Error de seguridad', 'smart-forms-quiz'),
-                'code' => 'INVALID_NONCE'
-            ));
-            return false;
-        }
-        
-        // Verificar método de petición
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            wp_send_json_error(array(
-                'message' => __('Método de petición no válido', 'smart-forms-quiz'),
-                'code' => 'INVALID_METHOD'
-            ));
-            return false;
-        }
-        
-        return true;
+        // Usar método centralizado de la clase Utils
+        return SFQ_Utils::validate_ajax_request($capability);
     }
     
     /**
      * Rate limiting simple
      */
     private function check_rate_limit($action, $max_requests, $time_window) {
-        $user_id = get_current_user_id();
-        $ip = $this->get_user_ip();
-        $key = "sfq_rate_limit_{$action}_{$user_id}_{$ip}";
-        
-        $current_requests = get_transient($key);
-        
-        if ($current_requests === false) {
-            set_transient($key, 1, $time_window);
-            return true;
-        }
-        
-        if ($current_requests >= $max_requests) {
-            return false;
-        }
-        
-        set_transient($key, $current_requests + 1, $time_window);
-        return true;
+        // Usar método centralizado de la clase Utils
+        return SFQ_Utils::check_rate_limit($action, $max_requests, $time_window);
     }
     
     /**
@@ -1367,16 +1319,7 @@ class SFQ_Ajax {
      * Formatear tiempo en formato legible
      */
     private function format_time($seconds) {
-        if ($seconds < 60) {
-            return $seconds . ' ' . __('segundos', 'smart-forms-quiz');
-        } elseif ($seconds < 3600) {
-            $minutes = floor($seconds / 60);
-            $seconds = $seconds % 60;
-            return $minutes . ' ' . __('min', 'smart-forms-quiz') . ' ' . $seconds . ' ' . __('seg', 'smart-forms-quiz');
-        } else {
-            $hours = floor($seconds / 3600);
-            $minutes = floor(($seconds % 3600) / 60);
-            return $hours . ' ' . __('h', 'smart-forms-quiz') . ' ' . $minutes . ' ' . __('min', 'smart-forms-quiz');
-        }
+        // Usar método centralizado de la clase Utils
+        return SFQ_Utils::format_time($seconds);
     }
 }
