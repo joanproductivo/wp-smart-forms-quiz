@@ -502,18 +502,25 @@ class SFQ_Database {
             // Delete orphaned questions
             $questions_to_delete = array_keys($existing_questions);
             if (!empty($questions_to_delete)) {
-                // First delete related conditions
-                $placeholders = implode(',', array_fill(0, count($questions_to_delete), '%d'));
-                $wpdb->query($wpdb->prepare(
-                    "DELETE FROM {$this->conditions_table} WHERE question_id IN ($placeholders)",
-                    $questions_to_delete
-                ));
+                // Validate that all IDs are positive integers
+                $questions_to_delete = array_filter($questions_to_delete, function($id) {
+                    return is_numeric($id) && intval($id) > 0;
+                });
                 
-                // Then delete questions
-                $wpdb->query($wpdb->prepare(
-                    "DELETE FROM {$this->questions_table} WHERE id IN ($placeholders)",
-                    $questions_to_delete
-                ));
+                if (!empty($questions_to_delete)) {
+                    // First delete related conditions
+                    $placeholders = implode(',', array_fill(0, count($questions_to_delete), '%d'));
+                    $wpdb->query($wpdb->prepare(
+                        "DELETE FROM {$this->conditions_table} WHERE question_id IN ($placeholders)",
+                        $questions_to_delete
+                    ));
+                    
+                    // Then delete questions
+                    $wpdb->query($wpdb->prepare(
+                        "DELETE FROM {$this->questions_table} WHERE id IN ($placeholders)",
+                        $questions_to_delete
+                    ));
+                }
             }
 
             $wpdb->query('COMMIT');

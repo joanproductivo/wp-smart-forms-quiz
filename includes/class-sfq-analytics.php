@@ -498,10 +498,11 @@ class SFQ_Analytics {
         global $wpdb;
         
         // Eliminar eventos de analytics de más de 90 días
-        $wpdb->query(
+        $wpdb->query($wpdb->prepare(
             "DELETE FROM {$wpdb->prefix}sfq_analytics 
-            WHERE created_at < DATE_SUB(NOW(), INTERVAL 90 DAY)"
-        );
+            WHERE created_at < DATE_SUB(NOW(), INTERVAL %d DAY)",
+            90
+        ));
         
         // Optimizar tablas
         $wpdb->query("OPTIMIZE TABLE {$wpdb->prefix}sfq_analytics");

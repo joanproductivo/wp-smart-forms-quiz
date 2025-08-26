@@ -186,8 +186,7 @@ class SFQ_Ajax {
             error_log('SFQ Error in submit_response: ' . $e->getMessage());
             
             wp_send_json_error(array(
-                'message' => __('Error al guardar el formulario. Por favor, intenta de nuevo.', 'smart-forms-quiz'),
-                'debug' => WP_DEBUG ? $e->getMessage() : null
+                'message' => __('Error al guardar el formulario. Por favor, intenta de nuevo.', 'smart-forms-quiz')
             ));
         }
     }
@@ -640,8 +639,7 @@ class SFQ_Ajax {
             error_log('SFQ Error in get_form_data: ' . $e->getMessage());
             wp_send_json_error(array(
                 'message' => __('Error al cargar los datos del formulario', 'smart-forms-quiz'),
-                'code' => 'INTERNAL_ERROR',
-                'debug' => WP_DEBUG ? $e->getMessage() : null
+                'code' => 'INTERNAL_ERROR'
             ));
         }
     }
@@ -844,11 +842,18 @@ class SFQ_Ajax {
             ));
             
             if (!empty($questions)) {
-                $placeholders = implode(',', array_fill(0, count($questions), '%d'));
-                $wpdb->query($wpdb->prepare(
-                    "DELETE FROM {$wpdb->prefix}sfq_conditions WHERE question_id IN ($placeholders)",
-                    $questions
-                ));
+                // Validate that all IDs are positive integers
+                $questions = array_filter($questions, function($id) {
+                    return is_numeric($id) && intval($id) > 0;
+                });
+                
+                if (!empty($questions)) {
+                    $placeholders = implode(',', array_fill(0, count($questions), '%d'));
+                    $wpdb->query($wpdb->prepare(
+                        "DELETE FROM {$wpdb->prefix}sfq_conditions WHERE question_id IN ($placeholders)",
+                        $questions
+                    ));
+                }
             }
             
             // Eliminar preguntas
@@ -1181,7 +1186,11 @@ class SFQ_Ajax {
         
         // Obtener total de registros
         $total_query = "SELECT COUNT(*) FROM {$wpdb->prefix}sfq_submissions s $where_clause";
-        $total = $wpdb->get_var($wpdb->prepare($total_query, $params));
+        if (!empty($params)) {
+            $total = $wpdb->get_var($wpdb->prepare($total_query, $params));
+        } else {
+            $total = $wpdb->get_var($total_query);
+        }
         
         // Obtener submissions con información del formulario
         $query = "
