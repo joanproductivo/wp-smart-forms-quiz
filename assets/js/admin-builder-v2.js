@@ -664,6 +664,24 @@
                     question.settings = {};
                 }
                 question.settings.show_next_button = $(e.target).is(':checked');
+                
+                // Show/hide the text input field
+                const $textSetting = $question.find('.sfq-next-button-text-setting');
+                if ($(e.target).is(':checked')) {
+                    $textSetting.show();
+                } else {
+                    $textSetting.hide();
+                }
+                
+                this.formBuilder.isDirty = true;
+            });
+            
+            // Update next button text setting
+            $question.find('.sfq-next-button-text-input').off('input').on('input', (e) => {
+                if (!question.settings) {
+                    question.settings = {};
+                }
+                question.settings.next_button_text = $(e.target).val();
                 this.formBuilder.isDirty = true;
             });
             
@@ -969,9 +987,11 @@
                     <div class="sfq-options-list" id="options-${question.id}">
                         ${optionsList}
                     </div>
-                    <button class="sfq-add-option" type="button" data-question="${question.id}">
-                        + Añadir opción
-                    </button>
+                    <div class="sfq-options-controls">
+                        <button class="sfq-add-option" type="button" data-question="${question.id}">
+                            + Añadir opción
+                        </button>
+                    </div>
                 `;
             }
 
@@ -998,17 +1018,31 @@
                                value="${this.escapeHtml(question.text)}">
                         
                         ${optionsHtml}
-                        
+                        <div class="sfq-next-button-controls-universal">
+                         <label class="sfq-next-button-toggle">
+                                <input type="checkbox" class="sfq-show-next-button-checkbox" 
+                                       ${question.settings?.show_next_button !== false ? 'checked' : ''}>
+                                Mostrar botón "Siguiente"
+                            </label>
+                            
+                            <div class="sfq-next-button-text-setting" style="margin-top: 8px; margin-left: 20px; ${question.settings?.show_next_button === false ? 'display: none;' : ''}">
+                                <label style="display: block; margin-bottom: 4px; font-size: 12px; color: #666;">
+                                    Texto personalizado del botón:
+                                </label>
+                                <input type="text" class="sfq-next-button-text-input" 
+                                       placeholder="Ej: Continuar, Siguiente paso, Finalizar..." 
+                                       value="${this.escapeHtml(question.settings?.next_button_text || '')}"
+                                       style="width: 250px; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
+                                <small style="display: block; margin-top: 4px; color: #666; font-size: 11px;">
+                                    Deja vacío para usar el texto por defecto ("Siguiente" o "Finalizar")
+                                </small>
+                            </div>
+                        </div>
                         <div class="sfq-question-settings">
                             <label>
                                 <input type="checkbox" class="sfq-required-checkbox" 
                                        ${question.required ? 'checked' : ''}>
                                 Pregunta obligatoria
-                            </label>
-                            <label>
-                                <input type="checkbox" class="sfq-show-next-button-checkbox" 
-                                       ${question.settings?.show_next_button !== false ? 'checked' : ''}>
-                                Mostrar botón "Siguiente"
                             </label>
                         </div>
                         

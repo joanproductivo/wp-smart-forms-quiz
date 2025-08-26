@@ -63,20 +63,22 @@ class SFQ_Loader {
         // Asegurar que jQuery esté disponible
         wp_enqueue_script('jquery');
         
-        // CSS principal
+        // CSS principal - con versionado automático
+        $css_version = $this->get_asset_version('assets/css/frontend.css');
         wp_enqueue_style(
             'sfq-frontend',
             SFQ_PLUGIN_URL . 'assets/css/frontend.css',
             array(),
-            SFQ_VERSION
+            $css_version
         );
         
-        // JavaScript principal
+        // JavaScript principal - con versionado automático
+        $js_version = $this->get_asset_version('assets/js/frontend.js');
         wp_enqueue_script(
             'sfq-frontend',
             SFQ_PLUGIN_URL . 'assets/js/frontend.js',
             array('jquery'),
-            SFQ_VERSION,
+            $js_version,
             true
         );
         
@@ -125,30 +127,33 @@ class SFQ_Loader {
         // Media uploader
         wp_enqueue_media();
         
-        // CSS admin consolidado (reemplaza admin.css y admin-builder-v2.css)
+        // CSS admin consolidado (reemplaza admin.css y admin-builder-v2.css) - con versionado automático
+        $admin_css_version = $this->get_asset_version('assets/css/admin-consolidated.css');
         wp_enqueue_style(
             'sfq-admin-consolidated',
             SFQ_PLUGIN_URL . 'assets/css/admin-consolidated.css',
             array('wp-color-picker'),
-            SFQ_VERSION
+            $admin_css_version
         );
         
-        // JavaScript admin - Arquitectura optimizada
+        // JavaScript admin - Arquitectura optimizada - con versionado automático
+        $admin_js_version = $this->get_asset_version('assets/js/admin-builder-v2.js');
         wp_enqueue_script(
             'sfq-admin',
             SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2.js',
             array('jquery', 'jquery-ui-sortable', 'wp-color-picker'),
-            SFQ_VERSION,
+            $admin_js_version,
             true
         );
         
-        // JavaScript para la lista de formularios (página principal)
+        // JavaScript para la lista de formularios (página principal) - con versionado automático
         if ($hook === 'toplevel_page_smart-forms-quiz') {
+            $forms_list_js_version = $this->get_asset_version('assets/js/admin-forms-list.js');
             wp_enqueue_script(
                 'sfq-admin-forms-list',
                 SFQ_PLUGIN_URL . 'assets/js/admin-forms-list.js',
                 array('jquery'),
-                SFQ_VERSION,
+                $forms_list_js_version,
                 true
             );
         }
@@ -238,19 +243,21 @@ class SFQ_Loader {
      * Render preview page
      */
     private function render_preview_page($form) {
-        // Enqueue frontend assets manually for preview
+        // Enqueue frontend assets manually for preview - con versionado automático
+        $css_version = $this->get_asset_version('assets/css/frontend.css');
         wp_enqueue_style(
             'sfq-frontend',
             SFQ_PLUGIN_URL . 'assets/css/frontend.css',
             array(),
-            SFQ_VERSION
+            $css_version
         );
         
+        $js_version = $this->get_asset_version('assets/js/frontend.js');
         wp_enqueue_script(
             'sfq-frontend',
             SFQ_PLUGIN_URL . 'assets/js/frontend.js',
             array('jquery'),
-            SFQ_VERSION,
+            $js_version,
             true
         );
         
@@ -281,7 +288,7 @@ class SFQ_Loader {
             <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
             
             <!-- Load frontend CSS -->
-            <link rel="stylesheet" href="<?php echo SFQ_PLUGIN_URL; ?>assets/css/frontend.css?v=<?php echo SFQ_VERSION; ?>">
+            <link rel="stylesheet" href="<?php echo SFQ_PLUGIN_URL; ?>assets/css/frontend.css?v=<?php echo $this->get_asset_version('assets/css/frontend.css'); ?>">
             
             <style>
                 body {
@@ -337,7 +344,7 @@ class SFQ_Loader {
                     }
                 };
             </script>
-            <script src="<?php echo SFQ_PLUGIN_URL; ?>assets/js/frontend.js?v=<?php echo SFQ_VERSION; ?>"></script>
+            <script src="<?php echo SFQ_PLUGIN_URL; ?>assets/js/frontend.js?v=<?php echo $this->get_asset_version('assets/js/frontend.js'); ?>"></script>
         </body>
         </html>
         <?php
@@ -397,6 +404,30 @@ class SFQ_Loader {
         }
         
         return false;
+    }
+    
+    /**
+     * Get asset version based on file modification time
+     * Falls back to plugin version if file doesn't exist
+     */
+    private function get_asset_version($asset_path) {
+        $file_path = SFQ_PLUGIN_DIR . $asset_path;
+        
+        // Check if file exists and get modification time
+        if (file_exists($file_path)) {
+            $file_time = filemtime($file_path);
+            
+            // In development mode, always use file time for cache busting
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                return $file_time;
+            }
+            
+            // In production, combine plugin version with file time for better caching
+            return SFQ_VERSION . '.' . $file_time;
+        }
+        
+        // Fallback to plugin version if file doesn't exist
+        return SFQ_VERSION;
     }
     
     /**

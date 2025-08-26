@@ -26,6 +26,8 @@
         init() {
             this.bindEvents();
             this.initializeForm();
+            
+            // Registrar vista del formulario
             this.trackEvent('view');
         }
 
@@ -72,6 +74,9 @@
 
             // Prevenir envío de formulario por defecto
             this.container.addEventListener('submit', (e) => e.preventDefault());
+            
+            // Inicializar botones de todas las preguntas al cargar
+            this.initializeAllQuestionButtons();
         }
 
         initializeForm() {
@@ -88,6 +93,10 @@
             const activeScreen = this.container.querySelector('.sfq-screen.active');
             if (activeScreen) {
                 this.currentScreen = activeScreen;
+                // Actualizar botón siguiente si es una pregunta
+                if (activeScreen.classList.contains('sfq-question-screen')) {
+                    this.updateNextButtonVisibility(activeScreen);
+                }
             }
         }
 
@@ -105,6 +114,8 @@
             if (firstQuestion) {
                 this.showScreen(firstQuestion);
                 this.updateProgress();
+                // Asegurar que el botón siguiente se actualice correctamente
+                this.updateNextButtonVisibility(firstQuestion);
             }
         }
 
@@ -495,6 +506,13 @@
             this.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
+        initializeAllQuestionButtons() {
+            // Inicializar el texto de todos los botones de pregunta al cargar la página
+            this.container.querySelectorAll('.sfq-question-screen').forEach(screen => {
+                this.updateNextButtonVisibility(screen);
+            });
+        }
+
         updateNextButtonVisibility(screen) {
             // Solo aplicar a pantallas de pregunta
             if (!screen.classList.contains('sfq-question-screen')) {
@@ -508,16 +526,28 @@
 
             // Obtener configuración de la pregunta desde el atributo data
             const showNextButton = screen.dataset.showNextButton;
+            const customButtonText = screen.dataset.nextButtonText;
             
             // Si no hay configuración específica, mostrar por defecto
             if (showNextButton === undefined || showNextButton === null || showNextButton === '') {
                 nextButton.style.display = 'inline-block';
-                return;
+            } else {
+                // Convertir a booleano y aplicar
+                const shouldShow = showNextButton === 'true' || showNextButton === '1';
+                nextButton.style.display = shouldShow ? 'inline-block' : 'none';
             }
 
-            // Convertir a booleano y aplicar
-            const shouldShow = showNextButton === 'true' || showNextButton === '1';
-            nextButton.style.display = shouldShow ? 'inline-block' : 'none';
+            // Actualizar el texto del botón si hay texto personalizado
+            if (customButtonText && customButtonText.trim() !== '') {
+                nextButton.textContent = customButtonText;
+            } else {
+                // Usar texto por defecto basado en si es la última pregunta
+                const questionIndex = parseInt(screen.dataset.questionIndex) || 0;
+                const totalQuestions = this.container.querySelectorAll('.sfq-question-screen').length;
+                const isLastQuestion = questionIndex === totalQuestions - 1;
+                
+                nextButton.textContent = isLastQuestion ? 'Finalizar' : 'Siguiente';
+            }
         }
 
         updateProgress() {

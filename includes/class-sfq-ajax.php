@@ -31,6 +31,9 @@ class SFQ_Ajax {
         add_action('wp_ajax_sfq_get_form_data', array($this, 'get_form_data'));
         add_action('wp_ajax_sfq_delete_form', array($this, 'delete_form'));
         add_action('wp_ajax_sfq_duplicate_form', array($this, 'duplicate_form'));
+        add_action('wp_ajax_sfq_get_form_quick_stats', array($this, 'get_form_quick_stats'));
+        add_action('wp_ajax_sfq_get_submissions', array($this, 'get_submissions'));
+        add_action('wp_ajax_sfq_get_submission_detail', array($this, 'get_submission_detail'));
     }
     
     /**
@@ -54,69 +57,139 @@ class SFQ_Ajax {
         // Verificar nonce
         if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
             wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Validar datos requeridos
+        $form_id = intval($_POST['form_id'] ?? 0);
+        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
+        
+        if (!$form_id || !$session_id) {
+            wp_send_json_error(__('Datos del formulario incompletos', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Decodificar datos JSON
+        $responses = json_decode(stripslashes($_POST['responses'] ?? '{}'), true);
+        $variables = json_decode(stripslashes($_POST['variables'] ?? '{}'), true);
+        
+        if (!is_array($responses)) {
+            $responses = array();
+        }
+        if (!is_array($variables)) {
+            $variables = array();
         }
         
         global $wpdb;
         
-        $form_id = intval($_POST['form_id']);
-        $session_id = sanitize_text_field($_POST['session_id']);
-        $responses = json_decode(stripslashes($_POST['responses']), true);
-        $variables = json_decode(stripslashes($_POST['variables']), true);
+        // Iniciar transacción para asegurar integridad de datos
+        $wpdb->query('START TRANSACTION');
         
-        // Crear registro de envío
-        $submission_data = array(
-            'form_id' => $form_id,
-            'user_id' => get_current_user_id() ?: null,
-            'user_ip' => $this->get_user_ip(),
-            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
-            'total_score' => $this->calculate_total_score($variables),
-            'variables' => json_encode($variables),
-            'status' => 'completed',
-            'completed_at' => current_time('mysql'),
-            'time_spent' => intval($_POST['time_spent'] ?? 0)
-        );
-        
-        $wpdb->insert(
-            $wpdb->prefix . 'sfq_submissions',
-            $submission_data,
-            array('%d', '%d', '%s', '%s', '%d', '%s', '%s', '%s', '%d')
-        );
-        
-        $submission_id = $wpdb->insert_id;
-        
-        // Guardar respuestas individuales
-        foreach ($responses as $question_id => $answer) {
-            $response_data = array(
-                'submission_id' => $submission_id,
-                'question_id' => intval($question_id),
-                'answer' => is_array($answer) ? json_encode($answer) : sanitize_textarea_field($answer),
-                'score' => $this->calculate_answer_score($question_id, $answer)
+        try {
+            // Crear registro de envío
+            $submission_data = array(
+                'form_id' => $form_id,
+                'user_id' => get_current_user_id() ?: null,
+                'user_ip' => $this->get_user_ip(),
+                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+                'total_score' => $this->calculate_total_score($variables),
+                'variables' => json_encode($variables),
+                'status' => 'completed',
+                'started_at' => current_time('mysql'),
+                'completed_at' => current_time('mysql'),
+                'time_spent' => intval($_POST['time_spent'] ?? 0)
             );
             
-            $wpdb->insert(
-                $wpdb->prefix . 'sfq_responses',
-                $response_data,
-                array('%d', '%d', '%s', '%d')
+            $result = $wpdb->insert(
+                $wpdb->prefix . 'sfq_submissions',
+                $submission_data,
+                array('%d', '%d', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%d')
             );
+            
+            if ($result === false) {
+                throw new Exception('Error al guardar el submission: ' . $wpdb->last_error);
+            }
+            
+            $submission_id = $wpdb->insert_id;
+            
+            if (!$submission_id) {
+                throw new Exception('No se pudo obtener el ID del submission');
+            }
+            
+            // Guardar respuestas individuales
+            $responses_saved = 0;
+            foreach ($responses as $question_id => $answer) {
+                // Validar que question_id sea válido
+                if (!is_numeric($question_id) || intval($question_id) <= 0) {
+                    continue;
+                }
+                
+                // Procesar la respuesta según su tipo
+                $processed_answer = $answer;
+                if (is_array($answer)) {
+                    $processed_answer = json_encode($answer, JSON_UNESCAPED_UNICODE);
+                } else {
+                    $processed_answer = sanitize_textarea_field($answer);
+                }
+                
+                $response_data = array(
+                    'submission_id' => $submission_id,
+                    'question_id' => intval($question_id),
+                    'answer' => $processed_answer,
+                    'score' => $this->calculate_answer_score($question_id, $answer)
+                );
+                
+                $response_result = $wpdb->insert(
+                    $wpdb->prefix . 'sfq_responses',
+                    $response_data,
+                    array('%d', '%d', '%s', '%d')
+                );
+                
+                if ($response_result !== false) {
+                    $responses_saved++;
+                } else {
+                    error_log('SFQ Error: Failed to save response for question ' . $question_id . ': ' . $wpdb->last_error);
+                }
+            }
+            
+            // Verificar que se guardaron respuestas
+            if (count($responses) > 0 && $responses_saved === 0) {
+                throw new Exception('No se pudo guardar ninguna respuesta');
+            }
+            
+            // Registrar evento de completado usando el método específico
+            $this->database->register_completed($form_id, $session_id, $submission_id);
+            
+            // Confirmar transacción
+            $wpdb->query('COMMIT');
+            
+            // Determinar redirección basada en condiciones
+            $redirect_url = $this->determine_redirect($form_id, $variables, $responses);
+            
+            // Enviar notificaciones si está configurado (en background)
+            wp_schedule_single_event(time(), 'sfq_send_notifications', array($form_id, $submission_id));
+            
+            // Log de éxito para debugging
+            error_log("SFQ Success: Form {$form_id} submitted successfully. Submission ID: {$submission_id}, Responses saved: {$responses_saved}");
+            
+            wp_send_json_success(array(
+                'submission_id' => $submission_id,
+                'redirect_url' => $redirect_url,
+                'responses_saved' => $responses_saved,
+                'message' => __('Formulario enviado correctamente', 'smart-forms-quiz')
+            ));
+            
+        } catch (Exception $e) {
+            // Rollback en caso de error
+            $wpdb->query('ROLLBACK');
+            
+            error_log('SFQ Error in submit_response: ' . $e->getMessage());
+            
+            wp_send_json_error(array(
+                'message' => __('Error al guardar el formulario. Por favor, intenta de nuevo.', 'smart-forms-quiz'),
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
         }
-        
-        // Registrar evento de completado
-        $this->register_analytics_event($form_id, 'completed', array(
-            'submission_id' => $submission_id,
-            'session_id' => $session_id
-        ));
-        
-        // Determinar redirección basada en condiciones
-        $redirect_url = $this->determine_redirect($form_id, $variables, $responses);
-        
-        // Enviar notificaciones si está configurado
-        $this->send_notifications($form_id, $submission_id);
-        
-        wp_send_json_success(array(
-            'submission_id' => $submission_id,
-            'redirect_url' => $redirect_url,
-            'message' => __('Formulario enviado correctamente', 'smart-forms-quiz')
-        ));
     }
     
     /**
@@ -133,7 +206,26 @@ class SFQ_Ajax {
         $event_data = json_decode(stripslashes($_POST['event_data'] ?? '{}'), true);
         $session_id = sanitize_text_field($_POST['session_id']);
         
-        $this->register_analytics_event($form_id, $event_type, $event_data, $session_id);
+        // Usar los métodos específicos de la base de datos según el tipo de evento
+        switch ($event_type) {
+            case 'view':
+                $this->database->register_view($form_id, $session_id);
+                break;
+                
+            case 'start':
+                $this->database->register_start($form_id, $session_id);
+                break;
+                
+            case 'completed':
+                $submission_id = isset($event_data['submission_id']) ? intval($event_data['submission_id']) : null;
+                $this->database->register_completed($form_id, $session_id, $submission_id);
+                break;
+                
+            default:
+                // Para otros tipos de eventos, usar el método genérico
+                $this->register_analytics_event($form_id, $event_type, $event_data, $session_id);
+                break;
+        }
         
         wp_send_json_success();
     }
@@ -1047,5 +1139,244 @@ class SFQ_Ajax {
         
         // Clear any related caches
         wp_cache_flush_group('sfq_forms');
+    }
+    
+    /**
+     * Obtener estadísticas rápidas de un formulario
+     */
+    public function get_form_quick_stats() {
+        // Verificar permisos
+        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
+            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        $form_id = intval($_POST['form_id'] ?? 0);
+        
+        if (!$form_id) {
+            wp_send_json_error(__('ID de formulario inválido', 'smart-forms-quiz'));
+            return;
+        }
+        
+        global $wpdb;
+        
+        // Obtener total de vistas (eventos 'view')
+        $total_views = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(DISTINCT session_id) 
+            FROM {$wpdb->prefix}sfq_analytics 
+            WHERE form_id = %d AND event_type = 'view'",
+            $form_id
+        ));
+        
+        // Obtener total de completados
+        $total_completed = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) 
+            FROM {$wpdb->prefix}sfq_submissions 
+            WHERE form_id = %d AND status = 'completed'",
+            $form_id
+        ));
+        
+        // Calcular tasa de conversión
+        $conversion_rate = 0;
+        if ($total_views > 0) {
+            $conversion_rate = round(($total_completed / $total_views) * 100, 1);
+        }
+        
+        wp_send_json_success(array(
+            'views' => intval($total_views),
+            'completed' => intval($total_completed),
+            'rate' => $conversion_rate
+        ));
+    }
+    
+    /**
+     * Obtener lista de respuestas/submissions
+     */
+    public function get_submissions() {
+        // Verificar permisos
+        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
+            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        global $wpdb;
+        
+        $form_id = intval($_POST['form_id'] ?? 0);
+        $page = intval($_POST['page'] ?? 1);
+        $per_page = intval($_POST['per_page'] ?? 20);
+        $offset = ($page - 1) * $per_page;
+        
+        // Construir consulta base
+        $where_clause = "WHERE 1=1";
+        $params = array();
+        
+        if ($form_id > 0) {
+            $where_clause .= " AND s.form_id = %d";
+            $params[] = $form_id;
+        }
+        
+        // Obtener total de registros
+        $total_query = "SELECT COUNT(*) FROM {$wpdb->prefix}sfq_submissions s $where_clause";
+        $total = $wpdb->get_var($wpdb->prepare($total_query, $params));
+        
+        // Obtener submissions con información del formulario
+        $query = "
+            SELECT 
+                s.*,
+                f.title as form_title,
+                (SELECT COUNT(*) FROM {$wpdb->prefix}sfq_responses WHERE submission_id = s.id) as response_count
+            FROM {$wpdb->prefix}sfq_submissions s
+            LEFT JOIN {$wpdb->prefix}sfq_forms f ON s.form_id = f.id
+            $where_clause
+            ORDER BY s.created_at DESC
+            LIMIT %d OFFSET %d
+        ";
+        
+        $params[] = $per_page;
+        $params[] = $offset;
+        
+        $submissions = $wpdb->get_results($wpdb->prepare($query, $params));
+        
+        // Formatear datos
+        foreach ($submissions as &$submission) {
+            $submission->formatted_date = date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($submission->completed_at));
+            $submission->time_spent_formatted = $this->format_time($submission->time_spent);
+            
+            // Obtener información del usuario si existe
+            if ($submission->user_id) {
+                $user = get_user_by('id', $submission->user_id);
+                $submission->user_name = $user ? $user->display_name : __('Usuario eliminado', 'smart-forms-quiz');
+                $submission->user_email = $user ? $user->user_email : '';
+            } else {
+                $submission->user_name = __('Anónimo', 'smart-forms-quiz');
+                $submission->user_email = '';
+            }
+        }
+        
+        wp_send_json_success(array(
+            'submissions' => $submissions,
+            'total' => intval($total),
+            'pages' => ceil($total / $per_page),
+            'current_page' => $page
+        ));
+    }
+    
+    /**
+     * Obtener detalle de una respuesta específica
+     */
+    public function get_submission_detail() {
+        // Verificar permisos
+        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
+            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        $submission_id = intval($_POST['submission_id'] ?? 0);
+        
+        if (!$submission_id) {
+            wp_send_json_error(__('ID de submission inválido', 'smart-forms-quiz'));
+            return;
+        }
+        
+        global $wpdb;
+        
+        // Obtener información del submission
+        $submission = $wpdb->get_row($wpdb->prepare(
+            "SELECT s.*, f.title as form_title 
+            FROM {$wpdb->prefix}sfq_submissions s
+            LEFT JOIN {$wpdb->prefix}sfq_forms f ON s.form_id = f.id
+            WHERE s.id = %d",
+            $submission_id
+        ));
+        
+        if (!$submission) {
+            wp_send_json_error(__('Submission no encontrado', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Obtener respuestas detalladas
+        $responses = $wpdb->get_results($wpdb->prepare(
+            "SELECT r.*, q.question_text, q.question_type, q.options
+            FROM {$wpdb->prefix}sfq_responses r
+            JOIN {$wpdb->prefix}sfq_questions q ON r.question_id = q.id
+            WHERE r.submission_id = %d
+            ORDER BY q.order_position",
+            $submission_id
+        ));
+        
+        // Formatear respuestas
+        foreach ($responses as &$response) {
+            // Decodificar respuesta si es JSON (para multiple choice)
+            $decoded_answer = json_decode($response->answer, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded_answer)) {
+                $response->answer_formatted = implode(', ', $decoded_answer);
+            } else {
+                $response->answer_formatted = $response->answer;
+            }
+            
+            // Decodificar opciones si es necesario
+            if ($response->options) {
+                $response->options = json_decode($response->options, true);
+            }
+        }
+        
+        // Información del usuario
+        if ($submission->user_id) {
+            $user = get_user_by('id', $submission->user_id);
+            $submission->user_name = $user ? $user->display_name : __('Usuario eliminado', 'smart-forms-quiz');
+            $submission->user_email = $user ? $user->user_email : '';
+        } else {
+            $submission->user_name = __('Anónimo', 'smart-forms-quiz');
+            $submission->user_email = '';
+        }
+        
+        // Formatear fechas y tiempos
+        $submission->formatted_date = date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($submission->completed_at));
+        $submission->time_spent_formatted = $this->format_time($submission->time_spent);
+        
+        // Decodificar variables si existen
+        if ($submission->variables) {
+            $submission->variables = json_decode($submission->variables, true);
+        }
+        
+        wp_send_json_success(array(
+            'submission' => $submission,
+            'responses' => $responses
+        ));
+    }
+    
+    /**
+     * Formatear tiempo en formato legible
+     */
+    private function format_time($seconds) {
+        if ($seconds < 60) {
+            return $seconds . ' ' . __('segundos', 'smart-forms-quiz');
+        } elseif ($seconds < 3600) {
+            $minutes = floor($seconds / 60);
+            $seconds = $seconds % 60;
+            return $minutes . ' ' . __('min', 'smart-forms-quiz') . ' ' . $seconds . ' ' . __('seg', 'smart-forms-quiz');
+        } else {
+            $hours = floor($seconds / 3600);
+            $minutes = floor(($seconds % 3600) / 60);
+            return $hours . ' ' . __('h', 'smart-forms-quiz') . ' ' . $minutes . ' ' . __('min', 'smart-forms-quiz');
+        }
     }
 }

@@ -90,12 +90,14 @@ class SFQ_Frontend {
                     // Obtener configuración de mostrar botón siguiente
                     $question_settings = $question->settings ?? array();
                     $show_next_button = isset($question_settings['show_next_button']) ? $question_settings['show_next_button'] : true;
+                    $next_button_text = isset($question_settings['next_button_text']) ? $question_settings['next_button_text'] : '';
                     ?>
                     <div class="sfq-screen sfq-question-screen <?php echo $is_first_screen ? 'active' : ''; ?>" 
                          data-question-id="<?php echo $question->id; ?>"
                          data-question-index="<?php echo $index; ?>"
                          data-question-type="<?php echo esc_attr($question->question_type); ?>"
-                         data-show-next-button="<?php echo $show_next_button ? 'true' : 'false'; ?>">
+                         data-show-next-button="<?php echo $show_next_button ? 'true' : 'false'; ?>"
+                         data-next-button-text="<?php echo esc_attr($next_button_text); ?>">
                         
                         <div class="sfq-question-content">
                             <!-- Número de pregunta -->
@@ -124,9 +126,31 @@ class SFQ_Frontend {
                                     </button>
                                 <?php endif; ?>
                                 
-                                <?php if ($question->question_type === 'text' || $question->question_type === 'email' || !$settings['auto_advance']) : ?>
+                                <?php 
+                                // Determinar si mostrar el botón "Siguiente" basado en la configuración de la pregunta
+                                $should_show_next = true;
+                                
+                                // Si la pregunta tiene configuración específica, respetarla
+                                if (isset($question_settings['show_next_button'])) {
+                                    $should_show_next = $question_settings['show_next_button'];
+                                } else {
+                                    // Lógica por defecto: mostrar siempre para opciones múltiples, texto y email
+                                    // Solo ocultar para opciones únicas, rating e imágenes cuando auto-advance está habilitado
+                                    $auto_advance_types = array('single_choice', 'rating', 'image_choice');
+                                    $should_show_next = !($settings['auto_advance'] && in_array($question->question_type, $auto_advance_types));
+                                }
+                                
+                                if ($should_show_next) : 
+                                    // Determinar el texto del botón
+                                    $button_text = '';
+                                    if (!empty($next_button_text)) {
+                                        $button_text = $next_button_text;
+                                    } else {
+                                        $button_text = ($index === count($form->questions) - 1) ? __('Finalizar', 'smart-forms-quiz') : __('Siguiente', 'smart-forms-quiz');
+                                    }
+                                ?>
                                     <button class="sfq-button sfq-button-primary sfq-next-button">
-                                        <?php echo ($index === count($form->questions) - 1) ? __('Finalizar', 'smart-forms-quiz') : __('Siguiente', 'smart-forms-quiz'); ?>
+                                        <?php echo esc_html($button_text); ?>
                                     </button>
                                 <?php endif; ?>
                             </div>

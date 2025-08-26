@@ -620,16 +620,94 @@ class SFQ_Database {
     public function register_view($form_id, $session_id) {
         global $wpdb;
         
-        $wpdb->insert(
+        // Verificar si ya existe una vista para esta sesión y formulario
+        $existing_view = $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$this->analytics_table} 
+            WHERE form_id = %d AND session_id = %s AND event_type = 'view'",
+            $form_id,
+            $session_id
+        ));
+        
+        // Solo registrar si no existe una vista previa
+        if (!$existing_view) {
+            $result = $wpdb->insert(
+                $this->analytics_table,
+                array(
+                    'form_id' => $form_id,
+                    'event_type' => 'view',
+                    'event_data' => json_encode(array('timestamp' => time())),
+                    'session_id' => $session_id,
+                    'user_ip' => $this->get_user_ip()
+                ),
+                array('%d', '%s', '%s', '%s', '%s')
+            );
+            
+            if ($result === false) {
+                error_log('SFQ Error: Failed to register view for form ' . $form_id . ', session ' . $session_id);
+            }
+        }
+    }
+    
+    /**
+     * Registrar evento de inicio de formulario
+     */
+    public function register_start($form_id, $session_id) {
+        global $wpdb;
+        
+        // Verificar si ya existe un evento de inicio para esta sesión
+        $existing_start = $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$this->analytics_table} 
+            WHERE form_id = %d AND session_id = %s AND event_type = 'start'",
+            $form_id,
+            $session_id
+        ));
+        
+        // Solo registrar si no existe un inicio previo
+        if (!$existing_start) {
+            $result = $wpdb->insert(
+                $this->analytics_table,
+                array(
+                    'form_id' => $form_id,
+                    'event_type' => 'start',
+                    'event_data' => json_encode(array('timestamp' => time())),
+                    'session_id' => $session_id,
+                    'user_ip' => $this->get_user_ip()
+                ),
+                array('%d', '%s', '%s', '%s', '%s')
+            );
+            
+            if ($result === false) {
+                error_log('SFQ Error: Failed to register start for form ' . $form_id . ', session ' . $session_id);
+            }
+        }
+    }
+    
+    /**
+     * Registrar evento de completado
+     */
+    public function register_completed($form_id, $session_id, $submission_id = null) {
+        global $wpdb;
+        
+        $event_data = array('timestamp' => time());
+        if ($submission_id) {
+            $event_data['submission_id'] = $submission_id;
+        }
+        
+        $result = $wpdb->insert(
             $this->analytics_table,
             array(
                 'form_id' => $form_id,
-                'event_type' => 'view',
+                'event_type' => 'completed',
+                'event_data' => json_encode($event_data),
                 'session_id' => $session_id,
                 'user_ip' => $this->get_user_ip()
             ),
-            array('%d', '%s', '%s', '%s')
+            array('%d', '%s', '%s', '%s', '%s')
         );
+        
+        if ($result === false) {
+            error_log('SFQ Error: Failed to register completed for form ' . $form_id . ', session ' . $session_id);
+        }
     }
     
     /**

@@ -564,6 +564,156 @@
 }
 
 /* ==========================================================================
+   CONTROLES DE OPCIONES Y BOTÓN SIGUIENTE
+   ========================================================================== */
+
+.sfq-options-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    margin-top: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid var(--sfq-border);
+}
+
+.sfq-next-button-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 200px;
+}
+
+.sfq-next-button-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: #333;
+    margin: 0;
+}
+
+.sfq-next-button-toggle input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    margin: 0;
+}
+
+.sfq-toggle-text {
+    user-select: none;
+}
+
+.sfq-next-button-text-setting {
+    margin-left: 24px;
+}
+
+.sfq-next-button-text-setting input[type="text"] {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--sfq-border);
+    border-radius: 4px;
+    font-size: 13px;
+    transition: var(--sfq-transition);
+    background: white;
+}
+
+.sfq-next-button-text-setting input[type="text"]:focus {
+    outline: none;
+    border-color: var(--sfq-primary);
+    box-shadow: 0 0 0 2px rgba(0, 124, 186, 0.1);
+}
+
+.sfq-next-button-text-setting input[type="text"]::placeholder {
+    color: #999;
+    font-style: italic;
+}
+
+/* Controles universales del botón siguiente (para todos los tipos de pregunta) */
+.sfq-next-button-controls-universal {
+    margin: 20px 0;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid var(--sfq-border);
+}
+
+.sfq-next-button-controls-universal .sfq-next-button-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: #333;
+    margin: 0;
+}
+
+.sfq-next-button-controls-universal .sfq-next-button-toggle input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    margin: 0;
+}
+
+.sfq-next-button-controls-universal .sfq-toggle-text {
+    user-select: none;
+}
+
+.sfq-next-button-controls-universal .sfq-next-button-text-setting {
+    margin-left: 24px;
+}
+
+.sfq-next-button-controls-universal .sfq-next-button-text-setting input[type="text"] {
+    width: 100%;
+    max-width: 250px;
+    padding: 6px 10px;
+    border: 1px solid var(--sfq-border);
+    border-radius: 4px;
+    font-size: 13px;
+    transition: var(--sfq-transition);
+    background: white;
+}
+
+.sfq-next-button-controls-universal .sfq-next-button-text-setting input[type="text"]:focus {
+    outline: none;
+    border-color: var(--sfq-primary);
+    box-shadow: 0 0 0 2px rgba(0, 124, 186, 0.1);
+}
+
+.sfq-next-button-controls-universal .sfq-next-button-text-setting input[type="text"]::placeholder {
+    color: #999;
+    font-style: italic;
+}
+
+/* Responsive para controles de opciones */
+@media (max-width: 768px) {
+    .sfq-options-controls {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+    
+    .sfq-next-button-controls {
+        min-width: auto;
+    }
+    
+    .sfq-next-button-text-setting {
+        margin-left: 0;
+        margin-top: 8px;
+    }
+    
+    .sfq-next-button-controls-universal .sfq-next-button-text-setting {
+        margin-left: 0;
+        margin-top: 8px;
+    }
+}
+
+/* ==========================================================================
    CONFIGURACIONES DE PREGUNTA
    ========================================================================== */
 
@@ -581,12 +731,59 @@
     cursor: pointer;
     font-weight: 500;
     color: #333;
+    margin-bottom: 10px;
 }
 
 .sfq-required-checkbox {
     width: 18px;
     height: 18px;
     cursor: pointer;
+}
+
+/* Estilos para el control del botón siguiente dentro de sfq-question-settings */
+.sfq-question-settings .sfq-next-button-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.sfq-question-settings .sfq-next-button-toggle input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    margin: 0;
+}
+
+.sfq-question-settings .sfq-next-button-text-setting {
+    margin-left: 26px;
+    margin-top: 5px;
+    margin-bottom: 10px;
+}
+
+.sfq-question-settings .sfq-next-button-text-setting input[type="text"] {
+    width: 100%;
+    max-width: 250px;
+    padding: 6px 10px;
+    border: 1px solid var(--sfq-border);
+    border-radius: 4px;
+    font-size: 13px;
+    transition: var(--sfq-transition);
+    background: white;
+}
+
+.sfq-question-settings .sfq-next-button-text-setting input[type="text"]:focus {
+    outline: none;
+    border-color: var(--sfq-primary);
+    box-shadow: 0 0 0 2px rgba(0, 124, 186, 0.1);
+}
+
+.sfq-question-settings .sfq-next-button-text-setting input[type="text"]::placeholder {
+    color: #999;
+    font-style: italic;
 }
 
 /* ==========================================================================

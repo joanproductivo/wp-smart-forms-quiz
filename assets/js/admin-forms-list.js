@@ -1,6 +1,6 @@
 /**
  * Smart Forms & Quiz - Admin Forms List
- * Manejo de la lista principal de formularios
+ * Manejo de la lista principal de formularios con estadísticas en tiempo real
  */
 
 (function($) {
@@ -14,6 +14,7 @@
         init() {
             this.bindEvents();
             this.initCopyShortcode();
+            this.loadFormStatistics(); // Cargar estadísticas al iniciar
         }
 
         bindEvents() {
@@ -30,6 +31,121 @@
                 const formId = $(e.currentTarget).data('form-id');
                 this.deleteForm(formId, $(e.currentTarget));
             });
+        }
+
+        /**
+         * Cargar estadísticas de todos los formularios
+         */
+        async loadFormStatistics() {
+            // Obtener todos los formularios en la página
+            const formCards = $('.sfq-form-card');
+            
+            if (formCards.length === 0) {
+                return;
+            }
+
+            // Mostrar indicador de carga
+            formCards.each(function() {
+                const formId = $(this).data('form-id');
+                $(`#views-${formId}`).html('<span class="sfq-loading-spinner"></span>');
+                $(`#completed-${formId}`).html('<span class="sfq-loading-spinner"></span>');
+                $(`#rate-${formId}`).html('<span class="sfq-loading-spinner"></span>');
+            });
+
+            // Cargar estadísticas para cada formulario
+            formCards.each(async (index, card) => {
+                const formId = $(card).data('form-id');
+                await this.loadSingleFormStats(formId);
+            });
+        }
+
+        /**
+         * Cargar estadísticas de un formulario específico
+         */
+        async loadSingleFormStats(formId) {
+            try {
+                const response = await $.ajax({
+                    url: sfq_ajax.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'sfq_get_form_quick_stats',
+                        nonce: sfq_ajax.nonce,
+                        form_id: formId
+                    },
+                    timeout: 10000
+                });
+
+                if (response.success && response.data) {
+                    // Actualizar los valores en la tarjeta
+                    this.updateFormCard(formId, response.data);
+                } else {
+                    // Si hay error, mostrar valores por defecto
+                    this.updateFormCard(formId, {
+                        views: 0,
+                        completed: 0,
+                        rate: 0
+                    });
+                }
+            } catch (error) {
+                console.error(`Error loading stats for form ${formId}:`, error);
+                // En caso de error, mostrar valores por defecto
+                this.updateFormCard(formId, {
+                    views: 0,
+                    completed: 0,
+                    rate: 0
+                });
+            }
+        }
+
+        /**
+         * Actualizar los valores en la tarjeta del formulario
+         */
+        updateFormCard(formId, stats) {
+            // Animar la actualización de los números
+            this.animateNumber(`#views-${formId}`, stats.views || 0);
+            this.animateNumber(`#completed-${formId}`, stats.completed || 0);
+            
+            // Actualizar la tasa de conversión
+            const rateElement = $(`#rate-${formId}`);
+            const rateValue = stats.rate || 0;
+            rateElement.text(`${rateValue}%`);
+            
+            // Añadir color según el rendimiento
+            if (rateValue >= 70) {
+                rateElement.addClass('sfq-rate-high').removeClass('sfq-rate-medium sfq-rate-low');
+            } else if (rateValue >= 40) {
+                rateElement.addClass('sfq-rate-medium').removeClass('sfq-rate-high sfq-rate-low');
+            } else {
+                rateElement.addClass('sfq-rate-low').removeClass('sfq-rate-high sfq-rate-medium');
+            }
+        }
+
+        /**
+         * Animar el cambio de número
+         */
+        animateNumber(selector, endValue) {
+            const element = $(selector);
+            const startValue = 0;
+            const duration = 1000;
+            const startTime = Date.now();
+            
+            const animate = () => {
+                const currentTime = Date.now();
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Función de easing
+                const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+                const currentValue = Math.floor(startValue + (endValue - startValue) * easeOutQuart);
+                
+                element.text(currentValue.toLocaleString());
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                }
+            };
+            
+            animate();
         }
 
         async duplicateForm(formId, $button) {
@@ -189,5 +305,44 @@
             new SFQFormsList();
         }
     });
+
+    // Añadir estilos para los indicadores de tasa
+    const style = document.createElement('style');
+    style.textContent = `
+        .sfq-loading-spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #007cba;
+            border-radius: 50%;
+            animation: sfq-spin 1s linear infinite;
+        }
+        
+        @keyframes sfq-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .sfq-rate-high {
+            color: #46b450;
+            font-weight: bold;
+        }
+        
+        .sfq-rate-medium {
+            color: #f0b849;
+            font-weight: bold;
+        }
+        
+        .sfq-rate-low {
+            color: #dc3232;
+            font-weight: bold;
+        }
+        
+        .sfq-stat-value {
+            transition: all 0.3s ease;
+        }
+    `;
+    document.head.appendChild(style);
 
 })(jQuery);
