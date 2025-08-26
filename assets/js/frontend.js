@@ -119,7 +119,7 @@
             }
         }
 
-        handleSingleChoice(e) {
+        async handleSingleChoice(e) {
             const card = e.currentTarget;
             const questionContainer = card.closest('.sfq-single-choice');
             const questionId = questionContainer.dataset.questionId;
@@ -137,12 +137,36 @@
             // Guardar respuesta
             this.responses[questionId] = card.dataset.value;
 
-            // Procesar condiciones inmediatamente
-            const shouldRedirect = this.processConditionsImmediate(card, questionId);
-            
-            if (shouldRedirect) {
-                // Si hay redirección, no continuar con auto-advance
-                return;
+            // Mostrar indicador de procesamiento
+            this.showProcessingIndicator(questionContainer);
+
+            try {
+                // Procesar condiciones inmediatamente (ahora es async)
+                const redirectResult = await this.processConditionsImmediate(card, questionId);
+                
+                if (redirectResult && redirectResult.shouldRedirect) {
+                    console.log('Redirecting immediately to:', redirectResult.redirectUrl);
+                    // Redirección inmediata
+                    window.location.href = redirectResult.redirectUrl;
+                    return;
+                }
+
+                // Si hay salto de pregunta, configurarlo
+                if (redirectResult && redirectResult.skipToQuestion) {
+                    this.skipToQuestion = redirectResult.skipToQuestion;
+                }
+
+                // Actualizar variables si las hay
+                if (redirectResult && redirectResult.variables) {
+                    this.variables = { ...this.variables, ...redirectResult.variables };
+                }
+
+            } catch (error) {
+                console.error('Error processing conditions:', error);
+                this.showError('Error al procesar las condiciones. Continuando...');
+            } finally {
+                // Ocultar indicador de procesamiento
+                this.hideProcessingIndicator(questionContainer);
             }
 
             // Auto-avanzar si está configurado y no hay redirección
@@ -253,55 +277,70 @@
             }
         }
 
-        processConditionsImmediate(element, questionId) {
-            // Obtener condiciones del elemento o hacer petición AJAX para obtenerlas
+        async processConditionsImmediate(element, questionId) {
+            console.log('Processing conditions for question:', questionId, 'answer:', element.dataset.value);
+            
+            // Obtener condiciones del elemento primero
             const conditions = element.dataset.conditions;
-            let shouldRedirect = false;
             
             if (conditions) {
                 try {
                     const conditionsList = JSON.parse(conditions);
-                    shouldRedirect = this.evaluateConditionsForRedirect(conditionsList, questionId);
+                    const localResult = this.evaluateConditionsForRedirect(conditionsList, questionId);
+                    
+                    if (localResult.shouldRedirect) {
+                        return localResult;
+                    }
                 } catch (e) {
-                    console.error('Error procesando condiciones inmediatas:', e);
+                    console.error('Error procesando condiciones locales:', e);
                 }
-            } else {
-                // Si no hay condiciones en el elemento, hacer petición AJAX
-                this.checkConditionsViaAjax(questionId, element.dataset.value);
             }
             
-            return shouldRedirect;
+            // Siempre hacer petición AJAX para obtener condiciones del servidor
+            try {
+                const ajaxResult = await this.checkConditionsViaAjax(questionId, element.dataset.value);
+                return ajaxResult;
+            } catch (error) {
+                console.error('Error en petición AJAX de condiciones:', error);
+                return { shouldRedirect: false };
+            }
         }
 
         evaluateConditionsForRedirect(conditions, questionId) {
             const answer = this.responses[questionId];
+            const result = {
+                shouldRedirect: false,
+                redirectUrl: null,
+                skipToQuestion: null,
+                variables: {}
+            };
             
             for (const condition of conditions) {
                 if (this.evaluateConditionImmediate(condition, answer, questionId)) {
+                    console.log('Condition matched:', condition);
+                    
                     // Aplicar acción de la condición
                     switch (condition.action_type) {
                         case 'redirect_url':
-                            console.log('Redirecting immediately to:', condition.action_value);
-                            // Pequeño delay para permitir que la UI se actualice
-                            setTimeout(() => {
-                                window.location.href = condition.action_value;
-                            }, 100);
-                            return true;
+                            console.log('Local condition: Redirecting to:', condition.action_value);
+                            result.shouldRedirect = true;
+                            result.redirectUrl = condition.action_value;
+                            return result; // Retornar inmediatamente para redirección
                             
                         case 'add_variable':
                             const varName = condition.action_value;
                             const varAmount = parseInt(condition.variable_amount) || 1;
-                            this.variables[varName] = (this.variables[varName] || 0) + varAmount;
+                            result.variables[varName] = (this.variables[varName] || 0) + varAmount;
                             break;
                             
                         case 'goto_question':
-                            this.skipToQuestion = condition.action_value;
+                            result.skipToQuestion = condition.action_value;
                             break;
                     }
                 }
             }
             
-            return false;
+            return result;
         }
 
         evaluateConditionImmediate(condition, answer, questionId) {
@@ -333,6 +372,15 @@
         }
 
         async checkConditionsViaAjax(questionId, answer) {
+            console.log('Checking conditions via AJAX for question:', questionId, 'answer:', answer);
+            
+            const result = {
+                shouldRedirect: false,
+                redirectUrl: null,
+                skipToQuestion: null,
+                variables: {}
+            };
+            
             try {
                 const formData = new FormData();
                 formData.append('action', 'sfq_get_next_question');
@@ -347,33 +395,41 @@
                     body: formData
                 });
 
-                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const ajaxResult = await response.json();
+                console.log('AJAX response:', ajaxResult);
                 
-                if (result.success) {
-                    // Actualizar variables
-                    if (result.data.variables) {
-                        this.variables = { ...this.variables, ...result.data.variables };
+                if (ajaxResult.success && ajaxResult.data) {
+                    // Actualizar variables si las hay
+                    if (ajaxResult.data.variables) {
+                        result.variables = ajaxResult.data.variables;
                     }
                     
                     // Verificar redirección
-                    if (result.data.redirect_url) {
-                        console.log('Redirecting via AJAX to:', result.data.redirect_url);
-                        setTimeout(() => {
-                            window.location.href = result.data.redirect_url;
-                        }, 100);
-                        return true;
+                    if (ajaxResult.data.redirect_url) {
+                        console.log('AJAX condition: Redirecting to:', ajaxResult.data.redirect_url);
+                        result.shouldRedirect = true;
+                        result.redirectUrl = ajaxResult.data.redirect_url;
+                        return result;
                     }
                     
                     // Verificar salto de pregunta
-                    if (result.data.next_question_id) {
-                        this.skipToQuestion = result.data.next_question_id;
+                    if (ajaxResult.data.next_question_id) {
+                        result.skipToQuestion = ajaxResult.data.next_question_id;
                     }
+                } else {
+                    console.warn('AJAX request failed or returned no data:', ajaxResult);
                 }
+                
             } catch (error) {
-                console.error('Error checking conditions via AJAX:', error);
+                console.error('Error in AJAX conditions check:', error);
+                // No lanzar el error, solo loggearlo y continuar
             }
             
-            return false;
+            return result;
         }
 
         evaluateCondition(condition) {
@@ -726,6 +782,38 @@
                 console.error('Error tracking event:', error);
             }
         }
+
+        /**
+         * Mostrar indicador de procesamiento durante evaluación de condiciones
+         */
+        showProcessingIndicator(container) {
+            // Remover indicador existente si lo hay
+            this.hideProcessingIndicator(container);
+            
+            const indicator = document.createElement('div');
+            indicator.className = 'sfq-processing-indicator';
+            indicator.innerHTML = `
+                <div class="sfq-processing-spinner"></div>
+                <span class="sfq-processing-text">Procesando...</span>
+            `;
+            
+            // Añadir al contenedor de la pregunta
+            container.appendChild(indicator);
+            
+            // Añadir clase para efectos visuales
+            container.classList.add('sfq-processing');
+        }
+
+        /**
+         * Ocultar indicador de procesamiento
+         */
+        hideProcessingIndicator(container) {
+            const indicator = container.querySelector('.sfq-processing-indicator');
+            if (indicator) {
+                indicator.remove();
+            }
+            container.classList.remove('sfq-processing');
+        }
     }
 
     // Inicializar cuando el DOM esté listo
@@ -740,7 +828,7 @@
     window.SmartFormQuiz = SmartFormQuiz;
 })();
 
-// Estilos adicionales para loading y errores
+// Estilos adicionales para loading, errores e indicadores de procesamiento
 const style = document.createElement('style');
 style.textContent = `
     .sfq-loading-overlay {
@@ -766,10 +854,88 @@ style.textContent = `
         animation: shake 0.5s;
     }
     
+    .sfq-processing-indicator {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 1rem 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 1000;
+        font-size: 0.9rem;
+        color: #666;
+    }
+    
+    .sfq-processing-spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid #f3f3f3;
+        border-top: 2px solid #007cba;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    
+    .sfq-processing-text {
+        font-weight: 500;
+        white-space: nowrap;
+    }
+    
+    .sfq-processing {
+        position: relative;
+        pointer-events: none;
+        opacity: 0.7;
+    }
+    
+    .sfq-processing .sfq-option-card {
+        cursor: not-allowed;
+    }
+    
     @keyframes shake {
         0%, 100% { transform: translateX(0); }
         25% { transform: translateX(-10px); }
         75% { transform: translateX(10px); }
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    /* Mejoras visuales para redirección */
+    .sfq-redirect-message {
+        text-align: center;
+        padding: 1rem;
+        background: #e7f3ff;
+        border: 1px solid #b3d9ff;
+        border-radius: 8px;
+        margin-top: 1rem;
+        color: #0066cc;
+        font-weight: 500;
+    }
+    
+    .sfq-redirect-message p {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+    
+    .sfq-redirect-message p::before {
+        content: "↗";
+        font-size: 1.2em;
+        animation: pulse 1.5s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
     }
 `;
 document.head.appendChild(style);
