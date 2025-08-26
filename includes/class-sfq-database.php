@@ -221,103 +221,74 @@ class SFQ_Database {
     public function get_questions($form_id) {
         global $wpdb;
         
-        try {
-            $questions = $wpdb->get_results($wpdb->prepare(
-                "SELECT * FROM {$this->questions_table} 
-                WHERE form_id = %d 
-                ORDER BY order_position ASC",
-                $form_id
-            ));
-            
-            if (!$questions) {
-                error_log("SFQ Database: No questions found for form ID {$form_id}");
-                return [];
-            }
-            
-            error_log("SFQ Database: Found " . count($questions) . " questions for form ID {$form_id}");
-            
-            foreach ($questions as $index => &$question) {
-                $question = $this->process_question_data($question, $index);
-            }
-            
-            return $questions;
-            
-        } catch (Exception $e) {
-            error_log("SFQ Database Error in get_questions: " . $e->getMessage());
+        $questions = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$this->questions_table} 
+            WHERE form_id = %d 
+            ORDER BY order_position ASC",
+            $form_id
+        ));
+        
+        if (!$questions) {
             return [];
         }
+        
+        foreach ($questions as &$question) {
+            $question = $this->process_question_data($question);
+        }
+        
+        return $questions;
     }
     
     /**
      * Procesar datos de una pregunta individual
      */
-    private function process_question_data($question, $index = 0) {
-        try {
-            // Log datos originales para debugging
-            error_log("SFQ Processing question {$index}: ID={$question->id}, Type={$question->question_type}");
-            
-            // Procesar opciones con validación robusta
-            $question->options = $this->process_question_options($question->options, $question->id);
-            
-            // Procesar configuraciones
-            $question->settings = $this->process_question_settings($question->settings);
-            
-            // Procesar campo required con múltiples formatos posibles
-            $question->required = $this->process_required_field($question->required);
-            
-            // Obtener y procesar condiciones
-            $question->conditions = $this->get_conditions($question->id);
-            if (!is_array($question->conditions)) {
-                $question->conditions = [];
-            }
-            
-            // Asegurar que todos los campos necesarios existan
-            $question->question_text = $question->question_text ?? '';
-            $question->question_type = $question->question_type ?? 'text';
-            $question->order_position = $question->order_position ?? $index;
-            
-            error_log("SFQ Processed question {$index}: Options=" . count($question->options) . ", Conditions=" . count($question->conditions));
-            
-            return $question;
-            
-        } catch (Exception $e) {
-            error_log("SFQ Error processing question {$index}: " . $e->getMessage());
-            
-            // Retornar pregunta con valores por defecto en caso de error
-            $question->options = [];
+    private function process_question_data($question) {
+        // Procesar opciones
+        $question->options = $this->process_question_options($question->options);
+        
+        // Procesar configuraciones
+        $question->settings = $this->process_question_settings($question->settings);
+        
+        // Procesar campo required
+        $question->required = $this->process_required_field($question->required);
+        
+        // Obtener condiciones
+        $question->conditions = $this->get_conditions($question->id);
+        if (!is_array($question->conditions)) {
             $question->conditions = [];
-            $question->settings = [];
-            $question->required = 0;
-            
-            return $question;
         }
+        
+        // Asegurar campos necesarios
+        $question->question_text = $question->question_text ?? '';
+        $question->question_type = $question->question_type ?? 'text';
+        $question->order_position = $question->order_position ?? 0;
+        
+        return $question;
     }
     
     /**
      * Procesar opciones de pregunta
      */
-    private function process_question_options($options, $question_id) {
+    private function process_question_options($options) {
         if (empty($options)) {
             return [];
         }
         
-        // Si es string, intentar decodificar JSON
+        // Decodificar JSON si es string
         if (is_string($options)) {
             $decoded = json_decode(stripslashes($options), true);
             if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
                 $options = $decoded;
             } else {
-                error_log("SFQ Warning: Failed to decode options JSON for question {$question_id}: " . json_last_error_msg());
                 return [];
             }
         }
         
-        // Si no es array, retornar vacío
         if (!is_array($options)) {
             return [];
         }
         
-        // Procesar cada opción para asegurar estructura consistente
+        // Procesar opciones
         $processed_options = [];
         foreach ($options as $option) {
             if (is_string($option)) {
@@ -325,25 +296,19 @@ class SFQ_Database {
                     'text' => $option,
                     'value' => $option
                 ];
-            } elseif (is_array($option)) {
+            } elseif (is_array($option) || is_object($option)) {
+                $option = (array) $option;
                 $processed_options[] = [
                     'text' => $option['text'] ?? $option['value'] ?? '',
                     'value' => $option['value'] ?? $option['text'] ?? ''
-                ];
-            } elseif (is_object($option)) {
-                $processed_options[] = [
-                    'text' => $option->text ?? $option->value ?? '',
-                    'value' => $option->value ?? $option->text ?? ''
                 ];
             }
         }
         
         // Filtrar opciones vacías
-        $processed_options = array_filter($processed_options, function($option) {
+        return array_values(array_filter($processed_options, function($option) {
             return !empty(trim($option['text']));
-        });
-        
-        return array_values($processed_options);
+        }));
     }
     
     /**

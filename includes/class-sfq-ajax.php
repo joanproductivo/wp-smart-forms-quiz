@@ -447,8 +447,8 @@ class SFQ_Ajax {
      * Guardar formulario (Admin AJAX)
      */
     public function save_form() {
-        // Verificar permisos
-        if (!current_user_can('manage_options')) {
+        // Verificar permisos mejorados
+        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
             wp_send_json_error(__('No tienes permisos para realizar esta acción', 'smart-forms-quiz'));
             return;
         }
@@ -456,6 +456,12 @@ class SFQ_Ajax {
         // Verificar nonce
         if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
             wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Verificar método de petición
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            wp_send_json_error(__('Método de petición no válido', 'smart-forms-quiz'));
             return;
         }
         
@@ -500,8 +506,8 @@ class SFQ_Ajax {
      * Obtener datos del formulario (Admin AJAX)
      */
     public function get_form_data() {
-        // Verificar permisos
-        if (!current_user_can('manage_options')) {
+        // Verificar permisos mejorados
+        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
             wp_send_json_error(__('No tienes permisos para realizar esta acción', 'smart-forms-quiz'));
             return;
         }
@@ -509,6 +515,12 @@ class SFQ_Ajax {
         // Verificar nonce
         if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
             wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Verificar método de petición
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            wp_send_json_error(__('Método de petición no válido', 'smart-forms-quiz'));
             return;
         }
         
@@ -694,8 +706,8 @@ class SFQ_Ajax {
      * Eliminar formulario (Admin AJAX)
      */
     public function delete_form() {
-        // Verificar permisos
-        if (!current_user_can('manage_options')) {
+        // Verificar permisos mejorados
+        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
             wp_send_json_error(__('No tienes permisos para realizar esta acción', 'smart-forms-quiz'));
             return;
         }
@@ -703,6 +715,12 @@ class SFQ_Ajax {
         // Verificar nonce
         if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
             wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Verificar método de petición
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            wp_send_json_error(__('Método de petición no válido', 'smart-forms-quiz'));
             return;
         }
         

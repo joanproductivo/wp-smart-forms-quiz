@@ -125,7 +125,7 @@ class SFQ_Loader {
         // Media uploader
         wp_enqueue_media();
         
-        // CSS admin
+        // CSS admin - Cargar ambos estilos (el original y el v2)
         wp_enqueue_style(
             'sfq-admin',
             SFQ_PLUGIN_URL . 'assets/css/admin.css',
@@ -133,10 +133,18 @@ class SFQ_Loader {
             SFQ_VERSION
         );
         
-        // JavaScript admin con dependencias correctas y orden apropiado
+        // CSS del nuevo builder v2
+        wp_enqueue_style(
+            'sfq-admin-builder-v2',
+            SFQ_PLUGIN_URL . 'assets/css/admin-builder-v2.css',
+            array('sfq-admin'),
+            SFQ_VERSION
+        );
+        
+        // JavaScript admin - Arquitectura optimizada
         wp_enqueue_script(
             'sfq-admin',
-            SFQ_PLUGIN_URL . 'assets/js/admin.js',
+            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2.js',
             array('jquery', 'jquery-ui-sortable', 'wp-color-picker'),
             SFQ_VERSION,
             true
@@ -161,16 +169,6 @@ class SFQ_Loader {
             )
         ));
         
-        // Script de diagnóstico en modo de desarrollo
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            wp_enqueue_script(
-                'sfq-admin-diagnostic',
-                SFQ_PLUGIN_URL . 'assets/js/admin-diagnostic.js',
-                array('jquery', 'sfq-admin'),
-                SFQ_VERSION,
-                true
-            );
-        }
         
         // Añadir estilos inline para loading y notices
         wp_add_inline_style('sfq-admin', $this->get_admin_inline_styles());

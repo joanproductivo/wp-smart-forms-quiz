@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Definir constantes del plugin
-define('SFQ_VERSION', '1.0.0');
+define('SFQ_VERSION', '1.0.2');
 define('SFQ_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SFQ_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('SFQ_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -60,6 +60,3 @@ function sfq_plugin_action_links($links) {
     array_unshift($links, $settings_link);
     return $links;
 }
-
-// Incluir página de test para debugging
-include_once SFQ_PLUGIN_DIR . 'admin-test-page.php';
