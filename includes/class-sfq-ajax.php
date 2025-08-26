@@ -444,129 +444,120 @@ class SFQ_Ajax {
     }
     
     /**
-     * Guardar formulario (Admin AJAX)
+     * Guardar formulario (Admin AJAX) - Optimizado
      */
     public function save_form() {
-        // Verificar permisos mejorados
-        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
-            wp_send_json_error(__('No tienes permisos para realizar esta acción', 'smart-forms-quiz'));
+        // Early validation for better performance
+        if (!$this->validate_ajax_request('manage_smart_forms')) {
             return;
         }
         
-        // Verificar nonce
-        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
-            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+        // Rate limiting check
+        if (!$this->check_rate_limit('save_form', 10, 60)) {
+            wp_send_json_error(__('Demasiadas peticiones. Intenta de nuevo en un momento.', 'smart-forms-quiz'));
             return;
         }
         
-        // Verificar método de petición
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            wp_send_json_error(__('Método de petición no válido', 'smart-forms-quiz'));
-            return;
-        }
-        
-        // Obtener y decodificar datos del formulario
-        $form_data = json_decode(stripslashes($_POST['form_data']), true);
-        
+        // Obtener y validar datos del formulario
+        $form_data = $this->get_and_validate_form_data();
         if (!$form_data) {
-            wp_send_json_error(__('Datos del formulario inválidos', 'smart-forms-quiz'));
-            return;
+            return; // Error already sent
         }
         
-        // Validar título requerido
-        if (empty($form_data['title'])) {
+        // Validaciones adicionales
+        $validation_result = $this->validate_form_data($form_data);
+        if (!$validation_result['valid']) {
             wp_send_json_error(array(
-                'message' => __('El título del formulario es requerido', 'smart-forms-quiz')
+                'message' => $validation_result['message'],
+                'errors' => $validation_result['errors']
             ));
             return;
         }
         
         try {
-            // Guardar formulario usando la función de la base de datos
+            // Guardar formulario con manejo de errores mejorado
             $form_id = $this->database->save_form($form_data);
             
             if ($form_id) {
+                // Clear related caches
+                $this->clear_form_cache($form_id);
+                
                 wp_send_json_success(array(
                     'form_id' => $form_id,
-                    'message' => __('Formulario guardado correctamente', 'smart-forms-quiz')
+                    'message' => __('Formulario guardado correctamente', 'smart-forms-quiz'),
+                    'timestamp' => current_time('timestamp')
                 ));
             } else {
                 wp_send_json_error(array(
-                    'message' => __('Error al guardar el formulario', 'smart-forms-quiz')
+                    'message' => __('Error al guardar el formulario', 'smart-forms-quiz'),
+                    'code' => 'SAVE_FAILED'
                 ));
             }
         } catch (Exception $e) {
+            error_log('SFQ Save Form Error: ' . $e->getMessage());
             wp_send_json_error(array(
-                'message' => __('Error: ', 'smart-forms-quiz') . $e->getMessage()
+                'message' => __('Error interno del servidor', 'smart-forms-quiz'),
+                'code' => 'INTERNAL_ERROR',
+                'debug' => WP_DEBUG ? $e->getMessage() : null
             ));
         }
     }
     
     /**
-     * Obtener datos del formulario (Admin AJAX)
+     * Obtener datos del formulario (Admin AJAX) - Optimizado
      */
     public function get_form_data() {
-        // Verificar permisos mejorados
-        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
-            wp_send_json_error(__('No tienes permisos para realizar esta acción', 'smart-forms-quiz'));
+        // Early validation
+        if (!$this->validate_ajax_request('manage_smart_forms')) {
             return;
         }
         
-        // Verificar nonce
-        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
-            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
-            return;
-        }
+        $form_id = intval($_POST['form_id'] ?? 0);
         
-        // Verificar método de petición
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            wp_send_json_error(__('Método de petición no válido', 'smart-forms-quiz'));
-            return;
-        }
-        
-        $form_id = intval($_POST['form_id']);
-        
-        if (!$form_id) {
-            wp_send_json_error(__('ID de formulario inválido', 'smart-forms-quiz'));
+        if (!$form_id || $form_id < 1) {
+            wp_send_json_error(array(
+                'message' => __('ID de formulario inválido', 'smart-forms-quiz'),
+                'code' => 'INVALID_FORM_ID'
+            ));
             return;
         }
         
         try {
+            // Check cache first
+            $cache_key = "sfq_form_data_{$form_id}";
+            $cached_form = wp_cache_get($cache_key, 'sfq_forms');
+            
+            if ($cached_form !== false) {
+                wp_send_json_success($cached_form);
+                return;
+            }
+            
             // Obtener formulario de la base de datos
             $form = $this->database->get_form($form_id);
             
             if (!$form) {
-                wp_send_json_error(__('Formulario no encontrado', 'smart-forms-quiz'));
+                wp_send_json_error(array(
+                    'message' => __('Formulario no encontrado', 'smart-forms-quiz'),
+                    'code' => 'FORM_NOT_FOUND'
+                ));
                 return;
             }
             
             // Validar y estructurar datos del formulario
             $form = $this->validate_and_structure_form_data($form);
             
-            // Log detallado para debugging
-            error_log('SFQ Form Data - Form ID: ' . $form_id);
-            error_log('SFQ Form Data - Questions count: ' . count($form->questions));
-            
-            if (!empty($form->questions)) {
-                foreach ($form->questions as $index => $question) {
-                    error_log("SFQ Question {$index}: " . json_encode([
-                        'id' => $question->id ?? 'missing',
-                        'text' => substr($question->question_text ?? '', 0, 50),
-                        'type' => $question->question_type ?? 'missing',
-                        'options_count' => count($question->options ?? []),
-                        'conditions_count' => count($question->conditions ?? [])
-                    ]));
-                }
-            }
+            // Cache the result for 5 minutes
+            wp_cache_set($cache_key, $form, 'sfq_forms', 300);
             
             wp_send_json_success($form);
             
         } catch (Exception $e) {
             error_log('SFQ Error in get_form_data: ' . $e->getMessage());
-            wp_send_json_error([
+            wp_send_json_error(array(
                 'message' => __('Error al cargar los datos del formulario', 'smart-forms-quiz'),
-                'debug' => WP_DEBUG ? $e->getMessage() : ''
-            ]);
+                'code' => 'INTERNAL_ERROR',
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
         }
     }
     
@@ -896,5 +887,165 @@ class SFQ_Ajax {
         } else {
             wp_send_json_error(__('Error al duplicar el formulario', 'smart-forms-quiz'));
         }
+    }
+    
+    /**
+     * Validar petición AJAX (método auxiliar)
+     */
+    private function validate_ajax_request($capability = 'manage_smart_forms') {
+        // Verificar permisos
+        if (!current_user_can($capability) && !current_user_can('manage_options')) {
+            wp_send_json_error(array(
+                'message' => __('No tienes permisos para realizar esta acción', 'smart-forms-quiz'),
+                'code' => 'INSUFFICIENT_PERMISSIONS'
+            ));
+            return false;
+        }
+        
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(array(
+                'message' => __('Error de seguridad', 'smart-forms-quiz'),
+                'code' => 'INVALID_NONCE'
+            ));
+            return false;
+        }
+        
+        // Verificar método de petición
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            wp_send_json_error(array(
+                'message' => __('Método de petición no válido', 'smart-forms-quiz'),
+                'code' => 'INVALID_METHOD'
+            ));
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Rate limiting simple
+     */
+    private function check_rate_limit($action, $max_requests, $time_window) {
+        $user_id = get_current_user_id();
+        $ip = $this->get_user_ip();
+        $key = "sfq_rate_limit_{$action}_{$user_id}_{$ip}";
+        
+        $current_requests = get_transient($key);
+        
+        if ($current_requests === false) {
+            set_transient($key, 1, $time_window);
+            return true;
+        }
+        
+        if ($current_requests >= $max_requests) {
+            return false;
+        }
+        
+        set_transient($key, $current_requests + 1, $time_window);
+        return true;
+    }
+    
+    /**
+     * Obtener y validar datos del formulario
+     */
+    private function get_and_validate_form_data() {
+        if (!isset($_POST['form_data'])) {
+            wp_send_json_error(array(
+                'message' => __('Datos del formulario no proporcionados', 'smart-forms-quiz'),
+                'code' => 'MISSING_FORM_DATA'
+            ));
+            return false;
+        }
+        
+        $form_data = json_decode(stripslashes($_POST['form_data']), true);
+        
+        if (!$form_data || !is_array($form_data)) {
+            wp_send_json_error(array(
+                'message' => __('Datos del formulario inválidos', 'smart-forms-quiz'),
+                'code' => 'INVALID_JSON'
+            ));
+            return false;
+        }
+        
+        return $form_data;
+    }
+    
+    /**
+     * Validar datos del formulario
+     */
+    private function validate_form_data($form_data) {
+        $errors = array();
+        
+        // Validar título requerido
+        if (empty($form_data['title']) || !is_string($form_data['title'])) {
+            $errors['title'] = __('El título del formulario es requerido', 'smart-forms-quiz');
+        } elseif (strlen($form_data['title']) > 255) {
+            $errors['title'] = __('El título no puede exceder 255 caracteres', 'smart-forms-quiz');
+        }
+        
+        // Validar tipo
+        if (isset($form_data['type']) && !in_array($form_data['type'], array('form', 'quiz'))) {
+            $errors['type'] = __('Tipo de formulario inválido', 'smart-forms-quiz');
+        }
+        
+        // Validar URL de redirección si está presente
+        if (!empty($form_data['redirect_url']) && !filter_var($form_data['redirect_url'], FILTER_VALIDATE_URL)) {
+            $errors['redirect_url'] = __('URL de redirección inválida', 'smart-forms-quiz');
+        }
+        
+        // Validar preguntas si existen
+        if (isset($form_data['questions']) && is_array($form_data['questions'])) {
+            foreach ($form_data['questions'] as $index => $question) {
+                $question_errors = $this->validate_question_data($question, $index);
+                if (!empty($question_errors)) {
+                    $errors["questions[{$index}]"] = $question_errors;
+                }
+            }
+        }
+        
+        return array(
+            'valid' => empty($errors),
+            'errors' => $errors,
+            'message' => empty($errors) ? '' : __('Se encontraron errores de validación', 'smart-forms-quiz')
+        );
+    }
+    
+    /**
+     * Validar datos de una pregunta
+     */
+    private function validate_question_data($question, $index) {
+        $errors = array();
+        
+        if (empty($question['question_text'])) {
+            $errors['question_text'] = sprintf(__('El texto de la pregunta %d es requerido', 'smart-forms-quiz'), $index + 1);
+        }
+        
+        if (empty($question['question_type'])) {
+            $errors['question_type'] = sprintf(__('El tipo de la pregunta %d es requerido', 'smart-forms-quiz'), $index + 1);
+        }
+        
+        // Validar opciones para tipos que las requieren
+        $types_with_options = array('single_choice', 'multiple_choice', 'image_choice');
+        if (in_array($question['question_type'], $types_with_options)) {
+            if (empty($question['options']) || !is_array($question['options'])) {
+                $errors['options'] = sprintf(__('La pregunta %d requiere opciones', 'smart-forms-quiz'), $index + 1);
+            } elseif (count($question['options']) < 2) {
+                $errors['options'] = sprintf(__('La pregunta %d requiere al menos 2 opciones', 'smart-forms-quiz'), $index + 1);
+            }
+        }
+        
+        return $errors;
+    }
+    
+    /**
+     * Limpiar caché relacionado con formularios
+     */
+    private function clear_form_cache($form_id) {
+        wp_cache_delete("sfq_form_data_{$form_id}", 'sfq_forms');
+        wp_cache_delete("sfq_form_{$form_id}", 'sfq_forms');
+        
+        // Clear any related caches
+        wp_cache_flush_group('sfq_forms');
     }
 }

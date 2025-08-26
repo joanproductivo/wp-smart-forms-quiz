@@ -86,10 +86,16 @@ class SFQ_Frontend {
                         $is_first_screen = ($index === 0);
                     }
                     ?>
+                    <?php 
+                    // Obtener configuración de mostrar botón siguiente
+                    $question_settings = $question->settings ?? array();
+                    $show_next_button = isset($question_settings['show_next_button']) ? $question_settings['show_next_button'] : true;
+                    ?>
                     <div class="sfq-screen sfq-question-screen <?php echo $is_first_screen ? 'active' : ''; ?>" 
                          data-question-id="<?php echo $question->id; ?>"
                          data-question-index="<?php echo $index; ?>"
-                         data-question-type="<?php echo esc_attr($question->question_type); ?>">
+                         data-question-type="<?php echo esc_attr($question->question_type); ?>"
+                         data-show-next-button="<?php echo $show_next_button ? 'true' : 'false'; ?>">
                         
                         <div class="sfq-question-content">
                             <!-- Número de pregunta -->

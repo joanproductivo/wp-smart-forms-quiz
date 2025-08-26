@@ -149,7 +149,7 @@ class SFQ_Database {
     }
     
     /**
-     * Obtener todos los formularios
+     * Obtener todos los formularios (optimizado)
      */
     public function get_forms($args = array()) {
         global $wpdb;
@@ -160,28 +160,61 @@ class SFQ_Database {
             'orderby' => 'created_at',
             'order' => 'DESC',
             'limit' => -1,
-            'offset' => 0
+            'offset' => 0,
+            'include_stats' => false
         );
         
         $args = wp_parse_args($args, $defaults);
         
-        $where = array("1=1");
+        // Build WHERE clause more efficiently
+        $where_conditions = array("1=1");
+        $prepare_values = array();
         
         if (!empty($args['status'])) {
-            $where[] = $wpdb->prepare("status = %s", $args['status']);
+            $where_conditions[] = "status = %s";
+            $prepare_values[] = $args['status'];
         }
         
         if (!empty($args['type'])) {
-            $where[] = $wpdb->prepare("type = %s", $args['type']);
+            $where_conditions[] = "type = %s";
+            $prepare_values[] = $args['type'];
         }
         
-        $where_clause = implode(' AND ', $where);
-        $order_clause = sprintf("%s %s", $args['orderby'], $args['order']);
+        $where_clause = implode(' AND ', $where_conditions);
         
-        $query = "SELECT * FROM {$this->forms_table} WHERE {$where_clause} ORDER BY {$order_clause}";
+        // Validate orderby to prevent SQL injection
+        $allowed_orderby = array('id', 'title', 'created_at', 'updated_at', 'type');
+        $orderby = in_array($args['orderby'], $allowed_orderby) ? $args['orderby'] : 'created_at';
+        $order = strtoupper($args['order']) === 'ASC' ? 'ASC' : 'DESC';
+        
+        // Build base query
+        $base_query = "SELECT * FROM {$this->forms_table}";
+        
+        if ($args['include_stats']) {
+            // Include basic stats in single query
+            $base_query = "SELECT f.*, 
+                COUNT(DISTINCT s.id) as submission_count,
+                COUNT(DISTINCT a.session_id) as view_count
+                FROM {$this->forms_table} f
+                LEFT JOIN {$this->submissions_table} s ON f.id = s.form_id AND s.status = 'completed'
+                LEFT JOIN {$this->analytics_table} a ON f.id = a.form_id AND a.event_type = 'view'";
+        }
+        
+        $query = "{$base_query} WHERE {$where_clause}";
+        
+        if ($args['include_stats']) {
+            $query .= " GROUP BY f.id";
+        }
+        
+        $query .= " ORDER BY {$orderby} {$order}";
         
         if ($args['limit'] > 0) {
             $query .= $wpdb->prepare(" LIMIT %d OFFSET %d", $args['limit'], $args['offset']);
+        }
+        
+        // Prepare query if we have values
+        if (!empty($prepare_values)) {
+            $query = $wpdb->prepare($query, $prepare_values);
         }
         
         return $wpdb->get_results($query);
@@ -419,82 +452,136 @@ class SFQ_Database {
     }
     
     /**
-     * Guardar preguntas
+     * Guardar preguntas (optimizado con transacciones)
      */
     private function save_questions($form_id, $questions) {
         global $wpdb;
 
-        // Obtener las preguntas existentes para comparar
-        $existing_questions = $wpdb->get_results($wpdb->prepare(
-            "SELECT id, question_text FROM {$this->questions_table} WHERE form_id = %d",
-            $form_id
-        ), OBJECT_K);
+        // Start transaction for data integrity
+        $wpdb->query('START TRANSACTION');
 
-        $updated_question_ids = [];
+        try {
+            // Get existing questions in single query
+            $existing_questions = $wpdb->get_results($wpdb->prepare(
+                "SELECT id, question_text, order_position FROM {$this->questions_table} WHERE form_id = %d ORDER BY order_position",
+                $form_id
+            ), OBJECT_K);
 
-        foreach ($questions as $index => $question) {
-            $question_data = array(
-                'form_id' => $form_id,
-                'question_text' => sanitize_textarea_field($question['question_text']),
-                'question_type' => sanitize_text_field($question['question_type']),
-                'options' => json_encode($question['options'] ?? array()),
-                'settings' => json_encode($question['settings'] ?? array()),
-                'required' => isset($question['required']) && $question['required'] ? 1 : 0,
-                'order_position' => $index,
-                'variable_name' => sanitize_text_field($question['variable_name'] ?? ''),
-                'variable_value' => intval($question['variable_value'] ?? 0)
-            );
+            $updated_question_ids = [];
+            $questions_to_insert = [];
+            $questions_to_update = [];
 
-            // Intentar encontrar una pregunta existente con el mismo texto
-            $existing_question_id = null;
-            if (isset($question['id'])) {
-                $existing_question_id = $question['id'];
-            } else {
-                foreach ($existing_questions as $id => $existing_question) {
-                    if ($existing_question->question_text === $question['question_text']) {
-                        $existing_question_id = $id;
-                        break;
+            // Process questions and prepare batch operations
+            foreach ($questions as $index => $question) {
+                $question_data = array(
+                    'form_id' => $form_id,
+                    'question_text' => sanitize_textarea_field($question['question_text']),
+                    'question_type' => sanitize_text_field($question['question_type']),
+                    'options' => wp_json_encode($question['options'] ?? array()),
+                    'settings' => wp_json_encode($question['settings'] ?? array()),
+                    'required' => isset($question['required']) && $question['required'] ? 1 : 0,
+                    'order_position' => $index,
+                    'variable_name' => sanitize_text_field($question['variable_name'] ?? ''),
+                    'variable_value' => intval($question['variable_value'] ?? 0)
+                );
+
+                $existing_question_id = null;
+                
+                // Try to match by ID first, then by text
+                if (isset($question['id']) && isset($existing_questions[$question['id']])) {
+                    $existing_question_id = $question['id'];
+                } else {
+                    // Find by text match (less efficient but necessary for new questions)
+                    foreach ($existing_questions as $id => $existing_question) {
+                        if ($existing_question->question_text === $question['question_text']) {
+                            $existing_question_id = $id;
+                            break;
+                        }
                     }
+                }
+
+                if ($existing_question_id) {
+                    // Prepare for update
+                    $questions_to_update[] = array(
+                        'id' => $existing_question_id,
+                        'data' => $question_data,
+                        'conditions' => $question['conditions'] ?? []
+                    );
+                    $updated_question_ids[] = $existing_question_id;
+                    unset($existing_questions[$existing_question_id]);
+                } else {
+                    // Prepare for insert
+                    $questions_to_insert[] = array(
+                        'data' => $question_data,
+                        'conditions' => $question['conditions'] ?? []
+                    );
                 }
             }
 
-            if ($existing_question_id && isset($existing_questions[$existing_question_id])) {
-                // Actualizar pregunta existente
-                $wpdb->update(
+            // Batch update existing questions
+            foreach ($questions_to_update as $update_data) {
+                $result = $wpdb->update(
                     $this->questions_table,
-                    $question_data,
-                    array('id' => $existing_question_id),
+                    $update_data['data'],
+                    array('id' => $update_data['id']),
                     array('%d', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%d'),
                     array('%d')
                 );
-                $question_id = $existing_question_id;
-                unset($existing_questions[$existing_question_id]);
-            } else {
-                // Insertar nueva pregunta
-                $wpdb->insert(
+                
+                if ($result === false) {
+                    throw new Exception('Failed to update question ID: ' . $update_data['id']);
+                }
+
+                // Save conditions
+                if (!empty($update_data['conditions'])) {
+                    $this->save_conditions($update_data['id'], $update_data['conditions']);
+                }
+            }
+
+            // Batch insert new questions
+            foreach ($questions_to_insert as $insert_data) {
+                $result = $wpdb->insert(
                     $this->questions_table,
-                    $question_data,
+                    $insert_data['data'],
                     array('%d', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%d')
                 );
+                
+                if ($result === false) {
+                    throw new Exception('Failed to insert new question');
+                }
+
                 $question_id = $wpdb->insert_id;
+                $updated_question_ids[] = $question_id;
+
+                // Save conditions
+                if (!empty($insert_data['conditions'])) {
+                    $this->save_conditions($question_id, $insert_data['conditions']);
+                }
             }
 
-            $updated_question_ids[] = $question_id;
-
-            // Guardar condiciones si existen
-            if (isset($question['conditions']) && is_array($question['conditions'])) {
-                $this->save_conditions($question_id, $question['conditions']);
+            // Delete orphaned questions
+            $questions_to_delete = array_keys($existing_questions);
+            if (!empty($questions_to_delete)) {
+                // First delete related conditions
+                $placeholders = implode(',', array_fill(0, count($questions_to_delete), '%d'));
+                $wpdb->query($wpdb->prepare(
+                    "DELETE FROM {$this->conditions_table} WHERE question_id IN ($placeholders)",
+                    $questions_to_delete
+                ));
+                
+                // Then delete questions
+                $wpdb->query($wpdb->prepare(
+                    "DELETE FROM {$this->questions_table} WHERE id IN ($placeholders)",
+                    $questions_to_delete
+                ));
             }
-        }
 
-        // Eliminar preguntas que ya no existen
-        $questions_to_delete = array_keys($existing_questions);
-        if (!empty($questions_to_delete)) {
-            $placeholders = implode(',', array_fill(0, count($questions_to_delete), '%d'));
-            $wpdb->query($wpdb->prepare(
-                "DELETE FROM {$this->questions_table} WHERE id IN ($placeholders)",
-                $questions_to_delete
-            ));
+            $wpdb->query('COMMIT');
+            
+        } catch (Exception $e) {
+            $wpdb->query('ROLLBACK');
+            error_log('SFQ Database Error in save_questions: ' . $e->getMessage());
+            throw $e;
         }
     }
     

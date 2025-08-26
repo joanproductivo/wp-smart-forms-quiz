@@ -488,8 +488,36 @@
             screen.classList.add('active', `slide-${direction}`);
             this.currentScreen = screen;
 
+            // Controlar visibilidad del botón siguiente
+            this.updateNextButtonVisibility(screen);
+
             // Hacer scroll al top
             this.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        updateNextButtonVisibility(screen) {
+            // Solo aplicar a pantallas de pregunta
+            if (!screen.classList.contains('sfq-question-screen')) {
+                return;
+            }
+
+            const nextButton = screen.querySelector('.sfq-next-button');
+            if (!nextButton) {
+                return;
+            }
+
+            // Obtener configuración de la pregunta desde el atributo data
+            const showNextButton = screen.dataset.showNextButton;
+            
+            // Si no hay configuración específica, mostrar por defecto
+            if (showNextButton === undefined || showNextButton === null || showNextButton === '') {
+                nextButton.style.display = 'inline-block';
+                return;
+            }
+
+            // Convertir a booleano y aplicar
+            const shouldShow = showNextButton === 'true' || showNextButton === '1';
+            nextButton.style.display = shouldShow ? 'inline-block' : 'none';
         }
 
         updateProgress() {

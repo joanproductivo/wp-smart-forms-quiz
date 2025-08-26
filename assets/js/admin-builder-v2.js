@@ -658,6 +658,15 @@
                 this.formBuilder.isDirty = true;
             });
             
+            // Update show next button setting
+            $question.find('.sfq-show-next-button-checkbox').off('change').on('change', (e) => {
+                if (!question.settings) {
+                    question.settings = {};
+                }
+                question.settings.show_next_button = $(e.target).is(':checked');
+                this.formBuilder.isDirty = true;
+            });
+            
             // Add option
             $question.find('.sfq-add-option').off('click').on('click', () => {
                 this.addOption(questionId);
@@ -995,6 +1004,11 @@
                                 <input type="checkbox" class="sfq-required-checkbox" 
                                        ${question.required ? 'checked' : ''}>
                                 Pregunta obligatoria
+                            </label>
+                            <label>
+                                <input type="checkbox" class="sfq-show-next-button-checkbox" 
+                                       ${question.settings?.show_next_button !== false ? 'checked' : ''}>
+                                Mostrar botón "Siguiente"
                             </label>
                         </div>
                         

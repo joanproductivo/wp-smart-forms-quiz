@@ -125,19 +125,11 @@ class SFQ_Loader {
         // Media uploader
         wp_enqueue_media();
         
-        // CSS admin - Cargar ambos estilos (el original y el v2)
+        // CSS admin consolidado (reemplaza admin.css y admin-builder-v2.css)
         wp_enqueue_style(
-            'sfq-admin',
-            SFQ_PLUGIN_URL . 'assets/css/admin.css',
+            'sfq-admin-consolidated',
+            SFQ_PLUGIN_URL . 'assets/css/admin-consolidated.css',
             array('wp-color-picker'),
-            SFQ_VERSION
-        );
-        
-        // CSS del nuevo builder v2
-        wp_enqueue_style(
-            'sfq-admin-builder-v2',
-            SFQ_PLUGIN_URL . 'assets/css/admin-builder-v2.css',
-            array('sfq-admin'),
             SFQ_VERSION
         );
         
@@ -149,6 +141,17 @@ class SFQ_Loader {
             SFQ_VERSION,
             true
         );
+        
+        // JavaScript para la lista de formularios (página principal)
+        if ($hook === 'toplevel_page_smart-forms-quiz') {
+            wp_enqueue_script(
+                'sfq-admin-forms-list',
+                SFQ_PLUGIN_URL . 'assets/js/admin-forms-list.js',
+                array('jquery'),
+                SFQ_VERSION,
+                true
+            );
+        }
         
         // Localización para AJAX en admin - DEBE ir después de enqueue_script
         wp_localize_script('sfq-admin', 'sfq_ajax', array(
@@ -341,7 +344,7 @@ class SFQ_Loader {
     }
     
     /**
-     * Check if frontend assets should be loaded
+     * Check if frontend assets should be loaded (optimized)
      */
     private function should_load_frontend_assets() {
         global $post;
@@ -356,14 +359,41 @@ class SFQ_Loader {
             return true;
         }
         
-        // Check if any widget contains shortcode
-        if (is_active_widget(false, false, 'text')) {
-            return true;
+        // Check for shortcode in widgets (more efficient check)
+        $sidebars_widgets = wp_get_sidebars_widgets();
+        if (!empty($sidebars_widgets)) {
+            foreach ($sidebars_widgets as $sidebar => $widgets) {
+                if (is_array($widgets)) {
+                    foreach ($widgets as $widget) {
+                        if (strpos($widget, 'text') === 0) {
+                            $widget_options = get_option('widget_text');
+                            if ($widget_options) {
+                                foreach ($widget_options as $instance) {
+                                    if (isset($instance['text']) && strpos($instance['text'], '[smart_form') !== false) {
+                                        return true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
         
-        // Load on specific pages where forms might be embedded
-        if (is_page() || is_single()) {
-            return true;
+        // Only load on pages/posts that might contain forms (more restrictive)
+        if (is_singular() && $post) {
+            // Check post meta for form usage
+            $has_form = get_post_meta($post->ID, '_has_smart_form', true);
+            if ($has_form) {
+                return true;
+            }
+            
+            // Check content for shortcode (fallback)
+            if (has_shortcode($post->post_content, 'smart_form')) {
+                // Cache this for future requests
+                update_post_meta($post->ID, '_has_smart_form', '1');
+                return true;
+            }
         }
         
         return false;
