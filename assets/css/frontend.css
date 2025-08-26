@@ -1,0 +1,626 @@
+/**
+ * Smart Forms & Quiz - Frontend Styles
+ * Diseño moderno con cards, bordes redondeados y transiciones suaves
+ */
+
+/* Variables CSS personalizables */
+.sfq-form-container {
+    --sfq-primary-color: #007cba;
+    --sfq-secondary-color: #6c757d;
+    --sfq-background-color: #ffffff;
+    --sfq-text-color: #333333;
+    --sfq-border-radius: 12px;
+    --sfq-font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --sfq-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    --sfq-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
+    --sfq-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Contenedor principal */
+.sfq-form-container {
+    font-family: var(--sfq-font-family);
+    color: var(--sfq-text-color);
+    background: var(--sfq-background-color);
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 2rem;
+    position: relative;
+}
+
+/* Barra de progreso */
+.sfq-progress-bar {
+    height: 4px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 2px;
+    margin-bottom: 2rem;
+    overflow: hidden;
+    position: relative;
+}
+
+.sfq-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--sfq-primary-color), var(--sfq-secondary-color));
+    border-radius: 2px;
+    transition: width 0.5s ease;
+    position: relative;
+}
+
+.sfq-progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.3),
+        transparent
+    );
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+/* Pantallas */
+.sfq-screen {
+    display: none;
+    animation: fadeIn 0.4s ease;
+}
+
+.sfq-screen.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Pantalla de introducción */
+.sfq-intro-screen {
+    text-align: center;
+    padding: 3rem 0;
+}
+
+.sfq-intro-title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--sfq-text-color);
+}
+
+.sfq-intro-description {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: rgba(var(--sfq-text-color), 0.8);
+    margin-bottom: 2rem;
+}
+
+/* Contenido de pregunta */
+.sfq-question-content {
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+}
+
+.sfq-question-number {
+    font-size: 0.875rem;
+    color: var(--sfq-secondary-color);
+    margin-bottom: 1rem;
+    font-weight: 500;
+}
+
+.sfq-question-text {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 2rem;
+    line-height: 1.4;
+}
+
+.sfq-required {
+    color: #e74c3c;
+    margin-left: 0.25rem;
+}
+
+/* Contenedor de respuestas */
+.sfq-answer-container {
+    flex: 1;
+    margin-bottom: 2rem;
+}
+
+/* Grid de opciones */
+.sfq-options-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr;
+}
+
+/* Cards de opciones (diseño moderno) */
+.sfq-option-card {
+    background: var(--sfq-background-color);
+    border: 2px solid #e0e0e0;
+    border-radius: var(--sfq-border-radius);
+    padding: 1.25rem 1.5rem;
+    cursor: pointer;
+    transition: var(--sfq-transition);
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: var(--sfq-shadow);
+}
+
+.sfq-option-card:hover {
+    border-color: var(--sfq-primary-color);
+    transform: translateY(-2px);
+    box-shadow: var(--sfq-shadow-hover);
+}
+
+.sfq-option-card.selected {
+    background: linear-gradient(135deg, 
+        rgba(var(--sfq-primary-color), 0.1), 
+        rgba(var(--sfq-primary-color), 0.05)
+    );
+    border-color: var(--sfq-primary-color);
+    box-shadow: 0 0 0 3px rgba(var(--sfq-primary-color), 0.1);
+}
+
+.sfq-option-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.sfq-option-text {
+    font-size: 1.1rem;
+    font-weight: 500;
+    flex: 1;
+}
+
+.sfq-hidden-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Checkbox cards */
+.sfq-checkbox-card {
+    padding: 1rem 1.25rem;
+}
+
+.sfq-checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.sfq-checkbox-input {
+    display: none;
+}
+
+.sfq-checkbox-wrapper label {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    cursor: pointer;
+    width: 100%;
+}
+
+.sfq-checkbox-box {
+    width: 24px;
+    height: 24px;
+    border: 2px solid #d0d0d0;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--sfq-transition);
+    flex-shrink: 0;
+}
+
+.sfq-checkbox-input:checked + label .sfq-checkbox-box {
+    background: var(--sfq-primary-color);
+    border-color: var(--sfq-primary-color);
+}
+
+.sfq-checkbox-icon {
+    width: 16px;
+    height: 16px;
+    fill: white;
+    opacity: 0;
+    transform: scale(0);
+    transition: var(--sfq-transition);
+}
+
+.sfq-checkbox-input:checked + label .sfq-checkbox-icon {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Campos de texto */
+.sfq-input-wrapper {
+    position: relative;
+    max-width: 500px;
+}
+
+.sfq-text-input {
+    width: 100%;
+    padding: 1rem 0;
+    font-size: 1.1rem;
+    border: none;
+    border-bottom: 2px solid #e0e0e0;
+    background: transparent;
+    transition: var(--sfq-transition);
+    font-family: var(--sfq-font-family);
+}
+
+.sfq-text-input:focus {
+    outline: none;
+    border-bottom-color: var(--sfq-primary-color);
+}
+
+.sfq-input-line {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: var(--sfq-primary-color);
+    transition: width 0.3s ease;
+}
+
+.sfq-text-input:focus ~ .sfq-input-line {
+    width: 100%;
+}
+
+.sfq-input-error {
+    color: #e74c3c;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+    display: none;
+}
+
+.sfq-text-input:invalid ~ .sfq-input-error {
+    display: block;
+}
+
+/* Rating (estrellas y emojis) */
+.sfq-rating-wrapper {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    padding: 2rem 0;
+}
+
+.sfq-stars-rating {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.sfq-star {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    transition: var(--sfq-transition);
+}
+
+.sfq-star svg {
+    width: 48px;
+    height: 48px;
+    stroke: #d0d0d0;
+    fill: transparent;
+    transition: var(--sfq-transition);
+}
+
+.sfq-star:hover svg,
+.sfq-star.active svg {
+    stroke: #ffc107;
+    fill: #ffc107;
+    transform: scale(1.1);
+}
+
+.sfq-emoji-rating {
+    display: flex;
+    gap: 1rem;
+}
+
+.sfq-emoji {
+    background: none;
+    border: none;
+    font-size: 3rem;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: var(--sfq-transition);
+    padding: 0.5rem;
+}
+
+.sfq-emoji:hover,
+.sfq-emoji.active {
+    opacity: 1;
+    transform: scale(1.2);
+}
+
+/* Selección de imágenes */
+.sfq-image-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.sfq-image-option {
+    position: relative;
+    border-radius: var(--sfq-border-radius);
+    overflow: hidden;
+    cursor: pointer;
+    transition: var(--sfq-transition);
+    border: 3px solid transparent;
+}
+
+.sfq-image-option:hover {
+    transform: scale(1.05);
+}
+
+.sfq-image-option.selected {
+    border-color: var(--sfq-primary-color);
+}
+
+.sfq-image-option img {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    display: block;
+}
+
+.sfq-image-placeholder {
+    width: 100%;
+    height: 150px;
+    background: #f5f5f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sfq-image-placeholder .dashicons {
+    font-size: 48px;
+    color: #d0d0d0;
+}
+
+.sfq-image-label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 0.5rem;
+    font-size: 0.875rem;
+    text-align: center;
+}
+
+.sfq-image-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(var(--sfq-primary-color), 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: var(--sfq-transition);
+}
+
+.sfq-image-option.selected .sfq-image-overlay {
+    opacity: 1;
+}
+
+.sfq-check-icon {
+    width: 48px;
+    height: 48px;
+    fill: white;
+}
+
+/* Botones */
+.sfq-button {
+    padding: 0.875rem 2rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--sfq-border-radius);
+    cursor: pointer;
+    transition: var(--sfq-transition);
+    font-family: var(--sfq-font-family);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.sfq-button-primary {
+    background: var(--sfq-primary-color);
+    color: white;
+    box-shadow: 0 4px 14px rgba(var(--sfq-primary-color), 0.3);
+}
+
+.sfq-button-primary:hover {
+    background: color-mix(in srgb, var(--sfq-primary-color) 85%, black);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(var(--sfq-primary-color), 0.4);
+}
+
+.sfq-button-secondary {
+    background: transparent;
+    color: var(--sfq-secondary-color);
+    border: 2px solid var(--sfq-secondary-color);
+}
+
+.sfq-button-secondary:hover {
+    background: var(--sfq-secondary-color);
+    color: white;
+}
+
+/* Navegación */
+.sfq-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e0e0e0;
+}
+
+.sfq-navigation:has(.sfq-next-button:only-child) {
+    justify-content: flex-end;
+}
+
+/* Pantalla de agradecimiento */
+.sfq-thank-you-screen {
+    text-align: center;
+    padding: 3rem 0;
+}
+
+.sfq-success-icon {
+    margin-bottom: 2rem;
+    animation: successPulse 0.6s ease;
+}
+
+.sfq-success-icon svg {
+    color: #4caf50;
+}
+
+@keyframes successPulse {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.sfq-thank-you-message h2 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    color: var(--sfq-text-color);
+}
+
+.sfq-thank-you-message p {
+    font-size: 1.1rem;
+    color: rgba(var(--sfq-text-color), 0.8);
+}
+
+.sfq-redirect-message {
+    margin-top: 2rem;
+    font-size: 0.875rem;
+    color: var(--sfq-secondary-color);
+    font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .sfq-form-container {
+        padding: 1rem;
+    }
+    
+    .sfq-intro-title,
+    .sfq-question-text {
+        font-size: 1.25rem;
+    }
+    
+    .sfq-option-text {
+        font-size: 1rem;
+    }
+    
+    .sfq-button {
+        padding: 0.75rem 1.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .sfq-star svg {
+        width: 36px;
+        height: 36px;
+    }
+    
+    .sfq-emoji {
+        font-size: 2.5rem;
+    }
+}
+
+/* Animaciones adicionales */
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.sfq-screen.slide-left {
+    animation: slideInLeft 0.4s ease;
+}
+
+.sfq-screen.slide-right {
+    animation: slideInRight 0.4s ease;
+}
+
+/* Loading state */
+.sfq-loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Modo oscuro (opcional) */
+@media (prefers-color-scheme: dark) {
+    .sfq-form-container[data-theme="auto"] {
+        --sfq-background-color: #1a1a1a;
+        --sfq-text-color: #e0e0e0;
+    }
+    
+    .sfq-form-container[data-theme="auto"] .sfq-option-card {
+        background: #2a2a2a;
+        border-color: #3a3a3a;
+    }
+    
+    .sfq-form-container[data-theme="auto"] .sfq-text-input {
+        color: #e0e0e0;
+        border-bottom-color: #3a3a3a;
+    }
+}
