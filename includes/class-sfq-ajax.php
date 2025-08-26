@@ -34,6 +34,7 @@ class SFQ_Ajax {
         add_action('wp_ajax_sfq_get_form_quick_stats', array($this, 'get_form_quick_stats'));
         add_action('wp_ajax_sfq_get_submissions', array($this, 'get_submissions'));
         add_action('wp_ajax_sfq_get_submission_detail', array($this, 'get_submission_detail'));
+        add_action('wp_ajax_sfq_reset_form_stats', array($this, 'reset_form_stats'));
     }
     
     /**
@@ -1322,6 +1323,107 @@ class SFQ_Ajax {
             'submission' => $submission,
             'responses' => $responses
         ));
+    }
+    
+    /**
+     * Resetear estadísticas de un formulario (Admin AJAX)
+     */
+    public function reset_form_stats() {
+        // Verificar permisos
+        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
+            wp_send_json_error(__('No tienes permisos para realizar esta acción', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Verificar método de petición
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            wp_send_json_error(__('Método de petición no válido', 'smart-forms-quiz'));
+            return;
+        }
+        
+        $form_id = intval($_POST['form_id'] ?? 0);
+        
+        if (!$form_id) {
+            wp_send_json_error(__('ID de formulario inválido', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Verificar que el formulario existe
+        $form = $this->database->get_form($form_id);
+        if (!$form) {
+            wp_send_json_error(__('Formulario no encontrado', 'smart-forms-quiz'));
+            return;
+        }
+        
+        global $wpdb;
+        
+        // Iniciar transacción para asegurar integridad de datos
+        $wpdb->query('START TRANSACTION');
+        
+        try {
+            // Obtener todos los submission IDs del formulario
+            $submission_ids = $wpdb->get_col($wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}sfq_submissions WHERE form_id = %d",
+                $form_id
+            ));
+            
+            // Eliminar respuestas individuales
+            if (!empty($submission_ids)) {
+                $placeholders = implode(',', array_fill(0, count($submission_ids), '%d'));
+                $wpdb->query($wpdb->prepare(
+                    "DELETE FROM {$wpdb->prefix}sfq_responses WHERE submission_id IN ($placeholders)",
+                    $submission_ids
+                ));
+            }
+            
+            // Eliminar submissions/envíos
+            $submissions_deleted = $wpdb->delete(
+                $wpdb->prefix . 'sfq_submissions',
+                array('form_id' => $form_id),
+                array('%d')
+            );
+            
+            // Eliminar eventos de analytics
+            $analytics_deleted = $wpdb->delete(
+                $wpdb->prefix . 'sfq_analytics',
+                array('form_id' => $form_id),
+                array('%d')
+            );
+            
+            // Confirmar transacción
+            $wpdb->query('COMMIT');
+            
+            // Limpiar caché relacionado
+            $this->clear_form_cache($form_id);
+            wp_cache_delete("sfq_form_stats_{$form_id}", 'sfq_stats');
+            
+            // Log de la acción para auditoría
+            error_log("SFQ Stats Reset: Form {$form_id} statistics reset by user " . get_current_user_id() . ". Submissions deleted: {$submissions_deleted}, Analytics events deleted: {$analytics_deleted}");
+            
+            wp_send_json_success(array(
+                'message' => __('Estadísticas borradas correctamente', 'smart-forms-quiz'),
+                'submissions_deleted' => intval($submissions_deleted),
+                'analytics_deleted' => intval($analytics_deleted),
+                'form_title' => $form->title
+            ));
+            
+        } catch (Exception $e) {
+            // Rollback en caso de error
+            $wpdb->query('ROLLBACK');
+            
+            error_log('SFQ Error in reset_form_stats: ' . $e->getMessage());
+            
+            wp_send_json_error(array(
+                'message' => __('Error al borrar las estadísticas. Por favor, intenta de nuevo.', 'smart-forms-quiz'),
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
+        }
     }
     
     /**

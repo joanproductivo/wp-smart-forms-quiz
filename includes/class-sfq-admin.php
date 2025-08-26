@@ -161,6 +161,10 @@ class SFQ_Admin {
                                 <button class="button sfq-duplicate-form" data-form-id="<?php echo $form->id; ?>">
                                     <?php _e('Duplicar', 'smart-forms-quiz'); ?>
                                 </button>
+                                <button class="button sfq-reset-stats" data-form-id="<?php echo $form->id; ?>" title="<?php _e('Borrar estadísticas', 'smart-forms-quiz'); ?>">
+                                    <span class="dashicons dashicons-chart-line"></span>
+                                    <?php _e('Reset', 'smart-forms-quiz'); ?>
+                                </button>
                                 <button class="button sfq-delete-form" data-form-id="<?php echo $form->id; ?>">
                                     <?php _e('Eliminar', 'smart-forms-quiz'); ?>
                                 </button>
@@ -170,6 +174,33 @@ class SFQ_Admin {
                 </div>
             <?php endif; ?>
         </div>
+        
+        <!-- Estilos adicionales -->
+        <style>
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            
+            .sfq-reset-stats {
+                background-color: #f0f0f1;
+                border-color: #dcdcde;
+                color: #d63638;
+            }
+            
+            .sfq-reset-stats:hover {
+                background-color: #d63638;
+                border-color: #d63638;
+                color: #fff;
+            }
+            
+            .sfq-reset-stats:disabled {
+                background-color: #f6f7f7;
+                border-color: #dcdcde;
+                color: #a7aaad;
+                cursor: not-allowed;
+            }
+        </style>
         
         <!-- Script para cargar estadísticas dinámicamente -->
         <script>
@@ -243,6 +274,51 @@ class SFQ_Admin {
                     },
                     error: function() {
                         alert('Error al duplicar el formulario');
+                    }
+                });
+            });
+            
+            // Resetear estadísticas del formulario
+            $('.sfq-reset-stats').on('click', function() {
+                const formId = $(this).data('form-id');
+                const button = $(this);
+                
+                if (!confirm('¿Estás seguro de que quieres borrar todas las estadísticas de este formulario? Esta acción no se puede deshacer.')) {
+                    return;
+                }
+                
+                // Deshabilitar botón y mostrar estado de carga
+                const originalHtml = button.html();
+                button.prop('disabled', true).html('<span class="dashicons dashicons-update-alt" style="animation: spin 1s linear infinite;"></span> Borrando...');
+                
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'sfq_reset_form_stats',
+                        nonce: '<?php echo wp_create_nonce('sfq_nonce'); ?>',
+                        form_id: formId
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            // Resetear las estadísticas mostradas a 0
+                            const card = button.closest('.sfq-form-card');
+                            card.find('#views-' + formId).text('0');
+                            card.find('#completed-' + formId).text('0');
+                            card.find('#rate-' + formId).text('0%');
+                            
+                            // Mostrar mensaje de éxito
+                            alert('Estadísticas borradas correctamente');
+                        } else {
+                            alert('Error al borrar las estadísticas: ' + (response.data.message || 'Error desconocido'));
+                        }
+                    },
+                    error: function() {
+                        alert('Error al borrar las estadísticas');
+                    },
+                    complete: function() {
+                        // Restaurar botón
+                        button.prop('disabled', false).html(originalHtml);
                     }
                 });
             });
