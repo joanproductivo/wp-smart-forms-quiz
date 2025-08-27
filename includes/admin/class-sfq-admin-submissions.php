@@ -10,22 +10,52 @@ if (!defined('ABSPATH')) {
 class SFQ_Admin_Submissions {
     
     private $database;
+    private $country_cache = array();
+    private $allowed_sort_columns = array('id', 'form_title', 'completed_at', 'time_spent', 'user_id');
     
     public function __construct() {
         $this->database = new SFQ_Database();
+    }
+    
+    /**
+     * Verificar permisos y nonce de forma centralizada
+     */
+    private function verify_ajax_request() {
+        // Verificar permisos
+        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
+            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
+            return false;
+        }
+        
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Manejo centralizado de errores AJAX
+     */
+    private function handle_ajax_error($message, $exception = null) {
+        if ($exception) {
+            error_log('SFQ Error: ' . $message . ' - ' . $exception->getMessage());
+        }
+        wp_send_json_error($message);
     }
     
     public function init() {
         // AJAX handlers específicos para submissions
         add_action('wp_ajax_sfq_get_submissions_advanced', array($this, 'get_submissions_advanced'));
         add_action('wp_ajax_sfq_get_submission_detail', array($this, 'get_submission_detail'));
-        add_action('wp_ajax_sfq_get_submission_analytics', array($this, 'get_submission_analytics'));
         add_action('wp_ajax_sfq_export_submissions_advanced', array($this, 'export_submissions_advanced'));
         add_action('wp_ajax_sfq_delete_submissions_bulk', array($this, 'delete_submissions_bulk'));
+        add_action('wp_ajax_sfq_delete_submission', array($this, 'delete_submission')); // Added missing method
         add_action('wp_ajax_sfq_get_dashboard_stats', array($this, 'get_dashboard_stats'));
         add_action('wp_ajax_sfq_get_form_analytics', array($this, 'get_form_analytics'));
         add_action('wp_ajax_sfq_save_submission_note', array($this, 'save_submission_note'));
-        // Removed orphaned get_abandonment_analysis method - functionality not implemented
     }
     
     /**
@@ -528,15 +558,7 @@ class SFQ_Admin_Submissions {
      * Obtener submissions con filtros avanzados
      */
     public function get_submissions_advanced() {
-        // Verificar permisos
-        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
-            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
-            return;
-        }
-        
-        // Verificar nonce
-        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
-            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+        if (!$this->verify_ajax_request()) {
             return;
         }
         
@@ -587,15 +609,7 @@ class SFQ_Admin_Submissions {
      * Obtener detalle de un submission específico
      */
     public function get_submission_detail() {
-        // Verificar permisos
-        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
-            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
-            return;
-        }
-        
-        // Verificar nonce
-        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
-            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+        if (!$this->verify_ajax_request()) {
             return;
         }
         
@@ -625,27 +639,18 @@ class SFQ_Admin_Submissions {
         // Formatear datos del submission usando la misma lógica que funciona en la tabla
         $submission = $this->format_submission_data($submission);
         
-        // ASEGURAR que country_info esté correctamente asignado para el modal
-        // Usar la misma lógica exacta que en format_submission_data pero forzar recálculo
-        if (!empty($submission->user_ip)) {
-            $country_info = $this->get_country_from_ip($submission->user_ip);
-            
-            // Si no obtenemos información válida, usar datos de fallback
-            if (!$country_info || !is_array($country_info) || 
-                !isset($country_info['country_code']) || $country_info['country_code'] === 'XX') {
-                $country_info = $this->get_fallback_country_info($submission->user_ip);
+        // Asegurar que country_info esté presente y sea válido
+        if (!isset($submission->country_info) || !is_array($submission->country_info)) {
+            // Si no hay información del país, intentar obtenerla de nuevo
+            if (!empty($submission->user_ip)) {
+                $submission->country_info = $this->get_country_from_ip($submission->user_ip);
+            } else {
+                $submission->country_info = $this->get_default_country_info();
             }
-            
-            // Asegurar que todos los campos necesarios estén presentes
-            $submission->country_info = array(
-                'country_code' => $country_info['country_code'] ?? 'XX',
-                'country_name' => $country_info['country_name'] ?? __('Desconocido', 'smart-forms-quiz'),
-                'flag_emoji' => $country_info['flag_emoji'] ?? '🌍'
-            );
-        } else {
-            // Si no hay IP, usar datos por defecto
-            $submission->country_info = $this->get_default_country_info();
         }
+        
+        // Log para debugging (puedes comentar esto en producción)
+        error_log('Country info for submission ' . $submission_id . ': ' . json_encode($submission->country_info));
         
         // Obtener respuestas del submission
         $responses = $wpdb->get_results($wpdb->prepare(
@@ -840,15 +845,7 @@ class SFQ_Admin_Submissions {
      * Obtener estadísticas del dashboard
      */
     public function get_dashboard_stats() {
-        // Verificar permisos
-        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
-            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
-            return;
-        }
-        
-        // Verificar nonce
-        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
-            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+        if (!$this->verify_ajax_request()) {
             return;
         }
         
@@ -911,15 +908,7 @@ class SFQ_Admin_Submissions {
      * Obtener analytics de formularios
      */
     public function get_form_analytics() {
-        // Verificar permisos
-        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
-            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
-            return;
-        }
-        
-        // Verificar nonce
-        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
-            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+        if (!$this->verify_ajax_request()) {
             return;
         }
         
@@ -1000,59 +989,6 @@ class SFQ_Admin_Submissions {
             }
         }
         
-        // Si no hay datos reales, mostrar datos de ejemplo para testing
-        if (empty($countries_count)) {
-            $countries_count = array(
-                'ES' => array(
-                    'country_code' => 'ES',
-                    'country_name' => 'España',
-                    'flag_emoji' => '🇪🇸',
-                    'count' => 45
-                ),
-                'US' => array(
-                    'country_code' => 'US',
-                    'country_name' => 'Estados Unidos',
-                    'flag_emoji' => '🇺🇸',
-                    'count' => 32
-                ),
-                'MX' => array(
-                    'country_code' => 'MX',
-                    'country_name' => 'México',
-                    'flag_emoji' => '🇲🇽',
-                    'count' => 28
-                ),
-                'AR' => array(
-                    'country_code' => 'AR',
-                    'country_name' => 'Argentina',
-                    'flag_emoji' => '🇦🇷',
-                    'count' => 21
-                ),
-                'CO' => array(
-                    'country_code' => 'CO',
-                    'country_name' => 'Colombia',
-                    'flag_emoji' => '🇨🇴',
-                    'count' => 18
-                ),
-                'FR' => array(
-                    'country_code' => 'FR',
-                    'country_name' => 'Francia',
-                    'flag_emoji' => '🇫🇷',
-                    'count' => 15
-                ),
-                'DE' => array(
-                    'country_code' => 'DE',
-                    'country_name' => 'Alemania',
-                    'flag_emoji' => '🇩🇪',
-                    'count' => 12
-                ),
-                'BR' => array(
-                    'country_code' => 'BR',
-                    'country_name' => 'Brasil',
-                    'flag_emoji' => '🇧🇷',
-                    'count' => 10
-                )
-            );
-        }
         
         // Ordenar por cantidad y limitar a top 10
         uasort($countries_count, function($a, $b) {
@@ -1066,15 +1002,7 @@ class SFQ_Admin_Submissions {
      * Exportación avanzada de submissions
      */
     public function export_submissions_advanced() {
-        // Verificar permisos
-        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
-            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
-            return;
-        }
-        
-        // Verificar nonce
-        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
-            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+        if (!$this->verify_ajax_request()) {
             return;
         }
         
@@ -1228,15 +1156,7 @@ class SFQ_Admin_Submissions {
      * Eliminar submissions en lote
      */
     public function delete_submissions_bulk() {
-        // Verificar permisos
-        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
-            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
-            return;
-        }
-        
-        // Verificar nonce
-        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
-            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+        if (!$this->verify_ajax_request()) {
             return;
         }
         
@@ -1291,18 +1211,75 @@ class SFQ_Admin_Submissions {
     }
     
     /**
-     * Guardar nota administrativa
+     * Eliminar submission individual
      */
-    public function save_submission_note() {
-        // Verificar permisos
-        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
-            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
+    public function delete_submission() {
+        if (!$this->verify_ajax_request()) {
             return;
         }
         
-        // Verificar nonce
-        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
-            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+        $submission_id = intval($_POST['submission_id'] ?? 0);
+        
+        if (!$submission_id) {
+            wp_send_json_error(__('ID de submission inválido', 'smart-forms-quiz'));
+            return;
+        }
+        
+        global $wpdb;
+        
+        // Verificar que el submission existe
+        $submission = $wpdb->get_row($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}sfq_submissions WHERE id = %d",
+            $submission_id
+        ));
+        
+        if (!$submission) {
+            wp_send_json_error(__('Submission no encontrado', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Iniciar transacción
+        $wpdb->query('START TRANSACTION');
+        
+        try {
+            // Eliminar respuestas asociadas
+            $wpdb->delete(
+                $wpdb->prefix . 'sfq_responses',
+                array('submission_id' => $submission_id),
+                array('%d')
+            );
+            
+            // Eliminar submission
+            $deleted = $wpdb->delete(
+                $wpdb->prefix . 'sfq_submissions',
+                array('id' => $submission_id),
+                array('%d')
+            );
+            
+            // Eliminar nota administrativa si existe
+            delete_option("sfq_submission_note_{$submission_id}");
+            
+            $wpdb->query('COMMIT');
+            
+            if ($deleted) {
+                wp_send_json_success(array(
+                    'message' => __('Respuesta eliminada correctamente', 'smart-forms-quiz')
+                ));
+            } else {
+                wp_send_json_error(__('Error al eliminar la respuesta', 'smart-forms-quiz'));
+            }
+            
+        } catch (Exception $e) {
+            $wpdb->query('ROLLBACK');
+            wp_send_json_error(__('Error al eliminar submission: ', 'smart-forms-quiz') . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Guardar nota administrativa
+     */
+    public function save_submission_note() {
+        if (!$this->verify_ajax_request()) {
             return;
         }
         
@@ -1315,9 +1292,6 @@ class SFQ_Admin_Submissions {
         }
         
         // Guardar nota como meta
-        $meta_key = 'sfq_admin_note';
-        $existing_note = get_option("sfq_submission_note_{$submission_id}", '');
-        
         if (empty($note)) {
             delete_option("sfq_submission_note_{$submission_id}");
         } else {
@@ -1577,7 +1551,7 @@ class SFQ_Admin_Submissions {
             'JE' => '🇯🇪', 'JM' => '🇯🇲', 'JO' => '🇯🇴', 'JP' => '🇯🇵', 'KE' => '🇰🇪',
             'KG' => '🇰🇬', 'KH' => '🇰🇭', 'KI' => '🇰🇮', 'KM' => '🇰🇲', 'KN' => '🇰🇳',
             'KP' => '🇰🇵', 'KR' => '🇰🇷', 'KW' => '🇰🇼', 'KY' => '🇰🇾', 'KZ' => '🇰🇿',
-            'LA' => '🇱🇦', 'LB' => '🇱🇧', 'LC' => '🇱🇨', 'LI' => '🇱🇮', 'LK' => '🇱🇰',
+            'LA' => '🇱🇦', 'LB' => '�🇧', 'LC' => '🇱🇨', 'LI' => '🇱�🇮', 'LK' => '🇱🇰',
             'LR' => '🇱🇷', 'LS' => '🇱🇸', 'LT' => '🇱🇹', 'LU' => '🇱🇺', 'LV' => '🇱🇻',
             'LY' => '🇱🇾', 'MA' => '🇲🇦', 'MC' => '🇲🇨', 'MD' => '🇲🇩', 'ME' => '🇲🇪',
             'MF' => '🇲🇫', 'MG' => '🇲🇬', 'MH' => '🇲🇭', 'MK' => '🇲🇰', 'ML' => '🇲🇱',
@@ -1586,21 +1560,21 @@ class SFQ_Admin_Submissions {
             'MW' => '🇲🇼', 'MX' => '🇲🇽', 'MY' => '🇲🇾', 'MZ' => '🇲🇿', 'NA' => '🇳🇦',
             'NC' => '🇳🇨', 'NE' => '🇳🇪', 'NF' => '🇳🇫', 'NG' => '🇳🇬', 'NI' => '🇳🇮',
             'NL' => '🇳🇱', 'NO' => '🇳🇴', 'NP' => '🇳🇵', 'NR' => '🇳🇷', 'NU' => '🇳🇺',
-            'NZ' => '🇳🇿', 'OM' => '🇴🇲', 'PA' => '🇵🇦', 'PE' => '🇵🇪', 'PF' => '🇵🇫',
-            'PG' => '🇵🇬', 'PH' => '🇵🇭', 'PK' => '🇵🇰', 'PL' => '🇵🇱', 'PM' => '🇵🇲',
+            'NZ' => '🇳🇿', 'OM' => '🇴🇲', 'PA' => '🇵🇦', 'PE' => '🇵🇪', 'PF' => '🇵�',
+            'PG' => '🇵🇬', 'PH' => '🇵🇭', 'PK' => '🇵�🇰', 'PL' => '🇵🇱', 'PM' => '🇵🇲',
             'PN' => '🇵🇳', 'PR' => '🇵🇷', 'PS' => '🇵🇸', 'PT' => '🇵🇹', 'PW' => '🇵🇼',
             'PY' => '🇵🇾', 'QA' => '🇶🇦', 'RE' => '🇷🇪', 'RO' => '🇷🇴', 'RS' => '🇷🇸',
             'RU' => '🇷🇺', 'RW' => '🇷🇼', 'SA' => '🇸🇦', 'SB' => '🇸🇧', 'SC' => '🇸🇨',
             'SD' => '🇸🇩', 'SE' => '🇸🇪', 'SG' => '🇸🇬', 'SH' => '🇸🇭', 'SI' => '🇸🇮',
-            'SJ' => '🇸🇯', 'SK' => '🇸🇰', 'SL' => '🇸🇱', 'SM' => '🇸🇲', 'SN' => '🇸🇳',
+            'SJ' => '🇸🇯', 'SK' => '🇸🇰', 'SL' => '🇸🇱', 'SM' => '🇸🇲', 'SN' => '🇸�',
             'SO' => '🇸🇴', 'SR' => '🇸🇷', 'SS' => '🇸🇸', 'ST' => '🇸🇹', 'SV' => '🇸🇻',
             'SX' => '🇸🇽', 'SY' => '🇸🇾', 'SZ' => '🇸🇿', 'TC' => '🇹🇨', 'TD' => '🇹🇩',
-            'TF' => '🇹🇫', 'TG' => '🇹🇬', 'TH' => '🇹🇭', 'TJ' => '🇹🇯', 'TK' => '🇹🇰',
+            'TF' => '🇹🇫', 'TG' => '🇹🇬', 'TH' => '🇹🇭', 'TJ' => '🇹🇯', 'TK' => '🇹�🇰',
             'TL' => '🇹🇱', 'TM' => '🇹🇲', 'TN' => '🇹🇳', 'TO' => '🇹🇴', 'TR' => '🇹🇷',
             'TT' => '🇹🇹', 'TV' => '🇹🇻', 'TW' => '🇹🇼', 'TZ' => '🇹🇿', 'UA' => '🇺🇦',
-            'UG' => '🇺🇬', 'UM' => '🇺🇲', 'US' => '🇺🇸', 'UY' => '🇺🇾', 'UZ' => '🇺🇿',
+            'UG' => '🇺🇬', 'UM' => '🇺🇲', 'US' => '🇺🇸', 'UY' => '🇺�', 'UZ' => '🇺🇿',
             'VA' => '🇻🇦', 'VC' => '🇻🇨', 'VE' => '🇻🇪', 'VG' => '🇻🇬', 'VI' => '🇻🇮',
-            'VN' => '🇻🇳', 'VU' => '🇻🇺', 'WF' => '🇼🇫', 'WS' => '🇼🇸', 'YE' => '🇾🇪',
+            'VN' => '🇻�🇳', 'VU' => '🇻🇺', 'WF' => '🇼🇫', 'WS' => '🇼🇸', 'YE' => '🇾🇪',
             'YT' => '🇾🇹', 'ZA' => '🇿🇦', 'ZM' => '🇿🇲', 'ZW' => '🇿🇼'
         );
         
