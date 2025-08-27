@@ -59,21 +59,11 @@ class SFQ_Admin {
         // Submenú - Respuestas
         add_submenu_page(
             'smart-forms-quiz',
-            __('Respuestas', 'smart-forms-quiz'),
-            __('Respuestas', 'smart-forms-quiz'),
+            __('Estadísticas', 'smart-forms-quiz'),
+            __('Estadísticas', 'smart-forms-quiz'),
             'manage_smart_forms',
             'sfq-submissions',
             array($this, 'render_submissions_page')
-        );
-        
-        // Submenú - Analytics
-        add_submenu_page(
-            'smart-forms-quiz',
-            __('Analytics', 'smart-forms-quiz'),
-            __('Analytics', 'smart-forms-quiz'),
-            'manage_smart_forms',
-            'sfq-analytics',
-            array($this, 'render_analytics_page')
         );
         
         // Submenú oculto - Estadísticas de formulario individual

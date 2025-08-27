@@ -1171,14 +1171,6 @@ class SFQ_Ajax {
         
         global $wpdb;
         
-        // Obtener total de vistas (eventos 'view')
-        $total_views = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(DISTINCT session_id) 
-            FROM {$wpdb->prefix}sfq_analytics 
-            WHERE form_id = %d AND event_type = 'view'",
-            $form_id
-        ));
-        
         // Obtener total de completados
         $total_completed = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) 
@@ -1186,6 +1178,25 @@ class SFQ_Ajax {
             WHERE form_id = %d AND status = 'completed'",
             $form_id
         ));
+        
+        // Obtener total de vistas (eventos 'view') - con lógica de fallback igual que en estadísticas detalladas
+        $analytics_table = $wpdb->prefix . 'sfq_analytics';
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$analytics_table'") === $analytics_table;
+        
+        $total_views = 0;
+        if ($table_exists) {
+            $total_views = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(DISTINCT session_id) 
+                FROM {$wpdb->prefix}sfq_analytics 
+                WHERE form_id = %d AND event_type = 'view'",
+                $form_id
+            ));
+        }
+        
+        // Si no hay vistas en analytics, usar el contador de submissions como aproximación (igual que en estadísticas detalladas)
+        if ($total_views == 0 && $total_completed > 0) {
+            $total_views = $total_completed * 2; // Estimación conservadora
+        }
         
         // Calcular tasa de conversión
         $conversion_rate = 0;

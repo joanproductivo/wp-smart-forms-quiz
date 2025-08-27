@@ -230,7 +230,7 @@
                         </div>
                         <div class="sfq-question-content">
                             <div class="sfq-options-list">
-                                ${this.renderOptions(question.options)}
+                                ${this.renderOptions(question.options, index)}
                             </div>
                             <div class="sfq-chart-container">
                                 <canvas id="${chartId}" width="300" height="300"></canvas>
@@ -251,25 +251,161 @@
                     const chartId = `chart-question-${index}`;
                     this.createQuestionChart(question, chartId);
                 });
+                
+                // Bind country toggle events
+                this.bindCountryToggleEvents();
             }, 100);
         }
 
-        renderOptions(options) {
+        renderOptions(options, questionIndex) {
             if (!options || options.length === 0) {
                 return '<p>No hay opciones disponibles</p>';
             }
             
-            return options.map(option => `
-                <div class="sfq-option-stat">
-                    <div class="sfq-option-info">
-                        <span class="sfq-option-text">${this.escapeHtml(option.option)}</span>
-                        <span class="sfq-option-count">${option.count} (${option.percentage}%)</span>
+            // CORREGIDO: Verificar si alguna opción tiene datos de países (incluso arrays vacíos cuentan como "tiene datos")
+            const hasAnyCountriesData = options.some(option => 
+                option.countries_data !== undefined && option.countries_data !== null
+            );
+            
+            let html = '';
+            
+            // CORREGIDO: Mostrar botón para expandir/colapsar todos SIEMPRE que haya countries_data definido
+            if (hasAnyCountriesData) {
+                html += `
+                    <div class="sfq-expand-all-countries">
+                        <button class="sfq-expand-all-btn" data-question="${questionIndex}" title="Expandir/colapsar todos los países">
+                            <span class="dashicons dashicons-admin-site-alt3"></span>
+                            <span class="sfq-expand-all-text">Mostrar todos los países</span>
+                        </button>
                     </div>
-                    <div class="sfq-option-bar">
-                        <div class="sfq-option-bar-fill" style="width: ${option.percentage}%"></div>
+                `;
+            }
+            
+            html += options.map((option, optionIndex) => {
+                // CORREGIDO: Verificar si tiene datos de países (incluso si está vacío)
+                const hasCountriesData = option.countries_data !== undefined && option.countries_data !== null;
+                const hasCountriesContent = hasCountriesData && option.countries_data.length > 0;
+                const optionId = `option-q${questionIndex}-o${optionIndex}-${Date.now()}`;
+                
+                return `
+                    <div class="sfq-option-stat">
+                        <div class="sfq-option-info">
+                            <span class="sfq-option-text">${this.escapeHtml(option.option)}</span>
+                            <span class="sfq-option-count">${option.count} (${option.percentage}%)</span>
+                            ${hasCountriesData ? `
+                                <button class="sfq-countries-toggle" data-target="${optionId}" title="Ver desglose por países">
+                                    <span class="dashicons dashicons-admin-site-alt3"></span>
+                                </button>
+                            ` : ''}
+                        </div>
+                        <div class="sfq-option-bar">
+                            <div class="sfq-option-bar-fill" style="width: ${option.percentage}%"></div>
+                        </div>
+                        ${hasCountriesData ? `
+                            <div class="sfq-countries-breakdown" id="${optionId}" style="display: none;">
+                                <div class="sfq-countries-header">
+                                    <h5>Desglose por países</h5>
+                                    <span class="sfq-countries-total">${option.count} respuestas</span>
+                                </div>
+                                <div class="sfq-countries-list">
+                                    ${hasCountriesContent ? 
+                                        this.renderCountriesBreakdown(option.countries_data) : 
+                                        '<p class="sfq-no-countries">No hay datos de países disponibles para esta opción</p>'
+                                    }
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+            
+            return html;
+        }
+
+        renderCountriesBreakdown(countriesData) {
+            if (!countriesData || countriesData.length === 0) {
+                return '<p class="sfq-no-countries">No hay datos de países disponibles</p>';
+            }
+            
+            return countriesData.map(country => `
+                <div class="sfq-country-item">
+                    <span class="sfq-country-flag">${country.flag_emoji}</span>
+                    <span class="sfq-country-name">${this.escapeHtml(country.country_name)}</span>
+                    <span class="sfq-country-stats">
+                        <span class="sfq-country-count">${country.count}</span>
+                        <span class="sfq-country-percentage">(${country.percentage}%)</span>
+                    </span>
+                    <div class="sfq-country-mini-bar">
+                        <div class="sfq-country-mini-bar-fill" style="width: ${country.percentage}%"></div>
                     </div>
                 </div>
             `).join('');
+        }
+
+        bindCountryToggleEvents() {
+            // Handle country breakdown toggle
+            $(document).off('click', '.sfq-countries-toggle').on('click', '.sfq-countries-toggle', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const button = $(e.currentTarget);
+                const targetId = button.data('target');
+                const breakdown = $(`#${targetId}`);
+                const icon = button.find('.dashicons');
+                
+                if (breakdown.is(':visible')) {
+                    // Collapse
+                    breakdown.slideUp(200);
+                    icon.removeClass('dashicons-dismiss').addClass('dashicons-admin-site-alt3');
+                    button.attr('title', 'Ver desglose por países');
+                } else {
+                    // Expand
+                    breakdown.slideDown(200);
+                    icon.removeClass('dashicons-admin-site-alt3').addClass('dashicons-dismiss');
+                    button.attr('title', 'Ocultar desglose por países');
+                }
+            });
+
+            // Handle expand/collapse all countries for a question
+            $(document).off('click', '.sfq-expand-all-btn').on('click', '.sfq-expand-all-btn', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const button = $(e.currentTarget);
+                const questionIndex = button.data('question');
+                const questionCard = button.closest('.sfq-question-stat-card');
+                const allBreakdowns = questionCard.find('.sfq-countries-breakdown');
+                const allToggleButtons = questionCard.find('.sfq-countries-toggle');
+                const buttonIcon = button.find('.dashicons');
+                const buttonText = button.find('.sfq-expand-all-text');
+                
+                // Verificar si alguno está visible
+                const anyVisible = allBreakdowns.filter(':visible').length > 0;
+                
+                if (anyVisible) {
+                    // Colapsar todos
+                    allBreakdowns.slideUp(200);
+                    allToggleButtons.each(function() {
+                        const icon = $(this).find('.dashicons');
+                        icon.removeClass('dashicons-dismiss').addClass('dashicons-admin-site-alt3');
+                        $(this).attr('title', 'Ver desglose por países');
+                    });
+                    buttonIcon.removeClass('dashicons-dismiss').addClass('dashicons-admin-site-alt3');
+                    buttonText.text('Mostrar todos los países');
+                    button.attr('title', 'Expandir todos los países');
+                } else {
+                    // Expandir todos
+                    allBreakdowns.slideDown(200);
+                    allToggleButtons.each(function() {
+                        const icon = $(this).find('.dashicons');
+                        icon.removeClass('dashicons-admin-site-alt3').addClass('dashicons-dismiss');
+                        $(this).attr('title', 'Ocultar desglose por países');
+                    });
+                    buttonIcon.removeClass('dashicons-admin-site-alt3').addClass('dashicons-dismiss');
+                    buttonText.text('Ocultar todos los países');
+                    button.attr('title', 'Colapsar todos los países');
+                }
+            });
         }
 
         createQuestionChart(question, canvasId) {
@@ -292,6 +428,7 @@
                 opt.option.length > 20 ? opt.option.substring(0, 20) + '...' : opt.option
             );
             const data = question.options.map(opt => opt.count || 0);
+            const percentages = question.options.map(opt => opt.percentage || 0); // CORREGIDO: Usar porcentajes del backend
             const colors = this.generateColors(question.options.length);
             
             // Skip chart if all values are 0
@@ -331,9 +468,19 @@
                                 callbacks: {
                                     label: function(context) {
                                         const label = context.label || '';
-                                        const value = context.parsed || 0;
-                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                        const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                        let value;
+                                        
+                                        // CORREGIDO: Manejar diferentes tipos de datos de Chart.js
+                                        if (question.question_type === 'rating') {
+                                            // Para gráficos de barras (rating)
+                                            value = context.parsed.y || 0;
+                                        } else {
+                                            // Para gráficos de dona (single_choice, multiple_choice, etc.)
+                                            value = context.parsed || 0;
+                                        }
+                                        
+                                        // CORREGIDO: Usar el porcentaje correcto del backend
+                                        const percentage = percentages[context.dataIndex] || 0;
                                         return `${label}: ${value} (${percentage}%)`;
                                     }
                                 }
@@ -502,6 +649,9 @@
         updateTimeline(timelineData) {
             if (!timelineData) return;
             
+            // Store timeline data for chart creation
+            this.timelineData = timelineData;
+            
             // Update stats cards
             $('#best-day').text(timelineData.best_day.date ? 
                 `${timelineData.best_day.date} (${timelineData.best_day.count})` : '-');
@@ -513,8 +663,167 @@
         }
 
         updateTimelineChart() {
-            // This will be called when timeline tab is activated
-            // Chart creation logic here
+            // Create timeline chart when tab is activated
+            if (!this.timelineData || !this.timelineData.daily_data) {
+                console.log('No timeline data available for chart');
+                return;
+            }
+            
+            const canvas = document.getElementById('sfq-timeline-chart');
+            if (!canvas) {
+                console.error('Timeline chart canvas not found');
+                return;
+            }
+            
+            // Set explicit canvas dimensions to prevent infinite stretching
+            const container = canvas.parentElement;
+            const containerWidth = container.offsetWidth || 800;
+            const containerHeight = Math.min(400, Math.max(300, containerWidth * 0.5));
+            
+            canvas.style.width = containerWidth + 'px';
+            canvas.style.height = containerHeight + 'px';
+            canvas.width = containerWidth;
+            canvas.height = containerHeight;
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Destroy existing chart if exists
+            if (this.charts.timeline) {
+                this.charts.timeline.destroy();
+                this.charts.timeline = null;
+            }
+            
+            // Prepare data
+            const dailyData = this.timelineData.daily_data;
+            
+            // Validate data
+            if (!dailyData || dailyData.length === 0) {
+                canvas.parentElement.innerHTML = '<p style="text-align: center; color: #646970; padding: 40px;">No hay datos de timeline disponibles</p>';
+                return;
+            }
+            
+            const labels = dailyData.map(item => {
+                const date = new Date(item.date);
+                return date.toLocaleDateString('es-ES', { 
+                    month: 'short', 
+                    day: 'numeric' 
+                });
+            });
+            const data = dailyData.map(item => parseInt(item.count) || 0);
+            
+            // Create timeline chart with fixed dimensions
+            try {
+                this.charts.timeline = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Respuestas por día',
+                            data: data,
+                            borderColor: '#007cba',
+                            backgroundColor: 'rgba(0, 124, 186, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: '#007cba',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: false, // Disable responsive to prevent infinite stretching
+                        maintainAspectRatio: false,
+                        animation: {
+                            duration: 750,
+                            easing: 'easeInOutQuart'
+                        },
+                        layout: {
+                            padding: {
+                                top: 10,
+                                right: 10,
+                                bottom: 10,
+                                left: 10
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1,
+                                    maxTicksLimit: 8
+                                },
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    maxTicksLimit: 10,
+                                    maxRotation: 45
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                titleColor: '#fff',
+                                bodyColor: '#fff',
+                                borderColor: '#007cba',
+                                borderWidth: 1,
+                                callbacks: {
+                                    title: function(context) {
+                                        return context[0].label;
+                                    },
+                                    label: function(context) {
+                                        return `Respuestas: ${context.parsed.y}`;
+                                    }
+                                }
+                            }
+                        },
+                        interaction: {
+                            intersect: false,
+                            mode: 'index'
+                        },
+                        elements: {
+                            point: {
+                                hoverRadius: 8
+                            }
+                        }
+                    }
+                });
+                
+                // Add resize handler to update chart when container size changes
+                const resizeObserver = new ResizeObserver(() => {
+                    if (this.charts.timeline) {
+                        const newWidth = container.offsetWidth || 800;
+                        const newHeight = Math.min(400, Math.max(300, newWidth * 0.5));
+                        
+                        canvas.style.width = newWidth + 'px';
+                        canvas.style.height = newHeight + 'px';
+                        canvas.width = newWidth;
+                        canvas.height = newHeight;
+                        
+                        this.charts.timeline.resize();
+                    }
+                });
+                
+                resizeObserver.observe(container);
+                
+                // Store observer for cleanup
+                this.charts.timelineResizeObserver = resizeObserver;
+                
+            } catch (error) {
+                console.error('Error creating timeline chart:', error);
+                canvas.parentElement.innerHTML = '<p style="text-align: center; color: #dc3232; padding: 40px;">Error al crear el gráfico de timeline</p>';
+            }
         }
 
         getTrendText(trend) {

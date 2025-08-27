@@ -1090,12 +1090,8 @@
             if (typeof Chart === 'undefined') {
                 const script = document.createElement('script');
                 script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-                script.onload = () => {
-                    console.log('Chart.js loaded successfully');
-                    this.initCharts();
-                };
+                script.onload = () => this.initCharts();
                 script.onerror = () => {
-                    console.error('Failed to load Chart.js');
                     NotificationManager.show('Error al cargar gráficos. Algunas funciones pueden no estar disponibles.', 'warning');
                 };
                 document.head.appendChild(script);
@@ -1106,17 +1102,12 @@
                 const link = document.createElement('link');
                 link.rel = 'stylesheet';
                 link.href = 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css';
-                link.onerror = () => console.error('Failed to load Flatpickr CSS');
                 document.head.appendChild(link);
 
                 const script = document.createElement('script');
                 script.src = 'https://cdn.jsdelivr.net/npm/flatpickr';
-                script.onload = () => {
-                    console.log('Flatpickr loaded successfully');
-                    this.initDatePickers();
-                };
+                script.onload = () => this.initDatePickers();
                 script.onerror = () => {
-                    console.error('Failed to load Flatpickr');
                     NotificationManager.show('Error al cargar selector de fechas. Use formato YYYY-MM-DD.', 'warning');
                 };
                 document.head.appendChild(script);
@@ -1160,6 +1151,9 @@
 
             // Charts
             $('#sfq-chart-period').on('change', () => this.loadAnalyticsData());
+
+            // Dashboard period selector
+            $('#sfq-dashboard-period').on('change', () => this.loadDashboardStats());
 
             // Configuración de columnas
             $('#sfq-table-columns').on('click', () => ColumnManager.showModal());
@@ -1211,7 +1205,9 @@
         },
 
         loadDashboardStats: function() {
-            AjaxManager.request('sfq_get_dashboard_stats', {}, { showLoading: false })
+            const period = $('#sfq-dashboard-period').val() || 7;
+            
+            AjaxManager.request('sfq_get_dashboard_stats', { period: period }, { showLoading: false })
                 .done((response) => {
                     if (response.success) {
                         DashboardManager.updateStats(response.data);
@@ -1380,6 +1376,69 @@ jQuery(document).ready(function($) {
 
                 .sfq-pagination-dots {
                     padding: 0 8px;
+                    color: #6c757d;
+                }
+
+                .sfq-dashboard-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 20px;
+                    padding: 15px 20px;
+                    background: #fff;
+                    border: 1px solid #ddd;
+                    border-radius: 6px;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                }
+
+                .sfq-dashboard-header h2 {
+                    margin: 0;
+                    font-size: 18px;
+                    color: #23282d;
+                }
+
+                .sfq-dashboard-controls {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }
+
+                .sfq-dashboard-controls label {
+                    font-weight: 600;
+                    color: #555;
+                    margin: 0;
+                }
+
+                .sfq-dashboard-controls select {
+                    min-width: 150px;
+                    padding: 6px 10px;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    background: #fff;
+                    font-size: 13px;
+                }
+
+                .sfq-dashboard-controls select:focus {
+                    border-color: #007cba;
+                    box-shadow: 0 0 0 1px #007cba;
+                    outline: none;
+                }
+
+                .sfq-stat-change {
+                    font-size: 12px;
+                    font-weight: 600;
+                    margin-top: 4px;
+                }
+
+                .sfq-stat-change.positive {
+                    color: #46b450;
+                }
+
+                .sfq-stat-change.negative {
+                    color: #dc3232;
+                }
+
+                .sfq-stat-change.neutral {
                     color: #6c757d;
                 }
             </style>

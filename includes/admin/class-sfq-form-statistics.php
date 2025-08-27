@@ -442,11 +442,21 @@ class SFQ_Form_Statistics {
         
         $total_views = 0;
         if ($table_exists) {
-            $total_views = $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(DISTINCT session_id) FROM {$wpdb->prefix}sfq_analytics 
-                WHERE form_id = %d AND event_type = 'view' {$date_condition['where']}",
-                $query_params
-            ));
+            // Construir consulta de analytics con parámetros separados
+            $analytics_query = "SELECT COUNT(DISTINCT session_id) FROM {$wpdb->prefix}sfq_analytics 
+                               WHERE form_id = %d AND event_type = 'view'";
+            $analytics_params = [$form_id];
+            
+            // Añadir condiciones de fecha para analytics (usar created_at en lugar de completed_at)
+            if (!empty($date_condition['params'])) {
+                $analytics_date_condition = str_replace('completed_at', 'created_at', $date_condition['where']);
+                $analytics_query .= $analytics_date_condition;
+                $analytics_params = array_merge($analytics_params, $date_condition['params']);
+            }
+            
+            $total_views = $wpdb->get_var($wpdb->prepare($analytics_query, $analytics_params));
+            
+            error_log("SFQ Debug: Analytics query: " . $wpdb->prepare($analytics_query, $analytics_params));
         }
         
         // Si no hay vistas en analytics, usar el contador de submissions como aproximación
@@ -472,17 +482,8 @@ class SFQ_Form_Statistics {
         
         $avg_time = $wpdb->get_var($wpdb->prepare($avg_time_query, $avg_time_params));
         
-        // Países únicos - construir consulta de forma más robusta
-        $countries_query = "SELECT COUNT(DISTINCT user_ip) FROM {$wpdb->prefix}sfq_submissions 
-                           WHERE form_id = %d AND status = 'completed' AND user_ip IS NOT NULL AND user_ip != ''";
-        $countries_params = [$form_id];
-        
-        if (!empty($date_condition['params'])) {
-            $countries_query .= $date_condition['where'];
-            $countries_params = array_merge($countries_params, $date_condition['params']);
-        }
-        
-        $countries_count = $wpdb->get_var($wpdb->prepare($countries_query, $countries_params));
+        // Países únicos - usar la misma lógica que get_countries_distribution para consistencia
+        $countries_count = $this->get_valid_countries_count($form_id, $date_condition);
         
         // Log de resultados para debugging
         error_log("SFQ Debug: Stats for form $form_id - Responses: $total_responses, Views: $total_views, Avg time: $avg_time, Countries: $countries_count");
@@ -605,6 +606,24 @@ class SFQ_Form_Statistics {
                 $options = json_decode($question->options, true);
                 
                 if (is_array($options)) {
+                    // Contar el número único de submissions que respondieron esta pregunta
+                    $unique_submissions = $wpdb->get_var($wpdb->prepare(
+                        "SELECT COUNT(DISTINCT r.submission_id) 
+                        FROM {$wpdb->prefix}sfq_responses r
+                        LEFT JOIN {$wpdb->prefix}sfq_submissions s ON r.submission_id = s.id
+                        WHERE r.question_id = %d AND s.form_id = %d AND s.status = 'completed'" . 
+                        (!empty($date_condition['params']) ? $date_condition['where'] : ''),
+                        array_merge([$question->id, $form_id], $date_condition['params'] ?? [])
+                    ));
+                    
+                    // CORREGIDO COMPLETAMENTE: Usar el denominador correcto según el tipo de pregunta
+                    // - Single choice: usar unique_submissions (número de personas que respondieron)
+                    // - Multiple choice: usar unique_submissions (número de personas que respondieron) 
+                    // - Image choice: usar unique_submissions (número de personas que respondieron)
+                    $total_for_percentage = $unique_submissions;
+                    
+                    error_log("SFQ Debug: Question {$question->id} ({$question->question_type}) - Total responses: $total_responses, Unique submissions: $unique_submissions, Using for percentage: $total_for_percentage");
+                    
                     foreach ($options as $option) {
                         $option_text = is_array($option) ? ($option['text'] ?? $option['label'] ?? $option) : $option;
                         $count = 0;
@@ -622,18 +641,35 @@ class SFQ_Form_Statistics {
                             }
                         }
                         
-                        $percentage = $total_responses > 0 ? round(($count / $total_responses) * 100, 1) : 0;
+                        // CORREGIDO COMPLETAMENTE: Calcular porcentaje usando unique_submissions para todos los tipos con opciones
+                        $percentage = $total_for_percentage > 0 ? round(($count / $total_for_percentage) * 100, 1) : 0;
+                        
+                        error_log("SFQ Debug: Option '$option_text' - Count: $count, Total for %: $total_for_percentage, Percentage: $percentage");
+                        
+                        // CORREGIDO: Obtener datos de países para todas las preguntas con opciones
+                        $countries_data = $this->get_countries_for_option($question->id, $option_text, $date_condition);
                         
                         $options_stats[] = array(
                             'option' => $option_text,
                             'count' => $count,
-                            'percentage' => $percentage
+                            'percentage' => $percentage,
+                            'countries_data' => $countries_data
                         );
                     }
                 }
             } else if ($question->question_type == 'rating') {
-                // Para preguntas de valoración
+                // Para preguntas de valoración - usar unique submissions también
                 $max_rating = intval($question->max_rating ?? 5);
+                
+                // Contar unique submissions para rating también
+                $unique_submissions = $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(DISTINCT r.submission_id) 
+                    FROM {$wpdb->prefix}sfq_responses r
+                    LEFT JOIN {$wpdb->prefix}sfq_submissions s ON r.submission_id = s.id
+                    WHERE r.question_id = %d AND s.form_id = %d AND s.status = 'completed'" . 
+                    (!empty($date_condition['params']) ? $date_condition['where'] : ''),
+                    array_merge([$question->id, $form_id], $date_condition['params'] ?? [])
+                ));
                 
                 for ($i = 1; $i <= $max_rating; $i++) {
                     $count = 0;
@@ -644,27 +680,69 @@ class SFQ_Form_Statistics {
                         }
                     }
                     
-                    $percentage = $total_responses > 0 ? round(($count / $total_responses) * 100, 1) : 0;
+                    // CORREGIDO: Usar unique_submissions para rating también
+                    $percentage = $unique_submissions > 0 ? round(($count / $unique_submissions) * 100, 1) : 0;
+                    
+                    // CORREGIDO: Obtener datos de países para rating también
+                    $countries_data = $this->get_countries_for_option($question->id, $i, $date_condition);
                     
                     $options_stats[] = array(
                         'option' => $i . ' ' . str_repeat('⭐', $i),
                         'count' => $count,
-                        'percentage' => $percentage
+                        'percentage' => $percentage,
+                        'countries_data' => $countries_data
                     );
                 }
             } else {
                 // Para preguntas de texto, email, etc.
+                // Contar unique submissions para estos tipos también
+                $unique_submissions = $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(DISTINCT r.submission_id) 
+                    FROM {$wpdb->prefix}sfq_responses r
+                    LEFT JOIN {$wpdb->prefix}sfq_submissions s ON r.submission_id = s.id
+                    WHERE r.question_id = %d AND s.form_id = %d AND s.status = 'completed'" . 
+                    (!empty($date_condition['params']) ? $date_condition['where'] : ''),
+                    array_merge([$question->id, $form_id], $date_condition['params'] ?? [])
+                ));
+                
                 // Mostrar las respuestas más comunes
                 foreach ($responses as $response) {
                     if (count($options_stats) >= 10) break; // Limitar a 10 respuestas más comunes
                     
-                    $percentage = $total_responses > 0 ? round(($response->count / $total_responses) * 100, 1) : 0;
+                    // CORREGIDO: Usar unique_submissions para texto también
+                    $percentage = $unique_submissions > 0 ? round(($response->count / $unique_submissions) * 100, 1) : 0;
+                    
+                    // CORREGIDO: Obtener datos de países para preguntas de texto también
+                    $countries_data = $this->get_countries_for_option($question->id, $response->answer, $date_condition);
                     
                     $options_stats[] = array(
                         'option' => substr($response->answer, 0, 50) . (strlen($response->answer) > 50 ? '...' : ''),
                         'count' => $response->count,
-                        'percentage' => $percentage
+                        'percentage' => $percentage,
+                        'countries_data' => $countries_data
                     );
+                }
+            }
+            
+            // CORREGIDO: Verificar y ajustar porcentajes para que sumen exactamente 100%
+            if ($total_responses > 0 && !empty($options_stats)) {
+                $total_percentage = array_sum(array_column($options_stats, 'percentage'));
+                
+                // Si hay diferencia debido al redondeo, ajustar la opción con más respuestas
+                if ($total_percentage != 100.0 && abs($total_percentage - 100.0) <= 2.0) {
+                    // Encontrar la opción con más respuestas
+                    $max_count = 0;
+                    $max_index = 0;
+                    foreach ($options_stats as $index => $option) {
+                        if ($option['count'] > $max_count) {
+                            $max_count = $option['count'];
+                            $max_index = $index;
+                        }
+                    }
+                    
+                    // Ajustar el porcentaje
+                    $options_stats[$max_index]['percentage'] += (100.0 - $total_percentage);
+                    $options_stats[$max_index]['percentage'] = round($options_stats[$max_index]['percentage'], 1);
                 }
             }
             
@@ -786,10 +864,25 @@ class SFQ_Form_Statistics {
             }
         }
         
-        // Calcular porcentajes
+        // Calcular porcentajes - CORREGIDO: Asegurar que los porcentajes sumen 100%
         foreach ($countries_count as &$country) {
-            $country['percentage'] = $total_responses > 0 ? 
-                round(($country['count'] / $total_responses) * 100, 1) : 0;
+            if ($total_responses > 0) {
+                $country['percentage'] = round(($country['count'] / $total_responses) * 100, 1);
+            } else {
+                $country['percentage'] = 0;
+            }
+        }
+        
+        // Verificar y ajustar porcentajes para que sumen exactamente 100%
+        if ($total_responses > 0 && !empty($countries_count)) {
+            $total_percentage = array_sum(array_column($countries_count, 'percentage'));
+            
+            // Si hay diferencia debido al redondeo, ajustar el país con más respuestas
+            if ($total_percentage != 100.0 && abs($total_percentage - 100.0) <= 1.0) {
+                $max_country_key = array_keys($countries_count)[0]; // El primero ya está ordenado por cantidad
+                $countries_count[$max_country_key]['percentage'] += (100.0 - $total_percentage);
+                $countries_count[$max_country_key]['percentage'] = round($countries_count[$max_country_key]['percentage'], 1);
+            }
         }
         
         // Ordenar por cantidad
@@ -956,6 +1049,9 @@ class SFQ_Form_Statistics {
         $where = '';
         $params = array();
         
+        // Log para debugging
+        error_log("SFQ Debug: build_date_condition called with period: $period, date_from: $date_from, date_to: $date_to");
+        
         switch ($period) {
             case 'today':
                 $where = ' AND DATE(completed_at) = %s';
@@ -963,15 +1059,19 @@ class SFQ_Form_Statistics {
                 break;
             case 'week':
                 $where = ' AND DATE(completed_at) >= %s';
-                $params[] = date('Y-m-d', strtotime('-7 days'));
+                $params[] = date('Y-m-d', current_time('timestamp') - (7 * 24 * 60 * 60));
                 break;
             case 'month':
+                // Usar el primer día del mes actual para obtener exactamente el último mes
                 $where = ' AND DATE(completed_at) >= %s';
-                $params[] = date('Y-m-d', strtotime('-30 days'));
+                $first_day_current_month = date('Y-m-01', current_time('timestamp'));
+                $first_day_last_month = date('Y-m-d', strtotime($first_day_current_month . ' -1 month'));
+                $params[] = $first_day_last_month;
+                error_log("SFQ Debug: Month period - using date from: $first_day_last_month");
                 break;
             case 'year':
                 $where = ' AND DATE(completed_at) >= %s';
-                $params[] = date('Y-m-d', strtotime('-365 days'));
+                $params[] = date('Y-m-d', current_time('timestamp') - (365 * 24 * 60 * 60));
                 break;
             case 'custom':
                 if ($date_from) {
@@ -984,6 +1084,9 @@ class SFQ_Form_Statistics {
                 }
                 break;
         }
+        
+        // Log del resultado para debugging
+        error_log("SFQ Debug: build_date_condition result - where: '$where', params: " . json_encode($params));
         
         return array('where' => $where, 'params' => $params);
     }
@@ -1117,6 +1220,141 @@ class SFQ_Form_Statistics {
         error_log("SFQ Debug: Form verification for ID $form_id: " . json_encode($verification));
         
         return $verification;
+    }
+    
+    /**
+     * Obtener distribución de países para una opción específica
+     */
+    private function get_countries_for_option($question_id, $option_text, $date_condition) {
+        global $wpdb;
+        
+        // Obtener todas las submissions que respondieron esta opción específica
+        $base_query = "SELECT DISTINCT s.user_ip, COUNT(*) as count
+                      FROM {$wpdb->prefix}sfq_responses r
+                      LEFT JOIN {$wpdb->prefix}sfq_submissions s ON r.submission_id = s.id
+                      WHERE r.question_id = %d 
+                      AND s.status = 'completed'
+                      AND s.user_ip IS NOT NULL 
+                      AND s.user_ip != ''
+                      AND (r.answer = %s OR r.answer LIKE %s)";
+        
+        $query_params = array($question_id, $option_text, '%"' . $option_text . '"%');
+        
+        // Añadir condiciones de fecha si existen
+        if (!empty($date_condition['params'])) {
+            $base_query .= $date_condition['where'];
+            $query_params = array_merge($query_params, $date_condition['params']);
+        }
+        
+        $base_query .= " GROUP BY s.user_ip";
+        
+        $submissions = $wpdb->get_results($wpdb->prepare($base_query, $query_params));
+        
+        if (empty($submissions)) {
+            return array();
+        }
+        
+        // Obtener información de países para todas las IPs
+        if (class_exists('SFQ_Admin_Submissions')) {
+            $submissions_handler = new SFQ_Admin_Submissions();
+            
+            // Usar reflection para acceder al método privado
+            $reflection = new ReflectionClass($submissions_handler);
+            $method = $reflection->getMethod('get_countries_info_batch');
+            $method->setAccessible(true);
+            
+            $countries_info = $method->invoke($submissions_handler, array_column($submissions, 'user_ip'));
+        } else {
+            return array();
+        }
+        
+        $countries_count = array();
+        $total_responses = 0;
+        
+        // Procesar resultados agrupando por país
+        foreach ($submissions as $submission) {
+            $country_info = $countries_info[$submission->user_ip] ?? null;
+            
+            if ($country_info && $country_info['country_code'] !== 'XX') {
+                $country_key = $country_info['country_code'];
+                
+                if (!isset($countries_count[$country_key])) {
+                    $countries_count[$country_key] = array(
+                        'country_code' => $country_info['country_code'],
+                        'country_name' => $country_info['country_name'],
+                        'flag_emoji' => $country_info['flag_emoji'],
+                        'count' => 0
+                    );
+                }
+                
+                $countries_count[$country_key]['count'] += intval($submission->count);
+                $total_responses += intval($submission->count);
+            }
+        }
+        
+        // Calcular porcentajes y ordenar
+        foreach ($countries_count as &$country) {
+            $country['percentage'] = $total_responses > 0 ? 
+                round(($country['count'] / $total_responses) * 100, 1) : 0;
+        }
+        
+        // Ordenar por cantidad descendente y limitar a top 5
+        uasort($countries_count, function($a, $b) {
+            return $b['count'] - $a['count'];
+        });
+        
+        return array_slice(array_values($countries_count), 0, 5);
+    }
+    
+    /**
+     * Obtener conteo de países válidos (consistente con get_countries_distribution)
+     */
+    private function get_valid_countries_count($form_id, $date_condition) {
+        global $wpdb;
+        
+        // Obtener todas las IPs únicas
+        $submissions = $wpdb->get_results($wpdb->prepare(
+            "SELECT DISTINCT user_ip 
+            FROM {$wpdb->prefix}sfq_submissions 
+            WHERE form_id = %d 
+            AND status = 'completed' 
+            AND user_ip IS NOT NULL 
+            AND user_ip != '' 
+            {$date_condition['where']}",
+            array_merge([$form_id], $date_condition['params'])
+        ));
+        
+        if (empty($submissions)) {
+            return 0;
+        }
+        
+        // Usar la clase de submissions para obtener información de países
+        if (class_exists('SFQ_Admin_Submissions')) {
+            $submissions_handler = new SFQ_Admin_Submissions();
+            
+            // Usar reflection para acceder al método privado (temporal)
+            $reflection = new ReflectionClass($submissions_handler);
+            $method = $reflection->getMethod('get_countries_info_batch');
+            $method->setAccessible(true);
+            
+            $countries_info = $method->invoke($submissions_handler, array_column($submissions, 'user_ip'));
+        } else {
+            // Si no hay clase de submissions, usar conteo simple de IPs
+            return count($submissions);
+        }
+        
+        $valid_countries = array();
+        
+        // Contar solo países válidos (no 'XX')
+        foreach ($submissions as $submission) {
+            $country_info = $countries_info[$submission->user_ip] ?? null;
+            
+            if ($country_info && $country_info['country_code'] !== 'XX') {
+                $valid_countries[$country_info['country_code']] = true;
+            }
+        }
+        
+        return count($valid_countries);
     }
     
     /**
