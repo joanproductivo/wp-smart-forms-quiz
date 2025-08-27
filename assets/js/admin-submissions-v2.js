@@ -97,14 +97,19 @@
             return new Intl.NumberFormat().format(num);
         },
 
-        // Validar datos
-        validateData: function(data, schema) {
-            for (const [key, validator] of Object.entries(schema)) {
-                if (!validator(data[key])) {
-                    return false;
-                }
-            }
-            return true;
+        // Limpiar cache DOM cuando sea necesario
+        clearDomCache: function() {
+            AppState.domCache.clear();
+        },
+
+        // Método unificado para actualizar elementos de texto
+        updateTextContent: function(selector, content) {
+            this.getElement(selector).text(content);
+        },
+
+        // Método unificado para mostrar/ocultar elementos
+        toggleElement: function(selector, show) {
+            this.getElement(selector).toggle(show);
         }
     };
 
@@ -200,18 +205,18 @@
         },
 
         showLoading: function() {
-            if (!AppState.isLoading) {
-                AppState.isLoading = true;
-                Utils.getElement('.sfq-loading-overlay').show();
-                EventBus.emit('loading:start');
-            }
+            this.toggleLoading(true);
         },
 
         hideLoading: function() {
-            if (AppState.isLoading) {
-                AppState.isLoading = false;
-                Utils.getElement('.sfq-loading-overlay').hide();
-                EventBus.emit('loading:end');
+            this.toggleLoading(false);
+        },
+
+        toggleLoading: function(show) {
+            if (AppState.isLoading !== show) {
+                AppState.isLoading = show;
+                Utils.toggleElement('.sfq-loading-overlay', show);
+                EventBus.emit(show ? 'loading:start' : 'loading:end');
             }
         },
 
@@ -291,24 +296,30 @@
     // Gestor de Dashboard
     const DashboardManager = {
         updateStats: function(data) {
-            $('#total-submissions .sfq-stat-number').text(data.total_submissions);
-            
-            $('#today-submissions .sfq-stat-number').text(data.today_submissions);
-            const changeClass = data.today_change > 0 ? 'positive' : (data.today_change < 0 ? 'negative' : 'neutral');
-            const changeSymbol = data.today_change > 0 ? '+' : '';
-            $('#today-submissions .sfq-stat-change')
-                .text(changeSymbol + data.today_change + '%')
-                .removeClass('positive negative neutral')
-                .addClass(changeClass);
+            // Actualizar estadísticas principales usando métodos unificados
+            Utils.updateTextContent('#total-submissions .sfq-stat-number', data.total_submissions);
+            Utils.updateTextContent('#today-submissions .sfq-stat-number', data.today_submissions);
+            Utils.updateTextContent('#avg-completion-time .sfq-stat-number', data.avg_completion_time);
+            Utils.updateTextContent('#conversion-rate .sfq-stat-number', data.conversion_rate + '%');
 
-            $('#avg-completion-time .sfq-stat-number').text(data.avg_completion_time);
-            $('#conversion-rate .sfq-stat-number').text(data.conversion_rate + '%');
-
+            // Actualizar indicador de cambio
+            this.updateChangeIndicator(data.today_change);
             this.animateNumbers();
         },
 
+        updateChangeIndicator: function(change) {
+            const changeClass = change > 0 ? 'positive' : (change < 0 ? 'negative' : 'neutral');
+            const changeSymbol = change > 0 ? '+' : '';
+            const $changeElement = Utils.getElement('#today-submissions .sfq-stat-change');
+            
+            $changeElement
+                .text(changeSymbol + change + '%')
+                .removeClass('positive negative neutral')
+                .addClass(changeClass);
+        },
+
         animateNumbers: function() {
-            $('.sfq-stat-number').each(function() {
+            Utils.getElement('.sfq-stat-number').each(function() {
                 const $this = $(this);
                 const text = $this.text();
                 const number = parseInt(text.replace(/[^\d]/g, ''));
@@ -331,27 +342,11 @@
 
     // Gestor de Gráficos
     const ChartManager = {
-        initSubmissionsChart: function() {
-            const ctx = document.getElementById('sfq-submissions-chart');
-            if (!ctx) return;
-
-            AppState.chartsInstances.submissions = new Chart(ctx, {
+        // Configuraciones base para diferentes tipos de gráficos
+        chartConfigs: {
+            submissions: {
                 type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'Respuestas',
-                        data: [],
-                        borderColor: CONFIG.CHART_COLORS[0],
-                        backgroundColor: 'rgba(0, 124, 186, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4
-                    }]
-                },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
                         y: {
@@ -359,54 +354,73 @@
                             ticks: { stepSize: 1 }
                         }
                     }
-                }
-            });
-        },
-
-        initFormsChart: function() {
-            const ctx = document.getElementById('sfq-forms-chart');
-            if (!ctx) return;
-
-            AppState.chartsInstances.forms = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        data: [],
-                        backgroundColor: CONFIG.CHART_COLORS.slice(0, 6),
-                        borderWidth: 0
-                    }]
                 },
+                dataset: {
+                    label: 'Respuestas',
+                    borderColor: CONFIG.CHART_COLORS[0],
+                    backgroundColor: 'rgba(0, 124, 186, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }
+            },
+            doughnut: {
+                type: 'doughnut',
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
                     plugins: {
                         legend: {
                             position: 'bottom',
                             labels: { padding: 20, usePointStyle: true }
                         }
                     }
+                },
+                dataset: {
+                    borderWidth: 0
                 }
-            });
+            }
         },
 
-        initCountriesChart: function() {
-            const ctx = document.getElementById('sfq-countries-chart');
-            if (!ctx) return;
+        // Método unificado para crear gráficos
+        createChart: function(canvasId, chartKey, config = {}) {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return null;
 
-            AppState.chartsInstances.countries = new Chart(ctx, {
-                type: 'doughnut',
+            const baseConfig = this.chartConfigs[chartKey];
+            const chartConfig = {
+                type: baseConfig.type,
                 data: {
                     labels: [],
                     datasets: [{
                         data: [],
-                        backgroundColor: CONFIG.CHART_COLORS,
-                        borderWidth: 0
+                        ...baseConfig.dataset,
+                        ...config.dataset
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    ...baseConfig.options,
+                    ...config.options
+                }
+            };
+
+            return new Chart(ctx, chartConfig);
+        },
+
+        initSubmissionsChart: function() {
+            AppState.chartsInstances.submissions = this.createChart('sfq-submissions-chart', 'submissions');
+        },
+
+        initFormsChart: function() {
+            AppState.chartsInstances.forms = this.createChart('sfq-forms-chart', 'doughnut', {
+                dataset: { backgroundColor: CONFIG.CHART_COLORS.slice(0, 6) }
+            });
+        },
+
+        initCountriesChart: function() {
+            AppState.chartsInstances.countries = this.createChart('sfq-countries-chart', 'doughnut', {
+                dataset: { backgroundColor: CONFIG.CHART_COLORS },
+                options: {
                     plugins: {
                         legend: {
                             position: 'bottom',
@@ -429,6 +443,15 @@
             });
         },
 
+        // Método unificado para actualizar datos de gráficos
+        updateChartData: function(chartInstance, labels, values) {
+            if (!chartInstance || !labels || !values) return;
+            
+            chartInstance.data.labels = labels;
+            chartInstance.data.datasets[0].data = values;
+            chartInstance.update();
+        },
+
         updateCharts: function(data) {
             this.updateSubmissionsChart(data.daily_submissions);
             this.updateFormsChart(data.popular_forms);
@@ -436,48 +459,51 @@
         },
 
         updateSubmissionsChart: function(data) {
-            if (!AppState.chartsInstances.submissions || !data) return;
-
+            if (!data) return;
+            
             const labels = data.map(item => {
                 const date = new Date(item.date);
                 return date.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
             });
             const values = data.map(item => parseInt(item.count));
-
-            AppState.chartsInstances.submissions.data.labels = labels;
-            AppState.chartsInstances.submissions.data.datasets[0].data = values;
-            AppState.chartsInstances.submissions.update();
+            
+            this.updateChartData(AppState.chartsInstances.submissions, labels, values);
         },
 
         updateFormsChart: function(data) {
-            if (!AppState.chartsInstances.forms || !data) return;
-
+            if (!data) return;
+            
             const labels = data.map(item => item.title);
             const values = data.map(item => parseInt(item.submissions));
-
-            AppState.chartsInstances.forms.data.labels = labels;
-            AppState.chartsInstances.forms.data.datasets[0].data = values;
-            AppState.chartsInstances.forms.update();
+            
+            this.updateChartData(AppState.chartsInstances.forms, labels, values);
         },
 
         updateCountriesChart: function(data) {
-            if (!AppState.chartsInstances.countries || !data) return;
-
-            let countriesArray = Array.isArray(data) ? data : Object.values(data);
+            if (!data) return;
+            
+            const countriesArray = Array.isArray(data) ? data : Object.values(data);
             
             if (countriesArray.length > 0) {
                 const labels = countriesArray.map(item => `${item.flag_emoji} ${item.country_name}`);
                 const values = countriesArray.map(item => parseInt(item.count));
-
-                AppState.chartsInstances.countries.data.labels = labels;
-                AppState.chartsInstances.countries.data.datasets[0].data = values;
-                AppState.chartsInstances.countries.update();
+                
+                this.updateChartData(AppState.chartsInstances.countries, labels, values);
             }
         }
     };
 
     // Gestor de Tabla
     const TableManager = {
+        // Elementos DOM cacheados
+        get tbody() {
+            return Utils.getElement('#sfq-submissions-tbody-advanced');
+        },
+
+        get selectAllCheckbox() {
+            return Utils.getElement('#sfq-select-all');
+        },
+
         showLoading: function() {
             const loadingRow = `
                 <tr class="sfq-loading-row">
@@ -489,37 +515,79 @@
                     </td>
                 </tr>
             `;
-            $('#sfq-submissions-tbody-advanced').html(loadingRow);
+            this.tbody.html(loadingRow);
         },
 
         hideLoading: function() {
-            $('.sfq-loading-row').remove();
+            Utils.getElement('.sfq-loading-row').remove();
         },
 
         render: function(data) {
-            const tbody = $('#sfq-submissions-tbody-advanced');
-            tbody.empty();
+            this.tbody.empty();
 
             if (!data.submissions || data.submissions.length === 0) {
-                tbody.html(`
-                    <tr>
-                        <td colspan="9" class="sfq-text-center" style="padding: 40px;">
-                            <p>No se encontraron respuestas con los filtros aplicados.</p>
-                        </td>
-                    </tr>
-                `);
+                this.renderEmptyState();
                 return;
             }
 
+            // Usar DocumentFragment para mejor rendimiento
+            const fragment = document.createDocumentFragment();
             data.submissions.forEach((submission, index) => {
-                const row = this.createSubmissionRow(submission, index);
-                tbody.append(row);
+                const rowElement = this.createSubmissionRowElement(submission, index);
+                fragment.appendChild(rowElement);
             });
 
+            this.tbody[0].appendChild(fragment);
             this.updateSortIndicators();
         },
 
-        createSubmissionRow: function(submission, index) {
+        renderEmptyState: function() {
+            this.tbody.html(`
+                <tr>
+                    <td colspan="9" class="sfq-text-center" style="padding: 40px;">
+                        <p>No se encontraron respuestas con los filtros aplicados.</p>
+                    </td>
+                </tr>
+            `);
+        },
+
+        createSubmissionRowElement: function(submission, index) {
+            const tr = document.createElement('tr');
+            tr.setAttribute('data-submission-id', submission.id);
+            tr.setAttribute('data-index', index);
+            tr.innerHTML = this.createSubmissionRowHTML(submission, index);
+            return tr;
+        },
+
+        createSubmissionRowHTML: function(submission, index) {
+            const badges = this.createBadges(submission);
+            
+            return `
+                <td class="check-column">
+                    <input type="checkbox" class="sfq-submission-checkbox" value="${submission.id}">
+                </td>
+                <td><strong>#${submission.id}</strong></td>
+                <td><strong>${Utils.escapeHtml(submission.form_title || 'Sin título')}</strong></td>
+                <td>
+                    <div class="sfq-user-info">
+                        <strong>${Utils.escapeHtml(submission.user_name)}</strong>
+                        ${badges.user}
+                        ${badges.country}
+                    </div>
+                </td>
+                <td><div class="sfq-date-info"><strong>${submission.formatted_date}</strong></div></td>
+                <td><span class="sfq-time-badge">${submission.time_spent_formatted}</span></td>
+                <td><span class="sfq-responses-count">${submission.response_count}</span></td>
+                <td>${badges.score}</td>
+                <td>
+                    <div class="sfq-row-actions">
+                        ${this.createActionButtons(submission.id, index)}
+                    </div>
+                </td>
+            `;
+        },
+
+        createBadges: function(submission) {
             const userBadge = submission.user_type === 'registered' 
                 ? '<span class="sfq-badge sfq-badge-success">Registrado</span>'
                 : '<span class="sfq-badge sfq-badge-secondary">Anónimo</span>';
@@ -531,56 +599,42 @@
             const countryInfo = submission.country_info || { flag_emoji: '🌍', country_name: 'Desconocido' };
             const countryBadge = `<span class="sfq-country-badge" title="${Utils.escapeHtml(countryInfo.country_name)}">${countryInfo.flag_emoji}</span>`;
 
+            return {
+                user: userBadge,
+                score: scoreBadge,
+                country: countryBadge
+            };
+        },
+
+        createActionButtons: function(submissionId, index) {
             return `
-                <tr data-submission-id="${submission.id}" data-index="${index}">
-                    <td class="check-column">
-                        <input type="checkbox" class="sfq-submission-checkbox" value="${submission.id}">
-                    </td>
-                    <td><strong>#${submission.id}</strong></td>
-                    <td><strong>${Utils.escapeHtml(submission.form_title || 'Sin título')}</strong></td>
-                    <td>
-                        <div class="sfq-user-info">
-                            <strong>${Utils.escapeHtml(submission.user_name)}</strong>
-                            ${userBadge}
-                            ${countryBadge}
-                        </div>
-                    </td>
-                    <td><div class="sfq-date-info"><strong>${submission.formatted_date}</strong></div></td>
-                    <td><span class="sfq-time-badge">${submission.time_spent_formatted}</span></td>
-                    <td><span class="sfq-responses-count">${submission.response_count}</span></td>
-                    <td>${scoreBadge}</td>
-                    <td>
-                        <div class="sfq-row-actions">
-                            <button class="button button-small sfq-view-submission" 
-                                    data-submission-id="${submission.id}" 
-                                    data-index="${index}"
-                                    title="Ver detalles">
-                                <span class="dashicons dashicons-visibility"></span>
-                            </button>
-                            <button class="button button-small sfq-delete-submission" 
-                                    data-submission-id="${submission.id}"
-                                    title="Eliminar">
-                                <span class="dashicons dashicons-trash"></span>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
+                <button class="button button-small sfq-view-submission" 
+                        data-submission-id="${submissionId}" 
+                        data-index="${index}"
+                        title="Ver detalles">
+                    <span class="dashicons dashicons-visibility"></span>
+                </button>
+                <button class="button button-small sfq-delete-submission" 
+                        data-submission-id="${submissionId}"
+                        title="Eliminar">
+                    <span class="dashicons dashicons-trash"></span>
+                </button>
             `;
         },
 
         updateResultsCount: function(total) {
-            $('#sfq-results-count').text(total.toLocaleString());
+            Utils.updateTextContent('#sfq-results-count', total.toLocaleString());
         },
 
         toggleSelectAll: function() {
-            const isChecked = $('#sfq-select-all').is(':checked');
-            $('.sfq-submission-checkbox').prop('checked', isChecked);
+            const isChecked = this.selectAllCheckbox.is(':checked');
+            Utils.getElement('.sfq-submission-checkbox').prop('checked', isChecked);
             this.updateBulkActions();
         },
 
         updateBulkActions: function() {
-            const checkedCount = $('.sfq-submission-checkbox:checked').length;
-            $('.sfq-bulk-actions').toggle(checkedCount > 0);
+            const checkedCount = Utils.getElement('.sfq-submission-checkbox:checked').length;
+            Utils.toggleElement('.sfq-bulk-actions', checkedCount > 0);
         },
 
         handleSort: function(e) {
@@ -598,8 +652,11 @@
         },
 
         updateSortIndicators: function() {
-            $('.sfq-sortable').removeClass('sorted asc desc');
-            $(`.sfq-sortable[data-column="${AppState.currentSort.column}"]`)
+            const sortableElements = Utils.getElement('.sfq-sortable');
+            sortableElements.removeClass('sorted asc desc');
+            
+            const currentSortElement = Utils.getElement(`.sfq-sortable[data-column="${AppState.currentSort.column}"]`);
+            currentSortElement
                 .addClass('sorted')
                 .addClass(AppState.currentSort.direction.toLowerCase());
         }
@@ -681,32 +738,36 @@
 
     // Gestor de Filtros
     const FilterManager = {
-        apply: function() {
-            AppState.currentFilters = {
-                form_id: $('#sfq-filter-form').val(),
-                date_from: $('#sfq-filter-date-from').val(),
-                date_to: $('#sfq-filter-date-to').val(),
-                user_type: $('#sfq-filter-user').val(),
-                status: $('#sfq-filter-status').val(),
-                time_min: $('#sfq-filter-time-min').val(),
-                time_max: $('#sfq-filter-time-max').val(),
-                search: $('#sfq-filter-search').val()
-            };
+        filterSelectors: [
+            '#sfq-filter-form', '#sfq-filter-date-from', '#sfq-filter-date-to', 
+            '#sfq-filter-user', '#sfq-filter-status', '#sfq-filter-time-min', 
+            '#sfq-filter-time-max', '#sfq-filter-search'
+        ],
 
-            // Limpiar filtros vacíos
-            Object.keys(AppState.currentFilters).forEach(key => {
-                if (!AppState.currentFilters[key]) {
-                    delete AppState.currentFilters[key];
+        filterKeys: [
+            'form_id', 'date_from', 'date_to', 'user_type', 
+            'status', 'time_min', 'time_max', 'search'
+        ],
+
+        collectFilters: function() {
+            const filters = {};
+            this.filterKeys.forEach((key, index) => {
+                const value = $(this.filterSelectors[index]).val();
+                if (value) {
+                    filters[key] = value;
                 }
             });
+            return filters;
+        },
 
+        apply: function() {
+            AppState.currentFilters = this.collectFilters();
             AppState.currentPage = 1;
             SubmissionsApp.loadSubmissions();
         },
 
         clear: function() {
-            $('#sfq-filter-form, #sfq-filter-date-from, #sfq-filter-date-to, #sfq-filter-user, #sfq-filter-status, #sfq-filter-time-min, #sfq-filter-time-max, #sfq-filter-search').val('');
-            
+            this.filterSelectors.forEach(selector => $(selector).val(''));
             AppState.currentFilters = {};
             AppState.currentPage = 1;
             SubmissionsApp.loadSubmissions();

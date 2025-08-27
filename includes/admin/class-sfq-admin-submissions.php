@@ -10,12 +10,14 @@ if (!defined('ABSPATH')) {
 class SFQ_Admin_Submissions {
     
     private $database;
+    private $wpdb;
     private $country_cache = array();
     private $allowed_sort_columns = array('id', 'form_title', 'completed_at', 'time_spent', 'user_id');
-    private $dom_cache = array(); // Cache para elementos DOM frecuentemente accedidos
     
     public function __construct() {
+        global $wpdb;
         $this->database = new SFQ_Database();
+        $this->wpdb = $wpdb;
         $this->init_country_cache();
     }
     
@@ -55,15 +57,6 @@ class SFQ_Admin_Submissions {
         return true;
     }
     
-    /**
-     * Manejo centralizado de errores AJAX
-     */
-    private function handle_ajax_error($message, $exception = null) {
-        if ($exception) {
-            error_log('SFQ Error: ' . $message . ' - ' . $exception->getMessage());
-        }
-        wp_send_json_error($message);
-    }
     
     public function init() {
         // AJAX handlers específicos para submissions
@@ -581,8 +574,6 @@ class SFQ_Admin_Submissions {
             return;
         }
         
-        global $wpdb;
-        
         // Obtener parámetros de filtrado
         $filters = $this->parse_filters($_POST);
         $page = intval($_POST['page'] ?? 1);
@@ -594,12 +585,12 @@ class SFQ_Admin_Submissions {
         $query_parts = $this->build_submissions_query($filters, $sort_column, $sort_direction);
         
         // Obtener total de registros
-        $total_query = "SELECT COUNT(DISTINCT s.id) FROM {$wpdb->prefix}sfq_submissions s 
-                       LEFT JOIN {$wpdb->prefix}sfq_forms f ON s.form_id = f.id 
-                       LEFT JOIN {$wpdb->prefix}sfq_responses r ON s.id = r.submission_id 
+        $total_query = "SELECT COUNT(DISTINCT s.id) FROM {$this->wpdb->prefix}sfq_submissions s 
+                       LEFT JOIN {$this->wpdb->prefix}sfq_forms f ON s.form_id = f.id 
+                       LEFT JOIN {$this->wpdb->prefix}sfq_responses r ON s.id = r.submission_id 
                        {$query_parts['where']}";
         
-        $total = $wpdb->get_var($wpdb->prepare($total_query, $query_parts['params']));
+        $total = $this->wpdb->get_var($this->wpdb->prepare($total_query, $query_parts['params']));
         
         // Obtener submissions paginados
         $offset = ($page - 1) * $per_page;
@@ -608,7 +599,7 @@ class SFQ_Admin_Submissions {
                            " LIMIT %d OFFSET %d";
         
         $params = array_merge($query_parts['params'], [$per_page, $offset]);
-        $submissions = $wpdb->get_results($wpdb->prepare($submissions_query, $params));
+        $submissions = $this->wpdb->get_results($this->wpdb->prepare($submissions_query, $params));
         
         // Formatear datos
         foreach ($submissions as &$submission) {
@@ -639,13 +630,11 @@ class SFQ_Admin_Submissions {
             return;
         }
         
-        global $wpdb;
-        
         // Obtener submission con información del formulario
-        $submission = $wpdb->get_row($wpdb->prepare(
+        $submission = $this->wpdb->get_row($this->wpdb->prepare(
             "SELECT s.*, f.title as form_title 
-            FROM {$wpdb->prefix}sfq_submissions s 
-            LEFT JOIN {$wpdb->prefix}sfq_forms f ON s.form_id = f.id 
+            FROM {$this->wpdb->prefix}sfq_submissions s 
+            LEFT JOIN {$this->wpdb->prefix}sfq_forms f ON s.form_id = f.id 
             WHERE s.id = %d",
             $submission_id
         ));
@@ -668,14 +657,16 @@ class SFQ_Admin_Submissions {
             }
         }
         
-        // Log para debugging (puedes comentar esto en producción)
-        error_log('Country info for submission ' . $submission_id . ': ' . json_encode($submission->country_info));
+        // Log para debugging solo en modo debug
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('SFQ Debug - Country info for submission ' . $submission_id . ': ' . json_encode($submission->country_info));
+        }
         
         // Obtener respuestas del submission
-        $responses = $wpdb->get_results($wpdb->prepare(
+        $responses = $this->wpdb->get_results($this->wpdb->prepare(
             "SELECT r.*, q.question_text, q.question_type 
-            FROM {$wpdb->prefix}sfq_responses r 
-            LEFT JOIN {$wpdb->prefix}sfq_questions q ON r.question_id = q.id 
+            FROM {$this->wpdb->prefix}sfq_responses r 
+            LEFT JOIN {$this->wpdb->prefix}sfq_questions q ON r.question_id = q.id 
             WHERE r.submission_id = %d 
             ORDER BY q.order_index ASC",
             $submission_id
@@ -733,8 +724,6 @@ class SFQ_Admin_Submissions {
      * Construir consulta de submissions con filtros
      */
     private function build_submissions_query($filters, $sort_column, $sort_direction) {
-        global $wpdb;
-        
         $where_conditions = array("1=1");
         $params = array();
         
@@ -782,22 +771,21 @@ class SFQ_Admin_Submissions {
         // Filtro de búsqueda en respuestas
         if (!empty($filters['search'])) {
             $where_conditions[] = "r.answer LIKE %s";
-            $params[] = '%' . $wpdb->esc_like($filters['search']) . '%';
+            $params[] = '%' . $this->wpdb->esc_like($filters['search']) . '%';
         }
         
         // Construir partes de la consulta
         $select = "SELECT DISTINCT s.*, f.title as form_title, 
                    COUNT(DISTINCT r.id) as response_count";
         
-        $from = " FROM {$wpdb->prefix}sfq_submissions s 
-                 LEFT JOIN {$wpdb->prefix}sfq_forms f ON s.form_id = f.id 
-                 LEFT JOIN {$wpdb->prefix}sfq_responses r ON s.id = r.submission_id";
+        $from = " FROM {$this->wpdb->prefix}sfq_submissions s 
+                 LEFT JOIN {$this->wpdb->prefix}sfq_forms f ON s.form_id = f.id 
+                 LEFT JOIN {$this->wpdb->prefix}sfq_responses r ON s.id = r.submission_id";
         
         $where = " WHERE " . implode(' AND ', $where_conditions);
         
-        // Validar columna de ordenación
-        $allowed_sort_columns = array('id', 'form_title', 'completed_at', 'time_spent', 'user_id');
-        if (!in_array($sort_column, $allowed_sort_columns)) {
+        // Validar columna de ordenación usando la propiedad de clase
+        if (!in_array($sort_column, $this->allowed_sort_columns)) {
             $sort_column = 'completed_at';
         }
         
@@ -868,36 +856,34 @@ class SFQ_Admin_Submissions {
             return;
         }
         
-        global $wpdb;
-        
         // Total de submissions
-        $total_submissions = $wpdb->get_var(
-            "SELECT COUNT(*) FROM {$wpdb->prefix}sfq_submissions WHERE status = 'completed'"
+        $total_submissions = $this->wpdb->get_var(
+            "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_submissions WHERE status = 'completed'"
         );
         
         // Submissions de hoy
-        $today_submissions = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$wpdb->prefix}sfq_submissions 
+        $today_submissions = $this->wpdb->get_var($this->wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_submissions 
             WHERE status = 'completed' AND DATE(completed_at) = %s",
             current_time('Y-m-d')
         ));
         
         // Submissions de ayer para comparación
-        $yesterday_submissions = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$wpdb->prefix}sfq_submissions 
+        $yesterday_submissions = $this->wpdb->get_var($this->wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_submissions 
             WHERE status = 'completed' AND DATE(completed_at) = %s",
             date('Y-m-d', strtotime('-1 day'))
         ));
         
         // Tiempo promedio de completado
-        $avg_time = $wpdb->get_var(
-            "SELECT AVG(time_spent) FROM {$wpdb->prefix}sfq_submissions 
+        $avg_time = $this->wpdb->get_var(
+            "SELECT AVG(time_spent) FROM {$this->wpdb->prefix}sfq_submissions 
             WHERE status = 'completed' AND time_spent > 0"
         );
         
         // Tasa de conversión (completados vs vistas)
-        $total_views = $wpdb->get_var(
-            "SELECT COUNT(DISTINCT session_id) FROM {$wpdb->prefix}sfq_analytics 
+        $total_views = $this->wpdb->get_var(
+            "SELECT COUNT(DISTINCT session_id) FROM {$this->wpdb->prefix}sfq_analytics 
             WHERE event_type = 'view'"
         );
         
@@ -1338,19 +1324,23 @@ class SFQ_Admin_Submissions {
     }
     
     /**
-     * Exportar a Excel (placeholder - requiere librería)
+     * Método unificado de exportación con fallback
      */
-    private function export_to_excel($submissions, $fields, $options) {
-        // Por ahora, usar CSV como fallback
-        return $this->export_to_csv($submissions, $fields, $options);
-    }
-    
-    /**
-     * Exportar a PDF (placeholder - requiere librería)
-     */
-    private function export_to_pdf($submissions, $fields, $options) {
-        // Por ahora, usar CSV como fallback
-        return $this->export_to_csv($submissions, $fields, $options);
+    private function export_with_fallback($submissions, $fields, $options, $format) {
+        switch ($format) {
+            case 'excel':
+                // TODO: Implementar exportación a Excel cuando se añada la librería
+                // Por ahora usar CSV como fallback
+                return $this->export_to_csv($submissions, $fields, $options);
+                
+            case 'pdf':
+                // TODO: Implementar exportación a PDF cuando se añada la librería  
+                // Por ahora usar CSV como fallback
+                return $this->export_to_csv($submissions, $fields, $options);
+                
+            default:
+                return $this->export_to_csv($submissions, $fields, $options);
+        }
     }
     
     /**
@@ -1596,7 +1586,7 @@ class SFQ_Admin_Submissions {
             'JE' => '🇯🇪', 'JM' => '🇯🇲', 'JO' => '🇯🇴', 'JP' => '🇯🇵', 'KE' => '🇰🇪',
             'KG' => '🇰🇬', 'KH' => '🇰🇭', 'KI' => '🇰🇮', 'KM' => '🇰🇲', 'KN' => '🇰🇳',
             'KP' => '🇰🇵', 'KR' => '🇰🇷', 'KW' => '🇰🇼', 'KY' => '🇰🇾', 'KZ' => '🇰🇿',
-            'LA' => '🇱🇦', 'LB' => '�🇧', 'LC' => '🇱🇨', 'LI' => '🇱�🇮', 'LK' => '🇱🇰',
+            'LA' => '🇱🇦', 'LB' => '🇱🇧', 'LC' => '🇱🇨', 'LI' => '🇱🇮', 'LK' => '🇱🇰',
             'LR' => '🇱🇷', 'LS' => '🇱🇸', 'LT' => '🇱🇹', 'LU' => '🇱🇺', 'LV' => '🇱🇻',
             'LY' => '🇱🇾', 'MA' => '🇲🇦', 'MC' => '🇲🇨', 'MD' => '🇲🇩', 'ME' => '🇲🇪',
             'MF' => '🇲🇫', 'MG' => '🇲🇬', 'MH' => '🇲🇭', 'MK' => '🇲🇰', 'ML' => '🇲🇱',
@@ -1605,21 +1595,21 @@ class SFQ_Admin_Submissions {
             'MW' => '🇲🇼', 'MX' => '🇲🇽', 'MY' => '🇲🇾', 'MZ' => '🇲🇿', 'NA' => '🇳🇦',
             'NC' => '🇳🇨', 'NE' => '🇳🇪', 'NF' => '🇳🇫', 'NG' => '🇳🇬', 'NI' => '🇳🇮',
             'NL' => '🇳🇱', 'NO' => '🇳🇴', 'NP' => '🇳🇵', 'NR' => '🇳🇷', 'NU' => '🇳🇺',
-            'NZ' => '🇳🇿', 'OM' => '🇴🇲', 'PA' => '🇵🇦', 'PE' => '🇵🇪', 'PF' => '🇵�',
-            'PG' => '🇵🇬', 'PH' => '🇵🇭', 'PK' => '🇵�🇰', 'PL' => '🇵🇱', 'PM' => '🇵🇲',
+            'NZ' => '🇳🇿', 'OM' => '🇴🇲', 'PA' => '🇵🇦', 'PE' => '🇵🇪', 'PF' => '🇵🇫',
+            'PG' => '🇵🇬', 'PH' => '🇵🇭', 'PK' => '🇵🇰', 'PL' => '🇵🇱', 'PM' => '🇵🇲',
             'PN' => '🇵🇳', 'PR' => '🇵🇷', 'PS' => '🇵🇸', 'PT' => '🇵🇹', 'PW' => '🇵🇼',
             'PY' => '🇵🇾', 'QA' => '🇶🇦', 'RE' => '🇷🇪', 'RO' => '🇷🇴', 'RS' => '🇷🇸',
             'RU' => '🇷🇺', 'RW' => '🇷🇼', 'SA' => '🇸🇦', 'SB' => '🇸🇧', 'SC' => '🇸🇨',
             'SD' => '🇸🇩', 'SE' => '🇸🇪', 'SG' => '🇸🇬', 'SH' => '🇸🇭', 'SI' => '🇸🇮',
-            'SJ' => '🇸🇯', 'SK' => '🇸🇰', 'SL' => '🇸🇱', 'SM' => '🇸🇲', 'SN' => '🇸�',
+            'SJ' => '🇸🇯', 'SK' => '🇸🇰', 'SL' => '🇸🇱', 'SM' => '🇸🇲', 'SN' => '🇸🇳',
             'SO' => '🇸🇴', 'SR' => '🇸🇷', 'SS' => '🇸🇸', 'ST' => '🇸🇹', 'SV' => '🇸🇻',
             'SX' => '🇸🇽', 'SY' => '🇸🇾', 'SZ' => '🇸🇿', 'TC' => '🇹🇨', 'TD' => '🇹🇩',
-            'TF' => '🇹🇫', 'TG' => '🇹🇬', 'TH' => '🇹🇭', 'TJ' => '🇹🇯', 'TK' => '🇹�🇰',
+            'TF' => '🇹🇫', 'TG' => '🇹🇬', 'TH' => '🇹🇭', 'TJ' => '🇹🇯', 'TK' => '🇹🇰',
             'TL' => '🇹🇱', 'TM' => '🇹🇲', 'TN' => '🇹🇳', 'TO' => '🇹🇴', 'TR' => '🇹🇷',
             'TT' => '🇹🇹', 'TV' => '🇹🇻', 'TW' => '🇹🇼', 'TZ' => '🇹🇿', 'UA' => '🇺🇦',
-            'UG' => '🇺🇬', 'UM' => '🇺🇲', 'US' => '🇺🇸', 'UY' => '🇺�', 'UZ' => '🇺🇿',
+            'UG' => '🇺🇬', 'UM' => '🇺🇲', 'US' => '🇺🇸', 'UY' => '🇺🇾', 'UZ' => '🇺🇿',
             'VA' => '🇻🇦', 'VC' => '🇻🇨', 'VE' => '🇻🇪', 'VG' => '🇻🇬', 'VI' => '🇻🇮',
-            'VN' => '🇻�🇳', 'VU' => '🇻🇺', 'WF' => '🇼🇫', 'WS' => '🇼🇸', 'YE' => '🇾🇪',
+            'VN' => '🇻🇳', 'VU' => '🇻🇺', 'WF' => '🇼🇫', 'WS' => '🇼🇸', 'YE' => '🇾🇪',
             'YT' => '🇾🇹', 'ZA' => '🇿🇦', 'ZM' => '🇿🇲', 'ZW' => '🇿🇼'
         );
         
