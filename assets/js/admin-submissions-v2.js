@@ -92,11 +92,6 @@
             return text ? text.replace(/[&<>"']/g, m => map[m]) : '';
         },
 
-        // Formatear números
-        formatNumber: function(num) {
-            return new Intl.NumberFormat().format(num);
-        },
-
         // Limpiar cache DOM cuando sea necesario
         clearDomCache: function() {
             AppState.domCache.clear();

@@ -955,28 +955,34 @@ class SFQ_Admin_Submissions {
     }
     
     /**
-     * Obtener analytics de países
+     * Obtener analytics de países (OPTIMIZADO - elimina N+1 queries)
      */
     private function get_countries_analytics($date_from) {
-        global $wpdb;
-        
-        // Obtener submissions con IPs únicas
-        $submissions = $wpdb->get_results($wpdb->prepare(
+        // Obtener submissions con IPs únicas y sus conteos
+        $submissions = $this->wpdb->get_results($this->wpdb->prepare(
             "SELECT user_ip, COUNT(*) as count 
-            FROM {$wpdb->prefix}sfq_submissions 
+            FROM {$this->wpdb->prefix}sfq_submissions 
             WHERE status = 'completed' 
             AND DATE(completed_at) >= %s 
             AND user_ip IS NOT NULL 
             AND user_ip != '' 
+            AND user_ip NOT IN ('127.0.0.1', '::1', 'localhost')
             GROUP BY user_ip",
             $date_from
         ));
         
+        if (empty($submissions)) {
+            return array();
+        }
+        
+        // Obtener información de países para todas las IPs de una vez
+        $countries_info = $this->get_countries_info_batch(array_column($submissions, 'user_ip'));
+        
         $countries_count = array();
         
-        // Procesar cada IP para obtener información del país
+        // Procesar resultados agrupando por país
         foreach ($submissions as $submission) {
-            $country_info = $this->get_country_from_ip($submission->user_ip);
+            $country_info = $countries_info[$submission->user_ip] ?? null;
             
             if ($country_info && $country_info['country_code'] !== 'XX') {
                 $country_key = $country_info['country_code'];
@@ -993,7 +999,6 @@ class SFQ_Admin_Submissions {
                 $countries_count[$country_key]['count'] += intval($submission->count);
             }
         }
-        
         
         // Ordenar por cantidad y limitar a top 10
         uasort($countries_count, function($a, $b) {
@@ -1044,10 +1049,9 @@ class SFQ_Admin_Submissions {
                     $file_url = $this->export_to_csv($submissions, $fields, $options);
                     break;
                 case 'excel':
-                    $file_url = $this->export_to_excel($submissions, $fields, $options);
-                    break;
                 case 'pdf':
-                    $file_url = $this->export_to_pdf($submissions, $fields, $options);
+                    // Usar CSV como fallback hasta implementar librerías específicas
+                    $file_url = $this->export_to_csv($submissions, $fields, $options);
                     break;
                 case 'json':
                     $file_url = $this->export_to_json($submissions, $fields, $options);
@@ -1323,25 +1327,6 @@ class SFQ_Admin_Submissions {
         }
     }
     
-    /**
-     * Método unificado de exportación con fallback
-     */
-    private function export_with_fallback($submissions, $fields, $options, $format) {
-        switch ($format) {
-            case 'excel':
-                // TODO: Implementar exportación a Excel cuando se añada la librería
-                // Por ahora usar CSV como fallback
-                return $this->export_to_csv($submissions, $fields, $options);
-                
-            case 'pdf':
-                // TODO: Implementar exportación a PDF cuando se añada la librería  
-                // Por ahora usar CSV como fallback
-                return $this->export_to_csv($submissions, $fields, $options);
-                
-            default:
-                return $this->export_to_csv($submissions, $fields, $options);
-        }
-    }
     
     /**
      * Exportar a JSON
@@ -1388,6 +1373,160 @@ class SFQ_Admin_Submissions {
         file_put_contents($filepath, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         
         return $upload_dir['url'] . '/' . $filename;
+    }
+    
+    /**
+     * Obtener información de países para múltiples IPs de una vez (OPTIMIZADO)
+     * Elimina el problema N+1 queries procesando todas las IPs en lote
+     */
+    private function get_countries_info_batch($ips) {
+        if (empty($ips)) {
+            return array();
+        }
+        
+        $countries_info = array();
+        $ips_to_fetch = array();
+        
+        // Verificar cache local y WordPress para todas las IPs
+        foreach ($ips as $ip) {
+            // Validar IP
+            if (empty($ip) || !is_string($ip)) {
+                $countries_info[$ip] = $this->get_default_country_info();
+                continue;
+            }
+            
+            $ip = sanitize_text_field($ip);
+            
+            // Validar formato de IP excluyendo rangos privados
+            if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                $countries_info[$ip] = $this->get_default_country_info();
+                continue;
+            }
+            
+            // Verificar cache local
+            if (isset($this->country_cache[$ip])) {
+                $countries_info[$ip] = $this->country_cache[$ip];
+                continue;
+            }
+            
+            // Verificar cache de WordPress
+            $cache_key = 'sfq_country_' . md5($ip);
+            $cached_result = get_transient($cache_key);
+            
+            if ($cached_result !== false) {
+                $this->country_cache[$ip] = $cached_result;
+                $countries_info[$ip] = $cached_result;
+                continue;
+            }
+            
+            // Marcar para obtener de APIs externas
+            $ips_to_fetch[] = $ip;
+        }
+        
+        // Procesar IPs que necesitan consulta externa (máximo 10 por lote para evitar timeouts)
+        if (!empty($ips_to_fetch)) {
+            $batches = array_chunk($ips_to_fetch, 10);
+            
+            foreach ($batches as $batch) {
+                $batch_results = $this->fetch_countries_info_batch($batch);
+                
+                foreach ($batch_results as $ip => $country_info) {
+                    $countries_info[$ip] = $country_info;
+                    
+                    // Cachear resultado
+                    $this->country_cache[$ip] = $country_info;
+                    $cache_key = 'sfq_country_' . md5($ip);
+                    set_transient($cache_key, $country_info, 24 * HOUR_IN_SECONDS);
+                }
+            }
+            
+            // Guardar cache local
+            $this->save_country_cache();
+        }
+        
+        return $countries_info;
+    }
+    
+    /**
+     * Obtener información de países desde APIs externas para un lote de IPs
+     */
+    private function fetch_countries_info_batch($ips) {
+        $results = array();
+        
+        // Inicializar con valores por defecto
+        foreach ($ips as $ip) {
+            $results[$ip] = $this->get_fallback_country_info($ip);
+        }
+        
+        // Intentar con el servicio más rápido primero (ip-api.com permite hasta 1000 requests/min)
+        $this->fetch_from_ip_api_batch($ips, $results);
+        
+        return $results;
+    }
+    
+    /**
+     * Obtener información de países desde ip-api.com en lote
+     */
+    private function fetch_from_ip_api_batch($ips, &$results) {
+        // ip-api.com permite consultas en lote enviando un array JSON
+        $batch_data = array();
+        foreach ($ips as $ip) {
+            $batch_data[] = array(
+                'query' => $ip,
+                'fields' => 'status,country,countryCode'
+            );
+        }
+        
+        try {
+            $response = wp_remote_post('http://ip-api.com/batch', array(
+                'timeout' => 10,
+                'user-agent' => 'Smart Forms Quiz Plugin/1.0',
+                'headers' => array(
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json'
+                ),
+                'body' => json_encode($batch_data)
+            ));
+            
+            if (is_wp_error($response)) {
+                return;
+            }
+            
+            $response_code = wp_remote_retrieve_response_code($response);
+            if ($response_code !== 200) {
+                return;
+            }
+            
+            $body = wp_remote_retrieve_body($response);
+            $data = json_decode($body, true);
+            
+            if (!$data || json_last_error() !== JSON_ERROR_NONE) {
+                return;
+            }
+            
+            // Procesar resultados
+            foreach ($data as $index => $item) {
+                if ($index < count($ips)) {
+                    $ip = $ips[$index];
+                    
+                    if (isset($item['status']) && $item['status'] === 'success') {
+                        $country_code = $item['countryCode'] ?? '';
+                        $country_name = $item['country'] ?? '';
+                        
+                        if (!empty($country_code) && !empty($country_name) && $country_code !== 'XX') {
+                            $results[$ip] = array(
+                                'country_code' => strtoupper($country_code),
+                                'country_name' => $country_name,
+                                'flag_emoji' => $this->get_flag_emoji($country_code)
+                            );
+                        }
+                    }
+                }
+            }
+            
+        } catch (Exception $e) {
+            error_log('SFQ Batch Country API Error: ' . $e->getMessage());
+        }
     }
     
     /**
