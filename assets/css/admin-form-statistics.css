@@ -1,0 +1,717 @@
+/**
+ * Smart Forms & Quiz - Estilos para Estadísticas de Formulario
+ */
+
+/* Layout Principal */
+.sfq-statistics-wrap {
+    max-width: 1400px;
+    margin: 20px auto;
+    padding: 0 20px;
+}
+
+/* Header */
+.sfq-stats-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.sfq-stats-header-left h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 600;
+    color: #1d2327;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sfq-stats-header-left h1 .dashicons {
+    color: #007cba;
+    font-size: 32px;
+    width: 32px;
+    height: 32px;
+}
+
+.sfq-stats-description {
+    margin: 5px 0 0;
+    color: #646970;
+    font-size: 14px;
+}
+
+.sfq-stats-header-right {
+    display: flex;
+    gap: 10px;
+}
+
+/* Filtros */
+.sfq-stats-filters {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.sfq-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sfq-filter-group label {
+    font-weight: 500;
+    color: #1d2327;
+}
+
+.sfq-custom-dates {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Resumen General */
+.sfq-stats-summary {
+    margin-bottom: 30px;
+}
+
+.sfq-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.sfq-summary-card {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    transition: all 0.3s ease;
+}
+
+.sfq-summary-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.sfq-summary-icon {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sfq-summary-icon .dashicons {
+    color: #fff;
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+}
+
+.sfq-summary-content {
+    flex: 1;
+}
+
+.sfq-summary-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1d2327;
+    line-height: 1;
+}
+
+.sfq-summary-label {
+    font-size: 13px;
+    color: #646970;
+    margin-top: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Tabs */
+.sfq-stats-tabs {
+    margin-bottom: 30px;
+}
+
+.sfq-tabs-nav {
+    display: flex;
+    gap: 5px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.sfq-tab-button {
+    background: transparent;
+    border: none;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #646970;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+}
+
+.sfq-tab-button:hover {
+    color: #007cba;
+    background: rgba(0, 124, 186, 0.05);
+}
+
+.sfq-tab-button.active {
+    color: #007cba;
+    border-bottom-color: #007cba;
+    background: rgba(0, 124, 186, 0.05);
+}
+
+.sfq-tab-button .dashicons {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+}
+
+.sfq-tab-content {
+    display: none;
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 8px;
+    padding: 25px;
+    margin-top: 20px;
+    animation: fadeIn 0.3s ease;
+}
+
+.sfq-tab-content.active {
+    display: block !important;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Estadísticas por Pregunta */
+.sfq-questions-stats {
+    display: grid;
+    gap: 30px;
+    min-height: 300px;
+}
+
+#sfq-questions-container {
+    width: 100%;
+}
+
+.sfq-question-stat-card {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 8px;
+    padding: 25px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.sfq-question-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.sfq-question-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+.sfq-response-count {
+    background: #f0f0f1;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    color: #646970;
+}
+
+.sfq-question-content {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 30px;
+    align-items: center;
+}
+
+.sfq-options-list {
+    display: grid;
+    gap: 12px;
+}
+
+.sfq-option-stat {
+    display: grid;
+    gap: 8px;
+}
+
+.sfq-option-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sfq-option-text {
+    font-size: 14px;
+    color: #1d2327;
+    font-weight: 500;
+}
+
+.sfq-option-count {
+    font-size: 13px;
+    color: #646970;
+    font-weight: 600;
+}
+
+.sfq-option-bar {
+    height: 24px;
+    background: #f0f0f1;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.sfq-option-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #007cba 0%, #00a0d2 100%);
+    border-radius: 12px;
+    transition: width 0.5s ease;
+    min-width: 2%;
+}
+
+.sfq-chart-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 300px;
+}
+
+/* Análisis por País */
+.sfq-countries-container {
+    min-height: 400px;
+}
+
+.sfq-countries-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    margin-bottom: 30px;
+}
+
+.sfq-countries-map,
+.sfq-countries-list {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.sfq-countries-map h3,
+.sfq-countries-list h3 {
+    margin: 0 0 20px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+.sfq-map-container {
+    height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sfq-country-row {
+    display: grid;
+    grid-template-columns: 30px 1fr 60px 60px 100px;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.sfq-country-row:last-child {
+    border-bottom: none;
+}
+
+.sfq-country-flag {
+    font-size: 20px;
+}
+
+.sfq-country-name {
+    font-weight: 500;
+    color: #1d2327;
+}
+
+.sfq-country-count {
+    text-align: right;
+    font-weight: 600;
+    color: #007cba;
+}
+
+.sfq-country-percentage {
+    text-align: right;
+    color: #646970;
+    font-size: 13px;
+}
+
+.sfq-country-bar {
+    height: 8px;
+    background: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.sfq-country-bar-fill {
+    height: 100%;
+    background: #007cba;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.sfq-country-questions {
+    border-top: 1px solid #e0e0e0;
+    padding-top: 20px;
+}
+
+.sfq-country-questions h3 {
+    margin: 0 0 15px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.sfq-country-filter {
+    margin-bottom: 20px;
+}
+
+.sfq-country-filter select {
+    min-width: 300px;
+}
+
+#sfq-country-responses {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    min-height: 200px;
+}
+
+.sfq-select-country-msg {
+    text-align: center;
+    color: #646970;
+    font-style: italic;
+    padding: 40px 20px;
+}
+
+.sfq-country-question {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.sfq-country-question:last-child {
+    border-bottom: none;
+}
+
+.sfq-country-question h4 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+.sfq-country-options {
+    display: grid;
+    gap: 8px;
+}
+
+.sfq-country-option {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #fff;
+    border-radius: 4px;
+}
+
+/* Evolución Temporal */
+.sfq-timeline-container {
+    min-height: 400px;
+}
+
+.sfq-timeline-chart {
+    margin-bottom: 30px;
+}
+
+.sfq-timeline-chart h3 {
+    margin: 0 0 20px;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.sfq-timeline-stats {
+    border-top: 1px solid #e0e0e0;
+    padding-top: 20px;
+}
+
+.sfq-timeline-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.sfq-timeline-card {
+    text-align: center;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.sfq-timeline-card h4 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    text-transform: uppercase;
+    color: #646970;
+    letter-spacing: 0.5px;
+}
+
+.sfq-timeline-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1d2327;
+}
+
+/* Respuestas Individuales */
+.sfq-responses-container {
+    min-height: 400px;
+}
+
+.sfq-responses-filters {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.sfq-responses-filters input[type="text"] {
+    flex: 1;
+    max-width: 300px;
+}
+
+.sfq-responses-table {
+    overflow-x: auto;
+    margin-bottom: 20px;
+}
+
+.sfq-responses-pagination {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+}
+
+.sfq-responses-pagination button {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 8px;
+}
+
+.sfq-responses-pagination span {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 8px;
+    color: #646970;
+}
+
+/* Loading States */
+.sfq-loading-stats {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.sfq-loading-spinner {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #007cba;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.sfq-loading-stats p {
+    color: #646970;
+    font-size: 14px;
+}
+
+/* No Data State */
+.sfq-no-data {
+    text-align: center;
+    padding: 60px 20px;
+    color: #646970;
+}
+
+.sfq-no-data .dashicons {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    color: #dcdcde;
+    margin-bottom: 20px;
+}
+
+/* Modal */
+.sfq-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100000;
+}
+
+.sfq-modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.sfq-modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #fff;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.sfq-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 25px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.sfq-modal-header h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.sfq-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #646970;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sfq-modal-close:hover {
+    color: #1d2327;
+}
+
+.sfq-modal-body {
+    padding: 25px;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .sfq-question-content {
+        grid-template-columns: 1fr;
+    }
+    
+    .sfq-countries-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .sfq-stats-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .sfq-stats-header-right {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    
+    .sfq-summary-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .sfq-tabs-nav {
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+    
+    .sfq-country-row {
+        grid-template-columns: 30px 1fr;
+    }
+    
+    .sfq-country-count,
+    .sfq-country-percentage,
+    .sfq-country-bar {
+        display: none;
+    }
+}
+
+/* Utility Classes */
+.sfq-text-center {
+    text-align: center;
+}
+
+.sfq-text-right {
+    text-align: right;
+}
+
+.sfq-mt-20 {
+    margin-top: 20px;
+}
+
+.sfq-mb-20 {
+    margin-bottom: 20px;
+}
+
+.sfq-hidden {
+    display: none !important;
+}

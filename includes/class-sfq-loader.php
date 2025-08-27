@@ -14,12 +14,19 @@ class SFQ_Loader {
     private $ajax;
     private $shortcode;
     private $analytics;
+    private $form_statistics;
     
     public function init() {
         // Inicializar componentes según el contexto
         if (is_admin()) {
             $this->admin = new SFQ_Admin();
             $this->admin->init();
+            
+            // Inicializar estadísticas de formulario si existe la clase
+            if (class_exists('SFQ_Form_Statistics')) {
+                $this->form_statistics = new SFQ_Form_Statistics();
+                $this->form_statistics->init();
+            }
         }
         
         // Frontend siempre se carga para shortcodes
@@ -105,7 +112,8 @@ class SFQ_Loader {
             'smart-forms_page_sfq-new-form',
             'smart-forms_page_sfq-submissions',
             'smart-forms_page_sfq-analytics',
-            'smart-forms_page_sfq-settings'
+            'smart-forms_page_sfq-settings',
+            'admin_page_sfq-form-statistics'
         );
         
         $is_plugin_page = in_array($hook, $plugin_pages) || 
@@ -177,6 +185,40 @@ class SFQ_Loader {
                 $submissions_js_version,
                 true
             );
+        }
+        
+        // CSS y JavaScript para la página de estadísticas de formulario
+        if ($hook === 'admin_page_sfq-form-statistics') {
+            $statistics_css_version = $this->get_asset_version('assets/css/admin-form-statistics.css');
+            wp_enqueue_style(
+                'sfq-admin-form-statistics',
+                SFQ_PLUGIN_URL . 'assets/css/admin-form-statistics.css',
+                array(),
+                $statistics_css_version
+            );
+            
+            $statistics_js_version = $this->get_asset_version('assets/js/admin-form-statistics.js');
+            wp_enqueue_script(
+                'sfq-admin-form-statistics',
+                SFQ_PLUGIN_URL . 'assets/js/admin-form-statistics.js',
+                array('jquery'),
+                $statistics_js_version,
+                true
+            );
+            
+            // Localización para AJAX en estadísticas
+            wp_localize_script('sfq-admin-form-statistics', 'sfq_ajax', array(
+                'ajax_url' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('sfq_nonce'),
+                'plugin_url' => SFQ_PLUGIN_URL,
+                'strings' => array(
+                    'loading' => __('Cargando...', 'smart-forms-quiz'),
+                    'error' => __('Error al cargar', 'smart-forms-quiz'),
+                    'no_data' => __('No hay datos disponibles', 'smart-forms-quiz'),
+                    'export_success' => __('Exportación completada', 'smart-forms-quiz'),
+                    'export_error' => __('Error al exportar', 'smart-forms-quiz')
+                )
+            ));
         }
         
         // Localización para AJAX en admin - DEBE ir después de enqueue_script

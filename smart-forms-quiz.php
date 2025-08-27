@@ -35,6 +35,7 @@ require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-analytics.php';
 // Cargar clases de administración avanzadas
 if (is_admin()) {
     require_once SFQ_PLUGIN_DIR . 'includes/admin/class-sfq-admin-submissions.php';
+    require_once SFQ_PLUGIN_DIR . 'includes/admin/class-sfq-form-statistics.php';
 }
 
 // Activación del plugin

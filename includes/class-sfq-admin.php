@@ -76,6 +76,16 @@ class SFQ_Admin {
             array($this, 'render_analytics_page')
         );
         
+        // Submenú oculto - Estadísticas de formulario individual
+        add_submenu_page(
+            null, // Parent slug null para que no aparezca en el menú
+            __('Estadísticas del Formulario', 'smart-forms-quiz'),
+            __('Estadísticas del Formulario', 'smart-forms-quiz'),
+            'manage_smart_forms',
+            'sfq-form-statistics',
+            array($this, 'render_form_statistics_page')
+        );
+        
         // Submenú - Configuración
         add_submenu_page(
             'smart-forms-quiz',
@@ -161,10 +171,10 @@ class SFQ_Admin {
                                 <button class="button sfq-duplicate-form" data-form-id="<?php echo $form->id; ?>">
                                     <?php _e('Duplicar', 'smart-forms-quiz'); ?>
                                 </button>
-                                <a href="<?php echo admin_url('admin.php?page=sfq-submissions&form_id=' . $form->id); ?>" 
+                                <a href="<?php echo admin_url('admin.php?page=sfq-form-statistics&form_id=' . $form->id); ?>" 
                                    class="button sfq-view-responses" 
-                                   title="<?php _e('Ver todas las respuestas de este formulario', 'smart-forms-quiz'); ?>">
-                                    <span class="dashicons dashicons-list-view"></span>
+                                   title="<?php _e('Ver estadísticas de este formulario', 'smart-forms-quiz'); ?>">
+                                    <span class="dashicons dashicons-chart-pie"></span>
                                 </a>
                                 <button class="button sfq-reset-stats" data-form-id="<?php echo $form->id; ?>" title="<?php _e('Borrar estadísticas', 'smart-forms-quiz'); ?>">
                                     <span class="dashicons dashicons-chart-line"></span>
@@ -754,6 +764,19 @@ class SFQ_Admin {
         });
         </script>
         <?php
+    }
+    
+    /**
+     * Renderizar página de estadísticas de formulario individual
+     */
+    public function render_form_statistics_page() {
+        // Verificar si existe la clase de estadísticas
+        if (class_exists('SFQ_Form_Statistics')) {
+            $statistics_handler = new SFQ_Form_Statistics();
+            $statistics_handler->render_statistics_page();
+        } else {
+            wp_die(__('Error: No se pudo cargar el módulo de estadísticas', 'smart-forms-quiz'));
+        }
     }
     
     /**
