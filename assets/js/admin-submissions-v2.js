@@ -925,17 +925,28 @@
             }
         }
         
-        const infoHtml = `
-            <h4>Información General</h4>
-            <p><strong>Formulario:</strong> ${escapeHtml(submission.form_title)}</p>
-            <p><strong>Usuario:</strong> ${escapeHtml(submission.user_name)}</p>
-            <p><strong>País:</strong> ${countryInfo.flag_emoji} ${escapeHtml(countryInfo.country_name)}</p>
-            <p><strong>Fecha:</strong> ${submission.formatted_date}</p>
-            <p><strong>Tiempo:</strong> ${submission.time_spent_formatted}</p>
-            <p><strong>IP:</strong> ${submission.user_ip}</p>
-            ${submission.total_score > 0 ? `<p><strong>Puntuación:</strong> ${submission.total_score}</p>` : ''}
-        `;
-        $('#sfq-submission-info-v2').html(infoHtml);
+        // Crear elementos de forma segura para evitar XSS
+        const $infoContainer = $('#sfq-submission-info-v2');
+        $infoContainer.empty();
+        
+        // Crear elementos de forma segura
+        $infoContainer.append($('<h4>').text('Información General'));
+        $infoContainer.append($('<p>').html($('<strong>').text('Formulario: ')).append(document.createTextNode(submission.form_title || 'Sin título')));
+        $infoContainer.append($('<p>').html($('<strong>').text('Usuario: ')).append(document.createTextNode(submission.user_name || 'Anónimo')));
+        
+        // País con emoji (emoji es seguro, pero sanitizar nombre)
+        const $countryP = $('<p>').html($('<strong>').text('País: '));
+        $countryP.append(document.createTextNode(countryInfo.flag_emoji + ' '));
+        $countryP.append(document.createTextNode(countryInfo.country_name || 'Desconocido'));
+        $infoContainer.append($countryP);
+        
+        $infoContainer.append($('<p>').html($('<strong>').text('Fecha: ')).append(document.createTextNode(submission.formatted_date || '-')));
+        $infoContainer.append($('<p>').html($('<strong>').text('Tiempo: ')).append(document.createTextNode(submission.time_spent_formatted || '-')));
+        $infoContainer.append($('<p>').html($('<strong>').text('IP: ')).append(document.createTextNode(submission.user_ip || '-')));
+        
+        if (submission.total_score > 0) {
+            $infoContainer.append($('<p>').html($('<strong>').text('Puntuación: ')).append(document.createTextNode(submission.total_score)));
+        }
 
         // Cargar nota existente
         const existingNote = submission.admin_note || '';

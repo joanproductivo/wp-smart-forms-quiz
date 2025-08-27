@@ -25,7 +25,7 @@ class SFQ_Admin_Submissions {
         add_action('wp_ajax_sfq_get_dashboard_stats', array($this, 'get_dashboard_stats'));
         add_action('wp_ajax_sfq_get_form_analytics', array($this, 'get_form_analytics'));
         add_action('wp_ajax_sfq_save_submission_note', array($this, 'save_submission_note'));
-        add_action('wp_ajax_sfq_get_abandonment_analysis', array($this, 'get_abandonment_analysis'));
+        // Removed orphaned get_abandonment_analysis method - functionality not implemented
     }
     
     /**
@@ -1402,13 +1402,22 @@ class SFQ_Admin_Submissions {
      * Obtener información del país basada en la IP
      */
     private function get_country_from_ip($ip) {
-        // Validar IP
-        if (empty($ip) || !filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-            return array(
-                'country_code' => 'XX',
-                'country_name' => __('Desconocido', 'smart-forms-quiz'),
-                'flag_emoji' => '🌍'
-            );
+        // Validar IP de forma más estricta
+        if (empty($ip) || !is_string($ip)) {
+            return $this->get_default_country_info();
+        }
+        
+        // Sanitizar IP
+        $ip = sanitize_text_field($ip);
+        
+        // Validar formato de IP (IPv4 o IPv6) excluyendo rangos privados y reservados
+        if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            return $this->get_default_country_info();
+        }
+        
+        // Validar que no sea una IP de localhost o loopback
+        if (in_array($ip, ['127.0.0.1', '::1', 'localhost'])) {
+            return $this->get_default_country_info();
         }
         
         // Verificar caché
@@ -1426,6 +1435,17 @@ class SFQ_Admin_Submissions {
         set_transient($cache_key, $country_info, 24 * HOUR_IN_SECONDS);
         
         return $country_info;
+    }
+    
+    /**
+     * Obtener información por defecto del país
+     */
+    private function get_default_country_info() {
+        return array(
+            'country_code' => 'XX',
+            'country_name' => __('Desconocido', 'smart-forms-quiz'),
+            'flag_emoji' => '🌍'
+        );
     }
     
     /**

@@ -1623,9 +1623,25 @@ class SFQ_Ajax {
     }
     
     /**
-     * Obtener submissions avanzadas con filtros
+     * Instancia singleton de SFQ_Admin_Submissions para evitar múltiples instanciaciones
      */
-    public function get_submissions_advanced() {
+    private $submissions_handler = null;
+    
+    /**
+     * Obtener instancia de SFQ_Admin_Submissions (singleton pattern)
+     */
+    private function get_submissions_handler() {
+        if ($this->submissions_handler === null && class_exists('SFQ_Admin_Submissions')) {
+            $this->submissions_handler = new SFQ_Admin_Submissions();
+        }
+        return $this->submissions_handler;
+    }
+    
+    /**
+     * Delegador genérico para métodos de submissions avanzadas
+     * Consolida la lógica repetida de validación y delegación
+     */
+    private function delegate_to_submissions_handler($method_name, $fallback_method = null) {
         // Verificar permisos
         if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
             wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
@@ -1638,171 +1654,84 @@ class SFQ_Ajax {
             return;
         }
         
-        // Usar la clase de submissions avanzadas si existe
-        if (class_exists('SFQ_Admin_Submissions')) {
-            $submissions_handler = new SFQ_Admin_Submissions();
-            $result = $submissions_handler->get_submissions_advanced();
-            wp_send_json($result);
-        } else {
-            // Fallback básico
-            $this->get_submissions();
+        // Rate limiting para operaciones sensibles
+        $sensitive_methods = ['delete_submissions_bulk', 'delete_submission', 'export_submissions_advanced'];
+        if (in_array($method_name, $sensitive_methods)) {
+            if (!$this->check_rate_limit($method_name, 5, 60)) {
+                wp_send_json_error(__('Demasiadas peticiones. Intenta de nuevo en un momento.', 'smart-forms-quiz'));
+                return;
+            }
         }
+        
+        // Obtener handler y ejecutar método
+        $handler = $this->get_submissions_handler();
+        
+        if ($handler && method_exists($handler, $method_name)) {
+            try {
+                $result = $handler->$method_name();
+                wp_send_json($result);
+            } catch (Exception $e) {
+                error_log("SFQ Error in {$method_name}: " . $e->getMessage());
+                wp_send_json_error([
+                    'message' => __('Error interno del servidor', 'smart-forms-quiz'),
+                    'debug' => WP_DEBUG ? $e->getMessage() : null
+                ]);
+            }
+        } elseif ($fallback_method && method_exists($this, $fallback_method)) {
+            // Ejecutar método de fallback si existe
+            $this->$fallback_method();
+        } else {
+            wp_send_json_error(__('Funcionalidad no disponible', 'smart-forms-quiz'));
+        }
+    }
+    
+    /**
+     * Obtener submissions avanzadas con filtros
+     */
+    public function get_submissions_advanced() {
+        $this->delegate_to_submissions_handler('get_submissions_advanced', 'get_submissions');
     }
     
     /**
      * Obtener estadísticas del dashboard
      */
     public function get_dashboard_stats() {
-        // Verificar permisos
-        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
-            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
-            return;
-        }
-        
-        // Verificar nonce
-        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
-            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
-            return;
-        }
-        
-        // Usar la clase de submissions avanzadas si existe
-        if (class_exists('SFQ_Admin_Submissions')) {
-            $submissions_handler = new SFQ_Admin_Submissions();
-            $result = $submissions_handler->get_dashboard_stats();
-            wp_send_json($result);
-        } else {
-            wp_send_json_error(__('Funcionalidad no disponible', 'smart-forms-quiz'));
-        }
+        $this->delegate_to_submissions_handler('get_dashboard_stats');
     }
     
     /**
      * Obtener analytics de formularios
      */
     public function get_form_analytics() {
-        // Verificar permisos
-        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
-            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
-            return;
-        }
-        
-        // Verificar nonce
-        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
-            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
-            return;
-        }
-        
-        // Usar la clase de submissions avanzadas si existe
-        if (class_exists('SFQ_Admin_Submissions')) {
-            $submissions_handler = new SFQ_Admin_Submissions();
-            $result = $submissions_handler->get_form_analytics();
-            wp_send_json($result);
-        } else {
-            wp_send_json_error(__('Funcionalidad no disponible', 'smart-forms-quiz'));
-        }
+        $this->delegate_to_submissions_handler('get_form_analytics');
     }
     
     /**
      * Eliminar submissions en lote
      */
     public function delete_submissions_bulk() {
-        // Verificar permisos
-        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
-            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
-            return;
-        }
-        
-        // Verificar nonce
-        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
-            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
-            return;
-        }
-        
-        // Usar la clase de submissions avanzadas si existe
-        if (class_exists('SFQ_Admin_Submissions')) {
-            $submissions_handler = new SFQ_Admin_Submissions();
-            $result = $submissions_handler->delete_submissions_bulk();
-            wp_send_json($result);
-        } else {
-            wp_send_json_error(__('Funcionalidad no disponible', 'smart-forms-quiz'));
-        }
+        $this->delegate_to_submissions_handler('delete_submissions_bulk');
     }
     
     /**
      * Eliminar submission individual
      */
     public function delete_submission() {
-        // Verificar permisos
-        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
-            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
-            return;
-        }
-        
-        // Verificar nonce
-        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
-            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
-            return;
-        }
-        
-        // Usar la clase de submissions avanzadas si existe
-        if (class_exists('SFQ_Admin_Submissions')) {
-            $submissions_handler = new SFQ_Admin_Submissions();
-            $result = $submissions_handler->delete_submission();
-            wp_send_json($result);
-        } else {
-            wp_send_json_error(__('Funcionalidad no disponible', 'smart-forms-quiz'));
-        }
+        $this->delegate_to_submissions_handler('delete_submission');
     }
     
     /**
      * Guardar nota de submission
      */
     public function save_submission_note() {
-        // Verificar permisos
-        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
-            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
-            return;
-        }
-        
-        // Verificar nonce
-        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
-            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
-            return;
-        }
-        
-        // Usar la clase de submissions avanzadas si existe
-        if (class_exists('SFQ_Admin_Submissions')) {
-            $submissions_handler = new SFQ_Admin_Submissions();
-            $result = $submissions_handler->save_submission_note();
-            wp_send_json($result);
-        } else {
-            wp_send_json_error(__('Funcionalidad no disponible', 'smart-forms-quiz'));
-        }
+        $this->delegate_to_submissions_handler('save_submission_note');
     }
     
     /**
      * Exportar submissions avanzadas
      */
     public function export_submissions_advanced() {
-        // Verificar permisos
-        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
-            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
-            return;
-        }
-        
-        // Verificar nonce
-        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
-            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
-            return;
-        }
-        
-        // Usar la clase de submissions avanzadas si existe
-        if (class_exists('SFQ_Admin_Submissions')) {
-            $submissions_handler = new SFQ_Admin_Submissions();
-            $result = $submissions_handler->export_submissions_advanced();
-            wp_send_json($result);
-        } else {
-            wp_send_json_error(__('Funcionalidad no disponible', 'smart-forms-quiz'));
-        }
+        $this->delegate_to_submissions_handler('export_submissions_advanced');
     }
     
 }
