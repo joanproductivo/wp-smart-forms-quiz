@@ -6,7 +6,7 @@
 (function($) {
     'use strict';
 
-    // Configuración y constantes
+    // Configuración y constantes consolidadas
     const CONFIG = {
         DEFAULT_PER_PAGE: 25,
         DEFAULT_SORT: { column: 'completed_at', direction: 'DESC' },
@@ -16,10 +16,13 @@
             '#007cba', '#46b450', '#ffb900', '#dc3232', 
             '#00a0d2', '#6c757d', '#9b59b6', '#e67e22', 
             '#1abc9c', '#34495e'
-        ]
+        ],
+        DEBOUNCE_DELAY: 300,
+        MAX_RETRIES: 3,
+        TIMEOUT: 30000
     };
 
-    // Estado de la aplicación
+    // Estado de la aplicación centralizado
     const AppState = {
         currentPage: 1,
         currentPerPage: CONFIG.DEFAULT_PER_PAGE,
@@ -28,88 +31,260 @@
         submissionsData: [],
         chartsInstances: {},
         isLoading: false,
-        cache: new Map()
+        cache: new Map(),
+        domCache: new Map(), // Cache para elementos DOM
+        retryCount: 0
     };
 
-    // Utilidades AJAX centralizadas
-    const AjaxUtil = {
-        request: function(action, data = {}, options = {}) {
-            const defaultOptions = {
-                showLoading: true,
-                showSuccess: true,
-                showError: true
-            };
-            
-            const opts = { ...defaultOptions, ...options };
-            
-            if (opts.showLoading) {
-                this.showLoading();
+    // Sistema de eventos centralizado
+    const EventBus = {
+        events: {},
+        
+        on: function(event, callback) {
+            if (!this.events[event]) {
+                this.events[event] = [];
             }
-
-            return $.ajax({
-                url: ajaxurl,
-                type: 'POST',
-                data: {
-                    action: action,
-                    nonce: sfq_ajax.nonce,
-                    ...data
-                }
-            }).done(function(response) {
-                if (response.success) {
-                    if (opts.showSuccess && response.data.message) {
-                        NotificationUtil.show(response.data.message, 'success');
-                    }
-                } else {
-                    if (opts.showError) {
-                        NotificationUtil.show('Error: ' + (response.data?.message || 'Error desconocido'), 'error');
-                    }
-                }
-            }).fail(function() {
-                if (opts.showError) {
-                    NotificationUtil.show('Error de conexión', 'error');
-                }
-            }).always(function() {
-                if (opts.showLoading) {
-                    AjaxUtil.hideLoading();
-                }
-            });
+            this.events[event].push(callback);
         },
-
-        showLoading: function() {
-            AppState.isLoading = true;
-            $('.sfq-loading-overlay').show();
+        
+        emit: function(event, data) {
+            if (this.events[event]) {
+                this.events[event].forEach(callback => callback(data));
+            }
         },
-
-        hideLoading: function() {
-            AppState.isLoading = false;
-            $('.sfq-loading-overlay').hide();
+        
+        off: function(event, callback) {
+            if (this.events[event]) {
+                this.events[event] = this.events[event].filter(cb => cb !== callback);
+            }
         }
     };
 
-    // Utilidades de notificación
-    const NotificationUtil = {
-        show: function(message, type = 'info') {
-            const notification = $(`
-                <div class="sfq-notification sfq-notification-${type}">
-                    ${this.escapeHtml(message)}
-                </div>
-            `);
-
-            $('body').append(notification);
-
-            setTimeout(() => notification.addClass('show'), 100);
-            setTimeout(() => {
-                notification.removeClass('show');
-                setTimeout(() => notification.remove(), 300);
-            }, 4000);
+    // Utilidades centralizadas y optimizadas
+    const Utils = {
+        // Cache de elementos DOM
+        getElement: function(selector) {
+            if (!AppState.domCache.has(selector)) {
+                AppState.domCache.set(selector, $(selector));
+            }
+            return AppState.domCache.get(selector);
         },
 
+        // Debounce function
+        debounce: function(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        },
+
+        // Escape HTML
         escapeHtml: function(text) {
             const map = {
                 '&': '&amp;', '<': '&lt;', '>': '&gt;',
                 '"': '&quot;', "'": '&#039;'
             };
             return text ? text.replace(/[&<>"']/g, m => map[m]) : '';
+        },
+
+        // Formatear números
+        formatNumber: function(num) {
+            return new Intl.NumberFormat().format(num);
+        },
+
+        // Validar datos
+        validateData: function(data, schema) {
+            for (const [key, validator] of Object.entries(schema)) {
+                if (!validator(data[key])) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    };
+
+    // Sistema AJAX unificado y optimizado
+    const AjaxManager = {
+        activeRequests: new Map(),
+        
+        request: function(action, data = {}, options = {}) {
+            const defaultOptions = {
+                showLoading: true,
+                showSuccess: true,
+                showError: true,
+                cache: false,
+                timeout: CONFIG.TIMEOUT,
+                retries: CONFIG.MAX_RETRIES
+            };
+            
+            const opts = { ...defaultOptions, ...options };
+            const requestKey = `${action}_${JSON.stringify(data)}`;
+            
+            // Cancelar request anterior si existe
+            if (this.activeRequests.has(requestKey)) {
+                this.activeRequests.get(requestKey).abort();
+            }
+            
+            // Verificar cache si está habilitado
+            if (opts.cache && AppState.cache.has(requestKey)) {
+                const cached = AppState.cache.get(requestKey);
+                if (Date.now() - cached.timestamp < CONFIG.CACHE_DURATION) {
+                    return Promise.resolve(cached.data);
+                }
+            }
+            
+            if (opts.showLoading) {
+                this.showLoading();
+            }
+
+            const request = $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                timeout: opts.timeout,
+                data: {
+                    action: action,
+                    nonce: sfq_ajax.nonce,
+                    ...data
+                }
+            });
+
+            this.activeRequests.set(requestKey, request);
+
+            return request.done((response) => {
+                if (response.success) {
+                    // Cachear respuesta si está habilitado
+                    if (opts.cache) {
+                        AppState.cache.set(requestKey, {
+                            data: response,
+                            timestamp: Date.now()
+                        });
+                    }
+                    
+                    if (opts.showSuccess && response.data?.message) {
+                        NotificationManager.show(response.data.message, 'success');
+                    }
+                    
+                    EventBus.emit('ajax:success', { action, response });
+                } else {
+                    if (opts.showError) {
+                        NotificationManager.show('Error: ' + (response.data?.message || 'Error desconocido'), 'error');
+                    }
+                    EventBus.emit('ajax:error', { action, response });
+                }
+            }).fail((xhr, status, error) => {
+                if (status !== 'abort') {
+                    if (AppState.retryCount < opts.retries) {
+                        AppState.retryCount++;
+                        setTimeout(() => this.request(action, data, opts), 1000 * AppState.retryCount);
+                        return;
+                    }
+                    
+                    if (opts.showError) {
+                        NotificationManager.show('Error de conexión: ' + error, 'error');
+                    }
+                    EventBus.emit('ajax:fail', { action, error });
+                }
+            }).always(() => {
+                this.activeRequests.delete(requestKey);
+                AppState.retryCount = 0;
+                
+                if (opts.showLoading) {
+                    this.hideLoading();
+                }
+            });
+        },
+
+        showLoading: function() {
+            if (!AppState.isLoading) {
+                AppState.isLoading = true;
+                Utils.getElement('.sfq-loading-overlay').show();
+                EventBus.emit('loading:start');
+            }
+        },
+
+        hideLoading: function() {
+            if (AppState.isLoading) {
+                AppState.isLoading = false;
+                Utils.getElement('.sfq-loading-overlay').hide();
+                EventBus.emit('loading:end');
+            }
+        },
+
+        cancelAll: function() {
+            this.activeRequests.forEach(request => request.abort());
+            this.activeRequests.clear();
+        }
+    };
+
+    // Sistema de notificaciones mejorado
+    const NotificationManager = {
+        queue: [],
+        maxVisible: 3,
+        
+        show: function(message, type = 'info', duration = 4000) {
+            const notification = {
+                id: Date.now() + Math.random(),
+                message: Utils.escapeHtml(message),
+                type: type,
+                duration: duration
+            };
+            
+            this.queue.push(notification);
+            this.processQueue();
+        },
+
+        processQueue: function() {
+            const visibleCount = $('.sfq-notification').length;
+            
+            if (visibleCount < this.maxVisible && this.queue.length > 0) {
+                const notification = this.queue.shift();
+                this.render(notification);
+            }
+        },
+
+        render: function(notification) {
+            const $notification = $(`
+                <div class="sfq-notification sfq-notification-${notification.type}" data-id="${notification.id}">
+                    <span class="sfq-notification-message">${notification.message}</span>
+                    <button class="sfq-notification-close" type="button">&times;</button>
+                </div>
+            `);
+
+            $('body').append($notification);
+
+            // Animación de entrada
+            setTimeout(() => $notification.addClass('show'), 100);
+
+            // Auto-remove
+            setTimeout(() => {
+                this.remove(notification.id);
+            }, notification.duration);
+
+            // Click para cerrar
+            $notification.find('.sfq-notification-close').on('click', () => {
+                this.remove(notification.id);
+            });
+        },
+
+        remove: function(id) {
+            const $notification = $(`.sfq-notification[data-id="${id}"]`);
+            if ($notification.length) {
+                $notification.removeClass('show');
+                setTimeout(() => {
+                    $notification.remove();
+                    this.processQueue(); // Procesar siguiente en cola
+                }, 300);
+            }
+        },
+
+        clear: function() {
+            $('.sfq-notification').remove();
+            this.queue = [];
         }
     };
 
@@ -354,7 +529,7 @@
                 : '-';
 
             const countryInfo = submission.country_info || { flag_emoji: '🌍', country_name: 'Desconocido' };
-            const countryBadge = `<span class="sfq-country-badge" title="${NotificationUtil.escapeHtml(countryInfo.country_name)}">${countryInfo.flag_emoji}</span>`;
+            const countryBadge = `<span class="sfq-country-badge" title="${Utils.escapeHtml(countryInfo.country_name)}">${countryInfo.flag_emoji}</span>`;
 
             return `
                 <tr data-submission-id="${submission.id}" data-index="${index}">
@@ -362,10 +537,10 @@
                         <input type="checkbox" class="sfq-submission-checkbox" value="${submission.id}">
                     </td>
                     <td><strong>#${submission.id}</strong></td>
-                    <td><strong>${NotificationUtil.escapeHtml(submission.form_title || 'Sin título')}</strong></td>
+                    <td><strong>${Utils.escapeHtml(submission.form_title || 'Sin título')}</strong></td>
                     <td>
                         <div class="sfq-user-info">
-                            <strong>${NotificationUtil.escapeHtml(submission.user_name)}</strong>
+                            <strong>${Utils.escapeHtml(submission.user_name)}</strong>
                             ${userBadge}
                             ${countryBadge}
                         </div>
@@ -545,7 +720,7 @@
             savedFilters[filterName] = AppState.currentFilters;
             localStorage.setItem('sfq_saved_filters', JSON.stringify(savedFilters));
             
-            NotificationUtil.show('Filtro guardado: ' + filterName, 'success');
+            NotificationManager.show('Filtro guardado: ' + filterName, 'success');
         }
     };
 
@@ -563,7 +738,7 @@
         },
 
         loadSubmissionDetail: function(submissionId, index) {
-            AjaxUtil.request('sfq_get_submission_detail', { submission_id: submissionId }, { showLoading: false })
+            AjaxManager.request('sfq_get_submission_detail', { submission_id: submissionId }, { showLoading: false })
                 .done((response) => {
                     if (response.success) {
                         this.renderSubmissionDetail(response.data, index);
@@ -599,8 +774,8 @@
                 responses.forEach(function(response) {
                     responsesHtml += `
                         <div class="sfq-response-item">
-                            <div class="sfq-response-question">${NotificationUtil.escapeHtml(response.question_text)}</div>
-                            <div class="sfq-response-answer">${NotificationUtil.escapeHtml(response.answer_formatted)}</div>
+                            <div class="sfq-response-question">${Utils.escapeHtml(response.question_text)}</div>
+                            <div class="sfq-response-answer">${Utils.escapeHtml(response.answer_formatted)}</div>
                         </div>
                     `;
                 });
@@ -642,7 +817,7 @@
                 return;
             }
 
-            AjaxUtil.request('sfq_delete_submission', { submission_id: submissionId })
+            AjaxManager.request('sfq_delete_submission', { submission_id: submissionId })
                 .done((response) => {
                     if (response.success) {
                         SubmissionsApp.loadSubmissions();
@@ -658,7 +833,7 @@
             }).get();
 
             if (!action || selectedIds.length === 0) {
-                NotificationUtil.show('Selecciona una acción y al menos un elemento', 'warning');
+                NotificationManager.show('Selecciona una acción y al menos un elemento', 'warning');
                 return;
             }
 
@@ -677,7 +852,7 @@
                 return;
             }
 
-            AjaxUtil.request('sfq_delete_submissions_bulk', { submission_ids: ids })
+            AjaxManager.request('sfq_delete_submissions_bulk', { submission_ids: ids })
                 .done((response) => {
                     if (response.success) {
                         SubmissionsApp.loadSubmissions();
@@ -690,13 +865,13 @@
             const submissionId = $('#sfq-submission-modal-v2').data('current-id');
             const note = $('#sfq-submission-notes').val();
 
-            AjaxUtil.request('sfq_save_submission_note', { 
+            AjaxManager.request('sfq_save_submission_note', { 
                 submission_id: submissionId, 
                 note: note 
             }, { showSuccess: false })
                 .done((response) => {
                     if (response.success) {
-                        NotificationUtil.show('Nota guardada correctamente', 'success');
+                        NotificationManager.show('Nota guardada correctamente', 'success');
                     }
                 });
         }
@@ -721,7 +896,7 @@
             }).get();
 
             if (fields.length === 0) {
-                NotificationUtil.show('Selecciona al menos un campo para exportar', 'warning');
+                NotificationManager.show('Selecciona al menos un campo para exportar', 'warning');
                 return;
             }
 
@@ -734,7 +909,7 @@
                 ...AppState.currentFilters
             };
 
-            AjaxUtil.request('sfq_export_submissions_advanced', requestData, { showLoading: false })
+            AjaxManager.request('sfq_export_submissions_advanced', requestData, { showLoading: false })
                 .done((response) => {
                     if (response.success) {
                         this.downloadFile(response.data.file_url);
@@ -825,14 +1000,14 @@
             });
 
             localStorage.setItem('sfq_columns_config', JSON.stringify(config));
-            NotificationUtil.show('Configuración de columnas guardada', 'success');
+            NotificationManager.show('Configuración de columnas guardada', 'success');
             ModalManager.close();
             SubmissionsApp.loadSubmissions();
         },
 
         reset: function() {
             localStorage.removeItem('sfq_columns_config');
-            NotificationUtil.show('Configuración de columnas restablecida', 'success');
+            NotificationManager.show('Configuración de columnas restablecida', 'success');
             ModalManager.close();
             SubmissionsApp.loadSubmissions();
         }
@@ -865,7 +1040,7 @@
                 };
                 script.onerror = () => {
                     console.error('Failed to load Chart.js');
-                    NotificationUtil.show('Error al cargar gráficos. Algunas funciones pueden no estar disponibles.', 'warning');
+                    NotificationManager.show('Error al cargar gráficos. Algunas funciones pueden no estar disponibles.', 'warning');
                 };
                 document.head.appendChild(script);
             }
@@ -886,7 +1061,7 @@
                 };
                 script.onerror = () => {
                     console.error('Failed to load Flatpickr');
-                    NotificationUtil.show('Error al cargar selector de fechas. Use formato YYYY-MM-DD.', 'warning');
+                    NotificationManager.show('Error al cargar selector de fechas. Use formato YYYY-MM-DD.', 'warning');
                 };
                 document.head.appendChild(script);
             }
@@ -964,7 +1139,7 @@
             this.loadDashboardStats();
             this.loadSubmissions();
             this.loadAnalyticsData();
-            NotificationUtil.show('Datos actualizados', 'success');
+            NotificationManager.show('Datos actualizados', 'success');
         },
 
         handleKeyboardShortcuts: function(e) {
@@ -980,7 +1155,7 @@
         },
 
         loadDashboardStats: function() {
-            AjaxUtil.request('sfq_get_dashboard_stats', {}, { showLoading: false })
+            AjaxManager.request('sfq_get_dashboard_stats', {}, { showLoading: false })
                 .done((response) => {
                     if (response.success) {
                         DashboardManager.updateStats(response.data);
@@ -999,7 +1174,7 @@
                 ...AppState.currentFilters
             };
 
-            AjaxUtil.request('sfq_get_submissions_advanced', requestData, { showLoading: false })
+            AjaxManager.request('sfq_get_submissions_advanced', requestData, { showLoading: false })
                 .done((response) => {
                     if (response.success) {
                         AppState.submissionsData = response.data.submissions;
@@ -1014,7 +1189,7 @@
         loadAnalyticsData: function() {
             const period = $('#sfq-chart-period').val() || 30;
             
-            AjaxUtil.request('sfq_get_form_analytics', { period }, { showLoading: false })
+            AjaxManager.request('sfq_get_form_analytics', { period }, { showLoading: false })
                 .done((response) => {
                     if (response.success) {
                         ChartManager.updateCharts(response.data);

@@ -12,9 +12,28 @@ class SFQ_Admin_Submissions {
     private $database;
     private $country_cache = array();
     private $allowed_sort_columns = array('id', 'form_title', 'completed_at', 'time_spent', 'user_id');
+    private $dom_cache = array(); // Cache para elementos DOM frecuentemente accedidos
     
     public function __construct() {
         $this->database = new SFQ_Database();
+        $this->init_country_cache();
+    }
+    
+    /**
+     * Inicializar cache de países
+     */
+    private function init_country_cache() {
+        $cached_countries = get_transient('sfq_countries_cache');
+        if ($cached_countries !== false) {
+            $this->country_cache = $cached_countries;
+        }
+    }
+    
+    /**
+     * Guardar cache de países
+     */
+    private function save_country_cache() {
+        set_transient('sfq_countries_cache', $this->country_cache, 24 * HOUR_IN_SECONDS);
     }
     
     /**
@@ -1382,7 +1401,7 @@ class SFQ_Admin_Submissions {
     }
     
     /**
-     * Obtener información del país basada en la IP
+     * Obtener información del país basada en la IP (método consolidado y optimizado)
      */
     private function get_country_from_ip($ip) {
         // Validar IP de forma más estricta
@@ -1403,19 +1422,27 @@ class SFQ_Admin_Submissions {
             return $this->get_default_country_info();
         }
         
-        // Verificar caché
+        // Verificar caché local primero
+        if (isset($this->country_cache[$ip])) {
+            return $this->country_cache[$ip];
+        }
+        
+        // Verificar caché de WordPress
         $cache_key = 'sfq_country_' . md5($ip);
         $cached_result = get_transient($cache_key);
         
         if ($cached_result !== false) {
+            $this->country_cache[$ip] = $cached_result;
             return $cached_result;
         }
         
         // Intentar obtener información del país usando diferentes servicios
         $country_info = $this->fetch_country_info($ip);
         
-        // Cachear resultado por 24 horas
+        // Cachear resultado en ambos caches
+        $this->country_cache[$ip] = $country_info;
         set_transient($cache_key, $country_info, 24 * HOUR_IN_SECONDS);
+        $this->save_country_cache();
         
         return $country_info;
     }
@@ -1432,82 +1459,100 @@ class SFQ_Admin_Submissions {
     }
     
     /**
-     * Obtener información del país desde servicios externos
+     * Obtener información del país desde servicios externos (optimizado)
      */
     private function fetch_country_info($ip) {
-        $default_info = array(
-            'country_code' => 'XX',
-            'country_name' => __('Desconocido', 'smart-forms-quiz'),
-            'flag_emoji' => '🌍'
-        );
+        $default_info = $this->get_default_country_info();
         
-        // Lista de servicios de geolocalización gratuitos
+        // Lista de servicios de geolocalización gratuitos con configuración optimizada
         $services = array(
-            'http://ip-api.com/json/' . $ip . '?fields=status,country,countryCode',
-            'https://ipapi.co/' . $ip . '/json/',
-            'http://www.geoplugin.net/json.gp?ip=' . $ip
+            array(
+                'url' => 'http://ip-api.com/json/' . $ip . '?fields=status,country,countryCode',
+                'timeout' => 3,
+                'parser' => 'ip_api'
+            ),
+            array(
+                'url' => 'https://ipapi.co/' . $ip . '/json/',
+                'timeout' => 3,
+                'parser' => 'ipapi_co'
+            ),
+            array(
+                'url' => 'http://www.geoplugin.net/json.gp?ip=' . $ip,
+                'timeout' => 5,
+                'parser' => 'geoplugin'
+            )
         );
         
-        foreach ($services as $service_url) {
+        foreach ($services as $service) {
             try {
-                $response = wp_remote_get($service_url, array(
-                    'timeout' => 5,
-                    'user-agent' => 'Smart Forms Quiz Plugin'
+                $response = wp_remote_get($service['url'], array(
+                    'timeout' => $service['timeout'],
+                    'user-agent' => 'Smart Forms Quiz Plugin/1.0',
+                    'headers' => array('Accept' => 'application/json')
                 ));
                 
                 if (is_wp_error($response)) {
                     continue;
                 }
                 
+                $response_code = wp_remote_retrieve_response_code($response);
+                if ($response_code !== 200) {
+                    continue;
+                }
+                
                 $body = wp_remote_retrieve_body($response);
                 $data = json_decode($body, true);
                 
-                if (!$data) {
+                if (!$data || json_last_error() !== JSON_ERROR_NONE) {
                     continue;
                 }
                 
                 // Procesar respuesta según el servicio
-                $country_info = $this->parse_country_response($data, $service_url);
+                $country_info = $this->parse_country_response($data, $service['parser']);
                 
                 if ($country_info && $country_info['country_code'] !== 'XX') {
                     return $country_info;
                 }
                 
             } catch (Exception $e) {
-                // Continuar con el siguiente servicio
+                error_log('SFQ Country API Error: ' . $e->getMessage());
                 continue;
             }
         }
         
-        return $default_info;
+        // Si todos los servicios fallan, usar fallback inteligente
+        return $this->get_fallback_country_info($ip);
     }
     
     /**
-     * Parsear respuesta de servicios de geolocalización
+     * Parsear respuesta de servicios de geolocalización (optimizado)
      */
-    private function parse_country_response($data, $service_url) {
+    private function parse_country_response($data, $parser_type) {
         $country_code = '';
         $country_name = '';
         
-        // ip-api.com
-        if (strpos($service_url, 'ip-api.com') !== false) {
-            if (isset($data['status']) && $data['status'] === 'success') {
-                $country_code = $data['countryCode'] ?? '';
-                $country_name = $data['country'] ?? '';
-            }
-        }
-        // ipapi.co
-        elseif (strpos($service_url, 'ipapi.co') !== false) {
-            $country_code = $data['country_code'] ?? '';
-            $country_name = $data['country_name'] ?? '';
-        }
-        // geoplugin.net
-        elseif (strpos($service_url, 'geoplugin.net') !== false) {
-            $country_code = $data['geoplugin_countryCode'] ?? '';
-            $country_name = $data['geoplugin_countryName'] ?? '';
+        switch ($parser_type) {
+            case 'ip_api':
+                if (isset($data['status']) && $data['status'] === 'success') {
+                    $country_code = $data['countryCode'] ?? '';
+                    $country_name = $data['country'] ?? '';
+                }
+                break;
+                
+            case 'ipapi_co':
+                if (!isset($data['error'])) {
+                    $country_code = $data['country_code'] ?? '';
+                    $country_name = $data['country_name'] ?? '';
+                }
+                break;
+                
+            case 'geoplugin':
+                $country_code = $data['geoplugin_countryCode'] ?? '';
+                $country_name = $data['geoplugin_countryName'] ?? '';
+                break;
         }
         
-        if (empty($country_code) || empty($country_name)) {
+        if (empty($country_code) || empty($country_name) || $country_code === 'XX') {
             return null;
         }
         
