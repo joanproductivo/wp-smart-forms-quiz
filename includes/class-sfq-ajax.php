@@ -35,6 +35,7 @@ class SFQ_Ajax {
         add_action('wp_ajax_sfq_get_submissions', array($this, 'get_submissions'));
         add_action('wp_ajax_sfq_get_submission_detail', array($this, 'get_submission_detail'));
         add_action('wp_ajax_sfq_reset_form_stats', array($this, 'reset_form_stats'));
+        add_action('wp_ajax_sfq_maintenance_action', array($this, 'handle_maintenance_action'));
         
     }
     
@@ -654,8 +655,8 @@ class SFQ_Ajax {
                 return;
             }
             
-            // Obtener formulario de la base de datos
-            $form = $this->database->get_form($form_id);
+        // Obtener formulario de la base de datos (usar versión fresh para admin)
+        $form = $this->database->get_form_fresh($form_id);
             
             if (!$form) {
                 wp_send_json_error(array(
@@ -1469,6 +1470,147 @@ class SFQ_Ajax {
     private function format_time($seconds) {
         // Usar método centralizado de la clase Utils
         return SFQ_Utils::format_time($seconds);
+    }
+    
+    /**
+     * Manejar acciones de mantenimiento
+     */
+    public function handle_maintenance_action() {
+        // Verificar permisos de administrador
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array(
+                'message' => __('No tienes permisos para realizar esta acción', 'smart-forms-quiz')
+            ));
+            return;
+        }
+        
+        // Verificar nonce específico para mantenimiento
+        if (!check_ajax_referer('sfq_maintenance_nonce', 'nonce', false)) {
+            wp_send_json_error(array(
+                'message' => __('Error de seguridad', 'smart-forms-quiz')
+            ));
+            return;
+        }
+        
+        // Verificar método de petición
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            wp_send_json_error(array(
+                'message' => __('Método de petición no válido', 'smart-forms-quiz')
+            ));
+            return;
+        }
+        
+        $action = sanitize_text_field($_POST['maintenance_action'] ?? '');
+        
+        if (empty($action)) {
+            wp_send_json_error(array(
+                'message' => __('Acción de mantenimiento no especificada', 'smart-forms-quiz')
+            ));
+            return;
+        }
+        
+        // Validar acciones permitidas
+        $allowed_actions = array(
+            'clear_cache',
+            'optimize_database', 
+            'check_integrity',
+            'cleanup_old_data',
+            'get_database_stats'
+        );
+        
+        if (!in_array($action, $allowed_actions)) {
+            wp_send_json_error(array(
+                'message' => __('Acción de mantenimiento no válida', 'smart-forms-quiz')
+            ));
+            return;
+        }
+        
+        try {
+            // Ejecutar la acción correspondiente
+            switch ($action) {
+                case 'clear_cache':
+                    $result = $this->clear_all_cache();
+                    break;
+                    
+                case 'optimize_database':
+                    $result = $this->database->optimize_database_tables();
+                    break;
+                    
+                case 'check_integrity':
+                    $result = $this->database->check_database_integrity();
+                    break;
+                    
+                case 'cleanup_old_data':
+                    $result = $this->database->cleanup_old_data();
+                    break;
+                    
+                case 'get_database_stats':
+                    $result = $this->database->get_database_stats();
+                    break;
+                    
+                default:
+                    throw new Exception(__('Acción no implementada', 'smart-forms-quiz'));
+            }
+            
+            // Log de la acción para auditoría
+            error_log("SFQ Maintenance: Action '{$action}' executed by user " . get_current_user_id());
+            
+            wp_send_json_success($result);
+            
+        } catch (Exception $e) {
+            error_log('SFQ Maintenance Error: ' . $e->getMessage());
+            
+            wp_send_json_error(array(
+                'message' => sprintf(__('Error al ejecutar %s: %s', 'smart-forms-quiz'), $action, $e->getMessage()),
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
+        }
+    }
+    
+    /**
+     * Limpiar todo el caché del plugin
+     */
+    private function clear_all_cache() {
+        $cleared_items = array();
+        
+        // Limpiar caché de WordPress Object Cache
+        wp_cache_flush();
+        $cleared_items[] = __('Object Cache de WordPress', 'smart-forms-quiz');
+        
+        // Limpiar grupos específicos del plugin
+        wp_cache_flush_group('sfq_forms');
+        wp_cache_flush_group('sfq_stats');
+        wp_cache_flush_group('sfq_analytics');
+        $cleared_items[] = __('Cache específico del plugin', 'smart-forms-quiz');
+        
+        // Limpiar transients del plugin
+        global $wpdb;
+        $transients_deleted = $wpdb->query(
+            "DELETE FROM {$wpdb->options} 
+            WHERE option_name LIKE '_transient_sfq_%' 
+            OR option_name LIKE '_transient_timeout_sfq_%'"
+        );
+        
+        if ($transients_deleted > 0) {
+            $cleared_items[] = sprintf(__('%d transients eliminados', 'smart-forms-quiz'), $transients_deleted);
+        }
+        
+        // Limpiar caché de opciones específicas
+        $plugin_options = array(
+            'sfq_forms_cache',
+            'sfq_stats_cache',
+            'sfq_analytics_cache'
+        );
+        
+        foreach ($plugin_options as $option) {
+            delete_option($option);
+        }
+        $cleared_items[] = __('Opciones de caché del plugin', 'smart-forms-quiz');
+        
+        return array(
+            'message' => __('Cache limpiado correctamente', 'smart-forms-quiz'),
+            'details' => $cleared_items
+        );
     }
     
 }

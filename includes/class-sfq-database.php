@@ -24,6 +24,28 @@ class SFQ_Database {
         $this->submissions_table = $wpdb->prefix . 'sfq_submissions';
         $this->analytics_table = $wpdb->prefix . 'sfq_analytics';
         $this->conditions_table = $wpdb->prefix . 'sfq_conditions';
+        
+        // Verificar conexión de base de datos al inicializar
+        $this->ensure_db_connection();
+    }
+    
+    /**
+     * Asegurar que la conexión de base de datos esté activa
+     * Mejora de WordPress best practices para conexiones persistentes
+     */
+    private function ensure_db_connection() {
+        global $wpdb;
+        
+        // Verificar si la conexión está activa
+        if (!$wpdb->check_connection()) {
+            // Intentar reconectar
+            $wpdb->db_connect();
+            
+            // Log si hay problemas de conexión
+            if (!$wpdb->check_connection()) {
+                error_log('SFQ Database: Failed to establish database connection');
+            }
+        }
     }
     
     /**
@@ -224,9 +246,48 @@ class SFQ_Database {
     }
     
     /**
-     * Obtener un formulario por ID
+     * Obtener un formulario por ID con cache optimizado
      */
     public function get_form($form_id) {
+        // Verificar cache primero
+        $cache_key = "sfq_form_{$form_id}";
+        $cached_form = wp_cache_get($cache_key, 'sfq_forms');
+        
+        if ($cached_form !== false) {
+            return $cached_form;
+        }
+        
+        global $wpdb;
+        
+        $form = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$this->forms_table} WHERE id = %d",
+            $form_id
+        ));
+        
+        if ($form) {
+            // Decodificar configuraciones JSON
+            $form->settings = json_decode($form->settings, true) ?: array();
+            $form->style_settings = json_decode($form->style_settings, true) ?: array();
+            
+            // Obtener preguntas
+            $form->questions = $this->get_questions($form_id);
+            
+            // Ensure questions is always an array
+            if (!is_array($form->questions)) {
+                $form->questions = array();
+            }
+            
+            // Cachear el resultado por 5 minutos
+            wp_cache_set($cache_key, $form, 'sfq_forms', 300);
+        }
+        
+        return $form;
+    }
+    
+    /**
+     * Obtener un formulario por ID sin cache (para admin)
+     */
+    public function get_form_fresh($form_id) {
         global $wpdb;
         
         $form = $wpdb->get_row($wpdb->prepare(
@@ -701,5 +762,328 @@ class SFQ_Database {
     private function get_user_ip() {
         // Usar método centralizado de la clase Utils
         return SFQ_Utils::get_user_ip();
+    }
+    
+    /**
+     * Insertar respuestas en lote (optimización para grandes volúmenes)
+     * Mejora de WordPress best practices para operaciones batch
+     */
+    public function batch_insert_responses($responses) {
+        if (empty($responses) || !is_array($responses)) {
+            return false;
+        }
+        
+        global $wpdb;
+        
+        // Preparar valores para inserción batch
+        $values = array();
+        $placeholders = array();
+        $prepare_values = array();
+        
+        foreach ($responses as $response) {
+            if (!isset($response['submission_id'], $response['question_id'], $response['answer'])) {
+                continue; // Skip invalid responses
+            }
+            
+            $values[] = '(%d, %d, %s, %d)';
+            $prepare_values[] = intval($response['submission_id']);
+            $prepare_values[] = intval($response['question_id']);
+            $prepare_values[] = sanitize_textarea_field($response['answer']);
+            $prepare_values[] = intval($response['score'] ?? 0);
+        }
+        
+        if (empty($values)) {
+            return false;
+        }
+        
+        // Construir consulta batch
+        $query = "INSERT INTO {$this->responses_table} (submission_id, question_id, answer, score) VALUES " . implode(', ', $values);
+        
+        // Ejecutar con monitoreo de tiempo
+        $start_time = microtime(true);
+        $result = $wpdb->query($wpdb->prepare($query, $prepare_values));
+        $execution_time = microtime(true) - $start_time;
+        
+        // Log consultas lentas
+        $this->log_slow_query($query, $execution_time);
+        
+        return $result;
+    }
+    
+    /**
+     * Limpiar datos antiguos (mantenimiento automático)
+     * Mejora de WordPress best practices para limpieza de datos
+     */
+    public function cleanup_old_data($days_old = 90) {
+        global $wpdb;
+        
+        $cutoff_date = date('Y-m-d H:i:s', strtotime("-{$days_old} days"));
+        
+        // Iniciar transacción para limpieza
+        $wpdb->query('START TRANSACTION');
+        
+        try {
+            // Obtener submissions antiguos
+            $old_submissions = $wpdb->get_col($wpdb->prepare(
+                "SELECT id FROM {$this->submissions_table} WHERE created_at < %s",
+                $cutoff_date
+            ));
+            
+            if (!empty($old_submissions)) {
+                // Eliminar respuestas asociadas
+                $placeholders = implode(',', array_fill(0, count($old_submissions), '%d'));
+                $wpdb->query($wpdb->prepare(
+                    "DELETE FROM {$this->responses_table} WHERE submission_id IN ($placeholders)",
+                    $old_submissions
+                ));
+                
+                // Eliminar submissions
+                $wpdb->query($wpdb->prepare(
+                    "DELETE FROM {$this->submissions_table} WHERE created_at < %s",
+                    $cutoff_date
+                ));
+            }
+            
+            // Limpiar analytics antiguos
+            $wpdb->query($wpdb->prepare(
+                "DELETE FROM {$this->analytics_table} WHERE created_at < %s",
+                $cutoff_date
+            ));
+            
+            $wpdb->query('COMMIT');
+            
+            // Log de limpieza
+            error_log("SFQ Database Cleanup: Removed " . count($old_submissions) . " old submissions and related data older than {$days_old} days");
+            
+            return count($old_submissions);
+            
+        } catch (Exception $e) {
+            $wpdb->query('ROLLBACK');
+            error_log('SFQ Database Cleanup Error: ' . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Verificar integridad de la base de datos
+     * Mejora de WordPress best practices para mantenimiento
+     */
+    public function check_database_integrity() {
+        global $wpdb;
+        
+        $issues = array();
+        
+        // Verificar respuestas huérfanas (sin submission)
+        $orphaned_responses = $wpdb->get_var("
+            SELECT COUNT(*) 
+            FROM {$this->responses_table} r 
+            LEFT JOIN {$this->submissions_table} s ON r.submission_id = s.id 
+            WHERE s.id IS NULL
+        ");
+        
+        if ($orphaned_responses > 0) {
+            $issues[] = "Found {$orphaned_responses} orphaned responses without submissions";
+        }
+        
+        // Verificar preguntas huérfanas (sin formulario)
+        $orphaned_questions = $wpdb->get_var("
+            SELECT COUNT(*) 
+            FROM {$this->questions_table} q 
+            LEFT JOIN {$this->forms_table} f ON q.form_id = f.id 
+            WHERE f.id IS NULL
+        ");
+        
+        if ($orphaned_questions > 0) {
+            $issues[] = "Found {$orphaned_questions} orphaned questions without forms";
+        }
+        
+        // Verificar condiciones huérfanas (sin pregunta)
+        $orphaned_conditions = $wpdb->get_var("
+            SELECT COUNT(*) 
+            FROM {$this->conditions_table} c 
+            LEFT JOIN {$this->questions_table} q ON c.question_id = q.id 
+            WHERE q.id IS NULL
+        ");
+        
+        if ($orphaned_conditions > 0) {
+            $issues[] = "Found {$orphaned_conditions} orphaned conditions without questions";
+        }
+        
+        return $issues;
+    }
+    
+    /**
+     * Reparar problemas de integridad
+     * Mejora de WordPress best practices para reparación automática
+     */
+    public function repair_database_integrity() {
+        global $wpdb;
+        
+        $repairs = array();
+        
+        // Iniciar transacción para reparaciones
+        $wpdb->query('START TRANSACTION');
+        
+        try {
+            // Eliminar respuestas huérfanas
+            $orphaned_responses = $wpdb->query("
+                DELETE r FROM {$this->responses_table} r 
+                LEFT JOIN {$this->submissions_table} s ON r.submission_id = s.id 
+                WHERE s.id IS NULL
+            ");
+            
+            if ($orphaned_responses > 0) {
+                $repairs[] = "Removed {$orphaned_responses} orphaned responses";
+            }
+            
+            // Eliminar preguntas huérfanas
+            $orphaned_questions = $wpdb->query("
+                DELETE q FROM {$this->questions_table} q 
+                LEFT JOIN {$this->forms_table} f ON q.form_id = f.id 
+                WHERE f.id IS NULL
+            ");
+            
+            if ($orphaned_questions > 0) {
+                $repairs[] = "Removed {$orphaned_questions} orphaned questions";
+            }
+            
+            // Eliminar condiciones huérfanas
+            $orphaned_conditions = $wpdb->query("
+                DELETE c FROM {$this->conditions_table} c 
+                LEFT JOIN {$this->questions_table} q ON c.question_id = q.id 
+                WHERE q.id IS NULL
+            ");
+            
+            if ($orphaned_conditions > 0) {
+                $repairs[] = "Removed {$orphaned_conditions} orphaned conditions";
+            }
+            
+            $wpdb->query('COMMIT');
+            
+            // Log de reparaciones
+            if (!empty($repairs)) {
+                error_log('SFQ Database Repairs: ' . implode(', ', $repairs));
+            }
+            
+            return $repairs;
+            
+        } catch (Exception $e) {
+            $wpdb->query('ROLLBACK');
+            error_log('SFQ Database Repair Error: ' . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Obtener estadísticas de performance de la base de datos
+     * Mejora de WordPress best practices para monitoreo
+     */
+    public function get_database_stats() {
+        global $wpdb;
+        
+        $stats = array();
+        
+        // Contar registros por tabla
+        $stats['forms_count'] = $wpdb->get_var("SELECT COUNT(*) FROM {$this->forms_table}");
+        $stats['questions_count'] = $wpdb->get_var("SELECT COUNT(*) FROM {$this->questions_table}");
+        $stats['submissions_count'] = $wpdb->get_var("SELECT COUNT(*) FROM {$this->submissions_table}");
+        $stats['responses_count'] = $wpdb->get_var("SELECT COUNT(*) FROM {$this->responses_table}");
+        $stats['analytics_count'] = $wpdb->get_var("SELECT COUNT(*) FROM {$this->analytics_table}");
+        $stats['conditions_count'] = $wpdb->get_var("SELECT COUNT(*) FROM {$this->conditions_table}");
+        
+        // Tamaño aproximado de las tablas
+        $table_sizes = $wpdb->get_results("
+            SELECT 
+                table_name,
+                ROUND(((data_length + index_length) / 1024 / 1024), 2) AS size_mb
+            FROM information_schema.TABLES 
+            WHERE table_schema = DATABASE()
+            AND table_name LIKE '{$wpdb->prefix}sfq_%'
+        ", ARRAY_A);
+        
+        $stats['table_sizes'] = array();
+        foreach ($table_sizes as $table) {
+            $stats['table_sizes'][$table['table_name']] = $table['size_mb'] . ' MB';
+        }
+        
+        // Estadísticas de actividad reciente (últimos 30 días)
+        $recent_date = date('Y-m-d H:i:s', strtotime('-30 days'));
+        $stats['recent_submissions'] = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->submissions_table} WHERE created_at > %s",
+            $recent_date
+        ));
+        
+        $stats['recent_analytics'] = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$this->analytics_table} WHERE created_at > %s",
+            $recent_date
+        ));
+        
+        return $stats;
+    }
+    
+    /**
+     * Log de consultas lentas para monitoreo
+     * Mejora de WordPress best practices para debugging
+     */
+    private function log_slow_query($query, $execution_time, $threshold = 1.0) {
+        if ($execution_time > $threshold) {
+            $formatted_time = number_format($execution_time, 4);
+            $short_query = substr(preg_replace('/\s+/', ' ', $query), 0, 200) . '...';
+            error_log("SFQ Slow Query ({$formatted_time}s): {$short_query}");
+            
+            // En modo debug, log la consulta completa
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log("SFQ Full Slow Query: {$query}");
+            }
+        }
+    }
+    
+    /**
+     * Optimizar tablas de la base de datos
+     * Mejora de WordPress best practices para mantenimiento
+     */
+    public function optimize_database_tables() {
+        global $wpdb;
+        
+        $tables = array(
+            $this->forms_table,
+            $this->questions_table,
+            $this->responses_table,
+            $this->submissions_table,
+            $this->analytics_table,
+            $this->conditions_table
+        );
+        
+        $optimized = array();
+        
+        foreach ($tables as $table) {
+            $result = $wpdb->query("OPTIMIZE TABLE {$table}");
+            if ($result !== false) {
+                $optimized[] = $table;
+            }
+        }
+        
+        if (!empty($optimized)) {
+            error_log('SFQ Database: Optimized tables: ' . implode(', ', $optimized));
+        }
+        
+        return $optimized;
+    }
+    
+    /**
+     * Limpiar cache relacionado con formularios
+     * Mejora de WordPress best practices para gestión de cache
+     */
+    public function clear_form_cache($form_id = null) {
+        if ($form_id) {
+            // Limpiar cache específico del formulario
+            wp_cache_delete("sfq_form_{$form_id}", 'sfq_forms');
+            wp_cache_delete("sfq_form_data_{$form_id}", 'sfq_forms');
+            wp_cache_delete("sfq_form_stats_{$form_id}", 'sfq_stats');
+        } else {
+            // Limpiar todo el cache de formularios
+            wp_cache_flush_group('sfq_forms');
+            wp_cache_flush_group('sfq_stats');
+        }
     }
 }

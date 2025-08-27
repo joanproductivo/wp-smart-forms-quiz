@@ -1339,39 +1339,196 @@ class SFQ_Admin {
                 <!-- Tab Rendimiento -->
                 <div id="performance" class="sfq-tab-content">
                     <h2><?php _e('Configuración de Rendimiento', 'smart-forms-quiz'); ?></h2>
-                    <table class="form-table">
-                        <tr>
-                            <th scope="row"><?php _e('Cache de formularios', 'smart-forms-quiz'); ?></th>
-                            <td>
-                                <label>
-                                    <input type="checkbox" name="sfq_settings[enable_form_cache]" value="1" 
-                                           <?php checked($settings['enable_form_cache'] ?? true); ?>>
-                                    <?php _e('Activar cache de formularios', 'smart-forms-quiz'); ?>
-                                </label>
-                                <p class="description"><?php _e('Mejora el rendimiento cacheando los formularios', 'smart-forms-quiz'); ?></p>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row"><?php _e('Minificar CSS/JS', 'smart-forms-quiz'); ?></th>
-                            <td>
-                                <label>
-                                    <input type="checkbox" name="sfq_settings[minify_assets]" value="1" 
-                                           <?php checked($settings['minify_assets'] ?? false); ?>>
-                                    <?php _e('Minificar archivos CSS y JavaScript', 'smart-forms-quiz'); ?>
-                                </label>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row"><?php _e('Cargar scripts solo cuando sea necesario', 'smart-forms-quiz'); ?></th>
-                            <td>
-                                <label>
-                                    <input type="checkbox" name="sfq_settings[conditional_loading]" value="1" 
-                                           <?php checked($settings['conditional_loading'] ?? true); ?>>
-                                    <?php _e('Solo cargar scripts en páginas con formularios', 'smart-forms-quiz'); ?>
-                                </label>
-                            </td>
-                        </tr>
-                    </table>
+                    
+                    <div class="sfq-performance-section">
+                        <h3><?php _e('🚀 Cache y Optimización', 'smart-forms-quiz'); ?></h3>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><?php _e('Cache de formularios', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="sfq_settings[enable_form_cache]" value="1" 
+                                               <?php checked($settings['enable_form_cache'] ?? true); ?>>
+                                        <?php _e('Activar cache de formularios', 'smart-forms-quiz'); ?>
+                                    </label>
+                                    <p class="description"><?php _e('Mejora el rendimiento cacheando los formularios (recomendado)', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php _e('Tiempo de cache (minutos)', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <input type="number" name="sfq_settings[cache_duration]" 
+                                           value="<?php echo esc_attr($settings['cache_duration'] ?? 5); ?>" 
+                                           min="1" max="60" class="small-text">
+                                    <p class="description"><?php _e('Tiempo en minutos que se mantienen los formularios en cache', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php _e('Cache de estadísticas', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="sfq_settings[enable_stats_cache]" value="1" 
+                                               <?php checked($settings['enable_stats_cache'] ?? true); ?>>
+                                        <?php _e('Cachear estadísticas de formularios', 'smart-forms-quiz'); ?>
+                                    </label>
+                                    <p class="description"><?php _e('Mejora la velocidad de carga del panel de administración', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php _e('Minificar CSS/JS', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="sfq_settings[minify_assets]" value="1" 
+                                               <?php checked($settings['minify_assets'] ?? false); ?>>
+                                        <?php _e('Minificar archivos CSS y JavaScript', 'smart-forms-quiz'); ?>
+                                    </label>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php _e('Cargar scripts solo cuando sea necesario', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="sfq_settings[conditional_loading]" value="1" 
+                                               <?php checked($settings['conditional_loading'] ?? true); ?>>
+                                        <?php _e('Solo cargar scripts en páginas con formularios', 'smart-forms-quiz'); ?>
+                                    </label>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="sfq-performance-section">
+                        <h3><?php _e('🗄️ Base de Datos', 'smart-forms-quiz'); ?></h3>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><?php _e('Verificación de conexión', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="sfq_settings[enable_db_health_check]" value="1" 
+                                               <?php checked($settings['enable_db_health_check'] ?? true); ?>>
+                                        <?php _e('Verificar automáticamente la conexión de base de datos', 'smart-forms-quiz'); ?>
+                                    </label>
+                                    <p class="description"><?php _e('Reconecta automáticamente si se pierde la conexión', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php _e('Logging de consultas lentas', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="sfq_settings[enable_slow_query_log]" value="1" 
+                                               <?php checked($settings['enable_slow_query_log'] ?? true); ?>>
+                                        <?php _e('Registrar consultas que tarden más de 1 segundo', 'smart-forms-quiz'); ?>
+                                    </label>
+                                    <p class="description"><?php _e('Ayuda a identificar problemas de rendimiento', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php _e('Umbral de consulta lenta (segundos)', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <input type="number" name="sfq_settings[slow_query_threshold]" 
+                                           value="<?php echo esc_attr($settings['slow_query_threshold'] ?? 1.0); ?>" 
+                                           min="0.1" max="10" step="0.1" class="small-text">
+                                    <p class="description"><?php _e('Tiempo mínimo para considerar una consulta como lenta', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php _e('Operaciones batch', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="sfq_settings[enable_batch_operations]" value="1" 
+                                               <?php checked($settings['enable_batch_operations'] ?? true); ?>>
+                                        <?php _e('Usar inserción masiva para múltiples respuestas', 'smart-forms-quiz'); ?>
+                                    </label>
+                                    <p class="description"><?php _e('Mejora significativamente el rendimiento con muchas respuestas', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="sfq-performance-section">
+                        <h3><?php _e('🧹 Mantenimiento Automático', 'smart-forms-quiz'); ?></h3>
+                        <table class="form-table">
+                            <tr>
+                                <th scope="row"><?php _e('Limpieza automática de datos', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="sfq_settings[enable_auto_cleanup]" value="1" 
+                                               <?php checked($settings['enable_auto_cleanup'] ?? false); ?>>
+                                        <?php _e('Eliminar automáticamente datos antiguos', 'smart-forms-quiz'); ?>
+                                    </label>
+                                    <p class="description"><?php _e('Mantiene la base de datos limpia eliminando datos obsoletos', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php _e('Días para conservar datos', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <input type="number" name="sfq_settings[cleanup_days]" 
+                                           value="<?php echo esc_attr($settings['cleanup_days'] ?? 90); ?>" 
+                                           min="30" max="365" class="small-text">
+                                    <p class="description"><?php _e('Días que se conservan las respuestas antes de eliminarlas automáticamente', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php _e('Optimización automática de tablas', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="sfq_settings[enable_auto_optimize]" value="1" 
+                                               <?php checked($settings['enable_auto_optimize'] ?? false); ?>>
+                                        <?php _e('Optimizar tablas automáticamente cada semana', 'smart-forms-quiz'); ?>
+                                    </label>
+                                    <p class="description"><?php _e('Mantiene las tablas optimizadas para mejor rendimiento', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row"><?php _e('Verificación de integridad', 'smart-forms-quiz'); ?></th>
+                                <td>
+                                    <label>
+                                        <input type="checkbox" name="sfq_settings[enable_integrity_check]" value="1" 
+                                               <?php checked($settings['enable_integrity_check'] ?? true); ?>>
+                                        <?php _e('Verificar y reparar automáticamente problemas de integridad', 'smart-forms-quiz'); ?>
+                                    </label>
+                                    <p class="description"><?php _e('Detecta y corrige datos huérfanos o inconsistentes', 'smart-forms-quiz'); ?></p>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div class="sfq-performance-actions">
+                        <h3><?php _e('🔧 Acciones de Mantenimiento', 'smart-forms-quiz'); ?></h3>
+                        <p><?php _e('Ejecuta estas acciones manualmente cuando sea necesario:', 'smart-forms-quiz'); ?></p>
+                        
+                        <div class="sfq-action-buttons">
+                            <button type="button" class="button" id="sfq-clear-cache">
+                                <span class="dashicons dashicons-trash"></span>
+                                <?php _e('Limpiar Cache', 'smart-forms-quiz'); ?>
+                            </button>
+                            
+                            <button type="button" class="button" id="sfq-optimize-db">
+                                <span class="dashicons dashicons-performance"></span>
+                                <?php _e('Optimizar Base de Datos', 'smart-forms-quiz'); ?>
+                            </button>
+                            
+                            <button type="button" class="button" id="sfq-check-integrity">
+                                <span class="dashicons dashicons-search"></span>
+                                <?php _e('Verificar Integridad', 'smart-forms-quiz'); ?>
+                            </button>
+                            
+                            <button type="button" class="button" id="sfq-cleanup-old-data">
+                                <span class="dashicons dashicons-calendar-alt"></span>
+                                <?php _e('Limpiar Datos Antiguos', 'smart-forms-quiz'); ?>
+                            </button>
+                            
+                            <button type="button" class="button" id="sfq-get-db-stats">
+                                <span class="dashicons dashicons-chart-pie"></span>
+                                <?php _e('Ver Estadísticas BD', 'smart-forms-quiz'); ?>
+                            </button>
+                        </div>
+                        
+                        <div id="sfq-maintenance-results" class="sfq-maintenance-results" style="display: none;">
+                            <h4><?php _e('Resultados:', 'smart-forms-quiz'); ?></h4>
+                            <div class="sfq-results-content"></div>
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- Tab Notificaciones -->
@@ -1435,7 +1592,7 @@ class SFQ_Admin {
                 display: block;
             }
             
-            .sfq-security-section {
+            .sfq-security-section, .sfq-performance-section {
                 margin-bottom: 30px;
                 padding: 20px;
                 background: #f8f9fa;
@@ -1443,7 +1600,7 @@ class SFQ_Admin {
                 border-radius: 4px;
             }
             
-            .sfq-security-section h3 {
+            .sfq-security-section h3, .sfq-performance-section h3 {
                 margin-top: 0;
                 color: #007cba;
             }
@@ -1498,6 +1655,108 @@ class SFQ_Admin {
                 font-style: italic;
                 color: #666;
             }
+            
+            /* Estilos para las acciones de mantenimiento */
+            .sfq-performance-actions {
+                background: #fff;
+                padding: 20px;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                margin-top: 20px;
+            }
+            
+            .sfq-action-buttons {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 15px;
+                margin: 20px 0;
+            }
+            
+            .sfq-action-buttons .button {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                padding: 12px 16px;
+                height: auto;
+                font-weight: 500;
+                transition: all 0.2s ease;
+            }
+            
+            .sfq-action-buttons .button:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+            
+            .sfq-action-buttons .button:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+                transform: none;
+                box-shadow: none;
+            }
+            
+            .sfq-action-buttons .button .dashicons {
+                font-size: 16px;
+                width: 16px;
+                height: 16px;
+            }
+            
+            .sfq-maintenance-results {
+                margin-top: 20px;
+                padding: 15px;
+                background: #f8f9fa;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+            }
+            
+            .sfq-maintenance-results h4 {
+                margin-top: 0;
+                color: #007cba;
+            }
+            
+            .sfq-results-content {
+                font-family: monospace;
+                background: #fff;
+                padding: 10px;
+                border: 1px solid #ddd;
+                border-radius: 3px;
+                max-height: 300px;
+                overflow-y: auto;
+            }
+            
+            .sfq-result-success {
+                color: #155724;
+                background: #d1eddb;
+                padding: 8px 12px;
+                border-radius: 3px;
+                margin: 5px 0;
+            }
+            
+            .sfq-result-error {
+                color: #721c24;
+                background: #f8d7da;
+                padding: 8px 12px;
+                border-radius: 3px;
+                margin: 5px 0;
+            }
+            
+            .sfq-result-info {
+                color: #0c5460;
+                background: #d1ecf1;
+                padding: 8px 12px;
+                border-radius: 3px;
+                margin: 5px 0;
+            }
+            
+            /* Animación de loading */
+            @keyframes sfq-spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            
+            .sfq-loading .dashicons {
+                animation: sfq-spin 1s linear infinite;
+            }
         </style>
         
         <script>
@@ -1542,6 +1801,94 @@ class SFQ_Admin {
                     e.preventDefault();
                     return false;
                 }
+            });
+            
+            // Funciones de mantenimiento
+            function executeMaintenanceAction(action, buttonId, confirmMessage = null) {
+                const $button = $('#' + buttonId);
+                const originalHtml = $button.html();
+                
+                // Confirmar acción si es necesario
+                if (confirmMessage && !confirm(confirmMessage)) {
+                    return;
+                }
+                
+                // Deshabilitar botón y mostrar loading
+                $button.prop('disabled', true).addClass('sfq-loading');
+                $button.html('<span class="dashicons dashicons-update-alt"></span> Procesando...');
+                
+                // Mostrar área de resultados
+                $('#sfq-maintenance-results').show();
+                $('.sfq-results-content').html('<div class="sfq-result-info">Ejecutando ' + action + '...</div>');
+                
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'sfq_maintenance_action',
+                        nonce: '<?php echo wp_create_nonce('sfq_maintenance_nonce'); ?>',
+                        maintenance_action: action
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            let resultHtml = '<div class="sfq-result-success">✓ ' + response.data.message + '</div>';
+                            
+                            // Mostrar detalles adicionales si existen
+                            if (response.data.details) {
+                                if (Array.isArray(response.data.details)) {
+                                    response.data.details.forEach(function(detail) {
+                                        resultHtml += '<div class="sfq-result-info">• ' + detail + '</div>';
+                                    });
+                                } else if (typeof response.data.details === 'object') {
+                                    Object.keys(response.data.details).forEach(function(key) {
+                                        resultHtml += '<div class="sfq-result-info"><strong>' + key + ':</strong> ' + response.data.details[key] + '</div>';
+                                    });
+                                } else {
+                                    resultHtml += '<div class="sfq-result-info">' + response.data.details + '</div>';
+                                }
+                            }
+                            
+                            $('.sfq-results-content').html(resultHtml);
+                        } else {
+                            $('.sfq-results-content').html(
+                                '<div class="sfq-result-error">✗ Error: ' + (response.data.message || 'Error desconocido') + '</div>'
+                            );
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        $('.sfq-results-content').html(
+                            '<div class="sfq-result-error">✗ Error de conexión: ' + error + '</div>'
+                        );
+                    },
+                    complete: function() {
+                        // Restaurar botón
+                        $button.prop('disabled', false).removeClass('sfq-loading');
+                        $button.html(originalHtml);
+                    }
+                });
+            }
+            
+            // Handlers para botones de mantenimiento
+            $('#sfq-clear-cache').on('click', function() {
+                executeMaintenanceAction('clear_cache', 'sfq-clear-cache');
+            });
+            
+            $('#sfq-optimize-db').on('click', function() {
+                executeMaintenanceAction('optimize_database', 'sfq-optimize-db', 
+                    '¿Estás seguro de que quieres optimizar la base de datos? Esto puede tardar unos minutos.');
+            });
+            
+            $('#sfq-check-integrity').on('click', function() {
+                executeMaintenanceAction('check_integrity', 'sfq-check-integrity');
+            });
+            
+            $('#sfq-cleanup-old-data').on('click', function() {
+                executeMaintenanceAction('cleanup_old_data', 'sfq-cleanup-old-data',
+                    '¿Estás seguro de que quieres eliminar datos antiguos? Esta acción no se puede deshacer.');
+            });
+            
+            $('#sfq-get-db-stats').on('click', function() {
+                executeMaintenanceAction('get_database_stats', 'sfq-get-db-stats');
             });
         });
         </script>
