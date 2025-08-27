@@ -32,6 +32,11 @@ require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-ajax.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-shortcode.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-analytics.php';
 
+// Cargar clases de administración avanzadas
+if (is_admin()) {
+    require_once SFQ_PLUGIN_DIR . 'includes/admin/class-sfq-admin-submissions.php';
+}
+
 // Activación del plugin
 register_activation_hook(__FILE__, 'sfq_activate');
 function sfq_activate() {

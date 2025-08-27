@@ -159,6 +159,26 @@ class SFQ_Loader {
             );
         }
         
+        // CSS y JavaScript para la página de submissions avanzada
+        if ($hook === 'smart-forms_page_sfq-submissions') {
+            $submissions_css_version = $this->get_asset_version('assets/css/admin-submissions.css');
+            wp_enqueue_style(
+                'sfq-admin-submissions',
+                SFQ_PLUGIN_URL . 'assets/css/admin-submissions.css',
+                array(),
+                $submissions_css_version
+            );
+            
+            $submissions_js_version = $this->get_asset_version('assets/js/admin-submissions-v2.js');
+            wp_enqueue_script(
+                'sfq-admin-submissions',
+                SFQ_PLUGIN_URL . 'assets/js/admin-submissions-v2.js',
+                array('jquery'),
+                $submissions_js_version,
+                true
+            );
+        }
+        
         // Localización para AJAX en admin - DEBE ir después de enqueue_script
         wp_localize_script('sfq-admin', 'sfq_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),

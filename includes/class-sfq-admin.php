@@ -621,6 +621,20 @@ class SFQ_Admin {
      * Renderizar página de respuestas/submissions
      */
     public function render_submissions_page() {
+        // Verificar si existe la clase de submissions avanzadas
+        if (class_exists('SFQ_Admin_Submissions')) {
+            $submissions_handler = new SFQ_Admin_Submissions();
+            $submissions_handler->render_submissions_page();
+        } else {
+            // Fallback a la versión básica si no existe la clase avanzada
+            $this->render_basic_submissions_page();
+        }
+    }
+    
+    /**
+     * Renderizar página básica de respuestas (fallback)
+     */
+    private function render_basic_submissions_page() {
         global $wpdb;
         
         // Obtener lista de formularios para el filtro
@@ -631,6 +645,10 @@ class SFQ_Admin {
             <h1 class="wp-heading-inline">
                 <?php _e('Respuestas de Formularios', 'smart-forms-quiz'); ?>
             </h1>
+            
+            <div class="notice notice-info">
+                <p><?php _e('Versión básica de respuestas. Para funcionalidades avanzadas, asegúrate de que todos los archivos del plugin estén correctamente instalados.', 'smart-forms-quiz'); ?></p>
+            </div>
             
             <div class="sfq-submissions-filters">
                 <select id="sfq-filter-form" class="sfq-select">
@@ -674,28 +692,6 @@ class SFQ_Admin {
             
             <div class="sfq-pagination" id="sfq-pagination">
                 <!-- La paginación se cargará dinámicamente -->
-            </div>
-        </div>
-        
-        <!-- Modal para ver detalles de respuesta -->
-        <div id="sfq-submission-modal" class="sfq-modal" style="display: none;">
-            <div class="sfq-modal-content">
-                <div class="sfq-modal-header">
-                    <h2><?php _e('Detalle de Respuesta', 'smart-forms-quiz'); ?></h2>
-                    <button class="sfq-modal-close">&times;</button>
-                </div>
-                <div class="sfq-modal-body" id="sfq-submission-detail">
-                    <!-- El contenido se cargará dinámicamente -->
-                </div>
-                <div class="sfq-modal-footer">
-                    <button class="button" id="sfq-print-submission">
-                        <span class="dashicons dashicons-printer"></span>
-                        <?php _e('Imprimir', 'smart-forms-quiz'); ?>
-                    </button>
-                    <button class="button button-primary sfq-modal-close">
-                        <?php _e('Cerrar', 'smart-forms-quiz'); ?>
-                    </button>
-                </div>
             </div>
         </div>
         
@@ -749,301 +745,12 @@ class SFQ_Admin {
             .sfq-pagination button {
                 min-width: 40px;
             }
-            
-            .sfq-modal {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0,0,0,0.5);
-                z-index: 100000;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-            
-            .sfq-modal-content {
-                background: white;
-                width: 90%;
-                max-width: 800px;
-                max-height: 90vh;
-                border-radius: 8px;
-                display: flex;
-                flex-direction: column;
-            }
-            
-            .sfq-modal-header {
-                padding: 20px;
-                border-bottom: 1px solid #ddd;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
-            
-            .sfq-modal-header h2 {
-                margin: 0;
-            }
-            
-            .sfq-modal-close {
-                background: none;
-                border: none;
-                font-size: 24px;
-                cursor: pointer;
-                padding: 0;
-                width: 30px;
-                height: 30px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-            
-            .sfq-modal-body {
-                padding: 20px;
-                overflow-y: auto;
-                flex: 1;
-            }
-            
-            .sfq-modal-footer {
-                padding: 20px;
-                border-top: 1px solid #ddd;
-                display: flex;
-                justify-content: flex-end;
-                gap: 10px;
-            }
-            
-            .sfq-submission-info {
-                margin-bottom: 20px;
-                padding: 15px;
-                background: #f8f9fa;
-                border-radius: 5px;
-            }
-            
-            .sfq-submission-info p {
-                margin: 5px 0;
-            }
-            
-            .sfq-response-item {
-                margin-bottom: 20px;
-                padding: 15px;
-                border: 1px solid #e0e0e0;
-                border-radius: 5px;
-            }
-            
-            .sfq-response-question {
-                font-weight: bold;
-                margin-bottom: 10px;
-                color: #333;
-            }
-            
-            .sfq-response-answer {
-                color: #666;
-                padding-left: 20px;
-            }
-            
-            .sfq-view-details {
-                cursor: pointer;
-                color: #007cba;
-            }
-            
-            .sfq-view-details:hover {
-                color: #005a87;
-                text-decoration: underline;
-            }
         </style>
         
         <script>
         jQuery(document).ready(function($) {
-            let currentPage = 1;
-            let totalPages = 1;
-            
-            // Cargar submissions al iniciar
-            loadSubmissions();
-            
-            // Filtro por formulario
-            $('#sfq-filter-form').on('change', function() {
-                currentPage = 1;
-                loadSubmissions();
-            });
-            
-            // Función para cargar submissions
-            function loadSubmissions() {
-                const formId = $('#sfq-filter-form').val();
-                
-                $.ajax({
-                    url: sfq_ajax.ajax_url,
-                    type: 'POST',
-                    data: {
-                        action: 'sfq_get_submissions',
-                        nonce: sfq_ajax.nonce,
-                        form_id: formId,
-                        page: currentPage,
-                        per_page: 20
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            renderSubmissions(response.data.submissions);
-                            renderPagination(response.data.pages, response.data.current_page);
-                            totalPages = response.data.pages;
-                        }
-                    },
-                    error: function() {
-                        $('#sfq-submissions-tbody').html(
-                            '<tr><td colspan="7" style="text-align: center;">Error al cargar las respuestas</td></tr>'
-                        );
-                    }
-                });
-            }
-            
-            // Renderizar tabla de submissions
-            function renderSubmissions(submissions) {
-                const tbody = $('#sfq-submissions-tbody');
-                tbody.empty();
-                
-                if (submissions.length === 0) {
-                    tbody.html('<tr><td colspan="7" style="text-align: center;">No hay respuestas todavía</td></tr>');
-                    return;
-                }
-                
-                submissions.forEach(function(submission) {
-                    const row = `
-                        <tr>
-                            <td>${submission.id}</td>
-                            <td>${submission.form_title || 'Sin título'}</td>
-                            <td>${submission.user_name}</td>
-                            <td>${submission.formatted_date}</td>
-                            <td>${submission.time_spent_formatted}</td>
-                            <td>${submission.response_count} respuestas</td>
-                            <td>
-                                <a href="#" class="sfq-view-details" data-id="${submission.id}">
-                                    Ver detalles
-                                </a>
-                            </td>
-                        </tr>
-                    `;
-                    tbody.append(row);
-                });
-            }
-            
-            // Renderizar paginación
-            function renderPagination(pages, current) {
-                const pagination = $('#sfq-pagination');
-                pagination.empty();
-                
-                if (pages <= 1) return;
-                
-                // Botón anterior
-                if (current > 1) {
-                    pagination.append('<button class="button sfq-page-btn" data-page="' + (current - 1) + '">←</button>');
-                }
-                
-                // Páginas
-                for (let i = 1; i <= pages; i++) {
-                    if (i === current) {
-                        pagination.append('<button class="button button-primary" disabled>' + i + '</button>');
-                    } else if (i === 1 || i === pages || (i >= current - 2 && i <= current + 2)) {
-                        pagination.append('<button class="button sfq-page-btn" data-page="' + i + '">' + i + '</button>');
-                    } else if (i === current - 3 || i === current + 3) {
-                        pagination.append('<span>...</span>');
-                    }
-                }
-                
-                // Botón siguiente
-                if (current < pages) {
-                    pagination.append('<button class="button sfq-page-btn" data-page="' + (current + 1) + '">→</button>');
-                }
-            }
-            
-            // Click en paginación
-            $(document).on('click', '.sfq-page-btn', function() {
-                currentPage = parseInt($(this).data('page'));
-                loadSubmissions();
-            });
-            
-            // Ver detalles de submission
-            $(document).on('click', '.sfq-view-details', function(e) {
-                e.preventDefault();
-                const submissionId = $(this).data('id');
-                loadSubmissionDetail(submissionId);
-            });
-            
-            // Cargar detalle de submission
-            function loadSubmissionDetail(submissionId) {
-                $.ajax({
-                    url: sfq_ajax.ajax_url,
-                    type: 'POST',
-                    data: {
-                        action: 'sfq_get_submission_detail',
-                        nonce: sfq_ajax.nonce,
-                        submission_id: submissionId
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            renderSubmissionDetail(response.data);
-                            $('#sfq-submission-modal').show();
-                        }
-                    }
-                });
-            }
-            
-            // Renderizar detalle de submission
-            function renderSubmissionDetail(data) {
-                const submission = data.submission;
-                const responses = data.responses;
-                
-                let html = `
-                    <div class="sfq-submission-info">
-                        <p><strong>Formulario:</strong> ${submission.form_title}</p>
-                        <p><strong>Usuario:</strong> ${submission.user_name}</p>
-                        <p><strong>Fecha:</strong> ${submission.formatted_date}</p>
-                        <p><strong>Tiempo:</strong> ${submission.time_spent_formatted}</p>
-                        <p><strong>IP:</strong> ${submission.user_ip}</p>
-                    </div>
-                    <h3>Respuestas:</h3>
-                `;
-                
-                responses.forEach(function(response) {
-                    html += `
-                        <div class="sfq-response-item">
-                            <div class="sfq-response-question">${response.question_text}</div>
-                            <div class="sfq-response-answer">${response.answer_formatted}</div>
-                        </div>
-                    `;
-                });
-                
-                $('#sfq-submission-detail').html(html);
-            }
-            
-            // Cerrar modal
-            $('.sfq-modal-close').on('click', function() {
-                $('#sfq-submission-modal').hide();
-            });
-            
-            // Cerrar modal al hacer click fuera
-            $('#sfq-submission-modal').on('click', function(e) {
-                if (e.target === this) {
-                    $(this).hide();
-                }
-            });
-            
-            // Imprimir submission
-            $('#sfq-print-submission').on('click', function() {
-                const content = $('#sfq-submission-detail').html();
-                const printWindow = window.open('', '', 'height=600,width=800');
-                printWindow.document.write('<html><head><title>Respuesta de Formulario</title>');
-                printWindow.document.write('<style>body { font-family: Arial, sans-serif; } .sfq-submission-info { background: #f8f9fa; padding: 15px; margin-bottom: 20px; } .sfq-response-item { margin-bottom: 20px; padding: 15px; border: 1px solid #e0e0e0; } .sfq-response-question { font-weight: bold; margin-bottom: 10px; } .sfq-response-answer { padding-left: 20px; color: #666; }</style>');
-                printWindow.document.write('</head><body>');
-                printWindow.document.write(content);
-                printWindow.document.write('</body></html>');
-                printWindow.document.close();
-                printWindow.print();
-            });
-            
-            // Exportar CSV
-            $('#sfq-export-csv').on('click', function() {
-                const formId = $('#sfq-filter-form').val();
-                window.location.href = sfq_ajax.ajax_url + '?action=sfq_export_submissions&nonce=' + sfq_ajax.nonce + '&form_id=' + formId + '&format=csv';
-            });
+            // Implementación básica de submissions
+            $('#sfq-submissions-tbody').html('<tr><td colspan="7" style="text-align: center;">Funcionalidad básica - Instala la versión completa para más características</td></tr>');
         });
         </script>
         <?php
