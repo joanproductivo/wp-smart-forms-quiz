@@ -901,30 +901,6 @@
         // Actualizar título y subtítulo
         $('#sfq-modal-subtitle').text(`#${submission.id} - ${submission.form_title}`);
 
-        // Información del submission - Mejorar manejo de country_info
-        let countryInfo = { flag_emoji: '🌍', country_name: 'Desconocido' };
-        
-        // Verificar si country_info existe y tiene la estructura correcta
-        if (submission.country_info) {
-            if (typeof submission.country_info === 'object') {
-                countryInfo = {
-                    flag_emoji: submission.country_info.flag_emoji || '🌍',
-                    country_name: submission.country_info.country_name || 'Desconocido'
-                };
-            } else if (typeof submission.country_info === 'string') {
-                // Si es string, intentar parsearlo como JSON
-                try {
-                    const parsed = JSON.parse(submission.country_info);
-                    countryInfo = {
-                        flag_emoji: parsed.flag_emoji || '🌍',
-                        country_name: parsed.country_name || 'Desconocido'
-                    };
-                } catch (e) {
-                    // Silenciar error de parsing en producción
-                }
-            }
-        }
-        
         // Crear elementos de forma segura para evitar XSS
         const $infoContainer = $('#sfq-submission-info-v2');
         $infoContainer.empty();
@@ -933,13 +909,6 @@
         $infoContainer.append($('<h4>').text('Información General'));
         $infoContainer.append($('<p>').html($('<strong>').text('Formulario: ')).append(document.createTextNode(submission.form_title || 'Sin título')));
         $infoContainer.append($('<p>').html($('<strong>').text('Usuario: ')).append(document.createTextNode(submission.user_name || 'Anónimo')));
-        
-        // País con emoji (emoji es seguro, pero sanitizar nombre)
-        const $countryP = $('<p>').html($('<strong>').text('País: '));
-        $countryP.append(document.createTextNode(countryInfo.flag_emoji + ' '));
-        $countryP.append(document.createTextNode(countryInfo.country_name || 'Desconocido'));
-        $infoContainer.append($countryP);
-        
         $infoContainer.append($('<p>').html($('<strong>').text('Fecha: ')).append(document.createTextNode(submission.formatted_date || '-')));
         $infoContainer.append($('<p>').html($('<strong>').text('Tiempo: ')).append(document.createTextNode(submission.time_spent_formatted || '-')));
         $infoContainer.append($('<p>').html($('<strong>').text('IP: ')).append(document.createTextNode(submission.user_ip || '-')));

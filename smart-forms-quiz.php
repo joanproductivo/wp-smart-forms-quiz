@@ -3,8 +3,8 @@
  * Plugin Name: Smart Forms & Quiz
  * Plugin URI: https://example.com/smart-forms-quiz
  * Description: Plugin eficiente para crear formularios y quiz modernos con lógica condicional y analytics
- * Version: 1.0.2
- * Author: Smart Forms Team
+ * Version: 1.5.0
+ * Author: Joan Planas & IA
  * License: GPL v2 or later
  * Text Domain: smart-forms-quiz
  */

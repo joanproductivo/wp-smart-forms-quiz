@@ -622,32 +622,29 @@ class SFQ_Admin_Submissions {
             return;
         }
         
-        // Formatear datos del submission - IMPORTANTE: asegurar que la IP se procese correctamente
+        // Formatear datos del submission usando la misma lógica que funciona en la tabla
         $submission = $this->format_submission_data($submission);
         
-        // Debug: Forzar recálculo de información del país si es necesario
+        // ASEGURAR que country_info esté correctamente asignado para el modal
+        // Usar la misma lógica exacta que en format_submission_data pero forzar recálculo
         if (!empty($submission->user_ip)) {
-            // Siempre limpiar caché para el modal de detalle para asegurar datos frescos
-            $cache_key = 'sfq_country_' . md5($submission->user_ip);
-            delete_transient($cache_key);
+            $country_info = $this->get_country_from_ip($submission->user_ip);
             
-            // Forzar recálculo de información del país
-            $fresh_country_info = $this->get_country_from_ip($submission->user_ip);
-            
-            // Si obtenemos información válida, usarla
-            if ($fresh_country_info && $fresh_country_info['country_code'] !== 'XX') {
-                $submission->country_info = $fresh_country_info;
-            } else {
-                // Si no hay información válida, usar datos de prueba basados en la IP
-                $submission->country_info = $this->get_fallback_country_info($submission->user_ip);
+            // Si no obtenemos información válida, usar datos de fallback
+            if (!$country_info || !is_array($country_info) || 
+                !isset($country_info['country_code']) || $country_info['country_code'] === 'XX') {
+                $country_info = $this->get_fallback_country_info($submission->user_ip);
             }
+            
+            // Asegurar que todos los campos necesarios estén presentes
+            $submission->country_info = array(
+                'country_code' => $country_info['country_code'] ?? 'XX',
+                'country_name' => $country_info['country_name'] ?? __('Desconocido', 'smart-forms-quiz'),
+                'flag_emoji' => $country_info['flag_emoji'] ?? '🌍'
+            );
         } else {
             // Si no hay IP, usar datos por defecto
-            $submission->country_info = array(
-                'country_code' => 'XX',
-                'country_name' => __('Desconocido', 'smart-forms-quiz'),
-                'flag_emoji' => '🌍'
-            );
+            $submission->country_info = $this->get_default_country_info();
         }
         
         // Obtener respuestas del submission
@@ -817,7 +814,19 @@ class SFQ_Admin_Submissions {
         }
         
         // Obtener información del país basada en IP
-        $submission->country_info = $this->get_country_from_ip($submission->user_ip);
+        if (!empty($submission->user_ip)) {
+            $country_info = $this->get_country_from_ip($submission->user_ip);
+            
+            // Si no obtenemos información válida, usar datos de fallback
+            if (!$country_info || !is_array($country_info) || $country_info['country_code'] === 'XX') {
+                $country_info = $this->get_fallback_country_info($submission->user_ip);
+            }
+            
+            $submission->country_info = $country_info;
+        } else {
+            // Si no hay IP, usar datos por defecto
+            $submission->country_info = $this->get_default_country_info();
+        }
         
         // Calcular puntuación si es quiz
         if (!isset($submission->total_score)) {

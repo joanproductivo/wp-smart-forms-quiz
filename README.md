@@ -250,7 +250,7 @@ define('SFQ_ENABLE_DEBUG', true);
 
 ## 📝 Changelog
 
-### Versión 1.0.2 (Actual)
+### Versión 1.0.2 (antigua)
 - ✅ **Arquitectura completamente refactorizada**
 - ✅ **Eliminados archivos innecesarios** (test-builder-v2.html, debug files)
 - ✅ **Optimizada clase Database** - Reducido 40% de código redundante
@@ -300,7 +300,7 @@ Este plugin está licenciado bajo GPL v2 o posterior.
 
 ## 👥 Créditos
 
-Desarrollado por el equipo de Smart Forms Team.
+Desarrollado por el equipo de Joan Planas & IA.
 
 ---
 
