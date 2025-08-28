@@ -34,12 +34,15 @@ class SFQ_Frontend {
         $session_id = SFQ_Utils::get_or_create_session_id($form_id);
         
         // NUEVA LÓGICA: Verificar bloqueo de formulario PRIMERO
+        // Permitir bypass si el timer ya expiró (verificar tanto GET como AJAX/POST)
+        $timer_expired_request = $this->is_timer_expired_request($form_id);
+        
         $settings = $form->settings ?: array();
-        if (isset($settings['block_form']) && $settings['block_form']) {
+        if (isset($settings['block_form']) && $settings['block_form'] && !$timer_expired_request) {
             // Verificar si hay timer configurado
             $styles = $form->style_settings ?: array();
             if (!empty($styles['block_form_enable_timer']) && !empty($styles['block_form_timer_date'])) {
-                // Verificar si ya es hora de abrir el formulario
+                // Verificar si ya es hora de abrir el formulario (igual que schedule-start)
                 $timer_date = $styles['block_form_timer_date'];
                 
                 // Convertir ambas fechas a timestamp para comparación precisa
@@ -47,10 +50,10 @@ class SFQ_Frontend {
                 $current_timestamp = current_time('timestamp');
                 
                 if ($current_timestamp >= $timer_timestamp) {
-                    // El formulario ya debería estar abierto, desactivar el bloqueo automáticamente
-                    // No mostrar mensaje de bloqueo, continuar con el formulario normal
+                    // El timer ya expiró - NO bloquear el formulario
+                    // Continuar con el renderizado normal del formulario
                 } else {
-                    // Mostrar mensaje con timer
+                    // El timer aún no ha expirado - mostrar mensaje con timer
                     $block_check = array(
                         'allowed' => false,
                         'code' => 'FORM_BLOCKED_WITH_TIMER',
@@ -62,7 +65,7 @@ class SFQ_Frontend {
                     return $this->render_limit_message($form_id, $block_check, $styles);
                 }
             } else {
-                // Formulario bloqueado sin timer
+                // Formulario bloqueado sin timer - bloquear siempre
                 $block_check = array(
                     'allowed' => false,
                     'code' => 'FORM_BLOCKED',
@@ -595,7 +598,8 @@ class SFQ_Frontend {
                         <div class="sfq-countdown-timer" 
                              data-target-date="<?php echo esc_attr($limit_check['timer_date']); ?>"
                              data-opened-text="<?php echo esc_attr($limit_check['timer_opened_text'] ?? __('¡El formulario ya está disponible!', 'smart-forms-quiz')); ?>"
-                             data-form-id="<?php echo esc_attr($form_id); ?>">
+                             data-form-id="<?php echo esc_attr($form_id); ?>"
+                             data-show-form="<?php echo esc_attr($styles['block_form_timer_show_form'] ? 'true' : 'false'); ?>">
                             <div class="sfq-countdown-display">
                                 <div class="sfq-countdown-unit">
                                     <span class="sfq-countdown-number" id="days-<?php echo $form_id; ?>">0</span>
@@ -987,10 +991,33 @@ class SFQ_Frontend {
                     timerElement.classList.add('expired');
                     if (timerTextEl) timerTextEl.textContent = openedText;
                     
-                    // Recargar página después de 3 segundos
-                    setTimeout(function() {
-                        window.location.reload();
-                    }, 3000);
+                    // Verificar si debe mostrar formulario sin recargar
+                    const showFormDirectly = timerElement.dataset.showForm === 'true';
+                    
+                    if (showFormDirectly) {
+                        // Mostrar formulario sin recargar página
+                        setTimeout(function() {
+                            // Ocultar mensaje de bloqueo con animación
+                            const limitContainer = document.querySelector('.sfq-limit-message-container');
+                            if (limitContainer) {
+                                limitContainer.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                                limitContainer.style.opacity = '0';
+                                limitContainer.style.transform = 'translateY(-20px)';
+                                
+                                setTimeout(function() {
+                                    limitContainer.style.display = 'none';
+                                    
+                                    // Cargar y mostrar el formulario
+                                    loadAndShowForm();
+                                }, 500);
+                            }
+                        }, 2000);
+                    } else {
+                        // Recargar página después de 3 segundos (comportamiento original)
+                        setTimeout(function() {
+                            window.location.reload();
+                        }, 3000);
+                    }
                     return;
                 }
                 
@@ -1008,9 +1035,21 @@ class SFQ_Frontend {
                 if (t.total <= 0) {
                     timerElement.classList.add('expired');
                     if (timerTextEl) timerTextEl.textContent = openedText;
-                    setTimeout(function() {
-                        window.location.reload();
-                    }, 1000);
+                    
+                    // Verificar si debe mostrar formulario sin recargar
+                    const showFormDirectly = timerElement.dataset.showForm === 'true';
+                    
+                    if (showFormDirectly) {
+                        // Mostrar formulario sin recargar página
+                        setTimeout(function() {
+                            loadAndShowForm();
+                        }, 1000);
+                    } else {
+                        // Solo recargar si no está configurado para mostrar formulario directamente
+                        setTimeout(function() {
+                            window.location.reload();
+                        }, 1000);
+                    }
                     return;
                 }
                 
@@ -1019,6 +1058,57 @@ class SFQ_Frontend {
                 
                 // Configurar interval para actualizar cada segundo
                 timeinterval = setInterval(updateClock, 1000);
+            }
+            
+            // Función simplificada para mostrar mensaje "empezamos ya" sin loading
+            function loadAndShowForm() {
+                // Control de estado global para evitar múltiples ejecuciones
+                if (window.sfqTimerExpired) {
+                    return;
+                }
+                
+                // Marcar que el timer ha expirado
+                window.sfqTimerExpired = true;
+                
+                // Simplemente mostrar el mensaje "empezamos ya" sin loading ni AJAX
+                showReadyMessage();
+            }
+            
+            // Mostrar mensaje de "empezamos ya" sin loading
+            function showReadyMessage() {
+                const limitContainer = document.querySelector('.sfq-limit-message-container');
+                if (!limitContainer) return;
+                
+                // Mostrar mensaje simple sin loading
+                limitContainer.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <div style="color: #28a745; font-size: 48px; margin-bottom: 20px;">✅</div>
+                        <h3 style="color: #28a745; margin-bottom: 15px;">¡Empezamos ya!</h3>
+                        <p style="color: #666; margin-bottom: 20px;">El formulario ya está disponible.</p>
+                        <button onclick="window.location.reload()" style="
+                            background: #007cba; 
+                            color: white; 
+                            border: none; 
+                            padding: 12px 24px; 
+                            border-radius: 6px; 
+                            font-size: 16px; 
+                            cursor: pointer;
+                            transition: background 0.2s ease;
+                        " onmouseover="this.style.background='#005a87'" onmouseout="this.style.background='#007cba'">
+                            Acceder al formulario
+                        </button>
+                    </div>
+                `;
+                
+                // Animación de entrada suave
+                limitContainer.style.opacity = '0';
+                limitContainer.style.transform = 'translateY(20px)';
+                limitContainer.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                
+                setTimeout(() => {
+                    limitContainer.style.opacity = '1';
+                    limitContainer.style.transform = 'translateY(0)';
+                }, 100);
             }
             
             // Inicializar el reloj
@@ -1120,6 +1210,52 @@ class SFQ_Frontend {
         foreach ($image_patterns as $pattern) {
             if (preg_match($pattern, $url)) {
                 return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Verificar si es una petición de timer expirado (GET o AJAX/POST)
+     */
+    private function is_timer_expired_request($form_id) {
+        // Verificar parámetros GET (método original)
+        if (isset($_GET['sfq_timer_expired']) && $_GET['sfq_timer_expired'] === '1' && 
+            isset($_GET['sfq_form_id']) && $_GET['sfq_form_id'] == $form_id) {
+            return true;
+        }
+        
+        // Verificar parámetros POST (para peticiones AJAX)
+        if (isset($_POST['timer_expired']) && $_POST['timer_expired'] === '1' && 
+            isset($_POST['form_id']) && $_POST['form_id'] == $form_id) {
+            return true;
+        }
+        
+        // Verificar si estamos en una petición AJAX específica para obtener contenido del formulario
+        if (defined('DOING_AJAX') && DOING_AJAX && 
+            isset($_POST['action']) && $_POST['action'] === 'sfq_get_form_content' &&
+            isset($_POST['timer_expired']) && $_POST['timer_expired'] === '1' &&
+            isset($_POST['form_id']) && $_POST['form_id'] == $form_id) {
+            return true;
+        }
+        
+        // Verificar si el timer ya expiró naturalmente
+        $form = $this->database->get_form($form_id);
+        if ($form) {
+            $settings = $form->settings ?: array();
+            $styles = $form->style_settings ?: array();
+            
+            if (isset($settings['block_form']) && $settings['block_form'] &&
+                !empty($styles['block_form_enable_timer']) && !empty($styles['block_form_timer_date'])) {
+                
+                $timer_timestamp = strtotime($styles['block_form_timer_date']);
+                $current_timestamp = current_time('timestamp');
+                
+                // Si el timer ya expiró naturalmente, permitir bypass
+                if ($current_timestamp >= $timer_timestamp) {
+                    return true;
+                }
             }
         }
         

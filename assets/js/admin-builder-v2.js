@@ -251,7 +251,7 @@
                 }
             });
             
-            $('#block-form-timer-date, #block-form-timer-text, #block-form-timer-opened-text').on('change input' + ns, () => {
+            $('#block-form-timer-date, #block-form-timer-text, #block-form-timer-opened-text, #block-form-timer-show-form').on('change input' + ns, () => {
                 if (!this.isDestroyed) {
                     this.isDirty = true;
                 }
@@ -407,6 +407,7 @@
             $('#block-form-timer-date').val(styles.block_form_timer_date || '');
             $('#block-form-timer-text').val(styles.block_form_timer_text || '');
             $('#block-form-timer-opened-text').val(styles.block_form_timer_opened_text || '');
+            $('#block-form-timer-show-form').prop('checked', styles.block_form_timer_show_form === true);
             
             // Cargar colores específicos de bloqueo de formulario
             $('#block-form-bg-color').val(styles.block_form_bg_color || '#f8f9fa').trigger('change');
@@ -608,6 +609,7 @@
                 block_form_timer_date: $('#block-form-timer-date').val() || '',
                 block_form_timer_text: $('#block-form-timer-text').val() || '',
                 block_form_timer_opened_text: $('#block-form-timer-opened-text').val() || '',
+                block_form_timer_show_form: $('#block-form-timer-show-form').is(':checked'),
                 // Colores específicos de bloqueo de formulario
                 block_form_bg_color: $('#block-form-bg-color').val() || '#f8f9fa',
                 block_form_border_color: $('#block-form-border-color').val() || '#e9ecef',

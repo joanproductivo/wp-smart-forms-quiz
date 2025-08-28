@@ -29,6 +29,8 @@ class SFQ_Ajax {
         // AJAX handlers para admin
         add_action('wp_ajax_sfq_save_form', array($this, 'save_form'));
         add_action('wp_ajax_sfq_get_form_data', array($this, 'get_form_data'));
+        add_action('wp_ajax_sfq_get_form_content', array($this, 'get_form_content'));
+        add_action('wp_ajax_nopriv_sfq_get_form_content', array($this, 'get_form_content'));
         add_action('wp_ajax_sfq_delete_form', array($this, 'delete_form'));
         add_action('wp_ajax_sfq_duplicate_form', array($this, 'duplicate_form'));
         add_action('wp_ajax_sfq_get_form_quick_stats', array($this, 'get_form_quick_stats'));
@@ -1967,6 +1969,122 @@ class SFQ_Ajax {
                 'debug' => WP_DEBUG ? $e->getMessage() : null
             ));
         }
+    }
+    
+    /**
+     * Obtener contenido del formulario sin bloqueos (para timer expirado)
+     */
+    public function get_form_content() {
+        // Verificar datos requeridos
+        $form_id = intval($_POST['form_id'] ?? 0);
+        $timer_expired = isset($_POST['timer_expired']) && $_POST['timer_expired'] === '1';
+        
+        if (!$form_id) {
+            wp_send_json_error(array(
+                'message' => __('ID de formulario inválido', 'smart-forms-quiz'),
+                'code' => 'INVALID_FORM_ID'
+            ));
+            return;
+        }
+        
+        // Para peticiones de timer expirado, no requerir nonce si el timer realmente ha expirado
+        if ($timer_expired) {
+            // Verificar que el timer realmente ha expirado antes de permitir bypass
+            if (!$this->verify_timer_expired($form_id)) {
+                wp_send_json_error(array(
+                    'message' => __('El timer aún no ha expirado', 'smart-forms-quiz'),
+                    'code' => 'TIMER_NOT_EXPIRED'
+                ));
+                return;
+            }
+        } else {
+            // Para otras peticiones, verificar nonce
+            if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+                wp_send_json_error(array(
+                    'message' => __('Error de seguridad', 'smart-forms-quiz'),
+                    'code' => 'INVALID_NONCE'
+                ));
+                return;
+            }
+        }
+        
+        try {
+            // Crear instancia del frontend para renderizar el formulario
+            $frontend = new SFQ_Frontend();
+            
+            // Renderizar el formulario - ahora el método is_timer_expired_request detectará automáticamente
+            // que estamos en una petición AJAX válida y permitirá el bypass
+            $form_html = $frontend->render_form($form_id);
+            
+            if (empty($form_html)) {
+                wp_send_json_error(array(
+                    'message' => __('No se pudo cargar el formulario', 'smart-forms-quiz'),
+                    'code' => 'FORM_LOAD_ERROR'
+                ));
+                return;
+            }
+            
+            // Incluir scripts necesarios para el formulario
+            $scripts = array();
+            
+            // Verificar si necesitamos incluir el script principal del formulario
+            if (strpos($form_html, 'sfq-form-container') !== false) {
+                // Incluir script para inicializar el formulario
+                $scripts[] = '
+                    // Reinicializar formularios después de carga dinámica
+                    if (typeof SmartFormQuiz !== "undefined") {
+                        document.querySelectorAll(".sfq-form-container").forEach(container => {
+                            if (!container.dataset.initialized) {
+                                new SmartFormQuiz(container);
+                                container.dataset.initialized = "true";
+                            }
+                        });
+                    }
+                ';
+            }
+            
+            wp_send_json_success(array(
+                'html' => $form_html,
+                'form_id' => $form_id,
+                'scripts' => $scripts,
+                'message' => __('Formulario cargado correctamente', 'smart-forms-quiz')
+            ));
+            
+        } catch (Exception $e) {
+            error_log('SFQ Error in get_form_content: ' . $e->getMessage());
+            
+            wp_send_json_error(array(
+                'message' => __('Error al cargar el formulario', 'smart-forms-quiz'),
+                'code' => 'INTERNAL_ERROR',
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
+        }
+    }
+    
+    /**
+     * Verificar que el timer realmente ha expirado
+     */
+    private function verify_timer_expired($form_id) {
+        $form = $this->database->get_form($form_id);
+        
+        if (!$form) {
+            return false;
+        }
+        
+        $settings = $form->settings ?: array();
+        $styles = $form->style_settings ?: array();
+        
+        // Verificar que el formulario esté bloqueado con timer
+        if (!isset($settings['block_form']) || !$settings['block_form'] ||
+            empty($styles['block_form_enable_timer']) || empty($styles['block_form_timer_date'])) {
+            return false;
+        }
+        
+        // Verificar que el timer realmente haya expirado
+        $timer_timestamp = strtotime($styles['block_form_timer_date']);
+        $current_timestamp = current_time('timestamp');
+        
+        return $current_timestamp >= $timer_timestamp;
     }
     
 }

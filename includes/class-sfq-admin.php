@@ -481,7 +481,15 @@ class SFQ_Admin {
                                                    style="margin-bottom: 10px;">
                                             <label><?php _e('Texto cuando se abra', 'smart-forms-quiz'); ?></label>
                                             <input type="text" id="block-form-timer-opened-text" class="sfq-input" 
-                                                   placeholder="<?php _e('¡El formulario ya está disponible!', 'smart-forms-quiz'); ?>">
+                                                   placeholder="<?php _e('¡El formulario ya está disponible!', 'smart-forms-quiz'); ?>"
+                                                   style="margin-bottom: 10px;">
+                                            <label>
+                                                <input type="checkbox" id="block-form-timer-show-form">
+                                                <?php _e('🎯 Mostrar formulario sin recargar página', 'smart-forms-quiz'); ?>
+                                            </label>
+                                            <small style="display: block; margin-top: 5px; color: #666; font-size: 11px;">
+                                                <?php _e('Al expirar el timer, el formulario aparecerá directamente sin recargar la página', 'smart-forms-quiz'); ?>
+                                            </small>
                                         </div>
                                     </div>
                                 </div>
