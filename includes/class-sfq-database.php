@@ -43,7 +43,7 @@ class SFQ_Database {
             
             // Log si hay problemas de conexión
             if (!$wpdb->check_connection()) {
-                error_log('SFQ Database: Failed to establish database connection');
+                // Connection failed - log silently
             }
         }
     }
@@ -588,7 +588,6 @@ class SFQ_Database {
             
         } catch (Exception $e) {
             $wpdb->query('ROLLBACK');
-            error_log('SFQ Database Error in save_questions: ' . $e->getMessage());
             throw $e;
         }
     }
@@ -631,9 +630,10 @@ class SFQ_Database {
         // Verificar si ya existe una vista para esta sesión y formulario
         $existing_view = $wpdb->get_var($wpdb->prepare(
             "SELECT id FROM {$this->analytics_table} 
-            WHERE form_id = %d AND session_id = %s AND event_type = 'view'",
+            WHERE form_id = %d AND session_id = %s AND event_type = %s",
             $form_id,
-            $session_id
+            $session_id,
+            'view'
         ));
         
         // Solo registrar si no existe una vista previa
@@ -651,7 +651,7 @@ class SFQ_Database {
             );
             
             if ($result === false) {
-                error_log('SFQ Error: Failed to register view for form ' . $form_id . ', session ' . $session_id);
+                // Failed to register view
             }
         }
     }
@@ -665,9 +665,10 @@ class SFQ_Database {
         // Verificar si ya existe un evento de inicio para esta sesión
         $existing_start = $wpdb->get_var($wpdb->prepare(
             "SELECT id FROM {$this->analytics_table} 
-            WHERE form_id = %d AND session_id = %s AND event_type = 'start'",
+            WHERE form_id = %d AND session_id = %s AND event_type = %s",
             $form_id,
-            $session_id
+            $session_id,
+            'start'
         ));
         
         // Solo registrar si no existe un inicio previo
@@ -685,7 +686,7 @@ class SFQ_Database {
             );
             
             if ($result === false) {
-                error_log('SFQ Error: Failed to register start for form ' . $form_id . ', session ' . $session_id);
+                // Failed to register start
             }
         }
     }
@@ -714,7 +715,7 @@ class SFQ_Database {
         );
         
         if ($result === false) {
-            error_log('SFQ Error: Failed to register completed for form ' . $form_id . ', session ' . $session_id);
+            // Failed to register completed
         }
     }
     
@@ -751,7 +752,6 @@ class SFQ_Database {
         foreach ($indexes as $index_sql) {
             $result = $wpdb->query($index_sql);
             if ($result === false) {
-                error_log('SFQ Database: Failed to create index: ' . $index_sql . ' - Error: ' . $wpdb->last_error);
             }
         }
     }
@@ -853,13 +853,11 @@ class SFQ_Database {
             $wpdb->query('COMMIT');
             
             // Log de limpieza
-            error_log("SFQ Database Cleanup: Removed " . count($old_submissions) . " old submissions and related data older than {$days_old} days");
             
             return count($old_submissions);
             
         } catch (Exception $e) {
             $wpdb->query('ROLLBACK');
-            error_log('SFQ Database Cleanup Error: ' . $e->getMessage());
             return false;
         }
     }
@@ -874,36 +872,36 @@ class SFQ_Database {
         $issues = array();
         
         // Verificar respuestas huérfanas (sin submission)
-        $orphaned_responses = $wpdb->get_var("
+        $orphaned_responses = $wpdb->get_var($wpdb->prepare("
             SELECT COUNT(*) 
             FROM {$this->responses_table} r 
             LEFT JOIN {$this->submissions_table} s ON r.submission_id = s.id 
             WHERE s.id IS NULL
-        ");
+        "));
         
         if ($orphaned_responses > 0) {
             $issues[] = "Found {$orphaned_responses} orphaned responses without submissions";
         }
         
         // Verificar preguntas huérfanas (sin formulario)
-        $orphaned_questions = $wpdb->get_var("
+        $orphaned_questions = $wpdb->get_var($wpdb->prepare("
             SELECT COUNT(*) 
             FROM {$this->questions_table} q 
             LEFT JOIN {$this->forms_table} f ON q.form_id = f.id 
             WHERE f.id IS NULL
-        ");
+        "));
         
         if ($orphaned_questions > 0) {
             $issues[] = "Found {$orphaned_questions} orphaned questions without forms";
         }
         
         // Verificar condiciones huérfanas (sin pregunta)
-        $orphaned_conditions = $wpdb->get_var("
+        $orphaned_conditions = $wpdb->get_var($wpdb->prepare("
             SELECT COUNT(*) 
             FROM {$this->conditions_table} c 
             LEFT JOIN {$this->questions_table} q ON c.question_id = q.id 
             WHERE q.id IS NULL
-        ");
+        "));
         
         if ($orphaned_conditions > 0) {
             $issues[] = "Found {$orphaned_conditions} orphaned conditions without questions";
@@ -926,33 +924,33 @@ class SFQ_Database {
         
         try {
             // Eliminar respuestas huérfanas
-            $orphaned_responses = $wpdb->query("
+            $orphaned_responses = $wpdb->query($wpdb->prepare("
                 DELETE r FROM {$this->responses_table} r 
                 LEFT JOIN {$this->submissions_table} s ON r.submission_id = s.id 
                 WHERE s.id IS NULL
-            ");
+            "));
             
             if ($orphaned_responses > 0) {
                 $repairs[] = "Removed {$orphaned_responses} orphaned responses";
             }
             
             // Eliminar preguntas huérfanas
-            $orphaned_questions = $wpdb->query("
+            $orphaned_questions = $wpdb->query($wpdb->prepare("
                 DELETE q FROM {$this->questions_table} q 
                 LEFT JOIN {$this->forms_table} f ON q.form_id = f.id 
                 WHERE f.id IS NULL
-            ");
+            "));
             
             if ($orphaned_questions > 0) {
                 $repairs[] = "Removed {$orphaned_questions} orphaned questions";
             }
             
             // Eliminar condiciones huérfanas
-            $orphaned_conditions = $wpdb->query("
+            $orphaned_conditions = $wpdb->query($wpdb->prepare("
                 DELETE c FROM {$this->conditions_table} c 
                 LEFT JOIN {$this->questions_table} q ON c.question_id = q.id 
                 WHERE q.id IS NULL
-            ");
+            "));
             
             if ($orphaned_conditions > 0) {
                 $repairs[] = "Removed {$orphaned_conditions} orphaned conditions";
@@ -962,14 +960,12 @@ class SFQ_Database {
             
             // Log de reparaciones
             if (!empty($repairs)) {
-                error_log('SFQ Database Repairs: ' . implode(', ', $repairs));
             }
             
             return $repairs;
             
         } catch (Exception $e) {
             $wpdb->query('ROLLBACK');
-            error_log('SFQ Database Repair Error: ' . $e->getMessage());
             return false;
         }
     }
@@ -984,22 +980,22 @@ class SFQ_Database {
         $stats = array();
         
         // Contar registros por tabla
-        $stats['forms_count'] = $wpdb->get_var("SELECT COUNT(*) FROM {$this->forms_table}");
-        $stats['questions_count'] = $wpdb->get_var("SELECT COUNT(*) FROM {$this->questions_table}");
-        $stats['submissions_count'] = $wpdb->get_var("SELECT COUNT(*) FROM {$this->submissions_table}");
-        $stats['responses_count'] = $wpdb->get_var("SELECT COUNT(*) FROM {$this->responses_table}");
-        $stats['analytics_count'] = $wpdb->get_var("SELECT COUNT(*) FROM {$this->analytics_table}");
-        $stats['conditions_count'] = $wpdb->get_var("SELECT COUNT(*) FROM {$this->conditions_table}");
+        $stats['forms_count'] = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->forms_table}"));
+        $stats['questions_count'] = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->questions_table}"));
+        $stats['submissions_count'] = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->submissions_table}"));
+        $stats['responses_count'] = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->responses_table}"));
+        $stats['analytics_count'] = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->analytics_table}"));
+        $stats['conditions_count'] = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$this->conditions_table}"));
         
         // Tamaño aproximado de las tablas
-        $table_sizes = $wpdb->get_results("
+        $table_sizes = $wpdb->get_results($wpdb->prepare("
             SELECT 
                 table_name,
                 ROUND(((data_length + index_length) / 1024 / 1024), 2) AS size_mb
             FROM information_schema.TABLES 
             WHERE table_schema = DATABASE()
-            AND table_name LIKE '{$wpdb->prefix}sfq_%'
-        ", ARRAY_A);
+            AND table_name LIKE %s
+        ", $wpdb->prefix . 'sfq_%'), ARRAY_A);
         
         $stats['table_sizes'] = array();
         foreach ($table_sizes as $table) {
@@ -1029,11 +1025,10 @@ class SFQ_Database {
         if ($execution_time > $threshold) {
             $formatted_time = number_format($execution_time, 4);
             $short_query = substr(preg_replace('/\s+/', ' ', $query), 0, 200) . '...';
-            error_log("SFQ Slow Query ({$formatted_time}s): {$short_query}");
-            
-            // En modo debug, log la consulta completa
             if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log("SFQ Full Slow Query: {$query}");
+                $formatted_time = number_format($execution_time, 4);
+                $short_query = substr(preg_replace('/\s+/', ' ', $query), 0, 200) . '...';
+                error_log("SFQ Slow Query ({$formatted_time}s): {$short_query}");
             }
         }
     }
@@ -1057,14 +1052,13 @@ class SFQ_Database {
         $optimized = array();
         
         foreach ($tables as $table) {
-            $result = $wpdb->query("OPTIMIZE TABLE {$table}");
+            $result = $wpdb->query($wpdb->prepare("OPTIMIZE TABLE {$table}"));
             if ($result !== false) {
                 $optimized[] = $table;
             }
         }
         
         if (!empty($optimized)) {
-            error_log('SFQ Database: Optimized tables: ' . implode(', ', $optimized));
         }
         
         return $optimized;

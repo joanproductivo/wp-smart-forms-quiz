@@ -154,9 +154,6 @@ class SFQ_Activator {
         if ($tables_created) {
             update_option('sfq_db_version', '1.0.1');
             update_option('sfq_tables_verified', true);
-        } else {
-            // Log error
-            error_log('Smart Forms & Quiz: Error creating database tables');
         }
     }
     

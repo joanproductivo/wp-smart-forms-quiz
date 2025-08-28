@@ -46,6 +46,10 @@ class SFQ_Ajax {
         add_action('wp_ajax_sfq_save_submission_note', array($this, 'save_submission_note'));
         add_action('wp_ajax_sfq_export_submissions_advanced', array($this, 'export_submissions_advanced'));
         
+        // AJAX handlers para seguridad y rate limiting
+        add_action('wp_ajax_sfq_get_rate_limit_stats', array($this, 'get_rate_limit_stats'));
+        add_action('wp_ajax_sfq_clear_rate_limits', array($this, 'clear_rate_limits'));
+        
     }
     
     /**
@@ -74,6 +78,15 @@ class SFQ_Ajax {
         // Verificar nonce
         if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
             wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Verificar rate limiting para envío de respuestas
+        if (!$this->check_rate_limit('submit_response')) {
+            wp_send_json_error(array(
+                'message' => __('Demasiadas peticiones. Intenta de nuevo en un momento.', 'smart-forms-quiz'),
+                'code' => 'RATE_LIMIT_EXCEEDED'
+            ));
             return;
         }
         
@@ -164,8 +177,6 @@ class SFQ_Ajax {
                 
                 if ($response_result !== false) {
                     $responses_saved++;
-                } else {
-                    error_log('SFQ Error: Failed to save response for question ' . $question_id . ': ' . $wpdb->last_error);
                 }
             }
             
@@ -186,8 +197,6 @@ class SFQ_Ajax {
             // Enviar notificaciones si está configurado (en background)
             wp_schedule_single_event(time(), 'sfq_send_notifications', array($form_id, $submission_id));
             
-            // Log de éxito para debugging
-            error_log("SFQ Success: Form {$form_id} submitted successfully. Submission ID: {$submission_id}, Responses saved: {$responses_saved}");
             
             wp_send_json_success(array(
                 'submission_id' => $submission_id,
@@ -1036,11 +1045,11 @@ class SFQ_Ajax {
     }
     
     /**
-     * Rate limiting simple
+     * Rate limiting mejorado usando implementación de seguridad
      */
-    private function check_rate_limit($action, $max_requests, $time_window) {
-        // Usar método centralizado de la clase Utils
-        return SFQ_Utils::check_rate_limit($action, $max_requests, $time_window);
+    private function check_rate_limit($action, $max_requests = null, $time_window = null) {
+        // Usar método centralizado de la clase Security (más robusto)
+        return SFQ_Security::check_rate_limit($action, $max_requests, $time_window);
     }
     
     /**
@@ -1171,8 +1180,8 @@ class SFQ_Ajax {
         
         global $wpdb;
         
-        // Obtener total de completados
-        $total_completed = $wpdb->get_var($wpdb->prepare(
+        // Obtener total de submissions (igual que en get_dashboard_stats)
+        $total_submissions = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) 
             FROM {$wpdb->prefix}sfq_submissions 
             WHERE form_id = %d AND status = 'completed'",
@@ -1181,7 +1190,7 @@ class SFQ_Ajax {
         
         // Obtener total de vistas (eventos 'view') - con lógica de fallback igual que en estadísticas detalladas
         $analytics_table = $wpdb->prefix . 'sfq_analytics';
-        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$analytics_table'") === $analytics_table;
+        $table_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $analytics_table)) === $analytics_table;
         
         $total_views = 0;
         if ($table_exists) {
@@ -1194,19 +1203,27 @@ class SFQ_Ajax {
         }
         
         // Si no hay vistas en analytics, usar el contador de submissions como aproximación (igual que en estadísticas detalladas)
-        if ($total_views == 0 && $total_completed > 0) {
-            $total_views = $total_completed * 2; // Estimación conservadora
+        if ($total_views == 0 && $total_submissions > 0) {
+            $total_views = $total_submissions * 2; // Estimación conservadora
         }
         
-        // Calcular tasa de conversión
+        // Calcular tasa de conversión: (total_submissions / total_views) * 100
+        // Usar la misma lógica exacta que get_dashboard_stats para consistencia
         $conversion_rate = 0;
-        if ($total_views > 0) {
-            $conversion_rate = round(($total_completed / $total_views) * 100, 1);
-        }
         
+        if ($total_views > 0 && $total_submissions > 0) {
+            $conversion_rate = ($total_submissions / $total_views) * 100;
+            
+            // Redondear a 1 decimal
+            $conversion_rate = round($conversion_rate, 1);
+            
+            // Asegurar que esté en el rango 0-100%
+            $conversion_rate = max(0, min(100, $conversion_rate));
+        }
+
         wp_send_json_success(array(
             'views' => intval($total_views),
-            'completed' => intval($total_completed),
+            'completed' => intval($total_submissions),
             'rate' => $conversion_rate
         ));
     }
@@ -1461,8 +1478,6 @@ class SFQ_Ajax {
             $this->clear_form_cache($form_id);
             wp_cache_delete("sfq_form_stats_{$form_id}", 'sfq_stats');
             
-            // Log de la acción para auditoría
-            error_log("SFQ Stats Reset: Form {$form_id} statistics reset by user " . get_current_user_id() . ". Submissions deleted: {$submissions_deleted}, Analytics events deleted: {$analytics_deleted}");
             
             wp_send_json_success(array(
                 'message' => __('Estadísticas borradas correctamente', 'smart-forms-quiz'),
@@ -1572,8 +1587,6 @@ class SFQ_Ajax {
                     throw new Exception(__('Acción no implementada', 'smart-forms-quiz'));
             }
             
-            // Log de la acción para auditoría
-            error_log("SFQ Maintenance: Action '{$action}' executed by user " . get_current_user_id());
             
             wp_send_json_success($result);
             
@@ -1605,11 +1618,13 @@ class SFQ_Ajax {
         
         // Limpiar transients del plugin
         global $wpdb;
-        $transients_deleted = $wpdb->query(
+        $transients_deleted = $wpdb->query($wpdb->prepare(
             "DELETE FROM {$wpdb->options} 
-            WHERE option_name LIKE '_transient_sfq_%' 
-            OR option_name LIKE '_transient_timeout_sfq_%'"
-        );
+            WHERE option_name LIKE %s 
+            OR option_name LIKE %s",
+            '_transient_sfq_%',
+            '_transient_timeout_sfq_%'
+        ));
         
         if ($transients_deleted > 0) {
             $cleared_items[] = sprintf(__('%d transients eliminados', 'smart-forms-quiz'), $transients_deleted);
@@ -1743,6 +1758,133 @@ class SFQ_Ajax {
      */
     public function export_submissions_advanced() {
         $this->delegate_to_submissions_handler('export_submissions_advanced');
+    }
+    
+    /**
+     * Obtener estadísticas de rate limiting (Admin AJAX)
+     */
+    public function get_rate_limit_stats() {
+        // Verificar permisos de administrador
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array(
+                'message' => __('No tienes permisos para realizar esta acción', 'smart-forms-quiz')
+            ));
+            return;
+        }
+        
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(array(
+                'message' => __('Error de seguridad', 'smart-forms-quiz')
+            ));
+            return;
+        }
+        
+        try {
+            // Obtener estadísticas generales
+            $general_stats = SFQ_Security::get_rate_limit_stats();
+            
+            // Obtener estado para acciones específicas del usuario actual
+            $actions_status = array();
+            $monitored_actions = $general_stats['actions_monitored'];
+            
+            foreach ($monitored_actions as $action) {
+                $actions_status[$action] = SFQ_Security::get_rate_limit_status($action);
+            }
+            
+            wp_send_json_success(array(
+                'general_stats' => $general_stats,
+                'actions_status' => $actions_status,
+                'current_user_id' => get_current_user_id(),
+                'current_ip' => SFQ_Utils::get_user_ip()
+            ));
+            
+        } catch (Exception $e) {
+            error_log('SFQ Error in get_rate_limit_stats: ' . $e->getMessage());
+            
+            wp_send_json_error(array(
+                'message' => __('Error al obtener estadísticas de rate limiting', 'smart-forms-quiz'),
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
+        }
+    }
+    
+    /**
+     * Limpiar rate limits (Admin AJAX)
+     */
+    public function clear_rate_limits() {
+        // Verificar permisos de administrador
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array(
+                'message' => __('No tienes permisos para realizar esta acción', 'smart-forms-quiz')
+            ));
+            return;
+        }
+        
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(array(
+                'message' => __('Error de seguridad', 'smart-forms-quiz')
+            ));
+            return;
+        }
+        
+        // Verificar método de petición
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            wp_send_json_error(array(
+                'message' => __('Método de petición no válido', 'smart-forms-quiz')
+            ));
+            return;
+        }
+        
+        $action = sanitize_text_field($_POST['action_name'] ?? '');
+        $clear_all = isset($_POST['clear_all']) && $_POST['clear_all'] === 'true';
+        
+        try {
+            $cleared_count = 0;
+            
+            if ($clear_all) {
+                // Limpiar todos los rate limits del plugin
+                global $wpdb;
+                $cleared_count = $wpdb->query($wpdb->prepare(
+                    "DELETE FROM {$wpdb->options} 
+                    WHERE option_name LIKE %s",
+                    '_transient_sfq_rate_limit_%'
+                ));
+                
+                $message = sprintf(__('Se limpiaron %d rate limits activos', 'smart-forms-quiz'), $cleared_count);
+                
+            } elseif (!empty($action)) {
+                // Limpiar rate limit para una acción específica
+                $result = SFQ_Security::clear_rate_limit($action);
+                $cleared_count = $result ? 1 : 0;
+                
+                $message = $result 
+                    ? sprintf(__('Rate limit limpiado para la acción: %s', 'smart-forms-quiz'), $action)
+                    : sprintf(__('No se encontró rate limit activo para la acción: %s', 'smart-forms-quiz'), $action);
+                    
+            } else {
+                wp_send_json_error(array(
+                    'message' => __('Debe especificar una acción o marcar limpiar todo', 'smart-forms-quiz')
+                ));
+                return;
+            }
+            
+            wp_send_json_success(array(
+                'message' => $message,
+                'cleared_count' => $cleared_count,
+                'action' => $action,
+                'clear_all' => $clear_all
+            ));
+            
+        } catch (Exception $e) {
+            error_log('SFQ Error in clear_rate_limits: ' . $e->getMessage());
+            
+            wp_send_json_error(array(
+                'message' => __('Error al limpiar rate limits', 'smart-forms-quiz'),
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
+        }
     }
     
 }

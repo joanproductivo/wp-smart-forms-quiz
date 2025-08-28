@@ -145,7 +145,6 @@
                 const redirectResult = await this.processConditionsImmediate(card, questionId);
                 
                 if (redirectResult && redirectResult.shouldRedirect) {
-                    console.log('Redirecting immediately to:', redirectResult.redirectUrl);
                     // Redirección inmediata
                     window.location.href = redirectResult.redirectUrl;
                     return;
@@ -278,8 +277,6 @@
         }
 
         async processConditionsImmediate(element, questionId) {
-            console.log('Processing conditions for question:', questionId, 'answer:', element.dataset.value);
-            
             // Obtener condiciones del elemento primero
             const conditions = element.dataset.conditions;
             
@@ -317,12 +314,9 @@
             
             for (const condition of conditions) {
                 if (this.evaluateConditionImmediate(condition, answer, questionId)) {
-                    console.log('Condition matched:', condition);
-                    
                     // Aplicar acción de la condición
                     switch (condition.action_type) {
                         case 'redirect_url':
-                            console.log('Local condition: Redirecting to:', condition.action_value);
                             result.shouldRedirect = true;
                             result.redirectUrl = condition.action_value;
                             return result; // Retornar inmediatamente para redirección
@@ -372,8 +366,6 @@
         }
 
         async checkConditionsViaAjax(questionId, answer) {
-            console.log('Checking conditions via AJAX for question:', questionId, 'answer:', answer);
-            
             const result = {
                 shouldRedirect: false,
                 redirectUrl: null,
@@ -400,7 +392,6 @@
                 }
 
                 const ajaxResult = await response.json();
-                console.log('AJAX response:', ajaxResult);
                 
                 if (ajaxResult.success && ajaxResult.data) {
                     // Actualizar variables si las hay
@@ -410,7 +401,6 @@
                     
                     // Verificar redirección
                     if (ajaxResult.data.redirect_url) {
-                        console.log('AJAX condition: Redirecting to:', ajaxResult.data.redirect_url);
                         result.shouldRedirect = true;
                         result.redirectUrl = ajaxResult.data.redirect_url;
                         return result;
@@ -421,7 +411,7 @@
                         result.skipToQuestion = ajaxResult.data.next_question_id;
                     }
                 } else {
-                    console.warn('AJAX request failed or returned no data:', ajaxResult);
+                    // AJAX request failed or returned no data
                 }
                 
             } catch (error) {
@@ -684,9 +674,6 @@
                 // Mostrar loading
                 this.showLoading();
 
-                console.log('Submitting form with responses:', this.responses);
-                console.log('Variables:', this.variables);
-
                 const response = await fetch(sfq_ajax.ajax_url, {
                     method: 'POST',
                     body: formData
@@ -697,12 +684,10 @@
                 }
 
                 const result = await response.json();
-                console.log('Submit response:', result);
 
                 if (result.success) {
                     // PRIORITY 1: Verificar si hay redirección condicional desde el resultado del servidor
                     if (result.data && result.data.redirect_url) {
-                        console.log('Redirecting to conditional URL:', result.data.redirect_url);
                         window.location.href = result.data.redirect_url;
                         return;
                     }
@@ -710,7 +695,6 @@
                     // PRIORITY 2: Verificar redirección configurada en el formulario
                     const configuredRedirectUrl = this.container.querySelector('#sfq-redirect-url-' + this.formId);
                     if (configuredRedirectUrl && configuredRedirectUrl.value) {
-                        console.log('Redirecting to configured URL:', configuredRedirectUrl.value);
                         setTimeout(() => {
                             window.location.href = configuredRedirectUrl.value;
                         }, 2000);

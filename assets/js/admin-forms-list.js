@@ -87,7 +87,6 @@
                     });
                 }
             } catch (error) {
-                console.error(`Error loading stats for form ${formId}:`, error);
                 // En caso de error, mostrar valores por defecto
                 this.updateFormCard(formId, {
                     views: 0,

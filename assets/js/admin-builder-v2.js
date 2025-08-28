@@ -34,15 +34,12 @@
         init() {
             if (this.isInitialized || this.isDestroyed) return;
             
-            console.log('SFQ Builder v2: Initializing instance', this.instanceId);
-            
             this.bindGlobalEvents();
             this.initializeModules();
             this.loadFormData();
             this.setupAutoSave();
             
             this.isInitialized = true;
-            console.log('SFQ Builder v2: Initialization complete for', this.instanceId);
         }
 
         bindGlobalEvents() {
@@ -127,12 +124,9 @@
 
         async loadFormData() {
             if (!this.formId || this.formId === '0') {
-                console.log('SFQ Builder v2: New form, no data to load');
                 this.uiRenderer.showEmptyState();
                 return;
             }
-            
-            console.log('SFQ Builder v2: Loading form data for ID:', this.formId);
             this.uiRenderer.showLoading(true);
             
             try {
@@ -148,7 +142,6 @@
                 });
                 
                 if (response.success && response.data) {
-                    console.log('SFQ Builder v2: Form data loaded successfully');
                     this.populateFormData(response.data);
                     this.isDirty = false;
                 } else {
@@ -163,8 +156,6 @@
         }
 
         populateFormData(formData) {
-            console.log('SFQ Builder v2: Populating form data', formData);
-            
             // Store complete form data in state
             this.stateManager.setState('formData', formData);
             
@@ -216,17 +207,13 @@
         }
         
         async saveForm() {
-            console.log('SFQ Builder v2: Saving form...');
-            
             // Prevent saves if destroyed
             if (this.isDestroyed) {
-                console.log('SFQ Builder v2: Instance destroyed, skipping save');
                 return;
             }
             
             // Prevent duplicate saves
             if (this.isSaving) {
-                console.log('SFQ Builder v2: Already saving, skipping duplicate request');
                 return Promise.resolve();
             }
             
@@ -319,7 +306,6 @@
             // Auto-save every 30 seconds if there are changes
             this.autoSaveInterval = setInterval(() => {
                 if (this.isDirty && this.formId && !this.isSaving && !this.isDestroyed) {
-                    console.log('SFQ Builder v2: Auto-saving...');
                     this.saveForm();
                 }
             }, 30000);
@@ -356,7 +342,6 @@
         }
 
         destroy() {
-            console.log('SFQ Builder v2: Destroying instance', this.instanceId);
             this.isDestroyed = true;
             
             // Clear auto-save interval
@@ -473,7 +458,6 @@
                 
                 // Prevent double-click
                 if (this.isAddingQuestion) {
-                    console.log('SFQ QuestionManager: Already adding question, ignoring duplicate click');
                     return false;
                 }
                 
@@ -507,8 +491,6 @@
         }
 
         loadQuestions(questionsData) {
-            console.log('SFQ QuestionManager: Loading questions', questionsData);
-            
             // Clear container
             this.container.empty();
             this.questions = [];
@@ -536,8 +518,6 @@
                     }
                 }
             });
-            
-            console.log(`SFQ QuestionManager: Loaded ${this.questions.length} questions`);
         }
 
         createQuestionObject(data, index) {
@@ -584,7 +564,6 @@
         addQuestion(type) {
             // Prevent duplicate additions
             if (this.isAddingQuestion) {
-                console.log('SFQ QuestionManager: Already adding a question');
                 return;
             }
             
@@ -620,8 +599,6 @@
                 
                 // Scroll to new question
                 element[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                
-                console.log('SFQ QuestionManager: Added question', questionId);
             } finally {
                 // Reset flag after a short delay
                 setTimeout(() => {
@@ -1265,11 +1242,8 @@
     $(document).ready(function() {
         // Only initialize on the form builder page
         if ($('.sfq-builder-wrap').length > 0) {
-            console.log('SFQ Builder v2: Checking for existing instances...');
-            
             // CRITICAL: Prevent multiple initializations
             if (window.sfqFormBuilderV2InitLock) {
-                console.log('SFQ Builder v2: Initialization already in progress, skipping');
                 return;
             }
             
@@ -1278,21 +1252,18 @@
             
             // Destroy old builder if exists
             if (window.sfqFormBuilder && typeof window.sfqFormBuilder.destroy === 'function') {
-                console.log('SFQ Builder v2: Destroying old builder v1');
                 window.sfqFormBuilder.destroy();
                 window.sfqFormBuilder = null;
             }
             
             // Destroy existing v2 builder if exists
             if (window.sfqFormBuilderV2 && typeof window.sfqFormBuilderV2.destroy === 'function') {
-                console.log('SFQ Builder v2: Destroying existing v2 instance');
                 window.sfqFormBuilderV2.destroy();
                 window.sfqFormBuilderV2 = null;
             }
             
             // Small delay to ensure cleanup is complete
             setTimeout(() => {
-                console.log('SFQ Builder v2: Creating new singleton instance');
                 window.sfqFormBuilderV2 = new FormBuilderCore();
                 
                 // Release lock after initialization

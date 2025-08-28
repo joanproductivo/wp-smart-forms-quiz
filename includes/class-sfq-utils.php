@@ -291,26 +291,12 @@ class SFQ_Utils {
     }
     
     /**
-     * Rate limiting simple
+     * Rate limiting - Delegado a la implementación de seguridad
+     * @deprecated Usar SFQ_Security::check_rate_limit() directamente
      */
     public static function check_rate_limit($action, $max_requests = 10, $time_window = 60) {
-        $user_id = get_current_user_id();
-        $ip = self::get_user_ip();
-        $key = "sfq_rate_limit_{$action}_{$user_id}_{$ip}";
-        
-        $current_requests = get_transient($key);
-        
-        if ($current_requests === false) {
-            set_transient($key, 1, $time_window);
-            return true;
-        }
-        
-        if ($current_requests >= $max_requests) {
-            return false;
-        }
-        
-        set_transient($key, $current_requests + 1, $time_window);
-        return true;
+        // Delegar a la implementación más robusta de la clase Security
+        return SFQ_Security::check_rate_limit($action, $max_requests, $time_window);
     }
     
     /**

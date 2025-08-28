@@ -345,14 +345,7 @@ class SFQ_Form_Statistics {
         $date_from = sanitize_text_field($_POST['date_from'] ?? '');
         $date_to = sanitize_text_field($_POST['date_to'] ?? '');
         
-        // Debug: Log AJAX request parameters
-        error_log("SFQ Debug: AJAX get_form_statistics called");
-        error_log("SFQ Debug: Raw POST data: " . print_r($_POST, true));
-        error_log("SFQ Debug: Parsed form_id: $form_id (type: " . gettype($form_id) . ")");
-        error_log("SFQ Debug: Period: $period");
-        
         if (!$form_id) {
-            error_log("SFQ Debug: Invalid form_id received: " . var_export($_POST['form_id'] ?? 'NOT_SET', true));
             wp_send_json_error(__('ID de formulario inválido', 'smart-forms-quiz'));
             return;
         }
@@ -373,22 +366,10 @@ class SFQ_Form_Statistics {
             // Obtener timeline
             $timeline = $this->get_timeline_data($form_id, $date_condition);
             
-            // Añadir información de depuración extendida
-            $debug_info = array(
-                'form_id' => $form_id,
-                'period' => $period,
-                'date_condition' => $date_condition,
-                'form_verification' => $form_verification,
-                'has_questions' => !empty($questions_stats),
-                'questions_count' => count($questions_stats),
-                'total_responses_found' => $stats['total_responses']
-            );
-            
             wp_send_json_success(array(
                 'general' => $stats,
                 'questions' => $questions_stats,
-                'timeline' => $timeline,
-                'debug' => $debug_info
+                'timeline' => $timeline
             ));
         } catch (Exception $e) {
             error_log('SFQ Statistics Error: ' . $e->getMessage());
@@ -414,11 +395,7 @@ class SFQ_Form_Statistics {
             $base_query .= " AND status = 'completed'";
         }
         
-        // Log de la consulta para debugging
-        $prepared_query = $wpdb->prepare($base_query, $query_params);
-        error_log("SFQ Debug: Total responses query: " . $prepared_query);
-        
-        $total_responses = $wpdb->get_var($prepared_query);
+        $total_responses = $wpdb->get_var($wpdb->prepare($base_query, $query_params));
         
         // Si no hay respuestas completadas, verificar si hay submissions en general
         if ($total_responses == 0) {
@@ -426,15 +403,12 @@ class SFQ_Form_Statistics {
                 "SELECT COUNT(*) FROM {$wpdb->prefix}sfq_submissions WHERE form_id = %d",
                 $form_id
             ));
-            error_log("SFQ Debug: Total submissions (any status) for form $form_id: $total_any_status");
             
             // Si hay submissions pero no completadas, usar esas para mostrar algo
             if ($total_any_status > 0) {
                 $total_responses = $total_any_status;
             }
         }
-        
-        error_log("SFQ Debug: Final total_responses for form $form_id: $total_responses");
         
         // Total de vistas (verificar si la tabla existe)
         $analytics_table = $wpdb->prefix . 'sfq_analytics';
@@ -455,8 +429,6 @@ class SFQ_Form_Statistics {
             }
             
             $total_views = $wpdb->get_var($wpdb->prepare($analytics_query, $analytics_params));
-            
-            error_log("SFQ Debug: Analytics query: " . $wpdb->prepare($analytics_query, $analytics_params));
         }
         
         // Si no hay vistas en analytics, usar el contador de submissions como aproximación
@@ -485,9 +457,6 @@ class SFQ_Form_Statistics {
         // Países únicos - usar la misma lógica que get_countries_distribution para consistencia
         $countries_count = $this->get_valid_countries_count($form_id, $date_condition);
         
-        // Log de resultados para debugging
-        error_log("SFQ Debug: Stats for form $form_id - Responses: $total_responses, Views: $total_views, Avg time: $avg_time, Countries: $countries_count");
-        
         return array(
             'total_responses' => intval($total_responses),
             'total_views' => intval($total_views),
@@ -504,66 +473,15 @@ class SFQ_Form_Statistics {
     private function calculate_questions_stats($form_id, $date_condition) {
         global $wpdb;
         
-        // Debug: Log the input parameters
-        error_log("SFQ Debug: calculate_questions_stats called with form_id: $form_id");
-        error_log("SFQ Debug: date_condition: " . json_encode($date_condition));
-        
-        // Debug: Verify table exists and form_id parameter
-        $table_name = $wpdb->prefix . 'sfq_questions';
-        error_log("SFQ Debug: Querying table: $table_name");
-        error_log("SFQ Debug: Form ID parameter: $form_id (type: " . gettype($form_id) . ")");
-        
-        // Debug: Check if table exists
-        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name;
-        error_log("SFQ Debug: Table $table_name exists: " . ($table_exists ? 'YES' : 'NO'));
-        
-        // Debug: Check wpdb last error before query
-        error_log("SFQ Debug: wpdb last_error before query: " . $wpdb->last_error);
-        
         // Obtener todas las preguntas del formulario
-        $questions_query = "SELECT * FROM {$wpdb->prefix}sfq_questions WHERE form_id = %d ORDER BY order_position ASC";
-        $prepared_questions_query = $wpdb->prepare($questions_query, $form_id);
-        error_log("SFQ Debug: Questions query: " . $prepared_questions_query);
-        
-        // Execute query and check for errors
-        $questions = $wpdb->get_results($prepared_questions_query);
-        
-        // Debug: Check for database errors after query
-        if ($wpdb->last_error) {
-            error_log("SFQ Debug: wpdb error after questions query: " . $wpdb->last_error);
-        }
-        
-        // Debug: Check if wpdb->get_results returned false vs empty array
-        if ($questions === false) {
-            error_log("SFQ Debug: wpdb->get_results returned FALSE (database error)");
-        } elseif ($questions === null) {
-            error_log("SFQ Debug: wpdb->get_results returned NULL");
-        } elseif (is_array($questions) && empty($questions)) {
-            error_log("SFQ Debug: wpdb->get_results returned empty array (no results found)");
-        }
-        
-        // Debug: Log raw result
-        error_log("SFQ Debug: Raw questions result: " . print_r($questions, true));
-        error_log("SFQ Debug: Questions found: " . count($questions));
+        $questions = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}sfq_questions WHERE form_id = %d ORDER BY order_position ASC",
+            $form_id
+        ));
         
         if (empty($questions)) {
-            error_log("SFQ Debug: No questions found for form_id: $form_id");
-            
-            // Additional debugging: Check if any questions exist at all
-            $all_questions = $wpdb->get_results("SELECT id, form_id, question_text FROM {$wpdb->prefix}sfq_questions LIMIT 10");
-            error_log("SFQ Debug: Sample of all questions in database: " . print_r($all_questions, true));
-            
-            // Check if the specific form_id exists in questions table
-            $form_questions_any = $wpdb->get_results($wpdb->prepare(
-                "SELECT id, form_id, question_text FROM {$wpdb->prefix}sfq_questions WHERE form_id = %d",
-                $form_id
-            ));
-            error_log("SFQ Debug: Direct query for form_id $form_id: " . print_r($form_questions_any, true));
-            
             return array();
         }
-        
-        error_log("SFQ Debug: Successfully found " . count($questions) . " questions for form_id: $form_id");
         
         $questions_stats = array();
         
@@ -586,14 +504,8 @@ class SFQ_Form_Statistics {
             
             $base_query .= " GROUP BY r.answer ORDER BY count DESC";
             
-            // Log de la consulta para debugging
-            $prepared_query = $wpdb->prepare($base_query, $query_params);
-            error_log("SFQ Debug: Query for question {$question->id}: " . $prepared_query);
-            
             // Obtener todas las respuestas para esta pregunta
-            $responses = $wpdb->get_results($prepared_query);
-            
-            error_log("SFQ Debug: Found " . count($responses) . " responses for question {$question->id}");
+            $responses = $wpdb->get_results($wpdb->prepare($base_query, $query_params));
             
             // Total de respuestas para esta pregunta
             $total_responses = array_sum(array_column($responses, 'count'));
@@ -622,8 +534,6 @@ class SFQ_Form_Statistics {
                     // - Image choice: usar unique_submissions (número de personas que respondieron)
                     $total_for_percentage = $unique_submissions;
                     
-                    error_log("SFQ Debug: Question {$question->id} ({$question->question_type}) - Total responses: $total_responses, Unique submissions: $unique_submissions, Using for percentage: $total_for_percentage");
-                    
                     foreach ($options as $option) {
                         $option_text = is_array($option) ? ($option['text'] ?? $option['label'] ?? $option) : $option;
                         $count = 0;
@@ -643,8 +553,6 @@ class SFQ_Form_Statistics {
                         
                         // CORREGIDO COMPLETAMENTE: Calcular porcentaje usando unique_submissions para todos los tipos con opciones
                         $percentage = $total_for_percentage > 0 ? round(($count / $total_for_percentage) * 100, 1) : 0;
-                        
-                        error_log("SFQ Debug: Option '$option_text' - Count: $count, Total for %: $total_for_percentage, Percentage: $percentage");
                         
                         // CORREGIDO: Obtener datos de países para todas las preguntas con opciones
                         $countries_data = $this->get_countries_for_option($question->id, $option_text, $date_condition);
@@ -1049,9 +957,6 @@ class SFQ_Form_Statistics {
         $where = '';
         $params = array();
         
-        // Log para debugging
-        error_log("SFQ Debug: build_date_condition called with period: $period, date_from: $date_from, date_to: $date_to");
-        
         switch ($period) {
             case 'today':
                 $where = ' AND DATE(completed_at) = %s';
@@ -1067,7 +972,6 @@ class SFQ_Form_Statistics {
                 $first_day_current_month = date('Y-m-01', current_time('timestamp'));
                 $first_day_last_month = date('Y-m-d', strtotime($first_day_current_month . ' -1 month'));
                 $params[] = $first_day_last_month;
-                error_log("SFQ Debug: Month period - using date from: $first_day_last_month");
                 break;
             case 'year':
                 $where = ' AND DATE(completed_at) >= %s';
@@ -1084,9 +988,6 @@ class SFQ_Form_Statistics {
                 }
                 break;
         }
-        
-        // Log del resultado para debugging
-        error_log("SFQ Debug: build_date_condition result - where: '$where', params: " . json_encode($params));
         
         return array('where' => $where, 'params' => $params);
     }
@@ -1215,9 +1116,6 @@ class SFQ_Form_Statistics {
             $tables_exist[$table] = $exists;
         }
         $verification['tables_exist'] = $tables_exist;
-        
-        // Log de verificación
-        error_log("SFQ Debug: Form verification for ID $form_id: " . json_encode($verification));
         
         return $verification;
     }

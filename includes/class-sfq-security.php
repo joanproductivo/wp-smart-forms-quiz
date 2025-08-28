@@ -30,13 +30,11 @@ class SFQ_Security {
         // Validar longitud máxima configurable - pero no lanzar excepción, solo truncar
         $max_length = $security_settings['max_response_length'] ?? 2000;
         if (is_string($response) && strlen($response) > $max_length) {
-            error_log("SFQ Warning: Response too long, truncating from " . strlen($response) . " to {$max_length} characters");
             $response = substr($response, 0, $max_length);
         }
         
         // Asegurar que question_type sea válido
         if (empty($question_type)) {
-            error_log("SFQ Warning: Empty question_type, using default text sanitization");
             $question_type = 'text';
         }
         
@@ -50,7 +48,6 @@ class SFQ_Security {
                     $email = sanitize_email($response);
                     if (!is_email($email) && !empty($response)) {
                         // Log warning pero devolver valor sanitizado
-                        error_log("SFQ Warning: Invalid email format: {$response}, returning sanitized version");
                     }
                     return $email;
                     
@@ -60,7 +57,6 @@ class SFQ_Security {
                 case 'multiple_choice':
                     if (!is_array($response)) {
                         // Log warning pero no lanzar excepción
-                        error_log("SFQ Warning: Multiple choice response is not array, converting: " . print_r($response, true));
                         // Convertir a array si es posible
                         if (is_string($response) && !empty($response)) {
                             $response = array($response);
@@ -83,7 +79,6 @@ class SFQ_Security {
                     $rating = intval($response);
                     if ($rating < 1 || $rating > 10) {
                         // Log warning pero no lanzar excepción
-                        error_log("SFQ Warning: Invalid rating value: {$rating}, clamping to valid range");
                         // Clamp al rango válido
                         $rating = max(1, min(10, $rating));
                     }
@@ -93,12 +88,10 @@ class SFQ_Security {
                     return self::validate_choice_response($response, $question_id);
                     
                 default:
-                    error_log("SFQ Warning: Unknown question type: {$question_type}, using text sanitization");
                     return sanitize_text_field($response);
             }
         } catch (Exception $e) {
             // Capturar cualquier excepción inesperada y devolver valor seguro
-            error_log("SFQ Error in sanitize_form_response: " . $e->getMessage() . " for question_type: {$question_type}");
             return sanitize_text_field($response);
         }
     }
@@ -121,7 +114,6 @@ class SFQ_Security {
         
         if (!$question) {
             // Log warning pero no lanzar excepción
-            error_log("SFQ Warning: Question not found for ID: {$question_id}");
             return sanitize_text_field($response);
         }
         
@@ -143,7 +135,6 @@ class SFQ_Security {
         // Validar que la respuesta esté en las opciones válidas
         if (!in_array($response, $valid_values)) {
             // Log warning pero no lanzar excepción - permitir la respuesta
-            error_log("SFQ Warning: Invalid choice option '{$response}' for question {$question_id}. Valid options: " . implode(', ', $valid_values));
             // Aún así sanitizar y permitir la respuesta
             return sanitize_text_field($response);
         }
@@ -172,18 +163,15 @@ class SFQ_Security {
             $data = json_decode($json_string, true, $max_depth);
             
             if (json_last_error() !== JSON_ERROR_NONE) {
-                error_log('SFQ Warning: Invalid JSON data: ' . json_last_error_msg() . ' - Input: ' . substr($json_string, 0, 200));
                 return array();
             }
             
             if (!is_array($data)) {
-                error_log('SFQ Warning: JSON must decode to array, got: ' . gettype($data));
                 return array();
             }
             
             return self::deep_sanitize($data);
         } catch (Exception $e) {
-            error_log('SFQ Error in validate_json_input: ' . $e->getMessage());
             return array();
         }
     }
@@ -263,11 +251,15 @@ class SFQ_Security {
             $time_window = $security_settings['rate_limit_window'] ?? 300;
         }
         
+        // Validar parámetros
+        $max_requests = max(1, min(100, intval($max_requests)));
+        $time_window = max(60, min(3600, intval($time_window)));
+        
         $user_id = get_current_user_id();
         $ip = SFQ_Utils::get_user_ip();
         $user_agent = sanitize_text_field($_SERVER['HTTP_USER_AGENT'] ?? '');
         
-        // Crear clave única basada en múltiples factores
+        // Crear clave única basada en múltiples factores para mayor seguridad
         $key = "sfq_rate_limit_{$action}_" . md5($user_id . $ip . $user_agent);
         
         $current_requests = get_transient($key);
@@ -278,26 +270,38 @@ class SFQ_Security {
         }
         
         if ($current_requests >= $max_requests) {
-            // Log del intento de abuso
-            error_log("SFQ Rate limit exceeded for action: {$action}, IP: {$ip}, User: {$user_id}");
+            // Log del intento de abuso con más detalles
+            self::log_security_event('rate_limit_exceeded', array(
+                'action' => $action,
+                'requests' => $current_requests,
+                'limit' => $max_requests,
+                'time_window' => $time_window,
+                'user_id' => $user_id,
+                'ip' => $ip,
+                'user_agent' => substr($user_agent, 0, 200) // Limitar longitud
+            ));
             
-            // Para submit_response, ser menos agresivo y solo loggear
+            // Para submit_response, aplicar rate limiting pero con límites más permisivos
             if ($action === 'submit_response') {
-                self::log_security_event('rate_limit_exceeded', array(
-                    'action' => $action,
-                    'requests' => $current_requests,
-                    'limit' => $max_requests
-                ));
-                // Permitir el envío pero con advertencia
-                set_transient($key, $current_requests + 1, $time_window);
-                return true;
+                // Solo permitir si no se ha excedido significativamente el límite
+                if ($current_requests < ($max_requests * 1.5)) {
+                    set_transient($key, $current_requests + 1, $time_window);
+                    return true;
+                }
+                // Si se excede mucho el límite, bloquear también
             }
             
-            wp_send_json_error(array(
-                'message' => __('Demasiadas peticiones. Intenta de nuevo en un momento.', 'smart-forms-quiz'),
-                'code' => 'RATE_LIMIT_EXCEEDED'
-            ));
-            wp_die();
+            // Para otras acciones, bloquear con mensaje de error
+            if (defined('DOING_AJAX') && DOING_AJAX) {
+                wp_send_json_error(array(
+                    'message' => __('Demasiadas peticiones. Intenta de nuevo en un momento.', 'smart-forms-quiz'),
+                    'code' => 'RATE_LIMIT_EXCEEDED',
+                    'retry_after' => $time_window
+                ));
+                wp_die();
+            }
+            
+            return false;
         }
         
         set_transient($key, $current_requests + 1, $time_window);
@@ -435,7 +439,6 @@ class SFQ_Security {
             'details' => $details
         );
         
-        error_log('SFQ Security Event: ' . json_encode($log_entry));
         
         // Enviar notificación por email si está configurado
         $general_settings = get_option('sfq_settings', array());
@@ -470,5 +473,111 @@ class SFQ_Security {
         );
         
         wp_mail($admin_email, $subject, $message);
+    }
+    
+    /**
+     * Obtener estado actual del rate limiting para una acción específica
+     */
+    public static function get_rate_limit_status($action, $user_id = null, $ip = null) {
+        // Obtener configuraciones de seguridad
+        $security_settings = get_option('sfq_security_settings', array());
+        
+        // Si rate limiting está deshabilitado
+        if (!($security_settings['enable_rate_limiting'] ?? true)) {
+            return array(
+                'enabled' => false,
+                'current_requests' => 0,
+                'max_requests' => 0,
+                'time_window' => 0,
+                'remaining_requests' => 0,
+                'reset_time' => 0
+            );
+        }
+        
+        $max_requests = $security_settings['rate_limit_requests'] ?? 10;
+        $time_window = $security_settings['rate_limit_window'] ?? 300;
+        
+        if ($user_id === null) {
+            $user_id = get_current_user_id();
+        }
+        if ($ip === null) {
+            $ip = SFQ_Utils::get_user_ip();
+        }
+        
+        $user_agent = sanitize_text_field($_SERVER['HTTP_USER_AGENT'] ?? '');
+        $key = "sfq_rate_limit_{$action}_" . md5($user_id . $ip . $user_agent);
+        
+        $current_requests = get_transient($key);
+        if ($current_requests === false) {
+            $current_requests = 0;
+        }
+        
+        $remaining_requests = max(0, $max_requests - $current_requests);
+        
+        // Calcular tiempo de reset aproximado
+        $reset_time = 0;
+        if ($current_requests > 0) {
+            // WordPress no proporciona tiempo de expiración exacto de transients
+            // Estimamos basado en el tiempo de ventana
+            $reset_time = time() + $time_window;
+        }
+        
+        return array(
+            'enabled' => true,
+            'current_requests' => intval($current_requests),
+            'max_requests' => intval($max_requests),
+            'time_window' => intval($time_window),
+            'remaining_requests' => intval($remaining_requests),
+            'reset_time' => $reset_time,
+            'is_limited' => $current_requests >= $max_requests
+        );
+    }
+    
+    /**
+     * Limpiar rate limits para una acción específica (útil para testing/admin)
+     */
+    public static function clear_rate_limit($action, $user_id = null, $ip = null) {
+        if ($user_id === null) {
+            $user_id = get_current_user_id();
+        }
+        if ($ip === null) {
+            $ip = SFQ_Utils::get_user_ip();
+        }
+        
+        $user_agent = sanitize_text_field($_SERVER['HTTP_USER_AGENT'] ?? '');
+        $key = "sfq_rate_limit_{$action}_" . md5($user_id . $ip . $user_agent);
+        
+        return delete_transient($key);
+    }
+    
+    /**
+     * Obtener estadísticas generales de rate limiting
+     */
+    public static function get_rate_limit_stats() {
+        global $wpdb;
+        
+        // Contar transients de rate limiting activos
+        $active_limits = $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$wpdb->options} 
+            WHERE option_name LIKE '_transient_sfq_rate_limit_%'"
+        );
+        
+        // Obtener configuraciones actuales
+        $security_settings = get_option('sfq_security_settings', array());
+        
+        return array(
+            'enabled' => $security_settings['enable_rate_limiting'] ?? true,
+            'max_requests' => $security_settings['rate_limit_requests'] ?? 10,
+            'time_window' => $security_settings['rate_limit_window'] ?? 300,
+            'active_limits' => intval($active_limits),
+            'actions_monitored' => array(
+                'save_form',
+                'submit_response',
+                'delete_form',
+                'delete_submissions_bulk',
+                'delete_submission',
+                'export_submissions_advanced'
+            )
+        );
     }
 }

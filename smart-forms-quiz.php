@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Smart Forms & Quiz
- * Plugin URI: https://example.com/smart-forms-quiz
+ * Plugin URI: https://github.com/joanproductivo/wp-smart-forms-quiz
  * Description: Plugin eficiente para crear formularios y quiz modernos con lógica condicional y analytics
  * Version: 1.5.0
  * Author: Joan Planas & IA
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Definir constantes del plugin
-define('SFQ_VERSION', '1.0.2');
+define('SFQ_VERSION', '1.5.0');
 define('SFQ_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SFQ_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('SFQ_PLUGIN_BASENAME', plugin_basename(__FILE__));

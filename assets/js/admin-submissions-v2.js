@@ -293,6 +293,7 @@
         updateStats: function(data) {
             // Actualizar estadísticas principales usando métodos unificados
             Utils.updateTextContent('#total-submissions .sfq-stat-number', data.total_submissions);
+            Utils.updateTextContent('#total-views .sfq-stat-number', data.total_views);
             Utils.updateTextContent('#today-submissions .sfq-stat-number', data.today_submissions);
             Utils.updateTextContent('#avg-completion-time .sfq-stat-number', data.avg_completion_time);
             Utils.updateTextContent('#conversion-rate .sfq-stat-number', data.conversion_rate + '%');
@@ -317,17 +318,42 @@
             Utils.getElement('.sfq-stat-number').each(function() {
                 const $this = $(this);
                 const text = $this.text();
-                const number = parseInt(text.replace(/[^\d]/g, ''));
+                
+                // Extraer número preservando decimales
+                const numberMatch = text.match(/[\d,]+\.?\d*/);
+                if (!numberMatch) return;
+                
+                const numberStr = numberMatch[0].replace(/,/g, ''); // Remover comas pero preservar decimales
+                const number = parseFloat(numberStr);
                 
                 if (!isNaN(number) && number > 0) {
+                    // Detectar si el número original tiene decimales
+                    const hasDecimals = numberStr.includes('.');
+                    const decimalPlaces = hasDecimals ? numberStr.split('.')[1].length : 0;
+                    
                     $this.prop('Counter', 0).animate({
                         Counter: number
                     }, {
                         duration: CONFIG.ANIMATION_DURATION,
                         easing: 'swing',
                         step: function(now) {
-                            const formatted = Math.ceil(now).toLocaleString();
-                            $this.text(text.replace(/[\d,]+/, formatted));
+                            // Formatear respetando los decimales originales
+                            let formatted;
+                            if (hasDecimals) {
+                                formatted = now.toFixed(decimalPlaces);
+                                // Agregar separadores de miles si es necesario
+                                if (now >= 1000) {
+                                    formatted = parseFloat(formatted).toLocaleString(undefined, {
+                                        minimumFractionDigits: decimalPlaces,
+                                        maximumFractionDigits: decimalPlaces
+                                    });
+                                }
+                            } else {
+                                formatted = Math.ceil(now).toLocaleString();
+                            }
+                            
+                            // Reemplazar solo la parte numérica en el texto original
+                            $this.text(text.replace(/[\d,]+\.?\d*/, formatted));
                         }
                     });
                 }

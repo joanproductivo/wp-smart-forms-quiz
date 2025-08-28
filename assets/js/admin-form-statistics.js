@@ -109,8 +109,6 @@
             `);
             
             try {
-                console.log('Loading statistics for form:', this.formId);
-                
                 const response = await $.ajax({
                     url: sfq_ajax.ajax_url,
                     type: 'POST',
@@ -124,26 +122,11 @@
                     }
                 });
 
-                console.log('Statistics response:', response);
-                
-                // Log debug information if available
-                if (response.data && response.data.debug) {
-                    console.log('Debug info:', response.data.debug);
-                }
-
                 if (response.success) {
                     this.updateGeneralStats(response.data.general);
                     this.updateQuestionsStats(response.data.questions);
                     this.updateTimeline(response.data.timeline);
-                    
-                    // Show debug info in console for troubleshooting
-                    if (response.data.debug) {
-                        console.log('Form verification:', response.data.debug.form_verification);
-                        console.log('Questions found:', response.data.debug.questions_count);
-                        console.log('Total responses:', response.data.debug.total_responses_found);
-                    }
                 } else {
-                    console.error('Error in response:', response);
                     const errorMsg = response.data && response.data.message ? 
                         response.data.message : 
                         (response.data || 'Error desconocido');
@@ -183,8 +166,6 @@
 
         updateQuestionsStats(questions) {
             const container = $('#sfq-questions-container');
-            
-            console.log('Updating questions stats:', questions);
             
             if (!questions || questions.length === 0) {
                 container.html(`
@@ -411,7 +392,6 @@
         createQuestionChart(question, canvasId) {
             const canvas = document.getElementById(canvasId);
             if (!canvas) {
-                console.error('Canvas not found:', canvasId);
                 return;
             }
             
@@ -419,7 +399,6 @@
             
             // Skip if no options or all counts are 0
             if (!question.options || question.options.length === 0) {
-                console.log('No options for question:', question.question_text);
                 return;
             }
             
@@ -665,13 +644,11 @@
         updateTimelineChart() {
             // Create timeline chart when tab is activated
             if (!this.timelineData || !this.timelineData.daily_data) {
-                console.log('No timeline data available for chart');
                 return;
             }
             
             const canvas = document.getElementById('sfq-timeline-chart');
             if (!canvas) {
-                console.error('Timeline chart canvas not found');
                 return;
             }
             
