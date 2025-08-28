@@ -105,7 +105,7 @@
 }
 
 .sfq-builder-sidebar {
-    flex: 0 0 320px;
+    flex: 0 0 390px;
     background: white;
     border-radius: var(--sfq-radius);
     box-shadow: var(--sfq-shadow);

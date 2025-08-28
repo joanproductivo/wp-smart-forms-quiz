@@ -26,6 +26,7 @@ require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-security.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-activator.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-loader.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-database.php';
+require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-limits.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-admin.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-frontend.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-ajax.php';

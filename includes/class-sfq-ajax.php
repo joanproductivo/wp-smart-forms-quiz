@@ -104,6 +104,19 @@ class SFQ_Ajax {
             return;
         }
         
+        // ⭐ NUEVA VERIFICACIÓN DE LÍMITES
+        $limits_checker = new SFQ_Limits();
+        $limit_check = $limits_checker->check_submission_limits($form_id, $session_id);
+        
+        if (!$limit_check['allowed']) {
+            wp_send_json_error(array(
+                'message' => $limit_check['message'],
+                'code' => $limit_check['code'] ?? 'SUBMISSION_LIMIT_EXCEEDED',
+                'limit_info' => $limit_check
+            ));
+            return;
+        }
+        
         // Decodificar datos JSON
         $responses = json_decode(stripslashes($_POST['responses'] ?? '{}'), true);
         $variables = json_decode(stripslashes($_POST['variables'] ?? '{}'), true);
@@ -1103,6 +1116,70 @@ class SFQ_Ajax {
         // Validar URL de redirección si está presente
         if (!empty($form_data['redirect_url']) && !filter_var($form_data['redirect_url'], FILTER_VALIDATE_URL)) {
             $errors['redirect_url'] = __('URL de redirección inválida', 'smart-forms-quiz');
+        }
+        
+        // Validar configuraciones de límites de envío - nueva estructura flexible
+        if (isset($form_data['settings']) && is_array($form_data['settings'])) {
+            $settings = $form_data['settings'];
+            
+            // Validar límite de envíos flexible
+            $limit_count = intval($settings['submission_limit_count'] ?? 0);
+            $limit_period = $settings['submission_limit_period'] ?? 'no_limit';
+            
+            if ($limit_count > 0) {
+                // Si hay un número, validar que esté en rango válido
+                if ($limit_count < 1 || $limit_count > 999) {
+                    $errors['submission_limit_count'] = __('El número de envíos debe estar entre 1 y 999', 'smart-forms-quiz');
+                }
+                
+                // Validar que el período sea válido
+                if (!in_array($limit_period, ['day', 'week', 'month', 'year', 'forever'])) {
+                    $errors['submission_limit_period'] = __('Período de límite inválido', 'smart-forms-quiz');
+                }
+            } else {
+                // Si no hay número, asegurar que el período sea 'no_limit'
+                if ($limit_period !== 'no_limit') {
+                    $errors['submission_limit_period'] = __('Debe especificar un número de envíos para usar un período de tiempo', 'smart-forms-quiz');
+                }
+            }
+            
+            // Validar tipo de límite
+            if (isset($settings['limit_type']) && !in_array($settings['limit_type'], ['session_id', 'ip_address'])) {
+                $errors['limit_type'] = __('Tipo de identificación de límite inválido', 'smart-forms-quiz');
+            }
+            
+            // Validar mensaje de límite
+            if (isset($settings['limit_message']) && strlen($settings['limit_message']) > 500) {
+                $errors['limit_message'] = __('El mensaje de límite no puede exceder 500 caracteres', 'smart-forms-quiz');
+            }
+            
+            // Validar fechas de programación si están habilitadas
+            if (isset($settings['enable_schedule']) && $settings['enable_schedule']) {
+                if (!empty($settings['schedule_start']) && !empty($settings['schedule_end'])) {
+                    $start_time = strtotime($settings['schedule_start']);
+                    $end_time = strtotime($settings['schedule_end']);
+                    
+                    if ($start_time === false) {
+                        $errors['schedule_start'] = __('Fecha de inicio inválida', 'smart-forms-quiz');
+                    }
+                    
+                    if ($end_time === false) {
+                        $errors['schedule_end'] = __('Fecha de fin inválida', 'smart-forms-quiz');
+                    }
+                    
+                    if ($start_time !== false && $end_time !== false && $start_time >= $end_time) {
+                        $errors['schedule_dates'] = __('La fecha de inicio debe ser anterior a la fecha de fin', 'smart-forms-quiz');
+                    }
+                }
+            }
+            
+            // Validar límite máximo de respuestas
+            if (isset($settings['enable_max_submissions']) && $settings['enable_max_submissions']) {
+                $max_submissions = intval($settings['max_submissions'] ?? 0);
+                if ($max_submissions < 1 || $max_submissions > 10000) {
+                    $errors['max_submissions'] = __('El límite máximo de respuestas debe estar entre 1 y 10000', 'smart-forms-quiz');
+                }
+            }
         }
         
         // Validar preguntas si existen

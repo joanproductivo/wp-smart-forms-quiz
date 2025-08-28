@@ -386,6 +386,9 @@ class SFQ_Admin {
                         <button class="sfq-tab-button" data-tab="settings">
                             <?php _e('Configuración', 'smart-forms-quiz'); ?>
                         </button>
+                        <button class="sfq-tab-button" data-tab="limits">
+                            <?php _e('Límites', 'smart-forms-quiz'); ?>
+                        </button>
                     </div>
                     
                     <!-- Tab General -->
@@ -415,6 +418,111 @@ class SFQ_Admin {
                                     <?php _e('Quiz', 'smart-forms-quiz'); ?>
                                 </option>
                             </select>
+                        </div>
+                        
+                        <div class="sfq-field-group">
+                            <label>
+                                <input type="checkbox" id="block-form">
+                                <?php _e('🚫 Bloquear Formulario', 'smart-forms-quiz'); ?>
+                            </label>
+                            <p class="description" style="margin-left: 24px; margin-top: 5px; font-size: 12px; color: #666;">
+                                <?php _e('Bloquea temporalmente el acceso al formulario mostrando un mensaje personalizado', 'smart-forms-quiz'); ?>
+                            </p>
+                            
+                            <div class="sfq-field-group" id="block-form-container" style="display: none; margin-left: 24px; margin-top: 15px;">
+                                <!-- Configuración de contenido para Formulario Bloqueado -->
+                                <div class="sfq-message-config-section">
+                                    <h4><?php _e('🚫 Personalizar Mensaje de Bloqueo', 'smart-forms-quiz'); ?></h4>
+                                    <div class="sfq-message-fields">
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('Icono (SVG, imagen, emoji o texto)', 'smart-forms-quiz'); ?></label>
+                                            <textarea id="block-form-icon" class="sfq-textarea" rows="3" 
+                                                      placeholder="<?php _e('Ej: 🚫, https://ejemplo.com/icono.png, <svg>...</svg> o texto', 'smart-forms-quiz'); ?>"></textarea>
+                                            <small style="display: block; margin-top: 5px; color: #666; font-size: 11px;">
+                                                <?php _e('Acepta URLs de imagen, código SVG, emojis o texto simple. Las imágenes se detectan automáticamente.', 'smart-forms-quiz'); ?>
+                                            </small>
+                                        </div>
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('Título personalizado', 'smart-forms-quiz'); ?></label>
+                                            <input type="text" id="block-form-title" class="sfq-input" 
+                                                   placeholder="<?php _e('Formulario temporalmente bloqueado', 'smart-forms-quiz'); ?>">
+                                        </div>
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('Descripción personalizada', 'smart-forms-quiz'); ?></label>
+                                            <textarea id="block-form-description" class="sfq-textarea" rows="3" 
+                                                      placeholder="<?php _e('Este formulario está temporalmente fuera de servicio. Disculpa las molestias.', 'smart-forms-quiz'); ?>"></textarea>
+                                        </div>
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('Texto del botón (opcional)', 'smart-forms-quiz'); ?></label>
+                                            <input type="text" id="block-form-button-text" class="sfq-input" 
+                                                   placeholder="<?php _e('Volver más tarde', 'smart-forms-quiz'); ?>">
+                                        </div>
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('URL del botón (opcional)', 'smart-forms-quiz'); ?></label>
+                                            <input type="url" id="block-form-button-url" class="sfq-input" 
+                                                   placeholder="https://ejemplo.com">
+                                        </div>
+                                        <div class="sfq-field-row">
+                                            <label>
+                                                <input type="checkbox" id="block-form-enable-timer">
+                                                <?php _e('⏰ Activar cuenta atrás', 'smart-forms-quiz'); ?>
+                                            </label>
+                                            <small style="display: block; margin-top: 5px; color: #666; font-size: 11px;">
+                                                <?php _e('Muestra una cuenta atrás hasta que se abra automáticamente el formulario', 'smart-forms-quiz'); ?>
+                                            </small>
+                                        </div>
+                                        <div class="sfq-field-row" id="block-form-timer-settings" style="display: none; margin-left: 20px; padding: 15px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e9ecef;">
+                                            <label><?php _e('Fecha y hora de apertura', 'smart-forms-quiz'); ?></label>
+                                            <input type="datetime-local" id="block-form-timer-date" class="sfq-input" 
+                                                   style="margin-bottom: 10px;">
+                                            <label><?php _e('Texto durante la cuenta atrás', 'smart-forms-quiz'); ?></label>
+                                            <input type="text" id="block-form-timer-text" class="sfq-input" 
+                                                   placeholder="<?php _e('El formulario se abrirá en:', 'smart-forms-quiz'); ?>"
+                                                   style="margin-bottom: 10px;">
+                                            <label><?php _e('Texto cuando se abra', 'smart-forms-quiz'); ?></label>
+                                            <input type="text" id="block-form-timer-opened-text" class="sfq-input" 
+                                                   placeholder="<?php _e('¡El formulario ya está disponible!', 'smart-forms-quiz'); ?>">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Configuración de colores específicos para Formulario Bloqueado -->
+                                <div class="sfq-message-config-section">
+                                    <h4><?php _e('🎨 Colores del Mensaje de Bloqueo', 'smart-forms-quiz'); ?></h4>
+                                    <div class="sfq-message-fields">
+                                        <div class="sfq-color-fields" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                                            <div class="sfq-field-row">
+                                                <label><?php _e('Color de fondo', 'smart-forms-quiz'); ?></label>
+                                                <input type="text" id="block-form-bg-color" class="sfq-color-picker" value="#f8f9fa">
+                                            </div>
+                                            <div class="sfq-field-row">
+                                                <label><?php _e('Color del borde', 'smart-forms-quiz'); ?></label>
+                                                <input type="text" id="block-form-border-color" class="sfq-color-picker" value="#e9ecef">
+                                            </div>
+                                            <div class="sfq-field-row">
+                                                <label><?php _e('Color del icono', 'smart-forms-quiz'); ?></label>
+                                                <input type="text" id="block-form-icon-color" class="sfq-color-picker" value="#dc3545">
+                                            </div>
+                                            <div class="sfq-field-row">
+                                                <label><?php _e('Color del título', 'smart-forms-quiz'); ?></label>
+                                                <input type="text" id="block-form-title-color" class="sfq-color-picker" value="#333333">
+                                            </div>
+                                            <div class="sfq-field-row">
+                                                <label><?php _e('Color del texto', 'smart-forms-quiz'); ?></label>
+                                                <input type="text" id="block-form-text-color" class="sfq-color-picker" value="#666666">
+                                            </div>
+                                            <div class="sfq-field-row">
+                                                <label><?php _e('Color del botón', 'smart-forms-quiz'); ?></label>
+                                                <input type="text" id="block-form-button-bg-color" class="sfq-color-picker" value="#007cba">
+                                            </div>
+                                            <div class="sfq-field-row">
+                                                <label><?php _e('Color texto botón', 'smart-forms-quiz'); ?></label>
+                                                <input type="text" id="block-form-button-text-color" class="sfq-color-picker" value="#ffffff">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="sfq-field-group">
@@ -527,6 +635,314 @@ class SFQ_Admin {
                         </div>
                     </div>
                     
+                    <!-- Tab Límites -->
+                    <div class="sfq-tab-content" id="tab-limits">
+                        <!-- Resumen dinámico de límites -->
+                        <div class="notice notice-info inline" id="sfq-limits-summary" style="display: none; margin-bottom: 20px;">
+                            <p><strong>📋 Resumen de Límites Configurados:</strong></p>
+                            <div id="sfq-limits-summary-content">
+                                <!-- El contenido se generará dinámicamente -->
+                            </div>
+                        </div>
+                        
+                        <div class="sfq-field-group">
+                            <h3><?php _e('Límites de Envío', 'smart-forms-quiz'); ?></h3>
+                            
+                            <div class="sfq-field-group">
+                                <label><?php _e('Configurar límite de envíos', 'smart-forms-quiz'); ?></label>
+                                <div class="sfq-limit-config" style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                                    <span><?php _e('Máximo', 'smart-forms-quiz'); ?></span>
+                                    <input type="number" id="submission-limit-count" class="sfq-input" 
+                                           style="width: 80px;" min="1" max="999" placeholder="">
+                                    <span><?php _e('envío(s) cada', 'smart-forms-quiz'); ?></span>
+                                    <select id="submission-limit-period" class="sfq-select" style="width: 150px;">
+                                        <option value="no_limit"><?php _e('Sin límite', 'smart-forms-quiz'); ?></option>
+                                        <option value="day"><?php _e('Día', 'smart-forms-quiz'); ?></option>
+                                        <option value="week"><?php _e('Semana', 'smart-forms-quiz'); ?></option>
+                                        <option value="month"><?php _e('Mes', 'smart-forms-quiz'); ?></option>
+                                        <option value="year"><?php _e('Año', 'smart-forms-quiz'); ?></option>
+                                        <option value="forever"><?php _e('Para siempre', 'smart-forms-quiz'); ?></option>
+                                    </select>
+                                </div>
+                                <p class="description" style="font-size: 12px; color: #666; margin-top: 5px;">
+                                    <?php _e('Deja el número vacío para sin límite. Al introducir un número, se activará automáticamente el límite por día.', 'smart-forms-quiz'); ?>
+                                </p>
+                            </div>
+                            
+                            <div class="sfq-field-group" id="limit-type-container" style="display: none;">
+                                <label><?php _e('Tipo de límite', 'smart-forms-quiz'); ?></label>
+                                <select id="limit-type" class="sfq-select">
+                                    <option value="session_id"><?php _e('Limitar por Session ID', 'smart-forms-quiz'); ?></option>
+                                    <option value="ip_address"><?php _e('Limitar por IP', 'smart-forms-quiz'); ?></option>
+                                </select>
+                                <p class="description" style="margin-top: 8px; font-size: 12px; color: #666;">
+                                    <?php _e('Session ID: Identifica usuarios únicos por sesión del navegador', 'smart-forms-quiz'); ?><br>
+                                    <?php _e('IP: Identifica usuarios por dirección IP (menos preciso)', 'smart-forms-quiz'); ?>
+                                </p>
+                            </div>
+                            
+                            <div class="sfq-field-group" id="limit-message-container" style="display: none;">
+                                <!-- Configuración completa para Límite de Envíos -->
+                                <div class="sfq-message-config-section">
+                                    <h4><?php _e('📝 Personalizar Mensaje de Límite', 'smart-forms-quiz'); ?></h4>
+                                    <div class="sfq-message-fields">
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('Icono (SVG, imagen, emoji o texto)', 'smart-forms-quiz'); ?></label>
+                                            <textarea id="limit-submission-icon" class="sfq-textarea" rows="3" 
+                                                      placeholder="<?php _e('Ej: ❌, https://ejemplo.com/icono.png, <svg>...</svg> o texto', 'smart-forms-quiz'); ?>"></textarea>
+                                            <small style="display: block; margin-top: 5px; color: #666; font-size: 11px;">
+                                                <?php _e('Acepta URLs de imagen, código SVG, emojis o texto simple. Las imágenes se detectan automáticamente.', 'smart-forms-quiz'); ?>
+                                            </small>
+                                        </div>
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('Título personalizado', 'smart-forms-quiz'); ?></label>
+                                            <input type="text" id="limit-submission-title" class="sfq-input" 
+                                                   placeholder="<?php _e('Límite de envíos alcanzado', 'smart-forms-quiz'); ?>">
+                                        </div>
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('Descripción personalizada', 'smart-forms-quiz'); ?></label>
+                                            <textarea id="limit-submission-description" class="sfq-textarea" rows="2" 
+                                                      placeholder="<?php _e('Has alcanzado el límite de envíos para este formulario.', 'smart-forms-quiz'); ?>"></textarea>
+                                        </div>
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('Texto del botón (opcional)', 'smart-forms-quiz'); ?></label>
+                                            <input type="text" id="limit-submission-button-text" class="sfq-input" 
+                                                   placeholder="<?php _e('Volver más tarde', 'smart-forms-quiz'); ?>">
+                                        </div>
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('URL del botón (opcional)', 'smart-forms-quiz'); ?></label>
+                                            <input type="url" id="limit-submission-button-url" class="sfq-input" 
+                                                   placeholder="https://ejemplo.com">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="sfq-field-group" style="margin-top: 30px;">
+                            <h3><?php _e('Restricciones Adicionales', 'smart-forms-quiz'); ?></h3>
+                            
+                            <div class="sfq-field-group">
+                                <label>
+                                    <input type="checkbox" id="require-login">
+                                    <?php _e('Requerir inicio de sesión', 'smart-forms-quiz'); ?>
+                                </label>
+                                <p class="description" style="margin-left: 24px; margin-top: 5px; font-size: 12px; color: #666;">
+                                    <?php _e('Los usuarios deben estar registrados para completar el formulario', 'smart-forms-quiz'); ?>
+                                </p>
+                                
+                                <div class="sfq-field-group" id="login-message-container" style="display: none; margin-left: 24px; margin-top: 10px;">
+                                    <!-- Configuración completa para Login Requerido -->
+                                    <div class="sfq-message-config-section">
+                                        <h4><?php _e('🔒 Personalizar Mensaje de Login', 'smart-forms-quiz'); ?></h4>
+                                        <div class="sfq-message-fields">
+                                            <div class="sfq-field-row">
+                                                <label><?php _e('Icono (SVG o emoji)', 'smart-forms-quiz'); ?></label>
+                                                <textarea id="limit-login-icon" class="sfq-textarea" rows="3" 
+                                                          placeholder="<?php _e('Ej: 🔒 o <svg>...</svg>', 'smart-forms-quiz'); ?>"></textarea>
+                                            </div>
+                                            <div class="sfq-field-row">
+                                                <label><?php _e('Título personalizado', 'smart-forms-quiz'); ?></label>
+                                                <input type="text" id="limit-login-title" class="sfq-input" 
+                                                       placeholder="<?php _e('Inicio de sesión requerido', 'smart-forms-quiz'); ?>">
+                                            </div>
+                                            <div class="sfq-field-row">
+                                                <label><?php _e('Descripción personalizada', 'smart-forms-quiz'); ?></label>
+                                                <textarea id="limit-login-description" class="sfq-textarea" rows="2" 
+                                                          placeholder="<?php _e('Debes iniciar sesión para completar este formulario.', 'smart-forms-quiz'); ?>"></textarea>
+                                            </div>
+                                            <div class="sfq-field-row">
+                                                <label><?php _e('Texto del botón', 'smart-forms-quiz'); ?></label>
+                                                <input type="text" id="limit-login-button-text" class="sfq-input" 
+                                                       placeholder="<?php _e('Iniciar Sesión', 'smart-forms-quiz'); ?>" value="<?php _e('Iniciar Sesión', 'smart-forms-quiz'); ?>">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="sfq-field-group">
+                                <label>
+                                    <input type="checkbox" id="enable-schedule">
+                                    <?php _e('Programar disponibilidad', 'smart-forms-quiz'); ?>
+                                </label>
+                                <p class="description" style="margin-left: 24px; margin-top: 5px; font-size: 12px; color: #666;">
+                                    <?php _e('Configurar fechas y horas específicas de disponibilidad', 'smart-forms-quiz'); ?>
+                                </p>
+                            </div>
+                            
+                            <div class="sfq-field-group" id="schedule-container" style="display: none; margin-left: 24px;">
+                                <div style="display: flex; gap: 15px; margin-bottom: 10px; flex-direction: column;">
+                                    <div style="flex: 1;">
+                                        <label style="font-size: 13px;"><?php _e('Fecha de inicio', 'smart-forms-quiz'); ?></label>
+                                        <input type="datetime-local" id="schedule-start" class="sfq-input">
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <label style="font-size: 13px;"><?php _e('Fecha de fin', 'smart-forms-quiz'); ?></label>
+                                        <input type="datetime-local" id="schedule-end" class="sfq-input">
+                                    </div>
+                                </div>
+                                
+                                <!-- Configuración completa para Programación -->
+                                <div class="sfq-message-config-section">
+                                    <h4><?php _e('🕐 Personalizar Mensajes de Programación', 'smart-forms-quiz'); ?></h4>
+                                    <div class="sfq-message-fields">
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('Icono (SVG o emoji)', 'smart-forms-quiz'); ?></label>
+                                            <textarea id="limit-schedule-icon" class="sfq-textarea" rows="3" 
+                                                      placeholder="<?php _e('Ej: 🕐 o <svg>...</svg>', 'smart-forms-quiz'); ?>"></textarea>
+                                        </div>
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('Título para "no iniciado"', 'smart-forms-quiz'); ?></label>
+                                            <input type="text" id="limit-schedule-not-started-title" class="sfq-input" 
+                                                   placeholder="<?php _e('Formulario no disponible aún', 'smart-forms-quiz'); ?>">
+                                        </div>
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('Mensaje antes del inicio', 'smart-forms-quiz'); ?></label>
+                                            <textarea id="schedule-not-started-message" class="sfq-textarea" rows="2" 
+                                                      placeholder="<?php _e('Este formulario aún no está disponible.', 'smart-forms-quiz'); ?>"></textarea>
+                                        </div>
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('Título para "finalizado"', 'smart-forms-quiz'); ?></label>
+                                            <input type="text" id="limit-schedule-ended-title" class="sfq-input" 
+                                                   placeholder="<?php _e('Formulario cerrado', 'smart-forms-quiz'); ?>">
+                                        </div>
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('Mensaje después del fin', 'smart-forms-quiz'); ?></label>
+                                            <textarea id="schedule-ended-message" class="sfq-textarea" rows="2" 
+                                                      placeholder="<?php _e('Este formulario ya no está disponible.', 'smart-forms-quiz'); ?>"></textarea>
+                                        </div>
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('Texto del botón (opcional)', 'smart-forms-quiz'); ?></label>
+                                            <input type="text" id="limit-schedule-button-text" class="sfq-input" 
+                                                   placeholder="<?php _e('Volver al inicio', 'smart-forms-quiz'); ?>">
+                                        </div>
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('URL del botón (opcional)', 'smart-forms-quiz'); ?></label>
+                                            <input type="url" id="limit-schedule-button-url" class="sfq-input" 
+                                                   placeholder="https://ejemplo.com">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="sfq-field-group">
+                                <label>
+                                    <input type="checkbox" id="enable-max-submissions">
+                                    <?php _e('Límite total de participantes', 'smart-forms-quiz'); ?>
+                                </label>
+                                <p class="description" style="margin-left: 24px; margin-top: 5px; font-size: 12px; color: #666;">
+                                    <?php _e('Cerrar el formulario después de alcanzar un número máximo de participantes', 'smart-forms-quiz'); ?>
+                                </p>
+                            </div>
+                            
+                            <div class="sfq-field-group" id="max-submissions-container" style="display: none; margin-left: 24px;">
+                                <div style="margin-bottom: 15px;">
+                                    <label style="font-size: 13px;"><?php _e('Número máximo de participantes', 'smart-forms-quiz'); ?></label>
+                                    <input type="number" id="max-submissions" class="sfq-input" min="1" placeholder="100">
+                                </div>
+                                
+                                <div style="margin-bottom: 15px;">
+                                    <label style="font-size: 13px;"><?php _e('Tipo de límite', 'smart-forms-quiz'); ?></label>
+                                    <select id="max-submissions-limit-type" class="sfq-select">
+                                        <option value="session_id"><?php _e('Limitar por Session ID', 'smart-forms-quiz'); ?></option>
+                                        <option value="ip_address"><?php _e('Limitar por IP', 'smart-forms-quiz'); ?></option>
+                                    </select>
+                                    <p class="description" style="margin-top: 5px; font-size: 11px; color: #666;">
+                                        <?php _e('Session ID: Cada navegador/sesión cuenta como participante único', 'smart-forms-quiz'); ?><br>
+                                        <?php _e('IP: Cada dirección IP cuenta como participante único', 'smart-forms-quiz'); ?>
+                                    </p>
+                                </div>
+                                
+                                <!-- Configuración completa para Límite de Participantes -->
+                                <div class="sfq-message-config-section">
+                                    <h4><?php _e('👥 Personalizar Mensaje de Participantes', 'smart-forms-quiz'); ?></h4>
+                                    <div class="sfq-message-fields">
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('Icono (SVG, imagen, emoji o texto)', 'smart-forms-quiz'); ?></label>
+                                            <textarea id="limit-participants-icon" class="sfq-textarea" rows="3" 
+                                                      placeholder="<?php _e('Ej: ℹ️, https://ejemplo.com/icono.png, <svg>...</svg> o texto', 'smart-forms-quiz'); ?>"></textarea>
+                                            <small style="display: block; margin-top: 5px; color: #666; font-size: 11px;">
+                                                <?php _e('Acepta URLs de imagen, código SVG, emojis o texto simple. Las imágenes se detectan automáticamente.', 'smart-forms-quiz'); ?>
+                                            </small>
+                                        </div>
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('Título personalizado', 'smart-forms-quiz'); ?></label>
+                                            <input type="text" id="limit-participants-title" class="sfq-input" 
+                                                   placeholder="<?php _e('Formulario completo', 'smart-forms-quiz'); ?>">
+                                        </div>
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('Descripción personalizada', 'smart-forms-quiz'); ?></label>
+                                            <textarea id="max-submissions-message" class="sfq-textarea" rows="2" 
+                                                      placeholder="<?php _e('Este formulario ha alcanzado el límite máximo de respuestas.', 'smart-forms-quiz'); ?>"></textarea>
+                                        </div>
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('Texto del botón (opcional)', 'smart-forms-quiz'); ?></label>
+                                            <input type="text" id="limit-participants-button-text" class="sfq-input" 
+                                                   placeholder="<?php _e('Ver otros formularios', 'smart-forms-quiz'); ?>">
+                                        </div>
+                                        <div class="sfq-field-row">
+                                            <label><?php _e('URL del botón (opcional)', 'smart-forms-quiz'); ?></label>
+                                            <input type="url" id="limit-participants-button-url" class="sfq-input" 
+                                                   placeholder="https://ejemplo.com/formularios">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="sfq-field-group" style="margin-top: 40px;">
+                            <h3><?php _e('🎨 Colores Globales de Mensajes', 'smart-forms-quiz'); ?></h3>
+                            <p class="description" style="margin-bottom: 20px;">
+                                <?php _e('Configura los colores que se aplicarán a todos los mensajes de límite', 'smart-forms-quiz'); ?>
+                            </p>
+                            
+                            <!-- Configuración de Colores Globales -->
+                            <div class="sfq-message-config-section">
+                                <h4><?php _e('🎨 Colores de los Mensajes', 'smart-forms-quiz'); ?></h4>
+                                <div class="sfq-message-fields">
+                                    <div class="sfq-color-fields">
+                                    <div class="sfq-field-row">
+                                        <label><?php _e('Color de fondo del mensaje', 'smart-forms-quiz'); ?></label>
+                                        <input type="text" id="limit-background-color" class="sfq-color-picker" value="#f8f9fa">
+                                    </div>
+                                    <div class="sfq-field-row">
+                                        <label><?php _e('Color del borde', 'smart-forms-quiz'); ?></label>
+                                        <input type="text" id="limit-border-color" class="sfq-color-picker" value="#e9ecef">
+                                    </div>
+                                    <div class="sfq-field-row">
+                                        <label><?php _e('Color del icono', 'smart-forms-quiz'); ?></label>
+                                        <input type="text" id="limit-icon-color" class="sfq-color-picker" value="#6c757d">
+                                    </div>
+                                    <div class="sfq-field-row">
+                                        <label><?php _e('Color del título', 'smart-forms-quiz'); ?></label>
+                                        <input type="text" id="limit-title-color" class="sfq-color-picker" value="#333333">
+                                    </div>
+                                    <div class="sfq-field-row">
+                                        <label><?php _e('Color del texto', 'smart-forms-quiz'); ?></label>
+                                        <input type="text" id="limit-text-color" class="sfq-color-picker" value="#666666">
+                                    </div>
+                                    <div class="sfq-field-row">
+                                        <label><?php _e('Color de fondo del botón', 'smart-forms-quiz'); ?></label>
+                                        <input type="text" id="limit-button-bg-color" class="sfq-color-picker" value="#007cba">
+                                    </div>
+                                    <div class="sfq-field-row">
+                                        <label><?php _e('Color del texto del botón', 'smart-forms-quiz'); ?></label>
+                                        <input type="text" id="limit-button-text-color" class="sfq-color-picker" value="#ffffff">
+                                    </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="notice notice-info inline" style="margin-top: 20px;">
+                            <p>
+                                <strong><?php _e('Nota:', 'smart-forms-quiz'); ?></strong> 
+                                <?php _e('Los mensajes personalizados se mostrarán en lugar del formulario cuando se detecten límites activos. Si dejas campos vacíos, se usarán los valores por defecto.', 'smart-forms-quiz'); ?>
+                            </p>
+                        </div>
+                    </div>
+                    
                     <!-- Tab Configuración -->
                     <div class="sfq-tab-content" id="tab-settings">
                         <div class="sfq-field-group">
@@ -546,7 +962,7 @@ class SFQ_Admin {
                         <div class="sfq-field-group">
                             <label>
                                 <input type="checkbox" id="auto-advance" checked>
-                                <?php _e('Avanzar automáticamente al seleccionar respuesta', 'smart-forms-quiz'); ?>
+                                <?php _e('Avanzar automáticamente al seleccionar respuesta. Esconde el botón siguiente cuando no es necesario.', 'smart-forms-quiz'); ?>
                             </label>
                         </div>
                         
@@ -614,6 +1030,202 @@ class SFQ_Admin {
         </div>
         
         <input type="hidden" id="sfq-form-id" value="<?php echo $form_id; ?>">
+        
+        <!-- Estilos para personalización de mensajes de límite -->
+        <style>
+            .sfq-message-config-section {
+                background: #fff;
+                border: 1px solid #e1e1e1;
+                border-radius: 8px;
+                padding: 0;
+                margin-bottom: 20px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                overflow: hidden;
+            }
+            
+            .sfq-message-config-section h4 {
+                margin: 0;
+                color: #23282d;
+                font-size: 16px;
+                font-weight: 600;
+                border-bottom: 2px solid #007cba;
+                padding: 15px 20px;
+                cursor: pointer;
+                user-select: none;
+                transition: background-color 0.2s ease;
+                position: relative;
+            }
+            
+            .sfq-message-config-section h4:hover {
+                background-color: #f8f9fa;
+            }
+            
+            .sfq-message-config-section h4::after {
+                content: '▼';
+                position: absolute;
+                right: 20px;
+                top: 50%;
+                transform: translateY(-50%);
+                transition: transform 0.3s ease;
+                font-size: 12px;
+                color: #666;
+            }
+            
+            .sfq-message-config-section.collapsed h4::after {
+                transform: translateY(-50%) rotate(-90deg);
+            }
+            
+            .sfq-message-fields {
+                padding: 20px;
+                display: block;
+            }
+            
+            .sfq-message-config-section.collapsed .sfq-message-fields {
+                display: none;
+            }
+            
+            .sfq-message-fields {
+                display: grid;
+                gap: 15px;
+            }
+            
+            .sfq-field-row {
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+            }
+            
+            .sfq-field-row label {
+                font-weight: 500;
+                font-size: 13px;
+                color: #555;
+            }
+            
+            .sfq-field-row input,
+            .sfq-field-row textarea {
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                padding: 8px 12px;
+                font-size: 13px;
+                transition: border-color 0.2s ease;
+            }
+            
+            .sfq-field-row input:focus,
+            .sfq-field-row textarea:focus {
+                border-color: #007cba;
+                box-shadow: 0 0 0 1px #007cba;
+                outline: none;
+            }
+            
+            .sfq-color-fields {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 15px;
+            }
+            
+            .sfq-color-fields .sfq-field-row {
+                background: #f8f9fa;
+                padding: 12px;
+                border-radius: 6px;
+                border: 1px solid #e9ecef;
+            }
+            
+            .sfq-color-fields .sfq-field-row label {
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                color: #666;
+            }
+            
+            /* Responsive para móviles */
+            @media (max-width: 768px) {
+                .sfq-message-config-section {
+                    padding: 15px;
+                    margin-bottom: 15px;
+                }
+                
+                .sfq-color-fields {
+                    grid-template-columns: 1fr;
+                }
+                
+                .sfq-message-config-section h4 {
+                    font-size: 14px;
+                }
+            }
+            
+            /* Indicadores visuales para diferentes tipos de mensaje */
+            .sfq-message-config-section:nth-child(1) {
+                border-left: 4px solid #dc3545; /* Rojo para límite de envíos */
+            }
+            
+            .sfq-message-config-section:nth-child(2) {
+                border-left: 4px solid #ffc107; /* Amarillo para límite de participantes */
+            }
+            
+            .sfq-message-config-section:nth-child(3) {
+                border-left: 4px solid #17a2b8; /* Azul para login requerido */
+            }
+            
+            .sfq-message-config-section:nth-child(4) {
+                border-left: 4px solid #6f42c1; /* Púrpura para programación */
+            }
+            
+            .sfq-message-config-section:nth-child(5) {
+                border-left: 4px solid #28a745; /* Verde para colores */
+            }
+            
+            /* Mejoras para los color pickers */
+            .sfq-color-picker {
+                width: 100% !important;
+                height: 40px !important;
+                border-radius: 6px !important;
+                cursor: pointer;
+            }
+            
+            /* Tooltips informativos */
+            .sfq-field-row[title] {
+                position: relative;
+            }
+            
+            .sfq-field-row[title]:hover::after {
+                content: attr(title);
+                position: absolute;
+                bottom: 100%;
+                left: 0;
+                background: #333;
+                color: white;
+                padding: 5px 10px;
+                border-radius: 4px;
+                font-size: 12px;
+                white-space: nowrap;
+                z-index: 1000;
+                opacity: 0.9;
+            }
+        </style>
+        
+        <!-- Script para manejar secciones colapsables -->
+        <script>
+        jQuery(document).ready(function($) {
+            // Inicializar todas las secciones como colapsadas
+            $('.sfq-message-config-section').addClass('collapsed');
+            
+            // Manejar click en los títulos para expandir/colapsar
+            $('.sfq-message-config-section h4').on('click', function() {
+                const $section = $(this).closest('.sfq-message-config-section');
+                const $fields = $section.find('.sfq-message-fields');
+                
+                if ($section.hasClass('collapsed')) {
+                    // Expandir
+                    $section.removeClass('collapsed');
+                    $fields.slideDown(300);
+                } else {
+                    // Colapsar
+                    $section.addClass('collapsed');
+                    $fields.slideUp(300);
+                }
+            });
+        });
+        </script>
         <?php
     }
     

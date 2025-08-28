@@ -84,6 +84,19 @@
                 }
             });
             
+            // Block form toggle
+            $('#block-form').on('change' + ns, function() {
+                if ($(this).is(':checked')) {
+                    $('#block-form-container').slideDown();
+                } else {
+                    $('#block-form-container').slideUp();
+                }
+                
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                }
+            });
+            
             // Intro screen toggle
             $('#show-intro-screen').on('change' + ns, function() {
                 $('#intro-screen-settings').toggle($(this).is(':checked'));
@@ -95,6 +108,161 @@
             // Range slider
             $('#border-radius').on('input' + ns, function() {
                 $('.sfq-range-value').text($(this).val() + 'px');
+            });
+            
+            // Límites - Mostrar/ocultar campos dinámicamente
+            $('#submission-limit-count').on('input' + ns, function() {
+                const count = $(this).val();
+                const $period = $('#submission-limit-period');
+                
+                if (count && count > 0) {
+                    // Si hay un número, cambiar a "día" si está en "sin límite"
+                    if ($period.val() === 'no_limit') {
+                        $period.val('day');
+                    }
+                    $('#limit-type-container, #limit-message-container').slideDown();
+                } else {
+                    // Si no hay número, cambiar a "sin límite"
+                    $period.val('no_limit');
+                    $('#limit-type-container, #limit-message-container').slideUp();
+                }
+                
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                }
+            });
+            
+            $('#submission-limit-period').on('change' + ns, function() {
+                const period = $(this).val();
+                const $count = $('#submission-limit-count');
+                
+                if (period === 'no_limit') {
+                    // Si seleccionan "sin límite", limpiar el número
+                    $count.val('');
+                    $('#limit-type-container, #limit-message-container').slideUp();
+                } else {
+                    // Si seleccionan un período, mostrar campos adicionales
+                    $('#limit-type-container, #limit-message-container').slideDown();
+                    // Si no hay número, poner 1 por defecto
+                    if (!$count.val()) {
+                        $count.val('1');
+                    }
+                }
+                
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                }
+            });
+            
+            // Requerir login
+            $('#require-login').on('change' + ns, function() {
+                if ($(this).is(':checked')) {
+                    $('#login-message-container').slideDown();
+                } else {
+                    $('#login-message-container').slideUp();
+                }
+                
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                }
+            });
+            
+            // Programar disponibilidad
+            $('#enable-schedule').on('change' + ns, function() {
+                if ($(this).is(':checked')) {
+                    $('#schedule-container').slideDown();
+                } else {
+                    $('#schedule-container').slideUp();
+                }
+            });
+            
+            // Límite total de participantes
+            $('#enable-max-submissions').on('change' + ns, function() {
+                if ($(this).is(':checked')) {
+                    $('#max-submissions-container').slideDown();
+                } else {
+                    $('#max-submissions-container').slideUp();
+                }
+            });
+            
+            // Event listeners para los nuevos campos de mensaje
+            $('#login-required-message, #schedule-not-started-message, #schedule-ended-message, #max-submissions-message, #max-submissions-limit-type').on('change input' + ns, () => {
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                }
+            });
+            
+            // Event listeners para personalización de mensajes de límite
+            $('#limit-submission-icon, #limit-submission-title, #limit-submission-description, #limit-submission-button-text, #limit-submission-button-url').on('change input' + ns, () => {
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                }
+            });
+            
+            $('#limit-participants-icon, #limit-participants-title, #limit-participants-description, #limit-participants-button-text, #limit-participants-button-url').on('change input' + ns, () => {
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                }
+            });
+            
+            $('#limit-login-icon, #limit-login-title, #limit-login-description, #limit-login-button-text').on('change input' + ns, () => {
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                }
+            });
+            
+            $('#limit-schedule-icon, #limit-schedule-not-started-title, #limit-schedule-ended-title, #limit-schedule-button-text, #limit-schedule-button-url').on('change input' + ns, () => {
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                }
+            });
+            
+            // Event listeners para colores de mensajes de límite
+            $('#limit-background-color, #limit-border-color, #limit-icon-color, #limit-title-color, #limit-text-color, #limit-button-bg-color, #limit-button-text-color').on('change' + ns, () => {
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                }
+            });
+            
+            // Event listeners para bloqueo de formulario
+            $('#block-form-icon, #block-form-title, #block-form-description, #block-form-button-text, #block-form-button-url').on('change input' + ns, () => {
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                }
+            });
+            
+            // Event listeners para colores de bloqueo de formulario
+            $('#block-form-bg-color, #block-form-border-color, #block-form-icon-color, #block-form-title-color, #block-form-text-color, #block-form-button-bg-color, #block-form-button-text-color').on('change' + ns, () => {
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                }
+            });
+            
+            // Event listeners para timer de bloqueo
+            $('#block-form-enable-timer').on('change' + ns, function() {
+                if ($(this).is(':checked')) {
+                    $('#block-form-timer-settings').slideDown();
+                } else {
+                    $('#block-form-timer-settings').slideUp();
+                }
+                
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                }
+            });
+            
+            $('#block-form-timer-date, #block-form-timer-text, #block-form-timer-opened-text').on('change input' + ns, () => {
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                }
+            });
+            
+            // Event listeners para actualizar el resumen de límites
+            $('#submission-limit-count, #submission-limit-period, #limit-type, #require-login, #enable-schedule, #schedule-start, #schedule-end, #enable-max-submissions, #max-submissions, #max-submissions-limit-type').on('change input' + ns, () => {
+                this.updateLimitsSummary();
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                }
             });
             
             // Prevent accidental navigation
@@ -179,6 +347,9 @@
             $('#save-partial').prop('checked', settings.save_partial === true);
             $('#show-intro-screen').prop('checked', settings.show_intro_screen !== false);
             
+            // Bloqueo de formulario
+            $('#block-form').prop('checked', settings.block_form === true).trigger('change');
+            
             // Show/hide intro settings
             $('#intro-screen-settings').toggle(settings.show_intro_screen !== false);
             
@@ -192,10 +363,93 @@
             $('.sfq-range-value').text((styles.border_radius || '8') + 'px');
             $('#font-family').val(styles.font_family || 'inherit');
             
+            // Cargar configuraciones de personalización de mensajes de límite
+            $('#limit-submission-icon').val(styles.limit_submission_icon || '');
+            $('#limit-submission-title').val(styles.limit_submission_title || '');
+            $('#limit-submission-description').val(styles.limit_submission_description || '');
+            $('#limit-submission-button-text').val(styles.limit_submission_button_text || '');
+            $('#limit-submission-button-url').val(styles.limit_submission_button_url || '');
+            $('#limit-participants-icon').val(styles.limit_participants_icon || '');
+            $('#limit-participants-title').val(styles.limit_participants_title || '');
+            $('#limit-participants-description').val(styles.limit_participants_description || '');
+            // También cargar en el campo legacy para compatibilidad
+            $('#max-submissions-message').val(styles.limit_participants_description || '');
+            $('#limit-participants-button-text').val(styles.limit_participants_button_text || '');
+            $('#limit-participants-button-url').val(styles.limit_participants_button_url || '');
+            $('#limit-login-icon').val(styles.limit_login_icon || '');
+            $('#limit-login-title').val(styles.limit_login_title || '');
+            $('#limit-login-description').val(styles.limit_login_description || '');
+            $('#limit-login-button-text').val(styles.limit_login_button_text || '');
+            $('#limit-schedule-icon').val(styles.limit_schedule_icon || '');
+            $('#limit-schedule-not-started-title').val(styles.limit_schedule_not_started_title || '');
+            $('#limit-schedule-ended-title').val(styles.limit_schedule_ended_title || '');
+            $('#limit-schedule-button-text').val(styles.limit_schedule_button_text || '');
+            $('#limit-schedule-button-url').val(styles.limit_schedule_button_url || '');
+            
+            // Cargar colores de mensajes de límite
+            $('#limit-background-color').val(styles.limit_background_color || '#f8f9fa').trigger('change');
+            $('#limit-border-color').val(styles.limit_border_color || '#e9ecef').trigger('change');
+            $('#limit-icon-color').val(styles.limit_icon_color || '#6c757d').trigger('change');
+            $('#limit-title-color').val(styles.limit_title_color || '#333333').trigger('change');
+            $('#limit-text-color').val(styles.limit_text_color || '#666666').trigger('change');
+            $('#limit-button-bg-color').val(styles.limit_button_bg_color || '#007cba').trigger('change');
+            $('#limit-button-text-color').val(styles.limit_button_text_color || '#ffffff').trigger('change');
+            
+            // Cargar configuraciones de bloqueo de formulario
+            $('#block-form-icon').val(styles.block_form_icon || '');
+            $('#block-form-title').val(styles.block_form_title || '');
+            $('#block-form-description').val(styles.block_form_description || '');
+            $('#block-form-button-text').val(styles.block_form_button_text || '');
+            $('#block-form-button-url').val(styles.block_form_button_url || '');
+            
+            // Cargar configuraciones del timer de bloqueo
+            $('#block-form-enable-timer').prop('checked', styles.block_form_enable_timer === true).trigger('change');
+            $('#block-form-timer-date').val(styles.block_form_timer_date || '');
+            $('#block-form-timer-text').val(styles.block_form_timer_text || '');
+            $('#block-form-timer-opened-text').val(styles.block_form_timer_opened_text || '');
+            
+            // Cargar colores específicos de bloqueo de formulario
+            $('#block-form-bg-color').val(styles.block_form_bg_color || '#f8f9fa').trigger('change');
+            $('#block-form-border-color').val(styles.block_form_border_color || '#e9ecef').trigger('change');
+            $('#block-form-icon-color').val(styles.block_form_icon_color || '#dc3545').trigger('change');
+            $('#block-form-title-color').val(styles.block_form_title_color || '#333333').trigger('change');
+            $('#block-form-text-color').val(styles.block_form_text_color || '#666666').trigger('change');
+            $('#block-form-button-bg-color').val(styles.block_form_button_bg_color || '#007cba').trigger('change');
+            $('#block-form-button-text-color').val(styles.block_form_button_text_color || '#ffffff').trigger('change');
+            
+            // Load limits settings - nueva estructura flexible
+            $('#submission-limit-count').val(settings.submission_limit_count || '');
+            $('#submission-limit-period').val(settings.submission_limit_period || 'no_limit');
+            $('#limit-type').val(settings.limit_type || 'session_id');
+            $('#limit-message').val(settings.limit_message || '');
+            $('#require-login').prop('checked', settings.require_login === true).trigger('change');
+            $('#login-required-message').val(settings.login_required_message || '');
+            $('#enable-schedule').prop('checked', settings.enable_schedule === true).trigger('change');
+            $('#schedule-start').val(settings.schedule_start || '');
+            $('#schedule-end').val(settings.schedule_end || '');
+            $('#schedule-not-started-message').val(settings.schedule_not_started_message || '');
+            $('#schedule-ended-message').val(settings.schedule_ended_message || '');
+            $('#enable-max-submissions').prop('checked', settings.enable_max_submissions === true).trigger('change');
+            $('#max-submissions').val(settings.max_submissions || '');
+            $('#max-submissions-limit-type').val(settings.max_submissions_limit_type || 'session_id');
+            $('#max-submissions-message').val(settings.max_submissions_message || '');
+            
+            // Mostrar/ocultar campos según la configuración cargada
+            const hasCount = settings.submission_limit_count && settings.submission_limit_count > 0;
+            const period = settings.submission_limit_period || 'no_limit';
+            if (hasCount && period !== 'no_limit') {
+                $('#limit-type-container, #limit-message-container').show();
+            } else {
+                $('#limit-type-container, #limit-message-container').hide();
+            }
+            
             // Load questions
             if (formData.questions && Array.isArray(formData.questions)) {
                 this.questionManager.loadQuestions(formData.questions);
             }
+            
+            // Actualizar resumen de límites después de cargar los datos
+            this.updateLimitsSummary();
         }
 
         // Crear versión con debounce del saveForm
@@ -270,37 +524,102 @@
             }
         }
 
-        collectFormData() {
-            return {
-                id: this.formId,
-                title: $('#form-title').val(),
-                description: $('#form-description').val(),
-                type: $('#form-type').val() || 'form',
-                intro_title: $('#intro-title').val(),
-                intro_description: $('#intro-description').val(),
-                intro_button_text: $('#intro-button-text').val() || 'Comenzar',
-                thank_you_message: $('#thank-you-message').val(),
-                redirect_url: $('#redirect-url').val(),
-                settings: {
-                    show_progress_bar: $('#show-progress-bar').is(':checked'),
-                    show_question_numbers: $('#show-question-numbers').is(':checked'),
-                    auto_advance: $('#auto-advance').is(':checked'),
-                    allow_back: $('#allow-back').is(':checked'),
-                    randomize_questions: $('#randomize-questions').is(':checked'),
-                    save_partial: $('#save-partial').is(':checked'),
-                    show_intro_screen: $('#show-intro-screen').is(':checked')
-                },
-                style_settings: {
-                    primary_color: $('#primary-color').val() || '#007cba',
-                    secondary_color: $('#secondary-color').val() || '#6c757d',
-                    background_color: $('#background-color').val() || '#ffffff',
-                    text_color: $('#text-color').val() || '#333333',
-                    border_radius: $('#border-radius').val() || '8',
-                    font_family: $('#font-family').val() || 'inherit'
-                },
-                questions: this.questionManager.getQuestionsData()
-            };
-        }
+    collectFormData() {
+        return {
+            id: this.formId,
+            title: $('#form-title').val(),
+            description: $('#form-description').val(),
+            type: $('#form-type').val() || 'form',
+            intro_title: $('#intro-title').val(),
+            intro_description: $('#intro-description').val(),
+            intro_button_text: $('#intro-button-text').val() || 'Comenzar',
+            thank_you_message: $('#thank-you-message').val(),
+            redirect_url: $('#redirect-url').val(),
+            settings: {
+                show_progress_bar: $('#show-progress-bar').is(':checked'),
+                show_question_numbers: $('#show-question-numbers').is(':checked'),
+                auto_advance: $('#auto-advance').is(':checked'),
+                allow_back: $('#allow-back').is(':checked'),
+                randomize_questions: $('#randomize-questions').is(':checked'),
+                save_partial: $('#save-partial').is(':checked'),
+                show_intro_screen: $('#show-intro-screen').is(':checked'),
+                // Bloqueo de formulario
+                block_form: $('#block-form').is(':checked'),
+                // Límites de envío - nueva estructura flexible
+                submission_limit_count: $('#submission-limit-count').val() || '',
+                submission_limit_period: $('#submission-limit-period').val() || 'no_limit',
+                limit_type: $('#limit-type').val() || 'session_id',
+                limit_message: $('#limit-message').val() || '',
+                require_login: $('#require-login').is(':checked'),
+                login_required_message: $('#login-required-message').val() || '',
+                enable_schedule: $('#enable-schedule').is(':checked'),
+                schedule_start: $('#schedule-start').val() || '',
+                schedule_end: $('#schedule-end').val() || '',
+                schedule_not_started_message: $('#schedule-not-started-message').val() || '',
+                schedule_ended_message: $('#schedule-ended-message').val() || '',
+                enable_max_submissions: $('#enable-max-submissions').is(':checked'),
+                max_submissions: $('#max-submissions').val() || '',
+                max_submissions_limit_type: $('#max-submissions-limit-type').val() || 'session_id',
+                max_submissions_message: $('#max-submissions-message').val() || ''
+            },
+            style_settings: {
+                primary_color: $('#primary-color').val() || '#007cba',
+                secondary_color: $('#secondary-color').val() || '#6c757d',
+                background_color: $('#background-color').val() || '#ffffff',
+                text_color: $('#text-color').val() || '#333333',
+                border_radius: $('#border-radius').val() || '8',
+                font_family: $('#font-family').val() || 'inherit',
+                // Personalización de mensajes de límite
+                limit_submission_icon: $('#limit-submission-icon').val() || '',
+                limit_submission_title: $('#limit-submission-title').val() || '',
+                limit_submission_description: $('#limit-submission-description').val() || '',
+                limit_submission_button_text: $('#limit-submission-button-text').val() || '',
+                limit_submission_button_url: $('#limit-submission-button-url').val() || '',
+                limit_participants_icon: $('#limit-participants-icon').val() || '',
+                limit_participants_title: $('#limit-participants-title').val() || '',
+                limit_participants_description: $('#limit-participants-description').val() || '',
+                limit_participants_button_text: $('#limit-participants-button-text').val() || '',
+                limit_participants_button_url: $('#limit-participants-button-url').val() || '',
+                limit_login_icon: $('#limit-login-icon').val() || '',
+                limit_login_title: $('#limit-login-title').val() || '',
+                limit_login_description: $('#limit-login-description').val() || '',
+                limit_login_button_text: $('#limit-login-button-text').val() || '',
+                limit_schedule_icon: $('#limit-schedule-icon').val() || '',
+                limit_schedule_not_started_title: $('#limit-schedule-not-started-title').val() || '',
+                limit_schedule_ended_title: $('#limit-schedule-ended-title').val() || '',
+                limit_schedule_button_text: $('#limit-schedule-button-text').val() || '',
+                limit_schedule_button_url: $('#limit-schedule-button-url').val() || '',
+                // Colores de mensajes de límite
+                limit_background_color: $('#limit-background-color').val() || '#f8f9fa',
+                limit_border_color: $('#limit-border-color').val() || '#e9ecef',
+                limit_icon_color: $('#limit-icon-color').val() || '#6c757d',
+                limit_title_color: $('#limit-title-color').val() || '#333333',
+                limit_text_color: $('#limit-text-color').val() || '#666666',
+                limit_button_bg_color: $('#limit-button-bg-color').val() || '#007cba',
+                limit_button_text_color: $('#limit-button-text-color').val() || '#ffffff',
+                // Configuración de bloqueo de formulario
+                block_form_icon: $('#block-form-icon').val() || '',
+                block_form_title: $('#block-form-title').val() || '',
+                block_form_description: $('#block-form-description').val() || '',
+                block_form_button_text: $('#block-form-button-text').val() || '',
+                block_form_button_url: $('#block-form-button-url').val() || '',
+                // Configuración del timer de bloqueo
+                block_form_enable_timer: $('#block-form-enable-timer').is(':checked'),
+                block_form_timer_date: $('#block-form-timer-date').val() || '',
+                block_form_timer_text: $('#block-form-timer-text').val() || '',
+                block_form_timer_opened_text: $('#block-form-timer-opened-text').val() || '',
+                // Colores específicos de bloqueo de formulario
+                block_form_bg_color: $('#block-form-bg-color').val() || '#f8f9fa',
+                block_form_border_color: $('#block-form-border-color').val() || '#e9ecef',
+                block_form_icon_color: $('#block-form-icon-color').val() || '#dc3545',
+                block_form_title_color: $('#block-form-title-color').val() || '#333333',
+                block_form_text_color: $('#block-form-text-color').val() || '#666666',
+                block_form_button_bg_color: $('#block-form-button-bg-color').val() || '#007cba',
+                block_form_button_text_color: $('#block-form-button-text-color').val() || '#ffffff'
+            },
+            questions: this.questionManager.getQuestionsData()
+        };
+    }
 
         setupAutoSave() {
             // Auto-save every 30 seconds if there are changes
@@ -376,6 +695,97 @@
             this.conditionEngine = null;
             this.uiRenderer = null;
             this.dataValidator = null;
+        }
+        
+        // Actualizar resumen dinámico de límites
+        updateLimitsSummary() {
+            const summaryContainer = $('#sfq-limits-summary');
+            const summaryContent = $('#sfq-limits-summary-content');
+            
+            const limits = [];
+            
+            // 1. Límite de envíos
+            const submissionCount = $('#submission-limit-count').val();
+            const submissionPeriod = $('#submission-limit-period').val();
+            if (submissionCount && submissionCount > 0 && submissionPeriod !== 'no_limit') {
+                const periodText = {
+                    'day': 'día',
+                    'week': 'semana', 
+                    'month': 'mes',
+                    'year': 'año',
+                    'forever': 'para siempre'
+                };
+                
+                const limitType = $('#limit-type').val() === 'ip_address' ? 'por IP' : 'por sesión';
+                limits.push(`📝 Máximo <strong>${submissionCount}</strong> envío(s) cada <strong>${periodText[submissionPeriod]}</strong> (${limitType})`);
+            }
+            
+            // 2. Login requerido
+            if ($('#require-login').is(':checked')) {
+                limits.push('🔒 Solo para <strong>usuarios registrados</strong>');
+            }
+            
+            // 3. Programación
+            if ($('#enable-schedule').is(':checked')) {
+                const startDate = $('#schedule-start').val();
+                const endDate = $('#schedule-end').val();
+                
+                if (startDate && endDate) {
+                    const start = new Date(startDate).toLocaleDateString('es-ES', {
+                        day: '2-digit',
+                        month: '2-digit', 
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    const end = new Date(endDate).toLocaleDateString('es-ES', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric', 
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    limits.push(`🕐 Disponible del <strong>${start}</strong> al <strong>${end}</strong>`);
+                } else if (startDate) {
+                    const start = new Date(startDate).toLocaleDateString('es-ES', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit', 
+                        minute: '2-digit'
+                    });
+                    limits.push(`🕐 Disponible desde el <strong>${start}</strong>`);
+                } else if (endDate) {
+                    const end = new Date(endDate).toLocaleDateString('es-ES', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    limits.push(`🕐 Disponible hasta el <strong>${end}</strong>`);
+                }
+            }
+            
+            // 4. Límite de participantes
+            if ($('#enable-max-submissions').is(':checked')) {
+                const maxSubmissions = $('#max-submissions').val();
+                if (maxSubmissions && maxSubmissions > 0) {
+                    const limitType = $('#max-submissions-limit-type').val() === 'ip_address' ? 'por IP' : 'por sesión';
+                    limits.push(`👥 Máximo <strong>${maxSubmissions}</strong> participantes (${limitType})`);
+                }
+            }
+            
+            // Mostrar u ocultar el resumen
+            if (limits.length > 0) {
+                const summaryHtml = '<ul style="margin: 10px 0 0 0; padding-left: 20px;">' + 
+                    limits.map(limit => `<li style="margin-bottom: 8px;">${limit}</li>`).join('') + 
+                    '</ul>';
+                summaryContent.html(summaryHtml);
+                summaryContainer.slideDown();
+            } else {
+                summaryContainer.slideUp();
+            }
         }
         
         // Utility function for debouncing
