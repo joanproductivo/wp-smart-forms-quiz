@@ -94,6 +94,11 @@ class SFQ_Ajax {
         $form_id = intval($_POST['form_id'] ?? 0);
         $session_id = sanitize_text_field($_POST['session_id'] ?? '');
         
+        // Si no se proporciona session_id, generar uno usando el nuevo sistema
+        if (empty($session_id)) {
+            $session_id = SFQ_Utils::get_or_create_session_id($form_id);
+        }
+        
         if (!$form_id || !$session_id) {
             wp_send_json_error(__('Datos del formulario incompletos', 'smart-forms-quiz'));
             return;

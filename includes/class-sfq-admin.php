@@ -130,7 +130,7 @@ class SFQ_Admin {
                                 
                                 <div class="sfq-form-stats">
                                     <div class="sfq-stat">
-                                        <span class="sfq-stat-label"><?php _e('Vistas', 'smart-forms-quiz'); ?></span>
+                                        <span class="sfq-stat-label"><?php _e('Visitas', 'smart-forms-quiz'); ?></span>
                                         <span class="sfq-stat-value" id="views-<?php echo $form->id; ?>">0</span>
                                     </div>
                                     <div class="sfq-stat">

@@ -627,32 +627,21 @@ class SFQ_Database {
     public function register_view($form_id, $session_id) {
         global $wpdb;
         
-        // Verificar si ya existe una vista para esta sesión y formulario
-        $existing_view = $wpdb->get_var($wpdb->prepare(
-            "SELECT id FROM {$this->analytics_table} 
-            WHERE form_id = %d AND session_id = %s AND event_type = %s",
-            $form_id,
-            $session_id,
-            'view'
-        ));
+        // Registrar vista cada vez que se carga la página (sin verificar vistas previas)
+        $result = $wpdb->insert(
+            $this->analytics_table,
+            array(
+                'form_id' => $form_id,
+                'event_type' => 'view',
+                'event_data' => json_encode(array('timestamp' => time())),
+                'session_id' => $session_id,
+                'user_ip' => $this->get_user_ip()
+            ),
+            array('%d', '%s', '%s', '%s', '%s')
+        );
         
-        // Solo registrar si no existe una vista previa
-        if (!$existing_view) {
-            $result = $wpdb->insert(
-                $this->analytics_table,
-                array(
-                    'form_id' => $form_id,
-                    'event_type' => 'view',
-                    'event_data' => json_encode(array('timestamp' => time())),
-                    'session_id' => $session_id,
-                    'user_ip' => $this->get_user_ip()
-                ),
-                array('%d', '%s', '%s', '%s', '%s')
-            );
-            
-            if ($result === false) {
-                // Failed to register view
-            }
+        if ($result === false) {
+            // Failed to register view
         }
     }
     

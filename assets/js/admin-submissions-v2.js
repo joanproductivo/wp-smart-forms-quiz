@@ -1101,11 +1101,17 @@
             this.loadExternalLibraries();
             this.initEventHandlers();
             this.initDatePickers();
-            this.initCharts();
-            this.loadInitialData();
+            this.loadBasicData();
+        },
+
+        loadBasicData: function() {
+            // Cargar datos que no dependen de gráficos
+            this.loadDashboardStats();
+            this.loadSubmissions();
         },
 
         loadInitialData: function() {
+            // Esta función se llama después de que Chart.js esté cargado
             this.loadDashboardStats();
             this.loadSubmissions();
             this.loadAnalyticsData();
@@ -1116,11 +1122,19 @@
             if (typeof Chart === 'undefined') {
                 const script = document.createElement('script');
                 script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-                script.onload = () => this.initCharts();
+                script.onload = () => {
+                    // Inicializar gráficos y cargar datos de analytics solo cuando Chart.js esté listo
+                    this.initCharts();
+                    this.loadAnalyticsData();
+                };
                 script.onerror = () => {
                     NotificationManager.show('Error al cargar gráficos. Algunas funciones pueden no estar disponibles.', 'warning');
                 };
                 document.head.appendChild(script);
+            } else {
+                // Si Chart.js ya está disponible, inicializar inmediatamente
+                this.initCharts();
+                this.loadAnalyticsData();
             }
 
             // Cargar Flatpickr para date pickers
@@ -1175,11 +1189,9 @@
             // Notas
             $('#sfq-save-note').on('click', () => SubmissionActions.saveNote());
 
-            // Charts
-            $('#sfq-chart-period').on('change', () => this.loadAnalyticsData());
-
-            // Dashboard period selector
-            $('#sfq-dashboard-period').on('change', () => this.loadDashboardStats());
+            // Sincronizar selectores de tiempo
+            $('#sfq-dashboard-period').on('change', (e) => this.syncTimePeriods(e, 'dashboard'));
+            $('#sfq-chart-period').on('change', (e) => this.syncTimePeriods(e, 'chart'));
 
             // Configuración de columnas
             $('#sfq-table-columns').on('click', () => ColumnManager.showModal());
@@ -1201,14 +1213,24 @@
         },
 
         initCharts: function() {
-            if (typeof Chart === 'undefined') return;
+            if (typeof Chart === 'undefined') {
+                console.warn('Chart.js no está disponible. Los gráficos no se pueden inicializar.');
+                return;
+            }
 
-            Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            Chart.defaults.color = '#6c757d';
+            try {
+                Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                Chart.defaults.color = '#6c757d';
 
-            ChartManager.initSubmissionsChart();
-            ChartManager.initFormsChart();
-            ChartManager.initCountriesChart();
+                ChartManager.initSubmissionsChart();
+                ChartManager.initFormsChart();
+                ChartManager.initCountriesChart();
+                
+                console.log('Gráficos inicializados correctamente');
+            } catch (error) {
+                console.error('Error al inicializar gráficos:', error);
+                NotificationManager.show('Error al inicializar gráficos', 'warning');
+            }
         },
 
         refreshAllData: function() {
@@ -1230,8 +1252,23 @@
             }
         },
 
+        syncTimePeriods: function(e, source) {
+            const selectedValue = $(e.target).val();
+            
+            // Sincronizar el otro selector
+            if (source === 'dashboard') {
+                $('#sfq-chart-period').val(selectedValue);
+            } else {
+                $('#sfq-dashboard-period').val(selectedValue);
+            }
+            
+            // Recargar ambos: dashboard y gráficos
+            this.loadDashboardStats();
+            this.loadAnalyticsData();
+        },
+
         loadDashboardStats: function() {
-            const period = $('#sfq-dashboard-period').val() || 7;
+            const period = $('#sfq-dashboard-period').val() || '7';
             
             AjaxManager.request('sfq_get_dashboard_stats', { period: period }, { showLoading: false })
                 .done((response) => {
@@ -1265,7 +1302,7 @@
         },
 
         loadAnalyticsData: function() {
-            const period = $('#sfq-chart-period').val() || 30;
+            const period = $('#sfq-chart-period').val() || '7';
             
             AjaxManager.request('sfq_get_form_analytics', { period }, { showLoading: false })
                 .done((response) => {

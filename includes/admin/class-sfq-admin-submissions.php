@@ -100,10 +100,10 @@ class SFQ_Admin_Submissions {
                 <div class="sfq-dashboard-header">
                     <h2><?php _e('Estadísticas del Dashboard', 'smart-forms-quiz'); ?></h2>
                     <div class="sfq-dashboard-controls">
-                        <label for="sfq-dashboard-period"><?php _e('Período para conversión:', 'smart-forms-quiz'); ?></label>
+                        <label for="sfq-dashboard-period"><?php _e('Período:', 'smart-forms-quiz'); ?></label>
                         <select id="sfq-dashboard-period">
                             <option value="all"><?php _e('Todo el tiempo', 'smart-forms-quiz'); ?></option>
-                            <option value="1"><?php _e('Último día', 'smart-forms-quiz'); ?></option>
+                            <option value="today"><?php _e('Hoy', 'smart-forms-quiz'); ?></option>
                             <option value="7" selected><?php _e('Últimos 7 días', 'smart-forms-quiz'); ?></option>
                             <option value="30"><?php _e('Últimos 30 días', 'smart-forms-quiz'); ?></option>
                             <option value="90"><?php _e('Últimos 90 días', 'smart-forms-quiz'); ?></option>
@@ -139,7 +139,7 @@ class SFQ_Admin_Submissions {
                         </div>
                         <div class="sfq-stat-content">
                             <div class="sfq-stat-number">-</div>
-                            <div class="sfq-stat-label"><?php _e('Hoy Visitas Únicas', 'smart-forms-quiz'); ?></div>
+                            <div class="sfq-stat-label"><?php _e('Visitas Únicas', 'smart-forms-quiz'); ?></div>
                             <div class="sfq-stat-change">-</div>
                         </div>
                     </div>
@@ -176,8 +176,10 @@ class SFQ_Admin_Submissions {
                             <h3><?php _e('Respuestas por Día', 'smart-forms-quiz'); ?></h3>
                             <div class="sfq-chart-controls">
                                 <select id="sfq-chart-period">
-                                    <option value="7"><?php _e('Últimos 7 días', 'smart-forms-quiz'); ?></option>
-                                    <option value="30" selected><?php _e('Últimos 30 días', 'smart-forms-quiz'); ?></option>
+                                    <option value="all"><?php _e('Todo el tiempo', 'smart-forms-quiz'); ?></option>
+                                    <option value="today"><?php _e('Hoy', 'smart-forms-quiz'); ?></option>
+                                    <option value="7" selected><?php _e('Últimos 7 días', 'smart-forms-quiz'); ?></option>
+                                    <option value="30"><?php _e('Últimos 30 días', 'smart-forms-quiz'); ?></option>
                                     <option value="90"><?php _e('Últimos 90 días', 'smart-forms-quiz'); ?></option>
                                 </select>
                             </div>
@@ -875,14 +877,19 @@ class SFQ_Admin_Submissions {
             return;
         }
         
-        // Obtener período seleccionado (manejar "all" para todo el tiempo)
+        // Obtener período seleccionado (manejar "all" para todo el tiempo y "today" para hoy)
         $period = $_POST['period'] ?? '7';
         $is_all_time = ($period === 'all');
+        $is_today = ($period === 'today');
         
         // Configurar fechas según el período
         if ($is_all_time) {
             // Para "todo el tiempo", usar fechas muy amplias
             $date_from = '2020-01-01'; // Fecha muy antigua
+            $date_to = current_time('Y-m-d');
+        } elseif ($is_today) {
+            // Para "hoy", usar solo la fecha actual
+            $date_from = current_time('Y-m-d');
             $date_to = current_time('Y-m-d');
         } else {
             $period_days = intval($period);
@@ -890,37 +897,136 @@ class SFQ_Admin_Submissions {
             $date_to = current_time('Y-m-d');
         }
         
-        // Total de submissions (histórico - siempre todo el tiempo)
-        $total_submissions = $this->wpdb->get_var($this->wpdb->prepare(
-            "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_submissions WHERE status = %s",
-            'completed'
-        ));
-        
-        // Submissions del período seleccionado
+        // Total de submissions del período seleccionado
         if ($is_all_time) {
-            // Para "todo el tiempo", usar el total histórico
-            $period_submissions = $total_submissions;
+            // Para "todo el tiempo", obtener total histórico
+            $total_submissions = $this->wpdb->get_var($this->wpdb->prepare(
+                "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_submissions WHERE status = %s",
+                'completed'
+            ));
+        } elseif ($is_today) {
+            // Para "hoy", usar solo la fecha actual exacta
+            $total_submissions = $this->wpdb->get_var($this->wpdb->prepare(
+                "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_submissions 
+                WHERE status = 'completed' AND DATE(completed_at) = %s",
+                current_time('Y-m-d')
+            ));
         } else {
-            $period_submissions = $this->wpdb->get_var($this->wpdb->prepare(
+            // Para períodos específicos
+            $total_submissions = $this->wpdb->get_var($this->wpdb->prepare(
                 "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_submissions 
                 WHERE status = 'completed' AND DATE(completed_at) >= %s AND DATE(completed_at) <= %s",
                 $date_from, $date_to
             ));
         }
         
-        // Submissions de hoy para mostrar en la tarjeta "Hoy"
-        $today_submissions = $this->wpdb->get_var($this->wpdb->prepare(
-            "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_submissions 
-            WHERE status = 'completed' AND DATE(completed_at) = %s",
-            current_time('Y-m-d')
-        ));
+        // period_submissions ahora es igual a total_submissions (ambos del mismo período)
+        $period_submissions = $total_submissions;
         
-        // Submissions de ayer para comparación
-        $yesterday_submissions = $this->wpdb->get_var($this->wpdb->prepare(
-            "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_submissions 
-            WHERE status = 'completed' AND DATE(completed_at) = %s",
-            date('Y-m-d', strtotime('-1 day'))
-        ));
+        // Verificar si existe la tabla de analytics
+        $analytics_table = $this->wpdb->prefix . 'sfq_analytics';
+        $table_exists = $this->wpdb->get_var($this->wpdb->prepare("SHOW TABLES LIKE %s", $analytics_table)) === $analytics_table;
+        
+        // Visitas únicas del período seleccionado para mostrar en la tarjeta "Visitas Únicas del Período"
+        $period_unique_views = 0;
+        if ($table_exists) {
+            if ($is_all_time) {
+                // Para "todo el tiempo", obtener total histórico
+                $period_unique_views = $this->wpdb->get_var($this->wpdb->prepare(
+                    "SELECT COUNT(DISTINCT session_id) FROM {$this->wpdb->prefix}sfq_analytics 
+                    WHERE event_type = %s",
+                    'view'
+                ));
+            } elseif ($is_today) {
+                // Para "hoy", usar solo la fecha actual exacta
+                $period_unique_views = $this->wpdb->get_var($this->wpdb->prepare(
+                    "SELECT COUNT(DISTINCT session_id) FROM {$this->wpdb->prefix}sfq_analytics 
+                    WHERE event_type = %s AND DATE(created_at) = %s",
+                    'view', current_time('Y-m-d')
+                ));
+            } else {
+                // Para períodos específicos
+                $period_unique_views = $this->wpdb->get_var($this->wpdb->prepare(
+                    "SELECT COUNT(DISTINCT session_id) FROM {$this->wpdb->prefix}sfq_analytics 
+                    WHERE event_type = %s AND DATE(created_at) >= %s AND DATE(created_at) <= %s",
+                    'view', $date_from, $date_to
+                ));
+            }
+        }
+        
+        // Si no hay datos de analytics, usar estimación basada en submissions del período
+        if ($period_unique_views == 0) {
+            if ($is_all_time) {
+                $period_submissions_count = $this->wpdb->get_var($this->wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_submissions 
+                    WHERE status = %s",
+                    'completed'
+                ));
+            } elseif ($is_today) {
+                $period_submissions_count = $this->wpdb->get_var($this->wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_submissions 
+                    WHERE status = 'completed' AND DATE(completed_at) = %s",
+                    current_time('Y-m-d')
+                ));
+            } else {
+                $period_submissions_count = $this->wpdb->get_var($this->wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_submissions 
+                    WHERE status = 'completed' AND DATE(completed_at) >= %s AND DATE(completed_at) <= %s",
+                    $date_from, $date_to
+                ));
+            }
+            // Estimación más conservadora para visitantes únicos (menos que las vistas totales)
+            $period_unique_views = max(1, intval($period_submissions_count * 1.5));
+        }
+        
+        // Calcular período anterior para comparación de cambio porcentual
+        $previous_period_unique_views = 0;
+        if ($table_exists) {
+            if ($is_all_time) {
+                // Para "todo el tiempo", no hay período anterior válido
+                $previous_period_unique_views = 0;
+            } elseif ($is_today) {
+                // Para "hoy", comparar con ayer
+                $previous_period_unique_views = $this->wpdb->get_var($this->wpdb->prepare(
+                    "SELECT COUNT(DISTINCT session_id) FROM {$this->wpdb->prefix}sfq_analytics 
+                    WHERE event_type = %s AND DATE(created_at) = %s",
+                    'view', date('Y-m-d', strtotime('-1 day'))
+                ));
+            } else {
+                // Para períodos específicos, calcular el período anterior del mismo tamaño
+                $period_days = intval($period);
+                $previous_date_from = date('Y-m-d', strtotime("-" . ($period_days * 2) . " days"));
+                $previous_date_to = date('Y-m-d', strtotime("-" . ($period_days + 1) . " days"));
+                
+                $previous_period_unique_views = $this->wpdb->get_var($this->wpdb->prepare(
+                    "SELECT COUNT(DISTINCT session_id) FROM {$this->wpdb->prefix}sfq_analytics 
+                    WHERE event_type = %s AND DATE(created_at) >= %s AND DATE(created_at) <= %s",
+                    'view', $previous_date_from, $previous_date_to
+                ));
+            }
+        }
+        
+        // Si no hay datos de analytics del período anterior, usar estimación
+        if ($previous_period_unique_views == 0 && !$is_all_time) {
+            if ($is_today) {
+                $previous_submissions_count = $this->wpdb->get_var($this->wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_submissions 
+                    WHERE status = 'completed' AND DATE(completed_at) = %s",
+                    date('Y-m-d', strtotime('-1 day'))
+                ));
+            } else {
+                $period_days = intval($period);
+                $previous_date_from = date('Y-m-d', strtotime("-" . ($period_days * 2) . " days"));
+                $previous_date_to = date('Y-m-d', strtotime("-" . ($period_days + 1) . " days"));
+                
+                $previous_submissions_count = $this->wpdb->get_var($this->wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_submissions 
+                    WHERE status = 'completed' AND DATE(completed_at) >= %s AND DATE(created_at) <= %s",
+                    $previous_date_from, $previous_date_to
+                ));
+            }
+            $previous_period_unique_views = max(1, intval($previous_submissions_count * 1.5));
+        }
         
         // Tiempo promedio de completado del período seleccionado
         if ($is_all_time) {
@@ -928,6 +1034,14 @@ class SFQ_Admin_Submissions {
                 "SELECT AVG(time_spent) FROM {$this->wpdb->prefix}sfq_submissions 
                 WHERE status = %s AND time_spent > %d",
                 'completed', 0
+            ));
+        } elseif ($is_today) {
+            // Para "hoy", usar solo la fecha actual exacta
+            $avg_time = $this->wpdb->get_var($this->wpdb->prepare(
+                "SELECT AVG(time_spent) FROM {$this->wpdb->prefix}sfq_submissions 
+                WHERE status = 'completed' AND time_spent > 0 
+                AND DATE(completed_at) = %s",
+                current_time('Y-m-d')
             ));
         } else {
             $avg_time = $this->wpdb->get_var($this->wpdb->prepare(
@@ -938,30 +1052,40 @@ class SFQ_Admin_Submissions {
             ));
         }
         
-        // Tasa de conversión - NUEVO CÁLCULO SIMPLIFICADO
-        // Usar total de respuestas dividido por total de visitas * 100
-        $conversion_rate = 0;
-        
-        // Obtener total de visitas (histórico - siempre todo el tiempo) - usando la misma lógica que get_form_quick_stats
-        $analytics_table = $this->wpdb->prefix . 'sfq_analytics';
-        $table_exists = $this->wpdb->get_var($this->wpdb->prepare("SHOW TABLES LIKE %s", $analytics_table)) === $analytics_table;
-        
+        // Total de visitas del período seleccionado (TODAS las vistas, incluyendo repetidas)
         $total_views = 0;
         if ($table_exists) {
-            $total_views = $this->wpdb->get_var($this->wpdb->prepare(
-                "SELECT COUNT(DISTINCT session_id) FROM {$this->wpdb->prefix}sfq_analytics 
-                WHERE event_type = %s",
-                'view'
-            ));
+            if ($is_all_time) {
+                // Para "todo el tiempo", obtener total histórico de TODAS las vistas
+                $total_views = $this->wpdb->get_var($this->wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_analytics 
+                    WHERE event_type = %s",
+                    'view'
+                ));
+            } elseif ($is_today) {
+                // Para "hoy", usar solo la fecha actual exacta - TODAS las vistas
+                $total_views = $this->wpdb->get_var($this->wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_analytics 
+                    WHERE event_type = %s AND DATE(created_at) = %s",
+                    'view', current_time('Y-m-d')
+                ));
+            } else {
+                // Para períodos específicos - TODAS las vistas
+                $total_views = $this->wpdb->get_var($this->wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_analytics 
+                    WHERE event_type = %s AND DATE(created_at) >= %s AND DATE(created_at) <= %s",
+                    'view', $date_from, $date_to
+                ));
+            }
         }
         
-        // Usar la misma estimación que en get_form_quick_stats (que funciona correctamente)
+        // Si no hay datos de analytics, usar estimación basada en submissions del período
         if ($total_views == 0 && $total_submissions > 0) {
-            // Usar la misma lógica que get_form_quick_stats: total_submissions * 2
-            $total_views = $total_submissions * 2;
+            $total_views = $total_submissions * 3; // Estimación más realista para vistas totales vs únicas
         }
         
-        // Calcular tasa de conversión: (total_submissions / total_views) * 100
+        // Calcular tasa de conversión del período: (total_submissions / total_views) * 100
+        $conversion_rate = 0;
         if ($total_views > 0 && $total_submissions > 0) {
             $conversion_rate = ($total_submissions / $total_views) * 100;
             
@@ -972,40 +1096,24 @@ class SFQ_Admin_Submissions {
             $conversion_rate = max(0, min(100, $conversion_rate));
         }
         
-        // Calcular cambios porcentuales (hoy vs ayer)
-        $today_change = 0;
-        if ($yesterday_submissions > 0) {
-            $today_change = round((($today_submissions - $yesterday_submissions) / $yesterday_submissions) * 100, 1);
-        } elseif ($today_submissions > 0) {
-            $today_change = 100;
-        }
-        
-        // Total de visitas (histórico - siempre todo el tiempo) - usando la misma lógica que get_form_quick_stats
-        $total_views = 0;
-        if ($table_exists) {
-            $total_views = $this->wpdb->get_var($this->wpdb->prepare(
-                "SELECT COUNT(DISTINCT session_id) FROM {$this->wpdb->prefix}sfq_analytics 
-                WHERE event_type = %s",
-                'view'
-            ));
-        }
-        
-        // CORREGIDO: Usar la misma estimación que en get_form_quick_stats (que funciona correctamente)
-        if ($total_views == 0 && $total_submissions > 0) {
-            // Usar la misma lógica que get_form_quick_stats: total_submissions * 2
-            $total_views = $total_submissions * 2;
+        // Calcular cambios porcentuales (período actual vs período anterior)
+        $period_change = 0;
+        if ($previous_period_unique_views > 0) {
+            $period_change = round((($period_unique_views - $previous_period_unique_views) / $previous_period_unique_views) * 100, 1);
+        } elseif ($period_unique_views > 0 && !$is_all_time) {
+            $period_change = 100;
         }
         
         wp_send_json_success(array(
             'total_submissions' => intval($total_submissions),
             'total_views' => intval($total_views),
-            'today_submissions' => intval($today_submissions),
+            'today_submissions' => intval($period_unique_views), // CORREGIDO: Enviar visitas únicas del período seleccionado
             'period_submissions' => intval($period_submissions),
-            'today_change' => $today_change,
+            'today_change' => $period_change, // Cambio porcentual del período seleccionado vs período anterior
             'avg_completion_time' => $this->format_time(intval($avg_time)),
             'conversion_rate' => $conversion_rate,
-            'period_views' => intval($total_views), // Usar total_views ya que ahora calculamos basado en totales
-            'period_days' => $is_all_time ? 'all' : intval($period),
+            'period_views' => intval($total_views),
+            'period_days' => $is_all_time ? 'all' : ($is_today ? 'today' : intval($period)),
             'date_from' => $date_from,
             'date_to' => $date_to,
             'is_all_time' => $is_all_time
@@ -1022,30 +1130,87 @@ class SFQ_Admin_Submissions {
         
         global $wpdb;
         
-        $period = intval($_POST['period'] ?? 30);
-        $date_from = date('Y-m-d', strtotime("-{$period} days"));
+        $period = $_POST['period'] ?? '30';
+        $is_all_time = ($period === 'all');
+        $is_today = ($period === 'today');
+        
+        // Configurar fechas según el período
+        if ($is_all_time) {
+            $date_from = '2020-01-01'; // Fecha muy antigua para todo el tiempo
+        } elseif ($is_today) {
+            $date_from = current_time('Y-m-d'); // Solo hoy
+        } else {
+            $period_days = intval($period);
+            $date_from = date('Y-m-d', strtotime("-{$period_days} days"));
+        }
         
         // Datos para gráfico de submissions por día
-        $daily_submissions = $wpdb->get_results($wpdb->prepare(
-            "SELECT DATE(completed_at) as date, COUNT(*) as count 
-            FROM {$wpdb->prefix}sfq_submissions 
-            WHERE status = %s AND DATE(completed_at) >= %s 
-            GROUP BY DATE(completed_at) 
-            ORDER BY date ASC",
-            'completed', $date_from
-        ));
+        if ($is_all_time) {
+            // Para todo el tiempo, obtener todos los datos
+            $daily_submissions = $wpdb->get_results($wpdb->prepare(
+                "SELECT DATE(completed_at) as date, COUNT(*) as count 
+                FROM {$wpdb->prefix}sfq_submissions 
+                WHERE status = %s 
+                GROUP BY DATE(completed_at) 
+                ORDER BY date ASC",
+                'completed'
+            ));
+        } elseif ($is_today) {
+            // Para hoy, obtener solo datos de hoy
+            $daily_submissions = $wpdb->get_results($wpdb->prepare(
+                "SELECT DATE(completed_at) as date, COUNT(*) as count 
+                FROM {$wpdb->prefix}sfq_submissions 
+                WHERE status = %s AND DATE(completed_at) = %s 
+                GROUP BY DATE(completed_at) 
+                ORDER BY date ASC",
+                'completed', current_time('Y-m-d')
+            ));
+        } else {
+            $daily_submissions = $wpdb->get_results($wpdb->prepare(
+                "SELECT DATE(completed_at) as date, COUNT(*) as count 
+                FROM {$wpdb->prefix}sfq_submissions 
+                WHERE status = %s AND DATE(completed_at) >= %s 
+                GROUP BY DATE(completed_at) 
+                ORDER BY date ASC",
+                'completed', $date_from
+            ));
+        }
         
         // Formularios más populares
-        $popular_forms = $wpdb->get_results($wpdb->prepare(
-            "SELECT f.title, COUNT(s.id) as submissions 
-            FROM {$wpdb->prefix}sfq_forms f 
-            LEFT JOIN {$wpdb->prefix}sfq_submissions s ON f.id = s.form_id 
-            WHERE s.status = %s AND DATE(s.completed_at) >= %s 
-            GROUP BY f.id, f.title 
-            ORDER BY submissions DESC 
-            LIMIT 10",
-            'completed', $date_from
-        ));
+        if ($is_all_time) {
+            $popular_forms = $wpdb->get_results($wpdb->prepare(
+                "SELECT f.title, COUNT(s.id) as submissions 
+                FROM {$wpdb->prefix}sfq_forms f 
+                LEFT JOIN {$wpdb->prefix}sfq_submissions s ON f.id = s.form_id 
+                WHERE s.status = %s 
+                GROUP BY f.id, f.title 
+                ORDER BY submissions DESC 
+                LIMIT 10",
+                'completed'
+            ));
+        } elseif ($is_today) {
+            $popular_forms = $wpdb->get_results($wpdb->prepare(
+                "SELECT f.title, COUNT(s.id) as submissions 
+                FROM {$wpdb->prefix}sfq_forms f 
+                LEFT JOIN {$wpdb->prefix}sfq_submissions s ON f.id = s.form_id 
+                WHERE s.status = %s AND DATE(s.completed_at) = %s 
+                GROUP BY f.id, f.title 
+                ORDER BY submissions DESC 
+                LIMIT 10",
+                'completed', current_time('Y-m-d')
+            ));
+        } else {
+            $popular_forms = $wpdb->get_results($wpdb->prepare(
+                "SELECT f.title, COUNT(s.id) as submissions 
+                FROM {$wpdb->prefix}sfq_forms f 
+                LEFT JOIN {$wpdb->prefix}sfq_submissions s ON f.id = s.form_id 
+                WHERE s.status = %s AND DATE(s.completed_at) >= %s 
+                GROUP BY f.id, f.title 
+                ORDER BY submissions DESC 
+                LIMIT 10",
+                'completed', $date_from
+            ));
+        }
         
         // Países más activos
         $countries_data = $this->get_countries_analytics($date_from);

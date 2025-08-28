@@ -30,11 +30,11 @@ class SFQ_Frontend {
             return '<p>' . __('Formulario no encontrado', 'smart-forms-quiz') . '</p>';
         }
         
-        // Generar ID de sesión único
-        $session_id = 'sfq_' . uniqid();
+        // Usar el nuevo sistema de sesiones inteligente
+        $session_id = SFQ_Utils::get_or_create_session_id($form_id);
         
-        // Registrar vista
-        $this->database->register_view($form_id, $session_id);
+        // Nota: La vista se registra desde JavaScript para evitar duplicados
+        // $this->database->register_view($form_id, $session_id);
         
         // Obtener configuración de estilos
         $styles = $form->style_settings ?: array();

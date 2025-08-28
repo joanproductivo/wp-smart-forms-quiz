@@ -67,10 +67,105 @@ class SFQ_Utils {
     }
     
     /**
-     * Generar ID de sesión único
+     * Generar ID de sesión único (método legacy)
+     * @deprecated Usar get_or_create_session_id() para mejor tracking
      */
     public static function generate_session_id($prefix = 'sfq') {
         return $prefix . '_' . uniqid() . '_' . wp_generate_password(8, false);
+    }
+    
+    /**
+     * Generar fingerprint del usuario para mejor identificación
+     */
+    public static function generate_user_fingerprint() {
+        $components = array(
+            self::get_user_ip(),
+            $_SERVER['HTTP_USER_AGENT'] ?? '',
+            $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '',
+            $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '',
+            date('Y-m-d') // Renovar diariamente para privacidad
+        );
+        
+        // Filtrar componentes vacíos
+        $components = array_filter($components);
+        
+        return 'fp_' . md5(implode('|', $components));
+    }
+    
+    /**
+     * Obtener o crear session ID inteligente que persiste por dispositivo/navegador
+     */
+    public static function get_or_create_session_id($form_id = null) {
+        $form_suffix = $form_id ? "_{$form_id}" : '';
+        $cookie_name = "sfq_session{$form_suffix}";
+        
+        // Intentar obtener de cookie primero
+        $stored_session = $_COOKIE[$cookie_name] ?? null;
+        
+        if ($stored_session && self::is_valid_session($stored_session)) {
+            return $stored_session;
+        }
+        
+        // Generar nuevo session_id basado en fingerprint + timestamp
+        $fingerprint = self::generate_user_fingerprint();
+        $timestamp = time();
+        $session_id = $fingerprint . '_' . $timestamp;
+        
+        // Guardar en cookie (24 horas de duración)
+        if (!headers_sent()) {
+            setcookie($cookie_name, $session_id, time() + 86400, '/', '', is_ssl(), true);
+        }
+        
+        return $session_id;
+    }
+    
+    /**
+     * Validar si un session ID es válido y no ha expirado
+     */
+    public static function is_valid_session($session_id) {
+        if (empty($session_id) || !is_string($session_id)) {
+            return false;
+        }
+        
+        // Verificar formato: fp_hash_timestamp
+        $parts = explode('_', $session_id);
+        if (count($parts) < 3) {
+            return false;
+        }
+        
+        // Obtener timestamp (última parte)
+        $timestamp = end($parts);
+        if (!is_numeric($timestamp)) {
+            return false;
+        }
+        
+        // Verificar que no haya expirado (24 horas)
+        $expiry_time = intval($timestamp) + 86400;
+        if (time() > $expiry_time) {
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Obtener información extendida de la sesión
+     */
+    public static function get_session_info($session_id) {
+        if (!self::is_valid_session($session_id)) {
+            return null;
+        }
+        
+        $parts = explode('_', $session_id);
+        $timestamp = end($parts);
+        
+        return array(
+            'session_id' => $session_id,
+            'created_at' => date('Y-m-d H:i:s', intval($timestamp)),
+            'expires_at' => date('Y-m-d H:i:s', intval($timestamp) + 86400),
+            'is_valid' => true,
+            'fingerprint' => implode('_', array_slice($parts, 0, -1))
+        );
     }
     
     /**
