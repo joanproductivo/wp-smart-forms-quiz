@@ -587,6 +587,9 @@ class SFQ_Admin {
                         <div class="sfq-message-config-section collapsed" id="block-form-timer-available-section" style="display: none;">
                             <h4><?php _e('🎉 Mensaje al termina cuenta atrás', 'smart-forms-quiz'); ?></h4>
                             <div class="sfq-message-fields">
+                                <small style="display: block; margin-top: 5px; color: #666; font-size: 11px;">
+                                        <?php _e('Este mensaje solo sale a quienes están mirando el contador como termina, pero si se accede a la web cuando el contador ya ha terminado, este mensaje no lo verán, solo verán el formulario.', 'smart-forms-quiz'); ?>
+                                    </small>
                                 <div class="sfq-field-row">
                                     <label><?php _e('Icono (emoji, SVG, imagen o texto)', 'smart-forms-quiz'); ?></label>
                                     <input type="text" id="block-form-timer-available-icon" class="sfq-input" 

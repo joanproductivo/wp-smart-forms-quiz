@@ -661,9 +661,13 @@ class SFQ_Frontend {
                 
                 <?php if (($limit_type === 'FORM_BLOCKED_WITH_TIMER' || $limit_type === 'FORM_BLOCKED_WITH_TIMER_EXPIRED') && isset($limit_check['timer_date'])) : ?>
                     <div class="sfq-timer-container">
-                        <div class="sfq-timer-text">
-                            <?php echo esc_html($limit_check['timer_text'] ?? __('El formulario se abrirá en:', 'smart-forms-quiz')); ?>
-                        </div>
+                        <?php 
+                        $timer_text = $limit_check['timer_text'] ?? '';
+                        if (!empty(trim($timer_text))) : ?>
+                            <div class="sfq-timer-text">
+                                <?php echo esc_html($timer_text); ?>
+                            </div>
+                        <?php endif; ?>
                         <div class="sfq-countdown-timer <?php echo $limit_type === 'FORM_BLOCKED_WITH_TIMER_EXPIRED' ? 'expired keep-visible' : ''; ?>" 
                              data-target-date="<?php echo esc_attr($limit_check['timer_date']); ?>"
                              data-opened-text="<?php echo esc_attr($styles['block_form_timer_opened_text'] ?? __('¡El formulario ya está disponible!', 'smart-forms-quiz')); ?>"
@@ -824,6 +828,7 @@ class SFQ_Frontend {
             
             .sfq-limit-actions {
                 margin-top: 25px;
+                margin-bottom: 15px;
             }
             
             .sfq-button {
@@ -1012,11 +1017,11 @@ class SFQ_Frontend {
                 }
                 
                 .sfq-countdown-display {
-                    gap: 10px;
+                    gap: 7px;
                 }
                 
                 .sfq-countdown-unit {
-                    min-width: 50px;
+                    min-width: 20px;
                     padding: 10px 6px;
                 }
                 

@@ -243,11 +243,25 @@
                 if ($(this).is(':checked')) {
                     $('#block-form-timer-settings').slideDown();
                     $('#block-form-timer-available-section').slideDown();
-                    $('.sfq-message-config-section:contains("🎨 Colores del Mensaje de Disponibilidad")').slideDown();
+                    // Buscar la sección de colores del mensaje de disponibilidad de forma más específica
+                    $('.sfq-message-config-section').each(function() {
+                        const $section = $(this);
+                        const titleText = $section.find('h4').text();
+                        if (titleText.includes('🎨 Colores del Mensaje')) {
+                            $section.slideDown();
+                        }
+                    });
                 } else {
                     $('#block-form-timer-settings').slideUp();
                     $('#block-form-timer-available-section').slideUp();
-                    $('.sfq-message-config-section:contains("🎨 Colores del Mensaje de Disponibilidad")').slideUp();
+                    // Buscar la sección de colores del mensaje de disponibilidad de forma más específica
+                    $('.sfq-message-config-section').each(function() {
+                        const $section = $(this);
+                        const titleText = $section.find('h4').text();
+                        if (titleText.includes('🎨 Colores del Mensaje')) {
+                            $section.slideUp();
+                        }
+                    });
                 }
                 
                 if (!this.isDestroyed) {
