@@ -768,8 +768,16 @@ class SFQ_Ajax {
             $question->required = 0;
         }
         
-        // Procesar opciones
-        $question->options = $this->validate_and_structure_options($question->options ?? []);
+        // Procesar según el tipo de pregunta
+        if ($question->question_type === 'freestyle') {
+            // Para preguntas freestyle, procesar elementos
+            $question->freestyle_elements = $this->validate_and_structure_freestyle_elements($question->freestyle_elements ?? []);
+            $question->global_settings = $question->global_settings ?? [];
+            $question->options = []; // Las preguntas freestyle no tienen opciones tradicionales
+        } else {
+            // Para preguntas regulares, procesar opciones
+            $question->options = $this->validate_and_structure_options($question->options ?? []);
+        }
         
         // Procesar condiciones
         $question->conditions = $this->validate_and_structure_conditions($question->conditions ?? []);
@@ -815,6 +823,54 @@ class SFQ_Ajax {
         return array_values($structured_options); // Reindexar array
     }
     
+    /**
+     * Validar y estructurar elementos freestyle
+     */
+    private function validate_and_structure_freestyle_elements($elements) {
+        if (!is_array($elements)) {
+            return [];
+        }
+        
+        $structured_elements = [];
+        
+        foreach ($elements as $index => $element) {
+            if (is_object($element)) {
+                $element = (array) $element;
+            }
+            
+            if (!is_array($element)) {
+                continue;
+            }
+            
+            // Validar que tenga las propiedades mínimas requeridas
+            if (empty($element['type'])) {
+                continue;
+            }
+            
+            // Validar que el tipo sea válido
+            $valid_types = ['text', 'video', 'image', 'countdown', 'phone', 'email', 'file_upload', 'button', 'rating', 'dropdown', 'checkbox', 'legal_text'];
+            if (!in_array($element['type'], $valid_types)) {
+                continue;
+            }
+            
+            $structured_elements[] = [
+                'id' => $element['id'] ?? 'element_' . time() . '_' . $index,
+                'type' => $element['type'],
+                'label' => sanitize_text_field($element['label'] ?? ''),
+                'order' => intval($element['order'] ?? $index),
+                'settings' => is_array($element['settings'] ?? null) ? $element['settings'] : [],
+                'value' => sanitize_text_field($element['value'] ?? '')
+            ];
+        }
+        
+        // Ordenar por orden
+        usort($structured_elements, function($a, $b) {
+            return $a['order'] - $b['order'];
+        });
+        
+        return $structured_elements;
+    }
+
     /**
      * Validar y estructurar condiciones de pregunta
      */
@@ -1215,13 +1271,31 @@ class SFQ_Ajax {
             $errors['question_type'] = sprintf(__('El tipo de la pregunta %d es requerido', 'smart-forms-quiz'), $index + 1);
         }
         
-        // Validar opciones para tipos que las requieren
-        $types_with_options = array('single_choice', 'multiple_choice', 'image_choice');
-        if (in_array($question['question_type'], $types_with_options)) {
-            if (empty($question['options']) || !is_array($question['options'])) {
-                $errors['options'] = sprintf(__('La pregunta %d requiere opciones', 'smart-forms-quiz'), $index + 1);
-            } elseif (count($question['options']) < 2) {
-                $errors['options'] = sprintf(__('La pregunta %d requiere al menos 2 opciones', 'smart-forms-quiz'), $index + 1);
+        // Validar según el tipo de pregunta
+        if ($question['question_type'] === 'freestyle') {
+            // Para preguntas freestyle, validar elementos si existen
+            if (isset($question['freestyle_elements']) && is_array($question['freestyle_elements'])) {
+                foreach ($question['freestyle_elements'] as $element_index => $element) {
+                    if (empty($element['type'])) {
+                        $errors['freestyle_elements'][] = sprintf(__('El elemento %d de la pregunta %d requiere un tipo', 'smart-forms-quiz'), $element_index + 1, $index + 1);
+                    }
+                    
+                    // Validar que el tipo de elemento sea válido
+                    $valid_element_types = array('text', 'video', 'image', 'countdown', 'phone', 'email', 'file_upload', 'button', 'rating', 'dropdown', 'checkbox', 'legal_text');
+                    if (!empty($element['type']) && !in_array($element['type'], $valid_element_types)) {
+                        $errors['freestyle_elements'][] = sprintf(__('Tipo de elemento inválido en el elemento %d de la pregunta %d', 'smart-forms-quiz'), $element_index + 1, $index + 1);
+                    }
+                }
+            }
+        } else {
+            // Validar opciones para tipos que las requieren
+            $types_with_options = array('single_choice', 'multiple_choice', 'image_choice');
+            if (in_array($question['question_type'], $types_with_options)) {
+                if (empty($question['options']) || !is_array($question['options'])) {
+                    $errors['options'] = sprintf(__('La pregunta %d requiere opciones', 'smart-forms-quiz'), $index + 1);
+                } elseif (count($question['options']) < 2) {
+                    $errors['options'] = sprintf(__('La pregunta %d requiere al menos 2 opciones', 'smart-forms-quiz'), $index + 1);
+                }
             }
         }
         

@@ -339,6 +339,10 @@ class SFQ_Frontend {
                 $this->render_image_choice($question);
                 break;
                 
+            case 'freestyle':
+                $this->render_freestyle_question($question);
+                break;
+                
             default:
                 echo '<p>' . __('Tipo de pregunta no soportado', 'smart-forms-quiz') . '</p>';
         }
@@ -1562,6 +1566,557 @@ class SFQ_Frontend {
             </div>',
             esc_attr($video_id)
         );
+    }
+    
+    /**
+     * Renderizar pregunta freestyle
+     */
+    private function render_freestyle_question($question) {
+        if (empty($question->freestyle_elements)) {
+            echo '<p>' . __('No hay elementos configurados para esta pregunta.', 'smart-forms-quiz') . '</p>';
+            return;
+        }
+        
+        $global_settings = $question->global_settings ?? array();
+        $layout = $global_settings['layout'] ?? 'vertical';
+        $spacing = $global_settings['spacing'] ?? 'normal';
+        $show_numbers = $global_settings['show_element_numbers'] ?? false;
+        ?>
+        <div class="sfq-freestyle-container" 
+             data-question-id="<?php echo $question->id; ?>"
+             data-layout="<?php echo esc_attr($layout); ?>"
+             data-spacing="<?php echo esc_attr($spacing); ?>">
+            
+            <?php foreach ($question->freestyle_elements as $index => $element) : ?>
+                <div class="sfq-freestyle-element sfq-element-<?php echo esc_attr($element['type']); ?>" 
+                     data-element-id="<?php echo esc_attr($element['id']); ?>"
+                     data-element-type="<?php echo esc_attr($element['type']); ?>"
+                     data-element-order="<?php echo esc_attr($element['order'] ?? $index); ?>">
+                    
+                    <?php if ($show_numbers) : ?>
+                        <div class="sfq-element-number"><?php echo $index + 1; ?>.</div>
+                    <?php endif; ?>
+                    
+                    <?php if (!empty($element['label'])) : ?>
+                        <label class="sfq-element-label" for="element_<?php echo $element['id']; ?>">
+                            <?php echo esc_html($element['label']); ?>
+                            <?php if ($question->required && $this->is_required_element_type($element['type'])) : ?>
+                                <span class="sfq-required">*</span>
+                            <?php endif; ?>
+                        </label>
+                    <?php endif; ?>
+                    
+                    <div class="sfq-element-content">
+                        <?php $this->render_freestyle_element($element, $question->id); ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Renderizar elemento freestyle específico
+     */
+    private function render_freestyle_element($element, $question_id) {
+        $element_id = $element['id'];
+        $element_type = $element['type'];
+        $settings = $element['settings'] ?? array();
+        
+        switch ($element_type) {
+            case 'text':
+                $this->render_freestyle_text($element, $question_id);
+                break;
+                
+            case 'email':
+                $this->render_freestyle_email($element, $question_id);
+                break;
+                
+            case 'phone':
+                $this->render_freestyle_phone($element, $question_id);
+                break;
+                
+            case 'video':
+                $this->render_freestyle_video($element, $question_id);
+                break;
+                
+            case 'image':
+                $this->render_freestyle_image($element, $question_id);
+                break;
+                
+            case 'file_upload':
+                $this->render_freestyle_file_upload($element, $question_id);
+                break;
+                
+            case 'button':
+                $this->render_freestyle_button($element, $question_id);
+                break;
+                
+            case 'rating':
+                $this->render_freestyle_rating($element, $question_id);
+                break;
+                
+            case 'dropdown':
+                $this->render_freestyle_dropdown($element, $question_id);
+                break;
+                
+            case 'checkbox':
+                $this->render_freestyle_checkbox($element, $question_id);
+                break;
+                
+            case 'countdown':
+                $this->render_freestyle_countdown($element, $question_id);
+                break;
+                
+            case 'legal_text':
+                $this->render_freestyle_legal_text($element, $question_id);
+                break;
+                
+            default:
+                echo '<p>' . sprintf(__('Tipo de elemento "%s" no soportado', 'smart-forms-quiz'), esc_html($element_type)) . '</p>';
+        }
+    }
+    
+    /**
+     * Renderizar elemento de texto freestyle
+     */
+    private function render_freestyle_text($element, $question_id) {
+        $settings = $element['settings'] ?? array();
+        $placeholder = $settings['placeholder'] ?? __('Escribe aquí...', 'smart-forms-quiz');
+        $max_length = $settings['max_length'] ?? '';
+        $multiline = $settings['multiline'] ?? false;
+        ?>
+        <div class="sfq-freestyle-text-wrapper">
+            <?php if ($multiline) : ?>
+                <textarea name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
+                          id="element_<?php echo $element['id']; ?>"
+                          class="sfq-freestyle-textarea"
+                          placeholder="<?php echo esc_attr($placeholder); ?>"
+                          <?php echo $max_length ? 'maxlength="' . esc_attr($max_length) . '"' : ''; ?>
+                          rows="<?php echo esc_attr($settings['rows'] ?? 3); ?>"></textarea>
+            <?php else : ?>
+                <input type="text" 
+                       name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
+                       id="element_<?php echo $element['id']; ?>"
+                       class="sfq-freestyle-input"
+                       placeholder="<?php echo esc_attr($placeholder); ?>"
+                       <?php echo $max_length ? 'maxlength="' . esc_attr($max_length) . '"' : ''; ?>>
+            <?php endif; ?>
+            <div class="sfq-input-line"></div>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Renderizar elemento de email freestyle
+     */
+    private function render_freestyle_email($element, $question_id) {
+        $settings = $element['settings'] ?? array();
+        $placeholder = $settings['placeholder'] ?? 'tu@email.com';
+        ?>
+        <div class="sfq-freestyle-email-wrapper">
+            <input type="email" 
+                   name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
+                   id="element_<?php echo $element['id']; ?>"
+                   class="sfq-freestyle-input sfq-email-input"
+                   placeholder="<?php echo esc_attr($placeholder); ?>">
+            <div class="sfq-input-line"></div>
+            <span class="sfq-input-error"><?php _e('Por favor, introduce un email válido', 'smart-forms-quiz'); ?></span>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Renderizar elemento de teléfono freestyle
+     */
+    private function render_freestyle_phone($element, $question_id) {
+        $settings = $element['settings'] ?? array();
+        $placeholder = $settings['placeholder'] ?? '+34 600 000 000';
+        $pattern = $settings['pattern'] ?? '';
+        ?>
+        <div class="sfq-freestyle-phone-wrapper">
+            <input type="tel" 
+                   name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
+                   id="element_<?php echo $element['id']; ?>"
+                   class="sfq-freestyle-input sfq-phone-input"
+                   placeholder="<?php echo esc_attr($placeholder); ?>"
+                   <?php echo $pattern ? 'pattern="' . esc_attr($pattern) . '"' : ''; ?>>
+            <div class="sfq-input-line"></div>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Renderizar elemento de video freestyle
+     */
+    private function render_freestyle_video($element, $question_id) {
+        $settings = $element['settings'] ?? array();
+        $video_url = $settings['video_url'] ?? '';
+        $autoplay = $settings['autoplay'] ?? false;
+        $controls = $settings['controls'] ?? true;
+        $width = $settings['width'] ?? '100%';
+        $height = $settings['height'] ?? 'auto';
+        
+        if (empty($video_url)) {
+            echo '<p class="sfq-video-error">' . __('URL de video no configurada', 'smart-forms-quiz') . '</p>';
+            return;
+        }
+        
+        // Usar el sistema existente de conversión de video
+        $video_embed = $this->convert_video_url_to_embed($video_url);
+        
+        if ($video_embed) {
+            ?>
+            <div class="sfq-freestyle-video-wrapper" style="max-width: <?php echo esc_attr($width); ?>;">
+                <?php echo $video_embed; ?>
+                <!-- Campo oculto para registrar que se vio el video -->
+                <input type="hidden" 
+                       name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
+                       value="video_displayed"
+                       class="sfq-video-tracker">
+            </div>
+            <?php
+        } else {
+            // Fallback para URLs directas de video (MP4, etc.)
+            ?>
+            <div class="sfq-freestyle-video-wrapper" style="max-width: <?php echo esc_attr($width); ?>;">
+                <video class="sfq-freestyle-video" 
+                       <?php echo $controls ? 'controls' : ''; ?>
+                       <?php echo $autoplay ? 'autoplay muted' : ''; ?>
+                       style="width: 100%; height: <?php echo esc_attr($height); ?>;">
+                    <source src="<?php echo esc_url($video_url); ?>" type="video/mp4">
+                    <?php _e('Tu navegador no soporta el elemento video.', 'smart-forms-quiz'); ?>
+                </video>
+                <input type="hidden" 
+                       name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
+                       value="video_displayed"
+                       class="sfq-video-tracker">
+            </div>
+            <?php
+        }
+    }
+    
+    /**
+     * Renderizar elemento de imagen freestyle
+     */
+    private function render_freestyle_image($element, $question_id) {
+        $settings = $element['settings'] ?? array();
+        $image_url = $settings['image_url'] ?? '';
+        $alt_text = $settings['alt_text'] ?? $element['label'] ?? '';
+        $width = $settings['width'] ?? 'auto';
+        $height = $settings['height'] ?? 'auto';
+        $clickable = $settings['clickable'] ?? false;
+        
+        if (empty($image_url)) {
+            echo '<p class="sfq-image-error">' . __('URL de imagen no configurada', 'smart-forms-quiz') . '</p>';
+            return;
+        }
+        ?>
+        <div class="sfq-freestyle-image-wrapper">
+            <?php if ($clickable) : ?>
+                <div class="sfq-clickable-image" 
+                     data-element-id="<?php echo $element['id']; ?>"
+                     style="cursor: pointer;">
+                    <img src="<?php echo esc_url($image_url); ?>" 
+                         alt="<?php echo esc_attr($alt_text); ?>"
+                         class="sfq-freestyle-image"
+                         style="width: <?php echo esc_attr($width); ?>; height: <?php echo esc_attr($height); ?>;">
+                    <input type="hidden" 
+                           name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
+                           value=""
+                           class="sfq-image-click-tracker">
+                </div>
+            <?php else : ?>
+                <img src="<?php echo esc_url($image_url); ?>" 
+                     alt="<?php echo esc_attr($alt_text); ?>"
+                     class="sfq-freestyle-image"
+                     style="width: <?php echo esc_attr($width); ?>; height: <?php echo esc_attr($height); ?>;">
+                <input type="hidden" 
+                       name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
+                       value="image_displayed">
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Renderizar elemento de subida de archivo freestyle
+     */
+    private function render_freestyle_file_upload($element, $question_id) {
+        $settings = $element['settings'] ?? array();
+        $accept = $settings['accept'] ?? 'image/*';
+        $max_size = $settings['max_size'] ?? '5MB';
+        $multiple = $settings['multiple'] ?? false;
+        ?>
+        <div class="sfq-freestyle-file-wrapper">
+            <div class="sfq-file-upload-area" data-element-id="<?php echo $element['id']; ?>">
+                <input type="file" 
+                       name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]<?php echo $multiple ? '[]' : ''; ?>"
+                       id="element_<?php echo $element['id']; ?>"
+                       class="sfq-file-input"
+                       accept="<?php echo esc_attr($accept); ?>"
+                       <?php echo $multiple ? 'multiple' : ''; ?>>
+                
+                <div class="sfq-file-upload-content">
+                    <div class="sfq-file-icon">📤</div>
+                    <div class="sfq-file-text">
+                        <span class="sfq-file-main"><?php _e('Haz clic para subir archivo', 'smart-forms-quiz'); ?></span>
+                        <span class="sfq-file-sub"><?php printf(__('Máximo %s', 'smart-forms-quiz'), esc_html($max_size)); ?></span>
+                    </div>
+                </div>
+                
+                <div class="sfq-file-preview" style="display: none;"></div>
+            </div>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Renderizar elemento de botón freestyle
+     */
+    private function render_freestyle_button($element, $question_id) {
+        $settings = $element['settings'] ?? array();
+        $button_text = $settings['button_text'] ?? $element['label'] ?? __('Botón', 'smart-forms-quiz');
+        $button_url = $settings['button_url'] ?? '';
+        $button_style = $settings['button_style'] ?? 'primary';
+        $open_new_tab = $settings['open_new_tab'] ?? false;
+        ?>
+        <div class="sfq-freestyle-button-wrapper">
+            <?php if (!empty($button_url)) : ?>
+                <a href="<?php echo esc_url($button_url); ?>" 
+                   class="sfq-freestyle-button sfq-button-<?php echo esc_attr($button_style); ?>"
+                   <?php echo $open_new_tab ? 'target="_blank" rel="noopener"' : ''; ?>
+                   data-element-id="<?php echo $element['id']; ?>">
+                    <?php echo esc_html($button_text); ?>
+                </a>
+            <?php else : ?>
+                <button type="button" 
+                        class="sfq-freestyle-button sfq-button-<?php echo esc_attr($button_style); ?>"
+                        data-element-id="<?php echo $element['id']; ?>">
+                    <?php echo esc_html($button_text); ?>
+                </button>
+            <?php endif; ?>
+            
+            <input type="hidden" 
+                   name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
+                   value=""
+                   class="sfq-button-click-tracker">
+        </div>
+        <?php
+    }
+    
+    /**
+     * Renderizar elemento de valoración freestyle
+     */
+    private function render_freestyle_rating($element, $question_id) {
+        $settings = $element['settings'] ?? array();
+        $rating_type = $settings['rating_type'] ?? 'stars';
+        $max_rating = $settings['max_rating'] ?? 5;
+        $icons = $settings['icons'] ?? array();
+        ?>
+        <div class="sfq-freestyle-rating-wrapper" 
+             data-element-id="<?php echo $element['id']; ?>" 
+             data-type="<?php echo esc_attr($rating_type); ?>">
+            
+            <?php if ($rating_type === 'stars') : ?>
+                <div class="sfq-freestyle-stars">
+                    <?php for ($i = 1; $i <= $max_rating; $i++) : ?>
+                        <button class="sfq-freestyle-star" 
+                                data-value="<?php echo $i; ?>" 
+                                type="button">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                            </svg>
+                        </button>
+                    <?php endfor; ?>
+                </div>
+            <?php elseif ($rating_type === 'hearts') : ?>
+                <div class="sfq-freestyle-hearts">
+                    <?php for ($i = 1; $i <= $max_rating; $i++) : ?>
+                        <button class="sfq-freestyle-heart" 
+                                data-value="<?php echo $i; ?>" 
+                                type="button">❤️</button>
+                    <?php endfor; ?>
+                </div>
+            <?php else : ?>
+                <div class="sfq-freestyle-emojis">
+                    <?php 
+                    $default_emojis = array('😞', '😐', '🙂', '😊', '😍');
+                    for ($i = 1; $i <= $max_rating; $i++) : 
+                        $emoji = $icons[$i-1] ?? $default_emojis[$i-1] ?? '⭐';
+                    ?>
+                        <button class="sfq-freestyle-emoji" 
+                                data-value="<?php echo $i; ?>" 
+                                type="button"><?php echo $emoji; ?></button>
+                    <?php endfor; ?>
+                </div>
+            <?php endif; ?>
+            
+            <input type="hidden" 
+                   name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
+                   value=""
+                   class="sfq-rating-value">
+        </div>
+        <?php
+    }
+    
+    /**
+     * Renderizar elemento desplegable freestyle
+     */
+    private function render_freestyle_dropdown($element, $question_id) {
+        $settings = $element['settings'] ?? array();
+        $options = $settings['options'] ?? array();
+        $placeholder = $settings['placeholder'] ?? __('Selecciona una opción...', 'smart-forms-quiz');
+        ?>
+        <div class="sfq-freestyle-dropdown-wrapper">
+            <select name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
+                    id="element_<?php echo $element['id']; ?>"
+                    class="sfq-freestyle-select">
+                <option value=""><?php echo esc_html($placeholder); ?></option>
+                <?php foreach ($options as $option) : ?>
+                    <option value="<?php echo esc_attr($option['value'] ?? $option['text']); ?>">
+                        <?php echo esc_html($option['text']); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Renderizar elemento checkbox freestyle
+     */
+    private function render_freestyle_checkbox($element, $question_id) {
+        $settings = $element['settings'] ?? array();
+        $checkbox_text = $settings['checkbox_text'] ?? $element['label'] ?? '';
+        $required_check = $settings['required_check'] ?? false;
+        ?>
+        <div class="sfq-freestyle-checkbox-wrapper">
+            <label class="sfq-freestyle-checkbox-label">
+                <input type="checkbox" 
+                       name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
+                       id="element_<?php echo $element['id']; ?>"
+                       class="sfq-freestyle-checkbox"
+                       value="checked"
+                       <?php echo $required_check ? 'required' : ''; ?>>
+                
+                <span class="sfq-checkbox-custom">
+                    <svg class="sfq-checkbox-icon" viewBox="0 0 24 24">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                    </svg>
+                </span>
+                
+                <?php if (!empty($checkbox_text)) : ?>
+                    <span class="sfq-checkbox-text"><?php echo esc_html($checkbox_text); ?></span>
+                <?php endif; ?>
+            </label>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Renderizar elemento de cuenta atrás freestyle
+     */
+    private function render_freestyle_countdown($element, $question_id) {
+        $settings = $element['settings'] ?? array();
+        $target_date = $settings['target_date'] ?? '';
+        $countdown_text = $settings['countdown_text'] ?? __('Tiempo restante:', 'smart-forms-quiz');
+        $finished_text = $settings['finished_text'] ?? __('¡Tiempo agotado!', 'smart-forms-quiz');
+        
+        if (empty($target_date)) {
+            echo '<p class="sfq-countdown-error">' . __('Fecha objetivo no configurada', 'smart-forms-quiz') . '</p>';
+            return;
+        }
+        ?>
+        <div class="sfq-freestyle-countdown-wrapper" data-element-id="<?php echo $element['id']; ?>">
+            <?php if (!empty($countdown_text)) : ?>
+                <div class="sfq-countdown-text"><?php echo esc_html($countdown_text); ?></div>
+            <?php endif; ?>
+            
+            <div class="sfq-freestyle-countdown" 
+                 data-target-date="<?php echo esc_attr($target_date); ?>"
+                 data-finished-text="<?php echo esc_attr($finished_text); ?>">
+                <div class="sfq-countdown-units">
+                    <div class="sfq-countdown-unit">
+                        <span class="sfq-countdown-number" data-unit="days">0</span>
+                        <span class="sfq-countdown-label"><?php _e('días', 'smart-forms-quiz'); ?></span>
+                    </div>
+                    <div class="sfq-countdown-unit">
+                        <span class="sfq-countdown-number" data-unit="hours">0</span>
+                        <span class="sfq-countdown-label"><?php _e('horas', 'smart-forms-quiz'); ?></span>
+                    </div>
+                    <div class="sfq-countdown-unit">
+                        <span class="sfq-countdown-number" data-unit="minutes">0</span>
+                        <span class="sfq-countdown-label"><?php _e('min', 'smart-forms-quiz'); ?></span>
+                    </div>
+                    <div class="sfq-countdown-unit">
+                        <span class="sfq-countdown-number" data-unit="seconds">0</span>
+                        <span class="sfq-countdown-label"><?php _e('seg', 'smart-forms-quiz'); ?></span>
+                    </div>
+                </div>
+            </div>
+            
+            <input type="hidden" 
+                   name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
+                   value="countdown_displayed"
+                   class="sfq-countdown-tracker">
+        </div>
+        <?php
+    }
+    
+    /**
+     * Renderizar elemento de texto legal freestyle
+     */
+    private function render_freestyle_legal_text($element, $question_id) {
+        $settings = $element['settings'] ?? array();
+        $text_content = $settings['text_content'] ?? '';
+        $require_acceptance = $settings['require_acceptance'] ?? false;
+        $acceptance_text = $settings['acceptance_text'] ?? __('He leído y acepto', 'smart-forms-quiz');
+        
+        if (empty($text_content)) {
+            echo '<p class="sfq-legal-error">' . __('Contenido del texto legal no configurado', 'smart-forms-quiz') . '</p>';
+            return;
+        }
+        ?>
+        <div class="sfq-freestyle-legal-wrapper">
+            <div class="sfq-legal-content">
+                <?php echo wp_kses_post($text_content); ?>
+            </div>
+            
+            <?php if ($require_acceptance) : ?>
+                <div class="sfq-legal-acceptance">
+                    <label class="sfq-legal-acceptance-label">
+                        <input type="checkbox" 
+                               name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
+                               id="element_<?php echo $element['id']; ?>"
+                               class="sfq-legal-checkbox"
+                               value="accepted"
+                               required>
+                        
+                        <span class="sfq-checkbox-custom">
+                            <svg class="sfq-checkbox-icon" viewBox="0 0 24 24">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                            </svg>
+                        </span>
+                        
+                        <span class="sfq-acceptance-text"><?php echo esc_html($acceptance_text); ?></span>
+                    </label>
+                </div>
+            <?php else : ?>
+                <input type="hidden" 
+                       name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
+                       value="legal_text_displayed">
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Verificar si un tipo de elemento requiere validación
+     */
+    private function is_required_element_type($element_type) {
+        $required_types = array('text', 'email', 'phone', 'dropdown', 'rating');
+        return in_array($element_type, $required_types);
     }
     
     /**

@@ -201,24 +201,28 @@
             let html = '';
             
             questions.forEach((question, index) => {
-                const chartId = `chart-question-${index}`;
-                
-                html += `
-                    <div class="sfq-question-stat-card">
-                        <div class="sfq-question-header">
-                            <h3>${this.escapeHtml(question.question_text)}</h3>
-                            <span class="sfq-response-count">${question.total_responses} respuestas</span>
-                        </div>
-                        <div class="sfq-question-content">
-                            <div class="sfq-options-list">
-                                ${this.renderOptions(question.options, index)}
+                if (question.question_type === 'freestyle') {
+                    html += this.renderFreestyleQuestion(question, index);
+                } else {
+                    const chartId = `chart-question-${index}`;
+                    
+                    html += `
+                        <div class="sfq-question-stat-card">
+                            <div class="sfq-question-header">
+                                <h3>${this.escapeHtml(question.question_text)}</h3>
+                                <span class="sfq-response-count">${question.total_responses} respuestas</span>
                             </div>
-                            <div class="sfq-chart-container">
-                                <canvas id="${chartId}" width="300" height="300"></canvas>
+                            <div class="sfq-question-content">
+                                <div class="sfq-options-list">
+                                    ${this.renderOptions(question.options, index)}
+                                </div>
+                                <div class="sfq-chart-container">
+                                    <canvas id="${chartId}" width="300" height="300"></canvas>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                }
             });
             
             container.html(html);
@@ -229,12 +233,17 @@
             // Create charts for each question after DOM is updated
             setTimeout(() => {
                 questions.forEach((question, index) => {
-                    const chartId = `chart-question-${index}`;
-                    this.createQuestionChart(question, chartId);
+                    if (question.question_type !== 'freestyle') {
+                        const chartId = `chart-question-${index}`;
+                        this.createQuestionChart(question, chartId);
+                    }
                 });
                 
                 // Bind country toggle events
                 this.bindCountryToggleEvents();
+                
+                // Bind freestyle events
+                this.bindFreestyleEvents();
             }, 100);
         }
 
@@ -1003,6 +1012,641 @@
                 "'": '&#039;'
             };
             return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        /**
+         * Renderizar pregunta freestyle
+         */
+        renderFreestyleQuestion(question, questionIndex) {
+            const questionId = `freestyle-question-${questionIndex}`;
+            
+            let html = `
+                <div class="sfq-freestyle-question-card">
+                    <div class="sfq-freestyle-header">
+                        <div class="sfq-freestyle-title">
+                            <span class="sfq-freestyle-icon">🎨</span>
+                            <h3>${this.escapeHtml(question.question_text)}</h3>
+                        </div>
+                        <div class="sfq-freestyle-summary">
+                            <span class="sfq-total-responses">${question.total_responses} respuestas</span>
+                            <span class="sfq-elements-count">${question.elements.length} elementos</span>
+                        </div>
+                        <div class="sfq-freestyle-actions">
+                            <button class="sfq-expand-all-elements" data-question="${questionIndex}">
+                                <span class="dashicons dashicons-arrow-down-alt2"></span>
+                                <span class="sfq-expand-text">Expandir Todo</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="sfq-freestyle-elements" id="${questionId}">
+            `;
+            
+            // Renderizar cada elemento
+            question.elements.forEach((element, elementIndex) => {
+                html += this.renderFreestyleElement(element, questionIndex, elementIndex);
+            });
+            
+            html += `
+                    </div>
+                </div>
+            `;
+            
+            return html;
+        }
+
+        /**
+         * Renderizar elemento freestyle individual
+         */
+        renderFreestyleElement(element, questionIndex, elementIndex) {
+            const elementId = `element-${questionIndex}-${elementIndex}`;
+            const elementIcon = this.getElementIcon(element.type);
+            
+            let html = `
+                <div class="sfq-freestyle-element" data-element-type="${element.type}">
+                    <div class="sfq-element-header" data-toggle="${elementId}">
+                        <div class="sfq-element-info">
+                            <span class="sfq-element-icon">${elementIcon}</span>
+                            <span class="sfq-element-label">${this.escapeHtml(element.label)}</span>
+                            <span class="sfq-element-type">(${this.getElementTypeName(element.type)})</span>
+                        </div>
+                        <div class="sfq-element-stats">
+                            <span class="sfq-element-responses">${element.total_responses} respuestas</span>
+                            <span class="sfq-element-toggle">
+                                <span class="dashicons dashicons-arrow-down-alt2"></span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="sfq-element-content" id="${elementId}" style="display: none;">
+                        ${this.renderElementStats(element)}
+                    </div>
+                </div>
+            `;
+            
+            return html;
+        }
+
+        /**
+         * Renderizar estadísticas específicas del elemento
+         */
+        renderElementStats(element) {
+            switch (element.type) {
+                case 'text':
+                case 'email':
+                case 'phone':
+                    return this.renderTextElementStats(element);
+                    
+                case 'rating':
+                    return this.renderRatingElementStats(element);
+                    
+                case 'dropdown':
+                    return this.renderDropdownElementStats(element);
+                    
+                case 'checkbox':
+                    return this.renderCheckboxElementStats(element);
+                    
+                case 'button':
+                case 'image':
+                    return this.renderInteractionElementStats(element);
+                    
+                case 'file_upload':
+                    return this.renderFileElementStats(element);
+                    
+                case 'legal_text':
+                    return this.renderLegalElementStats(element);
+                    
+                default:
+                    return this.renderGenericElementStats(element);
+            }
+        }
+
+        /**
+         * Renderizar estadísticas de elementos de texto
+         */
+        renderTextElementStats(element) {
+            let html = `
+                <div class="sfq-element-stats-grid">
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.total_responses}</div>
+                        <div class="sfq-stat-label">Total Respuestas</div>
+                    </div>
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.unique_responses || 0}</div>
+                        <div class="sfq-stat-label">Respuestas Únicas</div>
+                    </div>
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.avg_length || 0}</div>
+                        <div class="sfq-stat-label">Longitud Promedio</div>
+                    </div>
+                </div>
+            `;
+
+            // Mostrar respuestas más comunes
+            if (element.most_common && element.most_common.length > 0) {
+                html += `
+                    <div class="sfq-most-common">
+                        <h5>Respuestas Más Comunes</h5>
+                        <div class="sfq-common-list">
+                `;
+                
+                element.most_common.forEach(item => {
+                    html += `
+                        <div class="sfq-common-item">
+                            <span class="sfq-common-text">${this.escapeHtml(item.value)}</span>
+                            <span class="sfq-common-stats">${item.count} (${item.percentage}%)</span>
+                            <div class="sfq-common-bar">
+                                <div class="sfq-common-bar-fill" style="width: ${item.percentage}%"></div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Análisis específico para emails
+            if (element.type === 'email' && element.specific_stats && element.specific_stats.top_domains) {
+                html += `
+                    <div class="sfq-email-domains">
+                        <h5>Dominios Más Comunes</h5>
+                        <div class="sfq-domains-list">
+                `;
+                
+                Object.entries(element.specific_stats.top_domains).forEach(([domain, count]) => {
+                    const percentage = element.total_responses > 0 ? 
+                        Math.round((count / element.total_responses) * 100) : 0;
+                    html += `
+                        <div class="sfq-domain-item">
+                            <span class="sfq-domain-name">@${domain}</span>
+                            <span class="sfq-domain-count">${count} (${percentage}%)</span>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+
+            return html;
+        }
+
+        /**
+         * Renderizar estadísticas de elementos rating
+         */
+        renderRatingElementStats(element) {
+            const chartId = `rating-chart-${element.id}`;
+            
+            let html = `
+                <div class="sfq-element-stats-grid">
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.total_responses}</div>
+                        <div class="sfq-stat-label">Total Respuestas</div>
+                    </div>
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.average_rating || 0}</div>
+                        <div class="sfq-stat-label">Promedio</div>
+                    </div>
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.max_rating || 5}</div>
+                        <div class="sfq-stat-label">Máximo</div>
+                    </div>
+                </div>
+                
+                <div class="sfq-rating-distribution">
+                    <h5>Distribución de Puntuaciones</h5>
+                    <div class="sfq-rating-bars">
+            `;
+
+            if (element.distribution) {
+                element.distribution.forEach(item => {
+                    html += `
+                        <div class="sfq-rating-bar-item">
+                            <span class="sfq-rating-label">${item.label}</span>
+                            <div class="sfq-rating-bar">
+                                <div class="sfq-rating-bar-fill" style="width: ${item.percentage}%"></div>
+                            </div>
+                            <span class="sfq-rating-count">${item.count} (${item.percentage}%)</span>
+                        </div>
+                    `;
+                });
+            }
+
+            html += `
+                    </div>
+                </div>
+                
+                <div class="sfq-chart-container">
+                    <canvas id="${chartId}" width="300" height="200"></canvas>
+                </div>
+            `;
+
+            // Crear gráfico después de que se renderice
+            setTimeout(() => {
+                this.createRatingChart(element, chartId);
+            }, 100);
+
+            return html;
+        }
+
+        /**
+         * Renderizar estadísticas de elementos dropdown
+         */
+        renderDropdownElementStats(element) {
+            const chartId = `dropdown-chart-${element.id}`;
+            
+            let html = `
+                <div class="sfq-element-stats-grid">
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.total_responses}</div>
+                        <div class="sfq-stat-label">Total Respuestas</div>
+                    </div>
+                </div>
+                
+                <div class="sfq-dropdown-distribution">
+                    <h5>Distribución de Opciones</h5>
+                    <div class="sfq-option-bars">
+            `;
+
+            if (element.distribution) {
+                element.distribution.forEach(item => {
+                    html += `
+                        <div class="sfq-option-bar-item">
+                            <span class="sfq-option-label">${this.escapeHtml(item.option)}</span>
+                            <div class="sfq-option-bar">
+                                <div class="sfq-option-bar-fill" style="width: ${item.percentage}%"></div>
+                            </div>
+                            <span class="sfq-option-count">${item.count} (${item.percentage}%)</span>
+                        </div>
+                    `;
+                });
+            }
+
+            html += `
+                    </div>
+                </div>
+                
+                <div class="sfq-chart-container">
+                    <canvas id="${chartId}" width="300" height="200"></canvas>
+                </div>
+            `;
+
+            // Crear gráfico después de que se renderice
+            setTimeout(() => {
+                this.createDropdownChart(element, chartId);
+            }, 100);
+
+            return html;
+        }
+
+        /**
+         * Renderizar estadísticas de elementos checkbox
+         */
+        renderCheckboxElementStats(element) {
+            const chartId = `checkbox-chart-${element.id}`;
+            
+            return `
+                <div class="sfq-element-stats-grid">
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.total_responses}</div>
+                        <div class="sfq-stat-label">Total Respuestas</div>
+                    </div>
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.checked_count || 0}</div>
+                        <div class="sfq-stat-label">Marcados</div>
+                    </div>
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.checked_percentage || 0}%</div>
+                        <div class="sfq-stat-label">Tasa Aceptación</div>
+                    </div>
+                </div>
+                
+                <div class="sfq-checkbox-visual">
+                    <div class="sfq-checkbox-item ${element.checked_percentage > 50 ? 'majority' : ''}">
+                        <span class="sfq-checkbox-icon">☑️</span>
+                        <span class="sfq-checkbox-label">Marcado</span>
+                        <span class="sfq-checkbox-count">${element.checked_count} (${element.checked_percentage}%)</span>
+                    </div>
+                    <div class="sfq-checkbox-item ${element.unchecked_percentage > 50 ? 'majority' : ''}">
+                        <span class="sfq-checkbox-icon">☐</span>
+                        <span class="sfq-checkbox-label">No marcado</span>
+                        <span class="sfq-checkbox-count">${element.unchecked_count} (${element.unchecked_percentage}%)</span>
+                    </div>
+                </div>
+                
+                <div class="sfq-chart-container">
+                    <canvas id="${chartId}" width="300" height="200"></canvas>
+                </div>
+            `;
+        }
+
+        /**
+         * Renderizar estadísticas de elementos de interacción
+         */
+        renderInteractionElementStats(element) {
+            const actionText = element.action_type === 'clicks' ? 'clicks' : 'interacciones';
+            
+            return `
+                <div class="sfq-element-stats-grid">
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.total_responses}</div>
+                        <div class="sfq-stat-label">Total Respuestas</div>
+                    </div>
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.interaction_count || 0}</div>
+                        <div class="sfq-stat-label">Total ${actionText}</div>
+                    </div>
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.interaction_rate || 0}%</div>
+                        <div class="sfq-stat-label">Tasa de ${actionText}</div>
+                    </div>
+                </div>
+                
+                <div class="sfq-interaction-visual">
+                    <div class="sfq-interaction-bar">
+                        <div class="sfq-interaction-fill" style="width: ${element.interaction_rate || 0}%"></div>
+                        <span class="sfq-interaction-text">${element.interaction_rate || 0}% de usuarios interactuaron</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        /**
+         * Renderizar estadísticas de elementos de archivo
+         */
+        renderFileElementStats(element) {
+            let html = `
+                <div class="sfq-element-stats-grid">
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.total_responses}</div>
+                        <div class="sfq-stat-label">Total Respuestas</div>
+                    </div>
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.files_uploaded || 0}</div>
+                        <div class="sfq-stat-label">Archivos Subidos</div>
+                    </div>
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.upload_rate || 0}%</div>
+                        <div class="sfq-stat-label">Tasa de Subida</div>
+                    </div>
+                </div>
+            `;
+
+            // Mostrar tipos de archivo
+            if (element.file_types && Object.keys(element.file_types).length > 0) {
+                html += `
+                    <div class="sfq-file-types">
+                        <h5>Tipos de Archivo</h5>
+                        <div class="sfq-file-types-list">
+                `;
+                
+                Object.entries(element.file_types).forEach(([extension, count]) => {
+                    const percentage = element.total_files > 0 ? 
+                        Math.round((count / element.total_files) * 100) : 0;
+                    html += `
+                        <div class="sfq-file-type-item">
+                            <span class="sfq-file-extension">.${extension}</span>
+                            <span class="sfq-file-count">${count} archivos (${percentage}%)</span>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+
+            return html;
+        }
+
+        /**
+         * Renderizar estadísticas de elementos legales
+         */
+        renderLegalElementStats(element) {
+            const chartId = `legal-chart-${element.id}`;
+            
+            return `
+                <div class="sfq-element-stats-grid">
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.total_responses}</div>
+                        <div class="sfq-stat-label">Total Respuestas</div>
+                    </div>
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.accepted_count || 0}</div>
+                        <div class="sfq-stat-label">Aceptaron</div>
+                    </div>
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.acceptance_rate || 0}%</div>
+                        <div class="sfq-stat-label">Tasa Aceptación</div>
+                    </div>
+                </div>
+                
+                <div class="sfq-legal-visual">
+                    <div class="sfq-legal-item accepted">
+                        <span class="sfq-legal-icon">✅</span>
+                        <span class="sfq-legal-label">Aceptaron</span>
+                        <span class="sfq-legal-count">${element.accepted_count} (${element.acceptance_rate}%)</span>
+                    </div>
+                    <div class="sfq-legal-item rejected">
+                        <span class="sfq-legal-icon">❌</span>
+                        <span class="sfq-legal-label">Rechazaron</span>
+                        <span class="sfq-legal-count">${element.rejected_count} (${100 - (element.acceptance_rate || 0)}%)</span>
+                    </div>
+                </div>
+                
+                <div class="sfq-chart-container">
+                    <canvas id="${chartId}" width="300" height="200"></canvas>
+                </div>
+            `;
+        }
+
+        /**
+         * Renderizar estadísticas genéricas
+         */
+        renderGenericElementStats(element) {
+            return `
+                <div class="sfq-element-stats-grid">
+                    <div class="sfq-stat-card">
+                        <div class="sfq-stat-value">${element.total_responses}</div>
+                        <div class="sfq-stat-label">Total Respuestas</div>
+                    </div>
+                </div>
+                
+                <div class="sfq-generic-note">
+                    <p>${element.note || 'Estadísticas no disponibles para este tipo de elemento.'}</p>
+                </div>
+            `;
+        }
+
+        /**
+         * Obtener icono para tipo de elemento
+         */
+        getElementIcon(type) {
+            const icons = {
+                'text': '📝',
+                'email': '📧',
+                'phone': '📞',
+                'rating': '⭐',
+                'dropdown': '📊',
+                'checkbox': '☑️',
+                'button': '🔘',
+                'image': '🖼️',
+                'video': '🎬',
+                'file_upload': '📁',
+                'countdown': '⏰',
+                'legal_text': '📋'
+            };
+            return icons[type] || '❓';
+        }
+
+        /**
+         * Obtener nombre legible del tipo de elemento
+         */
+        getElementTypeName(type) {
+            const names = {
+                'text': 'Texto',
+                'email': 'Email',
+                'phone': 'Teléfono',
+                'rating': 'Valoración',
+                'dropdown': 'Desplegable',
+                'checkbox': 'Checkbox',
+                'button': 'Botón',
+                'image': 'Imagen',
+                'video': 'Video',
+                'file_upload': 'Subir Archivo',
+                'countdown': 'Cuenta Atrás',
+                'legal_text': 'Texto Legal'
+            };
+            return names[type] || 'Desconocido';
+        }
+
+        /**
+         * Crear gráfico para elemento rating
+         */
+        createRatingChart(element, canvasId) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas || !element.distribution) return;
+
+            const ctx = canvas.getContext('2d');
+            const labels = element.distribution.map(item => item.label);
+            const data = element.distribution.map(item => item.count);
+            const colors = this.generateColors(data.length);
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors,
+                        borderWidth: 1,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        /**
+         * Crear gráfico para elemento dropdown
+         */
+        createDropdownChart(element, canvasId) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas || !element.distribution) return;
+
+            const ctx = canvas.getContext('2d');
+            const labels = element.distribution.map(item => 
+                item.option.length > 15 ? item.option.substring(0, 15) + '...' : item.option
+            );
+            const data = element.distribution.map(item => item.count);
+            const colors = this.generateColors(data.length);
+
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { padding: 10, font: { size: 11 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * Vincular eventos para elementos freestyle
+         */
+        bindFreestyleEvents() {
+            // Toggle individual elements
+            $(document).off('click', '.sfq-element-header').on('click', '.sfq-element-header', (e) => {
+                e.preventDefault();
+                const header = $(e.currentTarget);
+                const targetId = header.data('toggle');
+                const content = $(`#${targetId}`);
+                const toggleIcon = header.find('.sfq-element-toggle .dashicons');
+                
+                if (content.is(':visible')) {
+                    content.slideUp(200);
+                    toggleIcon.removeClass('dashicons-arrow-up-alt2').addClass('dashicons-arrow-down-alt2');
+                } else {
+                    content.slideDown(200);
+                    toggleIcon.removeClass('dashicons-arrow-down-alt2').addClass('dashicons-arrow-up-alt2');
+                }
+            });
+
+            // Expand/collapse all elements in a freestyle question
+            $(document).off('click', '.sfq-expand-all-elements').on('click', '.sfq-expand-all-elements', (e) => {
+                e.preventDefault();
+                const button = $(e.currentTarget);
+                const questionIndex = button.data('question');
+                const questionCard = button.closest('.sfq-freestyle-question-card');
+                const allContents = questionCard.find('.sfq-element-content');
+                const allToggleIcons = questionCard.find('.sfq-element-toggle .dashicons');
+                const buttonIcon = button.find('.dashicons');
+                const buttonText = button.find('.sfq-expand-text');
+                
+                // Check if any are visible
+                const anyVisible = allContents.filter(':visible').length > 0;
+                
+                if (anyVisible) {
+                    // Collapse all
+                    allContents.slideUp(200);
+                    allToggleIcons.removeClass('dashicons-arrow-up-alt2').addClass('dashicons-arrow-down-alt2');
+                    buttonIcon.removeClass('dashicons-arrow-up-alt2').addClass('dashicons-arrow-down-alt2');
+                    buttonText.text('Expandir Todo');
+                } else {
+                    // Expand all
+                    allContents.slideDown(200);
+                    allToggleIcons.removeClass('dashicons-arrow-down-alt2').addClass('dashicons-arrow-up-alt2');
+                    buttonIcon.removeClass('dashicons-arrow-down-alt2').addClass('dashicons-arrow-up-alt2');
+                    buttonText.text('Colapsar Todo');
+                }
+            });
         }
     }
 

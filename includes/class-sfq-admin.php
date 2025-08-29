@@ -794,6 +794,10 @@ class SFQ_Admin {
                                     <span class="dashicons dashicons-email"></span>
                                     <?php _e('Email', 'smart-forms-quiz'); ?>
                                 </button>
+                                <button class="sfq-add-question" data-type="freestyle">
+                                    <span class="dashicons dashicons-admin-tools"></span>
+                                    <?php _e('Estilo Libre', 'smart-forms-quiz'); ?>
+                                </button>
                             </div>
                         </div>
                     </div>

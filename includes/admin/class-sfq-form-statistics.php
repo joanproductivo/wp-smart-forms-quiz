@@ -601,6 +601,11 @@ class SFQ_Form_Statistics {
                         'countries_data' => $countries_data
                     );
                 }
+            } else if ($question->question_type === 'freestyle') {
+                // NUEVO: Procesar preguntas freestyle
+                $freestyle_stats = $this->calculate_freestyle_stats($question, $form_id, $date_condition);
+                $questions_stats[] = $freestyle_stats;
+                continue; // Saltar procesamiento normal
             } else {
                 // Para preguntas de texto, email, etc.
                 // Contar unique submissions para estos tipos también
@@ -1267,6 +1272,460 @@ class SFQ_Form_Statistics {
             $hours = floor($seconds / 3600);
             $minutes = floor(($seconds % 3600) / 60);
             return $hours . 'h ' . $minutes . 'm';
+        }
+    }
+    
+    /**
+     * Calcular estadísticas para preguntas freestyle
+     */
+    private function calculate_freestyle_stats($question, $form_id, $date_condition) {
+        // Obtener elementos freestyle de la pregunta
+        $freestyle_elements = json_decode($question->options, true) ?: [];
+        
+        // Obtener todas las respuestas para esta pregunta
+        $responses = $this->get_freestyle_responses($question->id, $form_id, $date_condition);
+        
+        $elements_stats = [];
+        
+        foreach ($freestyle_elements as $element) {
+            $element_stats = $this->process_freestyle_element(
+                $element, 
+                $responses, 
+                $date_condition
+            );
+            $elements_stats[] = $element_stats;
+        }
+        
+        return [
+            'question_id' => $question->id,
+            'question_text' => $question->question_text,
+            'question_type' => 'freestyle',
+            'total_responses' => count($responses),
+            'elements' => $elements_stats
+        ];
+    }
+    
+    /**
+     * Obtener respuestas freestyle con datos de país
+     */
+    private function get_freestyle_responses($question_id, $form_id, $date_condition) {
+        global $wpdb;
+        
+        $query = "SELECT r.answer, s.user_ip, s.id as submission_id
+                  FROM {$wpdb->prefix}sfq_responses r
+                  LEFT JOIN {$wpdb->prefix}sfq_submissions s ON r.submission_id = s.id
+                  WHERE r.question_id = %d 
+                  AND s.form_id = %d 
+                  AND s.status = 'completed'";
+        
+        $params = [$question_id, $form_id];
+        
+        if (!empty($date_condition['params'])) {
+            $query .= $date_condition['where'];
+            $params = array_merge($params, $date_condition['params']);
+        }
+        
+        return $wpdb->get_results($wpdb->prepare($query, $params));
+    }
+    
+    /**
+     * Procesar estadísticas de un elemento freestyle específico
+     */
+    private function process_freestyle_element($element, $responses, $date_condition) {
+        $element_id = $element['id'];
+        $element_type = $element['type'];
+        $element_label = $element['label'] ?? 'Sin etiqueta';
+        
+        // Extraer respuestas para este elemento específico
+        $element_responses = [];
+        foreach ($responses as $response) {
+            $answer_data = json_decode($response->answer, true);
+            if (isset($answer_data[$element_id])) {
+                $element_responses[] = [
+                    'value' => $answer_data[$element_id],
+                    'user_ip' => $response->user_ip,
+                    'submission_id' => $response->submission_id
+                ];
+            }
+        }
+        
+        // Procesar según tipo de elemento
+        switch ($element_type) {
+            case 'text':
+            case 'email':
+            case 'phone':
+                return $this->process_text_element($element, $element_responses);
+                
+            case 'rating':
+                return $this->process_rating_element($element, $element_responses);
+                
+            case 'dropdown':
+                return $this->process_dropdown_element($element, $element_responses);
+                
+            case 'checkbox':
+                return $this->process_checkbox_element($element, $element_responses);
+                
+            case 'button':
+            case 'image':
+                return $this->process_interaction_element($element, $element_responses);
+                
+            case 'file_upload':
+                return $this->process_file_element($element, $element_responses);
+                
+            case 'countdown':
+                return $this->process_countdown_element($element, $element_responses);
+                
+            case 'legal_text':
+                return $this->process_legal_element($element, $element_responses);
+                
+            default:
+                return $this->process_generic_element($element, $element_responses);
+        }
+    }
+    
+    /**
+     * Procesar elementos de texto (text, email, phone)
+     */
+    private function process_text_element($element, $element_responses) {
+        $total_responses = count($element_responses);
+        $values = array_column($element_responses, 'value');
+        $values = array_filter($values, function($v) { return !empty(trim($v)); });
+        
+        // Contar valores únicos
+        $unique_values = array_unique($values);
+        $unique_count = count($unique_values);
+        
+        // Encontrar valores más comunes
+        $value_counts = array_count_values($values);
+        arsort($value_counts);
+        $most_common = [];
+        
+        $i = 0;
+        foreach ($value_counts as $value => $count) {
+            if ($i >= 5) break; // Top 5
+            $percentage = $total_responses > 0 ? round(($count / $total_responses) * 100, 1) : 0;
+            $most_common[] = [
+                'value' => substr($value, 0, 50) . (strlen($value) > 50 ? '...' : ''),
+                'count' => $count,
+                'percentage' => $percentage
+            ];
+            $i++;
+        }
+        
+        // Calcular longitud promedio
+        $avg_length = 0;
+        if (!empty($values)) {
+            $total_length = array_sum(array_map('strlen', $values));
+            $avg_length = round($total_length / count($values), 1);
+        }
+        
+        // Análisis específico por tipo
+        $specific_stats = [];
+        if ($element['type'] === 'email') {
+            // Análisis de dominios para emails
+            $domains = [];
+            foreach ($values as $email) {
+                if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    $domain = substr(strrchr($email, "@"), 1);
+                    $domains[] = $domain;
+                }
+            }
+            $domain_counts = array_count_values($domains);
+            arsort($domain_counts);
+            $specific_stats['top_domains'] = array_slice($domain_counts, 0, 5, true);
+        }
+        
+        return [
+            'id' => $element['id'],
+            'type' => $element['type'],
+            'label' => $element['label'],
+            'total_responses' => $total_responses,
+            'unique_responses' => $unique_count,
+            'most_common' => $most_common,
+            'avg_length' => $avg_length,
+            'specific_stats' => $specific_stats
+        ];
+    }
+    
+    /**
+     * Procesar elementos de rating
+     */
+    private function process_rating_element($element, $element_responses) {
+        $total_responses = count($element_responses);
+        $values = array_map('intval', array_column($element_responses, 'value'));
+        $values = array_filter($values, function($v) { return $v > 0; });
+        
+        $max_rating = intval($element['settings']['max_rating'] ?? 5);
+        $rating_type = $element['settings']['rating_type'] ?? 'stars';
+        
+        // Calcular distribución
+        $distribution = [];
+        $total_score = 0;
+        
+        for ($i = 1; $i <= $max_rating; $i++) {
+            $count = count(array_filter($values, function($v) use ($i) { return $v == $i; }));
+            $percentage = $total_responses > 0 ? round(($count / $total_responses) * 100, 1) : 0;
+            
+            $distribution[] = [
+                'rating' => $i,
+                'count' => $count,
+                'percentage' => $percentage,
+                'label' => $this->get_rating_label($i, $rating_type)
+            ];
+            
+            $total_score += ($i * $count);
+        }
+        
+        // Calcular promedio
+        $average = $total_responses > 0 ? round($total_score / $total_responses, 2) : 0;
+        
+        return [
+            'id' => $element['id'],
+            'type' => $element['type'],
+            'label' => $element['label'],
+            'total_responses' => $total_responses,
+            'average_rating' => $average,
+            'max_rating' => $max_rating,
+            'rating_type' => $rating_type,
+            'distribution' => $distribution
+        ];
+    }
+    
+    /**
+     * Procesar elementos dropdown
+     */
+    private function process_dropdown_element($element, $element_responses) {
+        $total_responses = count($element_responses);
+        $values = array_column($element_responses, 'value');
+        $values = array_filter($values, function($v) { return !empty(trim($v)); });
+        
+        // Obtener opciones configuradas
+        $configured_options = $element['settings']['options'] ?? [];
+        $option_counts = [];
+        
+        // Inicializar contadores para todas las opciones configuradas
+        foreach ($configured_options as $option) {
+            $option_value = is_array($option) ? ($option['value'] ?? $option['text']) : $option;
+            $option_counts[$option_value] = 0;
+        }
+        
+        // Contar respuestas
+        foreach ($values as $value) {
+            if (isset($option_counts[$value])) {
+                $option_counts[$value]++;
+            } else {
+                // Opción no configurada (respuesta libre o error)
+                $option_counts[$value] = ($option_counts[$value] ?? 0) + 1;
+            }
+        }
+        
+        // Crear distribución
+        $distribution = [];
+        foreach ($option_counts as $option => $count) {
+            $percentage = $total_responses > 0 ? round(($count / $total_responses) * 100, 1) : 0;
+            $distribution[] = [
+                'option' => $option,
+                'count' => $count,
+                'percentage' => $percentage
+            ];
+        }
+        
+        // Ordenar por cantidad
+        usort($distribution, function($a, $b) {
+            return $b['count'] - $a['count'];
+        });
+        
+        return [
+            'id' => $element['id'],
+            'type' => $element['type'],
+            'label' => $element['label'],
+            'total_responses' => $total_responses,
+            'distribution' => $distribution
+        ];
+    }
+    
+    /**
+     * Procesar elementos checkbox
+     */
+    private function process_checkbox_element($element, $element_responses) {
+        $total_responses = count($element_responses);
+        $values = array_column($element_responses, 'value');
+        
+        $checked_count = 0;
+        $unchecked_count = 0;
+        
+        foreach ($values as $value) {
+            if ($value === 'checked' || $value === '1' || $value === true || $value === 'true') {
+                $checked_count++;
+            } else {
+                $unchecked_count++;
+            }
+        }
+        
+        $checked_percentage = $total_responses > 0 ? round(($checked_count / $total_responses) * 100, 1) : 0;
+        $unchecked_percentage = 100 - $checked_percentage;
+        
+        return [
+            'id' => $element['id'],
+            'type' => $element['type'],
+            'label' => $element['label'],
+            'total_responses' => $total_responses,
+            'checked_count' => $checked_count,
+            'unchecked_count' => $unchecked_count,
+            'checked_percentage' => $checked_percentage,
+            'unchecked_percentage' => $unchecked_percentage
+        ];
+    }
+    
+    /**
+     * Procesar elementos de interacción (button, image)
+     */
+    private function process_interaction_element($element, $element_responses) {
+        $total_responses = count($element_responses);
+        $values = array_column($element_responses, 'value');
+        
+        $interaction_count = 0;
+        foreach ($values as $value) {
+            if ($value === 'clicked' || strpos($value, 'clicked') !== false) {
+                $interaction_count++;
+            }
+        }
+        
+        $interaction_rate = $total_responses > 0 ? round(($interaction_count / $total_responses) * 100, 1) : 0;
+        
+        return [
+            'id' => $element['id'],
+            'type' => $element['type'],
+            'label' => $element['label'],
+            'total_responses' => $total_responses,
+            'interaction_count' => $interaction_count,
+            'interaction_rate' => $interaction_rate,
+            'action_type' => $element['type'] === 'button' ? 'clicks' : 'views'
+        ];
+    }
+    
+    /**
+     * Procesar elementos de archivo
+     */
+    private function process_file_element($element, $element_responses) {
+        $total_responses = count($element_responses);
+        $values = array_column($element_responses, 'value');
+        
+        $files_uploaded = 0;
+        $file_types = [];
+        $total_files = 0;
+        
+        foreach ($values as $value) {
+            if (!empty($value)) {
+                $files = is_array($value) ? $value : json_decode($value, true);
+                if (is_array($files) && !empty($files)) {
+                    $files_uploaded++;
+                    $total_files += count($files);
+                    
+                    // Analizar tipos de archivo
+                    foreach ($files as $filename) {
+                        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                        $file_types[$extension] = ($file_types[$extension] ?? 0) + 1;
+                    }
+                }
+            }
+        }
+        
+        $upload_rate = $total_responses > 0 ? round(($files_uploaded / $total_responses) * 100, 1) : 0;
+        
+        // Ordenar tipos de archivo por frecuencia
+        arsort($file_types);
+        
+        return [
+            'id' => $element['id'],
+            'type' => $element['type'],
+            'label' => $element['label'],
+            'total_responses' => $total_responses,
+            'files_uploaded' => $files_uploaded,
+            'upload_rate' => $upload_rate,
+            'total_files' => $total_files,
+            'file_types' => array_slice($file_types, 0, 5, true)
+        ];
+    }
+    
+    /**
+     * Procesar elementos countdown
+     */
+    private function process_countdown_element($element, $element_responses) {
+        $total_responses = count($element_responses);
+        
+        // Para countdown, el valor puede contener información sobre el tiempo restante
+        // cuando se completó el formulario
+        
+        return [
+            'id' => $element['id'],
+            'type' => $element['type'],
+            'label' => $element['label'],
+            'total_responses' => $total_responses,
+            'note' => 'Estadísticas de countdown en desarrollo'
+        ];
+    }
+    
+    /**
+     * Procesar elementos legales
+     */
+    private function process_legal_element($element, $element_responses) {
+        $total_responses = count($element_responses);
+        $values = array_column($element_responses, 'value');
+        
+        $accepted_count = 0;
+        $rejected_count = 0;
+        
+        foreach ($values as $value) {
+            if ($value === 'checked' || $value === '1' || $value === true || $value === 'true') {
+                $accepted_count++;
+            } else {
+                $rejected_count++;
+            }
+        }
+        
+        $acceptance_rate = $total_responses > 0 ? round(($accepted_count / $total_responses) * 100, 1) : 0;
+        
+        return [
+            'id' => $element['id'],
+            'type' => $element['type'],
+            'label' => $element['label'],
+            'total_responses' => $total_responses,
+            'accepted_count' => $accepted_count,
+            'rejected_count' => $rejected_count,
+            'acceptance_rate' => $acceptance_rate
+        ];
+    }
+    
+    /**
+     * Procesar elementos genéricos
+     */
+    private function process_generic_element($element, $element_responses) {
+        $total_responses = count($element_responses);
+        
+        return [
+            'id' => $element['id'],
+            'type' => $element['type'],
+            'label' => $element['label'],
+            'total_responses' => $total_responses,
+            'note' => 'Tipo de elemento no reconocido'
+        ];
+    }
+    
+    /**
+     * Obtener etiqueta para rating
+     */
+    private function get_rating_label($rating, $type) {
+        switch ($type) {
+            case 'stars':
+                return str_repeat('⭐', $rating);
+            case 'hearts':
+                return str_repeat('❤️', $rating);
+            case 'emojis':
+                $emojis = ['😞', '😐', '🙂', '😊', '😍'];
+                return $emojis[$rating - 1] ?? '😐';
+            default:
+                return (string)$rating;
         }
     }
 }

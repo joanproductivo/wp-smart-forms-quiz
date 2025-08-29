@@ -1029,7 +1029,27 @@
         createQuestionObject(data, index) {
             const questionId = 'q_' + Date.now() + '_' + index;
             
-            // Process options
+            // Handle freestyle questions
+            if (data.question_type === 'freestyle') {
+                return {
+                    id: questionId,
+                    originalId: data.id || null,
+                    text: data.question_text || '',
+                    type: 'freestyle',
+                    freestyle_elements: this.processFreestyleElements(data.freestyle_elements || []),
+                    required: this.formBuilder.dataValidator.normalizeBoolean(data.required),
+                    order: index,
+                    conditions: [],
+                    settings: data.settings || {},
+                    global_settings: data.global_settings || {
+                        layout: 'vertical',
+                        spacing: 'normal',
+                        show_element_numbers: false
+                    }
+                };
+            }
+            
+            // Process options for regular questions
             let options = [];
             if (data.options) {
                 if (typeof data.options === 'string') {
@@ -1065,6 +1085,20 @@
                 conditions: [],
                 settings: data.settings || {}
             };
+        }
+
+        // Nuevo método para procesar elementos freestyle
+        processFreestyleElements(elements) {
+            if (!Array.isArray(elements)) return [];
+            
+            return elements.map((element, index) => ({
+                id: element.id || 'element_' + Date.now() + '_' + index,
+                type: element.type || 'text',
+                label: element.label || '',
+                settings: element.settings || {},
+                order: element.order || index,
+                value: element.value || ''
+            }));
         }
 
         addQuestion(type) {
@@ -1182,6 +1216,785 @@
             $question.find('.sfq-add-condition').off('click').on('click', () => {
                 this.formBuilder.conditionEngine.addCondition(questionId);
             });
+            
+            // Freestyle elements events
+            if (question.type === 'freestyle') {
+                this.bindFreestyleEvents(questionId);
+            }
+        }
+
+        bindFreestyleEvents(questionId) {
+            const $question = $(`#${questionId}`);
+            const question = this.questions.find(q => q.id === questionId);
+            
+            if (!question || question.type !== 'freestyle') return;
+            
+            // Add freestyle element buttons
+            $question.find('.sfq-add-freestyle-element').off('click').on('click', (e) => {
+                const elementType = $(e.target).data('type');
+                this.addFreestyleElement(questionId, elementType);
+            });
+            
+            // Bind existing element events
+            this.bindFreestyleElementEvents(questionId);
+        }
+
+        bindFreestyleElementEvents(questionId) {
+            const $question = $(`#${questionId}`);
+            const question = this.questions.find(q => q.id === questionId);
+            
+            if (!question) return;
+            
+            const self = this;
+            
+            // Element label changes
+            $question.find('.sfq-element-label-input').off('input').on('input', function() {
+                const $element = $(this).closest('.sfq-freestyle-element');
+                const elementId = $element.data('element-id');
+                const element = question.freestyle_elements?.find(el => el.id === elementId);
+                
+                if (element) {
+                    element.label = $(this).val();
+                    self.formBuilder.isDirty = true;
+                }
+            });
+            
+            // Configure element
+            $question.find('.sfq-configure-element').off('click').on('click', function() {
+                const $element = $(this).closest('.sfq-freestyle-element');
+                const elementId = $element.data('element-id');
+                const elementType = $element.data('element-type');
+                
+                self.openElementConfigModal(questionId, elementId, elementType);
+            });
+            
+            // Duplicate element
+            $question.find('.sfq-duplicate-element').off('click').on('click', function() {
+                const $element = $(this).closest('.sfq-freestyle-element');
+                const elementId = $element.data('element-id');
+                self.duplicateFreestyleElement(questionId, elementId);
+            });
+            
+            // Delete element
+            $question.find('.sfq-delete-element').off('click').on('click', function() {
+                const $element = $(this).closest('.sfq-freestyle-element');
+                const elementId = $element.data('element-id');
+                
+                if (confirm('¿Estás seguro de eliminar este elemento?')) {
+                    self.deleteFreestyleElement(questionId, elementId);
+                }
+            });
+        }
+
+        addFreestyleElement(questionId, elementType) {
+            const question = this.questions.find(q => q.id === questionId);
+            if (!question || question.type !== 'freestyle') return;
+            
+            // Initialize freestyle_elements if not exists
+            if (!question.freestyle_elements) {
+                question.freestyle_elements = [];
+            }
+            
+            // Create new element
+            const elementId = 'element_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            const newElement = {
+                id: elementId,
+                type: elementType,
+                label: '',
+                order: question.freestyle_elements.length,
+                settings: {},
+                value: ''
+            };
+            
+            question.freestyle_elements.push(newElement);
+            
+            // Re-render elements
+            const $elementsContainer = $(`#freestyle-elements-${questionId}`);
+            const elementsHtml = this.formBuilder.uiRenderer.renderFreestyleElements(question.freestyle_elements);
+            $elementsContainer.html(elementsHtml);
+            
+            // Rebind events
+            this.bindFreestyleElementEvents(questionId);
+            
+            // Mark as dirty
+            this.formBuilder.isDirty = true;
+        }
+
+        duplicateFreestyleElement(questionId, elementId) {
+            const question = this.questions.find(q => q.id === questionId);
+            if (!question || !question.freestyle_elements) return;
+            
+            const originalElement = question.freestyle_elements.find(el => el.id === elementId);
+            if (!originalElement) return;
+            
+            // Create duplicate
+            const newElementId = 'element_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            const duplicateElement = {
+                ...originalElement,
+                id: newElementId,
+                label: originalElement.label + ' (Copia)',
+                order: question.freestyle_elements.length
+            };
+            
+            question.freestyle_elements.push(duplicateElement);
+            
+            // Re-render elements
+            const $elementsContainer = $(`#freestyle-elements-${questionId}`);
+            const elementsHtml = this.formBuilder.uiRenderer.renderFreestyleElements(question.freestyle_elements);
+            $elementsContainer.html(elementsHtml);
+            
+            // Rebind events
+            this.bindFreestyleElementEvents(questionId);
+            
+            // Mark as dirty
+            this.formBuilder.isDirty = true;
+        }
+
+        deleteFreestyleElement(questionId, elementId) {
+            const question = this.questions.find(q => q.id === questionId);
+            if (!question || !question.freestyle_elements) return;
+            
+            // Remove element from array
+            question.freestyle_elements = question.freestyle_elements.filter(el => el.id !== elementId);
+            
+            // Update order
+            question.freestyle_elements.forEach((el, index) => {
+                el.order = index;
+            });
+            
+            // Re-render elements
+            const $elementsContainer = $(`#freestyle-elements-${questionId}`);
+            const elementsHtml = this.formBuilder.uiRenderer.renderFreestyleElements(question.freestyle_elements);
+            $elementsContainer.html(elementsHtml);
+            
+            // Rebind events
+            this.bindFreestyleElementEvents(questionId);
+            
+            // Mark as dirty
+            this.formBuilder.isDirty = true;
+        }
+
+        openElementConfigModal(questionId, elementId, elementType) {
+            const question = this.questions.find(q => q.id === questionId);
+            if (!question || !question.freestyle_elements) return;
+            
+            const element = question.freestyle_elements.find(el => el.id === elementId);
+            if (!element) return;
+            
+            // Nuevo sistema: desplegable inline en lugar de modal
+            this.toggleElementConfigPanel(questionId, elementId, elementType);
+        }
+        
+        toggleElementConfigPanel(questionId, elementId, elementType) {
+            const $elementContainer = $(`.sfq-freestyle-element[data-element-id="${elementId}"]`);
+            const $existingPanel = $elementContainer.find('.sfq-element-config-panel');
+            
+            // Si ya existe un panel, cerrarlo
+            if ($existingPanel.length > 0) {
+                $existingPanel.slideUp(300, function() {
+                    $(this).remove();
+                });
+                return;
+            }
+            
+            // Cerrar otros paneles abiertos
+            $('.sfq-element-config-panel').slideUp(300, function() {
+                $(this).remove();
+            });
+            
+            const question = this.questions.find(q => q.id === questionId);
+            const element = question.freestyle_elements.find(el => el.id === elementId);
+            
+            // Crear panel de configuración inline
+            const configPanel = this.createElementConfigPanel(element, elementType, questionId);
+            
+            // Insertar después del contenido del elemento
+            $elementContainer.find('.sfq-freestyle-element-content').after(configPanel);
+            
+            // Animar la aparición
+            const $panel = $elementContainer.find('.sfq-element-config-panel');
+            $panel.hide().slideDown(300);
+            
+            // Bind events del panel
+            this.bindConfigPanelEvents($panel, questionId, elementId);
+            
+            // Focus en el primer input
+            setTimeout(() => {
+                $panel.find('input, select, textarea').first().focus();
+            }, 350);
+        }
+        
+        createElementConfigPanel(element, elementType, questionId) {
+            const elementTypeNames = {
+                'text': 'Texto',
+                'video': 'Video',
+                'image': 'Imagen',
+                'countdown': 'Cuenta atrás',
+                'phone': 'Teléfono',
+                'email': 'Email',
+                'file_upload': 'Subir imagen',
+                'button': 'Botón',
+                'rating': 'Valoración',
+                'dropdown': 'Desplegable',
+                'checkbox': 'Opción Check',
+                'legal_text': 'Texto RGPD'
+            };
+            
+            // Configuraciones específicas por tipo de elemento
+            let specificConfig = '';
+            
+            switch (elementType) {
+                case 'video':
+                    specificConfig = this.createVideoConfig(element);
+                    break;
+                case 'text':
+                    specificConfig = this.createTextConfig(element);
+                    break;
+                case 'email':
+                    specificConfig = this.createEmailConfig(element);
+                    break;
+                case 'phone':
+                    specificConfig = this.createPhoneConfig(element);
+                    break;
+                case 'button':
+                    specificConfig = this.createButtonConfig(element);
+                    break;
+                case 'rating':
+                    specificConfig = this.createRatingConfig(element);
+                    break;
+                case 'dropdown':
+                    specificConfig = this.createDropdownConfig(element);
+                    break;
+                case 'checkbox':
+                    specificConfig = this.createCheckboxConfig(element);
+                    break;
+                case 'image':
+                    specificConfig = this.createImageConfig(element);
+                    break;
+                case 'countdown':
+                    specificConfig = this.createCountdownConfig(element);
+                    break;
+                case 'file_upload':
+                    specificConfig = this.createFileUploadConfig(element);
+                    break;
+                case 'legal_text':
+                    specificConfig = this.createLegalTextConfig(element);
+                    break;
+                default:
+                    specificConfig = '<div class="sfq-config-notice">Configuración específica próximamente</div>';
+            }
+            
+            return `
+                <div class="sfq-element-config-panel">
+                    <div class="sfq-config-header">
+                        <h4>⚙️ Configurar ${elementTypeNames[elementType] || elementType}</h4>
+                        <button class="sfq-config-close" type="button" title="Cerrar configuración">
+                            <span class="dashicons dashicons-no-alt"></span>
+                        </button>
+                    </div>
+                    
+                    <div class="sfq-config-content">
+                        <!-- Configuración básica -->
+                        <div class="sfq-config-section">
+                            <label class="sfq-config-label">
+                                Etiqueta del elemento:
+                                <input type="text" class="sfq-config-input sfq-element-label-config" 
+                                       value="${this.formBuilder.uiRenderer.escapeHtml(element.label)}" 
+                                       placeholder="Texto que verá el usuario">
+                            </label>
+                        </div>
+                        
+                        <!-- Configuración específica -->
+                        <div class="sfq-config-section">
+                            ${specificConfig}
+                        </div>
+                    </div>
+                    
+                    <div class="sfq-config-actions">
+                        <button class="sfq-config-cancel" type="button">Cancelar</button>
+                        <button class="sfq-config-save" type="button">Guardar cambios</button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Métodos de configuración específicos por tipo de elemento
+        createVideoConfig(element) {
+            const settings = element.settings || {};
+            return `
+                <h5>🎥 Configuración de Video</h5>
+                <label class="sfq-config-label">
+                    URL del video:
+                    <input type="url" class="sfq-config-input" data-setting="video_url" 
+                           value="${this.formBuilder.uiRenderer.escapeHtml(settings.video_url || '')}" 
+                           placeholder="https://youtube.com/watch?v=... o https://vimeo.com/...">
+                    <small>Soporta YouTube, Vimeo y archivos MP4 directos</small>
+                </label>
+                <label class="sfq-config-label">
+                    <input type="checkbox" data-setting="autoplay" ${settings.autoplay ? 'checked' : ''}>
+                    Reproducir automáticamente
+                </label>
+                <label class="sfq-config-label">
+                    <input type="checkbox" data-setting="controls" ${settings.controls !== false ? 'checked' : ''}>
+                    Mostrar controles
+                </label>
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Ancho:
+                        <input type="text" class="sfq-config-input" data-setting="width" 
+                               value="${this.formBuilder.uiRenderer.escapeHtml(settings.width || '100%')}" 
+                               placeholder="100%, 500px, etc.">
+                    </label>
+                    <label class="sfq-config-label">
+                        Alto:
+                        <input type="text" class="sfq-config-input" data-setting="height" 
+                               value="${this.formBuilder.uiRenderer.escapeHtml(settings.height || 'auto')}" 
+                               placeholder="auto, 300px, etc.">
+                    </label>
+                </div>
+            `;
+        }
+        
+        createTextConfig(element) {
+            const settings = element.settings || {};
+            return `
+                <h5>📝 Configuración de Texto</h5>
+                <label class="sfq-config-label">
+                    Placeholder:
+                    <input type="text" class="sfq-config-input" data-setting="placeholder" 
+                           value="${this.formBuilder.uiRenderer.escapeHtml(settings.placeholder || '')}" 
+                           placeholder="Texto de ejemplo para el usuario">
+                </label>
+                <label class="sfq-config-label">
+                    <input type="checkbox" data-setting="multiline" ${settings.multiline ? 'checked' : ''}>
+                    Texto multilínea (textarea)
+                </label>
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Longitud máxima:
+                        <input type="number" class="sfq-config-input" data-setting="max_length" 
+                               value="${settings.max_length || ''}" 
+                               placeholder="Ej: 100" min="1" max="5000">
+                    </label>
+                    <label class="sfq-config-label" style="display: ${settings.multiline ? 'block' : 'none'};">
+                        Filas (textarea):
+                        <input type="number" class="sfq-config-input" data-setting="rows" 
+                               value="${settings.rows || 3}" 
+                               min="2" max="10">
+                    </label>
+                </div>
+            `;
+        }
+        
+        createEmailConfig(element) {
+            const settings = element.settings || {};
+            return `
+                <h5>📧 Configuración de Email</h5>
+                <label class="sfq-config-label">
+                    Placeholder:
+                    <input type="text" class="sfq-config-input" data-setting="placeholder" 
+                           value="${this.formBuilder.uiRenderer.escapeHtml(settings.placeholder || '')}" 
+                           placeholder="Ej: tu@email.com">
+                </label>
+                <label class="sfq-config-label">
+                    <input type="checkbox" data-setting="validate_domain" ${settings.validate_domain ? 'checked' : ''}>
+                    Validar dominio del email
+                </label>
+            `;
+        }
+        
+        createPhoneConfig(element) {
+            const settings = element.settings || {};
+            return `
+                <h5>📞 Configuración de Teléfono</h5>
+                <label class="sfq-config-label">
+                    Placeholder:
+                    <input type="text" class="sfq-config-input" data-setting="placeholder" 
+                           value="${this.formBuilder.uiRenderer.escapeHtml(settings.placeholder || '')}" 
+                           placeholder="Ej: +34 600 000 000">
+                </label>
+                <label class="sfq-config-label">
+                    Patrón de validación:
+                    <input type="text" class="sfq-config-input" data-setting="pattern" 
+                           value="${this.formBuilder.uiRenderer.escapeHtml(settings.pattern || '')}" 
+                           placeholder="Ej: [0-9]{9} para 9 dígitos">
+                    <small>Expresión regular para validar el formato</small>
+                </label>
+            `;
+        }
+        
+        createButtonConfig(element) {
+            const settings = element.settings || {};
+            return `
+                <h5>🔘 Configuración de Botón</h5>
+                <label class="sfq-config-label">
+                    Texto del botón:
+                    <input type="text" class="sfq-config-input" data-setting="button_text" 
+                           value="${this.formBuilder.uiRenderer.escapeHtml(settings.button_text || '')}" 
+                           placeholder="Ej: Hacer clic aquí">
+                </label>
+                <label class="sfq-config-label">
+                    URL de destino (opcional):
+                    <input type="url" class="sfq-config-input" data-setting="button_url" 
+                           value="${this.formBuilder.uiRenderer.escapeHtml(settings.button_url || '')}" 
+                           placeholder="https://ejemplo.com">
+                    <small>Si no se especifica, solo registrará el clic</small>
+                </label>
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Estilo:
+                        <select class="sfq-config-input" data-setting="button_style">
+                            <option value="primary" ${settings.button_style === 'primary' ? 'selected' : ''}>Primario</option>
+                            <option value="secondary" ${settings.button_style === 'secondary' ? 'selected' : ''}>Secundario</option>
+                            <option value="outline" ${settings.button_style === 'outline' ? 'selected' : ''}>Contorno</option>
+                        </select>
+                    </label>
+                    <label class="sfq-config-label">
+                        <input type="checkbox" data-setting="open_new_tab" ${settings.open_new_tab ? 'checked' : ''}>
+                        Abrir en nueva pestaña
+                    </label>
+                </div>
+            `;
+        }
+        
+        createRatingConfig(element) {
+            const settings = element.settings || {};
+            return `
+                <h5>⭐ Configuración de Valoración</h5>
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Tipo de valoración:
+                        <select class="sfq-config-input" data-setting="rating_type">
+                            <option value="stars" ${settings.rating_type === 'stars' ? 'selected' : ''}>Estrellas</option>
+                            <option value="hearts" ${settings.rating_type === 'hearts' ? 'selected' : ''}>Corazones</option>
+                            <option value="emojis" ${settings.rating_type === 'emojis' ? 'selected' : ''}>Emojis personalizados</option>
+                        </select>
+                    </label>
+                    <label class="sfq-config-label">
+                        Máximo:
+                        <input type="number" class="sfq-config-input" data-setting="max_rating" 
+                               value="${settings.max_rating || 5}" 
+                               min="2" max="10">
+                    </label>
+                </div>
+                <div class="sfq-emoji-config" style="display: ${settings.rating_type === 'emojis' ? 'block' : 'none'};">
+                    <label class="sfq-config-label">
+                        Emojis (separados por comas):
+                        <input type="text" class="sfq-config-input" data-setting="icons" 
+                               value="${(settings.icons || []).join(', ')}" 
+                               placeholder="😞, 😐, 🙂, 😊, 😍">
+                        <small>Uno por cada nivel de valoración</small>
+                    </label>
+                </div>
+            `;
+        }
+        
+        createDropdownConfig(element) {
+            const settings = element.settings || {};
+            const options = settings.options || [];
+            return `
+                <h5>📋 Configuración de Desplegable</h5>
+                <label class="sfq-config-label">
+                    Placeholder:
+                    <input type="text" class="sfq-config-input" data-setting="placeholder" 
+                           value="${this.formBuilder.uiRenderer.escapeHtml(settings.placeholder || '')}" 
+                           placeholder="Selecciona una opción...">
+                </label>
+                <div class="sfq-dropdown-options">
+                    <label class="sfq-config-label">Opciones:</label>
+                    <div class="sfq-options-list" data-setting="options">
+                        ${options.map((option, index) => `
+                            <div class="sfq-option-row">
+                                <input type="text" placeholder="Texto de la opción" 
+                                       value="${this.formBuilder.uiRenderer.escapeHtml(option.text || '')}" 
+                                       data-option-field="text" data-option-index="${index}">
+                                <input type="text" placeholder="Valor (opcional)" 
+                                       value="${this.formBuilder.uiRenderer.escapeHtml(option.value || '')}" 
+                                       data-option-field="value" data-option-index="${index}">
+                                <button type="button" class="sfq-remove-option">×</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <button type="button" class="sfq-add-dropdown-option">+ Añadir opción</button>
+                </div>
+            `;
+        }
+        
+        createCheckboxConfig(element) {
+            const settings = element.settings || {};
+            return `
+                <h5>☑️ Configuración de Checkbox</h5>
+                <label class="sfq-config-label">
+                    Texto del checkbox:
+                    <input type="text" class="sfq-config-input" data-setting="checkbox_text" 
+                           value="${this.formBuilder.uiRenderer.escapeHtml(settings.checkbox_text || '')}" 
+                           placeholder="Ej: Acepto los términos y condiciones">
+                </label>
+                <label class="sfq-config-label">
+                    <input type="checkbox" data-setting="required_check" ${settings.required_check ? 'checked' : ''}>
+                    Marcar como obligatorio
+                </label>
+            `;
+        }
+        
+        createImageConfig(element) {
+            const settings = element.settings || {};
+            return `
+                <h5>🖼️ Configuración de Imagen</h5>
+                <label class="sfq-config-label">
+                    URL de la imagen:
+                    <input type="url" class="sfq-config-input" data-setting="image_url" 
+                           value="${this.formBuilder.uiRenderer.escapeHtml(settings.image_url || '')}" 
+                           placeholder="https://ejemplo.com/imagen.jpg">
+                </label>
+                <label class="sfq-config-label">
+                    Texto alternativo:
+                    <input type="text" class="sfq-config-input" data-setting="alt_text" 
+                           value="${this.formBuilder.uiRenderer.escapeHtml(settings.alt_text || '')}" 
+                           placeholder="Descripción de la imagen">
+                </label>
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Ancho:
+                        <input type="text" class="sfq-config-input" data-setting="width" 
+                               value="${this.formBuilder.uiRenderer.escapeHtml(settings.width || 'auto')}" 
+                               placeholder="auto, 300px, 50%">
+                    </label>
+                    <label class="sfq-config-label">
+                        Alto:
+                        <input type="text" class="sfq-config-input" data-setting="height" 
+                               value="${this.formBuilder.uiRenderer.escapeHtml(settings.height || 'auto')}" 
+                               placeholder="auto, 200px">
+                    </label>
+                </div>
+                <label class="sfq-config-label">
+                    <input type="checkbox" data-setting="clickable" ${settings.clickable ? 'checked' : ''}>
+                    Imagen clickeable (registra clics)
+                </label>
+            `;
+        }
+        
+        createCountdownConfig(element) {
+            const settings = element.settings || {};
+            return `
+                <h5>⏰ Configuración de Cuenta Atrás</h5>
+                <label class="sfq-config-label">
+                    Fecha objetivo:
+                    <input type="datetime-local" class="sfq-config-input" data-setting="target_date" 
+                           value="${settings.target_date || ''}">
+                </label>
+                <label class="sfq-config-label">
+                    Texto antes del contador:
+                    <input type="text" class="sfq-config-input" data-setting="countdown_text" 
+                           value="${this.formBuilder.uiRenderer.escapeHtml(settings.countdown_text || '')}" 
+                           placeholder="Tiempo restante:">
+                </label>
+                <label class="sfq-config-label">
+                    Texto cuando termine:
+                    <input type="text" class="sfq-config-input" data-setting="finished_text" 
+                           value="${this.formBuilder.uiRenderer.escapeHtml(settings.finished_text || '')}" 
+                           placeholder="¡Tiempo agotado!">
+                </label>
+            `;
+        }
+        
+        createFileUploadConfig(element) {
+            const settings = element.settings || {};
+            return `
+                <h5>📤 Configuración de Subida de Archivo</h5>
+                <label class="sfq-config-label">
+                    Tipos de archivo permitidos:
+                    <select class="sfq-config-input" data-setting="accept">
+                        <option value="image/*" ${settings.accept === 'image/*' ? 'selected' : ''}>Solo imágenes</option>
+                        <option value=".pdf" ${settings.accept === '.pdf' ? 'selected' : ''}>Solo PDF</option>
+                        <option value=".doc,.docx" ${settings.accept === '.doc,.docx' ? 'selected' : ''}>Solo Word</option>
+                        <option value="*" ${settings.accept === '*' ? 'selected' : ''}>Todos los archivos</option>
+                    </select>
+                </label>
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Tamaño máximo:
+                        <select class="sfq-config-input" data-setting="max_size">
+                            <option value="1MB" ${settings.max_size === '1MB' ? 'selected' : ''}>1 MB</option>
+                            <option value="5MB" ${settings.max_size === '5MB' ? 'selected' : ''}>5 MB</option>
+                            <option value="10MB" ${settings.max_size === '10MB' ? 'selected' : ''}>10 MB</option>
+                            <option value="25MB" ${settings.max_size === '25MB' ? 'selected' : ''}>25 MB</option>
+                        </select>
+                    </label>
+                    <label class="sfq-config-label">
+                        <input type="checkbox" data-setting="multiple" ${settings.multiple ? 'checked' : ''}>
+                        Múltiples archivos
+                    </label>
+                </div>
+            `;
+        }
+        
+        createLegalTextConfig(element) {
+            const settings = element.settings || {};
+            return `
+                <h5>⚖️ Configuración de Texto Legal</h5>
+                <label class="sfq-config-label">
+                    Contenido del texto:
+                    <textarea class="sfq-config-input" data-setting="text_content" rows="4" 
+                              placeholder="Introduce aquí el texto legal, términos y condiciones, política de privacidad, etc.">${this.formBuilder.uiRenderer.escapeHtml(settings.text_content || '')}</textarea>
+                    <small>Puedes usar HTML básico para formato</small>
+                </label>
+                <label class="sfq-config-label">
+                    <input type="checkbox" data-setting="require_acceptance" ${settings.require_acceptance ? 'checked' : ''}>
+                    Requiere aceptación (checkbox)
+                </label>
+                <div class="sfq-acceptance-config" style="display: ${settings.require_acceptance ? 'block' : 'none'};">
+                    <label class="sfq-config-label">
+                        Texto de aceptación:
+                        <input type="text" class="sfq-config-input" data-setting="acceptance_text" 
+                               value="${this.formBuilder.uiRenderer.escapeHtml(settings.acceptance_text || '')}" 
+                               placeholder="He leído y acepto">
+                    </label>
+                </div>
+            `;
+        }
+        
+        bindConfigPanelEvents($panel, questionId, elementId) {
+            const question = this.questions.find(q => q.id === questionId);
+            const element = question?.freestyle_elements?.find(el => el.id === elementId);
+            
+            if (!element) return;
+            
+            const self = this;
+            
+            // Cerrar panel
+            $panel.find('.sfq-config-close, .sfq-config-cancel').on('click', function() {
+                $panel.slideUp(300, function() {
+                    $(this).remove();
+                });
+            });
+            
+            // Guardar cambios
+            $panel.find('.sfq-config-save').on('click', function() {
+                // Actualizar etiqueta básica
+                const newLabel = $panel.find('.sfq-element-label-config').val();
+                element.label = newLabel;
+                
+                // Actualizar configuraciones específicas
+                $panel.find('[data-setting]').each(function() {
+                    const $field = $(this);
+                    const setting = $field.data('setting');
+                    let value;
+                    
+                    if ($field.is(':checkbox')) {
+                        value = $field.is(':checked');
+                    } else if ($field.is('select')) {
+                        value = $field.val();
+                    } else {
+                        value = $field.val();
+                    }
+                    
+                    // Inicializar settings si no existe
+                    if (!element.settings) {
+                        element.settings = {};
+                    }
+                    
+                    element.settings[setting] = value;
+                });
+                
+                // Manejar opciones de dropdown especialmente
+                if (element.type === 'dropdown') {
+                    const options = [];
+                    $panel.find('.sfq-option-row').each(function() {
+                        const text = $(this).find('[data-option-field="text"]').val();
+                        const value = $(this).find('[data-option-field="value"]').val();
+                        if (text) {
+                            options.push({ text: text, value: value || text });
+                        }
+                    });
+                    element.settings.options = options;
+                }
+                
+                // Manejar iconos de rating como array
+                if (element.type === 'rating' && element.settings.icons) {
+                    if (typeof element.settings.icons === 'string') {
+                        element.settings.icons = element.settings.icons.split(',').map(icon => icon.trim());
+                    }
+                }
+                
+                // Re-renderizar elementos para mostrar cambios
+                const $elementsContainer = $(`#freestyle-elements-${questionId}`);
+                const elementsHtml = self.formBuilder.uiRenderer.renderFreestyleElements(question.freestyle_elements);
+                $elementsContainer.html(elementsHtml);
+                
+                // Rebind events
+                self.bindFreestyleElementEvents(questionId);
+                
+                // Mark as dirty
+                self.formBuilder.isDirty = true;
+                
+                // Cerrar panel
+                $panel.slideUp(300, function() {
+                    $(this).remove();
+                });
+            });
+            
+            // Eventos específicos para diferentes tipos de elementos
+            
+            // Mostrar/ocultar filas de textarea según multiline
+            $panel.find('[data-setting="multiline"]').on('change', function() {
+                const $rowsLabel = $panel.find('[data-setting="rows"]').closest('.sfq-config-label');
+                if ($(this).is(':checked')) {
+                    $rowsLabel.show();
+                } else {
+                    $rowsLabel.hide();
+                }
+            });
+            
+            // Mostrar/ocultar configuración de emojis según tipo de rating
+            $panel.find('[data-setting="rating_type"]').on('change', function() {
+                const $emojiConfig = $panel.find('.sfq-emoji-config');
+                if ($(this).val() === 'emojis') {
+                    $emojiConfig.show();
+                } else {
+                    $emojiConfig.hide();
+                }
+            });
+            
+            // Mostrar/ocultar texto de aceptación según require_acceptance
+            $panel.find('[data-setting="require_acceptance"]').on('change', function() {
+                const $acceptanceConfig = $panel.find('.sfq-acceptance-config');
+                if ($(this).is(':checked')) {
+                    $acceptanceConfig.show();
+                } else {
+                    $acceptanceConfig.hide();
+                }
+            });
+            
+            // Manejar opciones de dropdown dinámicamente
+            $panel.find('.sfq-add-dropdown-option').on('click', function() {
+                const $optionsList = $panel.find('.sfq-options-list');
+                const index = $optionsList.find('.sfq-option-row').length;
+                
+                const optionHtml = `
+                    <div class="sfq-option-row">
+                        <input type="text" placeholder="Texto de la opción" 
+                               value="" 
+                               data-option-field="text" data-option-index="${index}">
+                        <input type="text" placeholder="Valor (opcional)" 
+                               value="" 
+                               data-option-field="value" data-option-index="${index}">
+                        <button type="button" class="sfq-remove-option">×</button>
+                    </div>
+                `;
+                
+                $optionsList.append(optionHtml);
+                
+                // Bind remove event for new option
+                $optionsList.find('.sfq-option-row:last .sfq-remove-option').on('click', function() {
+                    $(this).closest('.sfq-option-row').remove();
+                });
+            });
+            
+            // Remover opciones de dropdown
+            $panel.find('.sfq-remove-option').on('click', function() {
+                $(this).closest('.sfq-option-row').remove();
+            });
         }
 
         bindOptionEvents(questionId) {
@@ -1288,15 +2101,28 @@
         }
 
         getQuestionsData() {
-            return this.questions.map((question, index) => ({
-                question_text: question.text,
-                question_type: question.type,
-                required: question.required ? 1 : 0,
-                order_position: index,
-                options: question.options.filter(opt => opt.text),
-                conditions: this.formBuilder.conditionEngine.getConditionsData(question.id),
-                settings: question.settings || {}
-            }));
+            return this.questions.map((question, index) => {
+                const baseData = {
+                    question_text: question.text,
+                    question_type: question.type,
+                    required: question.required ? 1 : 0,
+                    order_position: index,
+                    conditions: this.formBuilder.conditionEngine.getConditionsData(question.id),
+                    settings: question.settings || {}
+                };
+
+                // Handle freestyle questions
+                if (question.type === 'freestyle') {
+                    baseData.freestyle_elements = question.freestyle_elements || [];
+                    baseData.global_settings = question.global_settings || {};
+                    baseData.options = []; // Freestyle questions don't have traditional options
+                } else {
+                    // Regular questions with options
+                    baseData.options = question.options ? question.options.filter(opt => opt.text) : [];
+                }
+
+                return baseData;
+            });
         }
 
         destroy() {
@@ -1453,13 +2279,18 @@
         }
 
         renderQuestion(question) {
+            if (question.type === 'freestyle') {
+                return this.renderFreestyleQuestion(question);
+            }
+            
             const typeLabels = {
                 'single_choice': 'Opción Única',
                 'multiple_choice': 'Opción Múltiple',
                 'text': 'Texto',
                 'email': 'Email',
                 'rating': 'Valoración',
-                'image_choice': 'Selección de Imagen'
+                'image_choice': 'Selección de Imagen',
+                'freestyle': 'Estilo Libre'
             };
 
             let optionsHtml = '';
@@ -1544,6 +2375,189 @@
             `;
 
             return $(html);
+        }
+
+        renderFreestyleQuestion(question) {
+            const elementsHtml = this.renderFreestyleElements(question.freestyle_elements || []);
+            const controlsHtml = this.renderFreestyleControls(question.id);
+
+            const html = `
+                <div class="sfq-question-item sfq-freestyle-question" id="${question.id}" data-type="freestyle">
+                    <div class="sfq-question-header">
+                        <span class="sfq-question-type-label">Estilo Libre</span>
+                        <div class="sfq-question-actions">
+                            <button class="sfq-question-action sfq-move-handle" type="button" title="Mover">
+                                <span class="dashicons dashicons-move"></span>
+                            </button>
+                            <button class="sfq-question-action sfq-duplicate-question" type="button" title="Duplicar">
+                                <span class="dashicons dashicons-admin-page"></span>
+                            </button>
+                            <button class="sfq-question-action sfq-delete-question" type="button" title="Eliminar">
+                                <span class="dashicons dashicons-trash"></span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="sfq-question-content">
+                        <input type="text" class="sfq-question-text-input" 
+                               placeholder="Escribe tu pregunta aquí..." 
+                               value="${this.escapeHtml(question.text)}">
+                        
+                        <div class="sfq-freestyle-container">
+                            <div class="sfq-freestyle-elements" id="freestyle-elements-${question.id}">
+                                ${elementsHtml}
+                            </div>
+                            
+                            ${controlsHtml}
+                        </div>
+                        
+                        <div class="sfq-question-settings">
+                            <label>
+                                <input type="checkbox" class="sfq-required-checkbox" 
+                                       ${question.required ? 'checked' : ''}>
+                                Pregunta obligatoria
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            return $(html);
+        }
+
+        renderFreestyleElements(elements) {
+            if (!elements || elements.length === 0) {
+                return '<div class="sfq-freestyle-empty">No hay elementos añadidos</div>';
+            }
+            
+            return elements.map(element => this.renderFreestyleElement(element)).join('');
+        }
+
+        renderFreestyleElement(element) {
+            const elementTypes = {
+                'text': '📝 Texto',
+                'video': '🎥 Video', 
+                'image': '🖼️ Imagen',
+                'countdown': '⏰ Cuenta atrás',
+                'phone': '📞 Teléfono',
+                'email': '📧 Email',
+                'file_upload': '📤 Subir imagen',
+                'button': '🔘 Botón',
+                'rating': '⭐ Valoración',
+                'dropdown': '📋 Desplegable',
+                'checkbox': '☑️ Opción Check',
+                'legal_text': '⚖️ Texto RGPD'
+            };
+            
+            return `
+                <div class="sfq-freestyle-element" data-element-id="${element.id}" data-element-type="${element.type}">
+                    <div class="sfq-freestyle-element-header">
+                        <span class="sfq-freestyle-element-type">${elementTypes[element.type] || element.type}</span>
+                        <div class="sfq-freestyle-element-actions">
+                            <button class="sfq-freestyle-action sfq-configure-element" type="button" title="Configurar">
+                                <span class="dashicons dashicons-admin-generic"></span>
+                            </button>
+                            <button class="sfq-freestyle-action sfq-duplicate-element" type="button" title="Duplicar">
+                                <span class="dashicons dashicons-admin-page"></span>
+                            </button>
+                            <button class="sfq-freestyle-action sfq-delete-element" type="button" title="Eliminar">
+                                <span class="dashicons dashicons-trash"></span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="sfq-freestyle-element-content">
+                        <div class="sfq-freestyle-element-label">
+                            <label style="display: block; margin-bottom: 5px; font-size: 12px; color: #666; font-weight: 500;">
+                                Texto que verá el usuario (ej: "Tu nombre completo", "Selecciona una opción"):
+                            </label>
+                            <input type="text" placeholder="Ej: Tu nombre completo, Selecciona una opción..." 
+                                   value="${this.escapeHtml(element.label)}" 
+                                   class="sfq-element-label-input">
+                        </div>
+                        
+                        <div class="sfq-freestyle-element-preview">
+                            ${this.renderElementPreview(element)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        renderFreestyleControls(questionId) {
+            return `
+                <div class="sfq-freestyle-controls">
+                    <div class="sfq-freestyle-add-buttons">
+                        <button class="sfq-add-freestyle-element" data-type="text" data-question="${questionId}">
+                            📝 Texto
+                        </button>
+                        <button class="sfq-add-freestyle-element" data-type="video" data-question="${questionId}">
+                            🎥 Video
+                        </button>
+                        <button class="sfq-add-freestyle-element" data-type="image" data-question="${questionId}">
+                            🖼️ Imagen
+                        </button>
+                        <button class="sfq-add-freestyle-element" data-type="countdown" data-question="${questionId}">
+                            ⏰ Cuenta atrás
+                        </button>
+                        <button class="sfq-add-freestyle-element" data-type="phone" data-question="${questionId}">
+                            📞 Teléfono
+                        </button>
+                        <button class="sfq-add-freestyle-element" data-type="email" data-question="${questionId}">
+                            📧 Email
+                        </button>
+                        <button class="sfq-add-freestyle-element" data-type="file_upload" data-question="${questionId}">
+                            📤 Subir imagen
+                        </button>
+                        <button class="sfq-add-freestyle-element" data-type="button" data-question="${questionId}">
+                            🔘 Botón
+                        </button>
+                        <button class="sfq-add-freestyle-element" data-type="rating" data-question="${questionId}">
+                            ⭐ Valoración
+                        </button>
+                        <button class="sfq-add-freestyle-element" data-type="dropdown" data-question="${questionId}">
+                            📋 Desplegable
+                        </button>
+                        <button class="sfq-add-freestyle-element" data-type="checkbox" data-question="${questionId}">
+                            ☑️ Opción Check
+                        </button>
+                        <button class="sfq-add-freestyle-element" data-type="legal_text" data-question="${questionId}">
+                            ⚖️ Texto RGPD
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        renderElementPreview(element) {
+            switch (element.type) {
+                case 'text':
+                    return `<input type="text" placeholder="${element.settings?.placeholder || 'Texto de ejemplo'}" disabled>`;
+                case 'email':
+                    return `<input type="email" placeholder="${element.settings?.placeholder || 'email@ejemplo.com'}" disabled>`;
+                case 'phone':
+                    return `<input type="tel" placeholder="${element.settings?.placeholder || '+34 600 000 000'}" disabled>`;
+                case 'rating':
+                    return `<div class="sfq-rating-preview">⭐⭐⭐⭐⭐</div>`;
+                case 'button':
+                    return `<button disabled>${element.settings?.button_text || 'Botón de ejemplo'}</button>`;
+                case 'checkbox':
+                    return `<label><input type="checkbox" disabled> ${element.settings?.checkbox_text || 'Opción de ejemplo'}</label>`;
+                case 'dropdown':
+                    return `<select disabled><option>Selecciona una opción</option></select>`;
+                case 'video':
+                    return `<div class="sfq-video-preview">🎥 Video: ${element.settings?.video_url || 'URL no configurada'}</div>`;
+                case 'image':
+                    return `<div class="sfq-image-preview">🖼️ Imagen: ${element.settings?.image_url || 'URL no configurada'}</div>`;
+                case 'countdown':
+                    return `<div class="sfq-countdown-preview">⏰ Cuenta atrás: ${element.settings?.target_date || 'Fecha no configurada'}</div>`;
+                case 'file_upload':
+                    return `<div class="sfq-file-preview">📤 Subir archivo</div>`;
+                case 'legal_text':
+                    return `<div class="sfq-legal-preview">⚖️ ${element.settings?.text_content || 'Texto legal'}</div>`;
+                default:
+                    return `<div class="sfq-element-preview">Vista previa de ${element.type}</div>`;
+            }
         }
 
         renderOption(option, index) {

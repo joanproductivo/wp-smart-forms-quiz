@@ -564,48 +564,249 @@
 }
 
 /* ==========================================================================
-   CONTROLES DE OPCIONES Y BOTÓN SIGUIENTE
+   FREESTYLE QUESTIONS
    ========================================================================== */
 
-.sfq-options-controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 20px;
+.sfq-freestyle-question {
+    border-left: 4px solid #9b59b6;
+}
+
+.sfq-freestyle-container {
     margin-top: 15px;
     padding: 15px;
     background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.sfq-freestyle-elements {
+    margin-bottom: 20px;
+}
+
+.sfq-freestyle-empty {
+    text-align: center;
+    padding: 30px;
+    color: #6c757d;
+    font-style: italic;
+    background: #fff;
+    border: 2px dashed #dee2e6;
     border-radius: 6px;
-    border: 1px solid var(--sfq-border);
 }
 
-.sfq-next-button-controls {
+.sfq-freestyle-element {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    transition: all 0.2s ease;
+}
+
+.sfq-freestyle-element:hover {
+    border-color: #9b59b6;
+    box-shadow: 0 2px 8px rgba(155, 89, 182, 0.1);
+}
+
+.sfq-freestyle-element-header {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
-    min-width: 200px;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    border-radius: 6px 6px 0 0;
 }
 
-.sfq-next-button-toggle {
+.sfq-freestyle-element-type {
+    font-weight: 600;
+    color: #495057;
+    font-size: 14px;
+}
+
+.sfq-freestyle-element-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.sfq-freestyle-action {
+    background: none;
+    border: none;
+    padding: 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #6c757d;
+    transition: all 0.2s ease;
     display: flex;
     align-items: center;
+    justify-content: center;
+}
+
+.sfq-freestyle-action:hover {
+    background: #e9ecef;
+    color: #495057;
+}
+
+.sfq-freestyle-action .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+}
+
+.sfq-freestyle-element-content {
+    padding: 15px;
+}
+
+.sfq-freestyle-element-label {
+    margin-bottom: 12px;
+}
+
+.sfq-element-label-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+    transition: border-color 0.2s ease;
+}
+
+.sfq-element-label-input:focus {
+    border-color: #9b59b6;
+    box-shadow: 0 0 0 1px #9b59b6;
+    outline: none;
+}
+
+.sfq-freestyle-element-preview {
+    padding: 12px;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.sfq-freestyle-element-preview input,
+.sfq-freestyle-element-preview select,
+.sfq-freestyle-element-preview button,
+.sfq-freestyle-element-preview textarea {
+    margin: 0;
+    font-size: 13px;
+}
+
+.sfq-freestyle-controls {
+    border-top: 1px solid #dee2e6;
+    padding-top: 15px;
+}
+
+.sfq-freestyle-add-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 8px;
+}
+
+.sfq-add-freestyle-element {
+    background: #fff;
+    border: 1px solid #9b59b6;
+    color: #9b59b6;
+    padding: 10px 12px;
+    border-radius: 6px;
     cursor: pointer;
     font-size: 13px;
     font-weight: 500;
-    color: #333;
-    margin: 0;
+    transition: all 0.2s ease;
+    text-align: center;
 }
 
-.sfq-next-button-toggle input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-    margin: 0;
+.sfq-add-freestyle-element:hover {
+    background: #9b59b6;
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(155, 89, 182, 0.2);
 }
 
-.sfq-toggle-text {
-    user-select: none;
+.sfq-add-freestyle-element:active {
+    transform: translateY(0);
+}
+
+/* Element type specific previews */
+.sfq-rating-preview {
+    color: #ffc107;
+    font-size: 16px;
+    letter-spacing: 2px;
+}
+
+.sfq-video-preview,
+.sfq-image-preview,
+.sfq-countdown-preview,
+.sfq-file-preview,
+.sfq-legal-preview {
+    padding: 8px 12px;
+    background: #e9ecef;
+    border-radius: 4px;
+    color: #6c757d;
+    font-size: 12px;
+    text-align: center;
+}
+
+/* ==========================================================================
+   RESPONSIVE DESIGN
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    .sfq-builder-container {
+        flex-direction: column;
+    }
+    
+    .sfq-builder-sidebar {
+        width: 100%;
+        max-height: none;
+        border-right: none;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .sfq-builder-main {
+        width: 100%;
+    }
+    
+    .sfq-question-actions {
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+    
+    .sfq-question-action {
+        min-width: 35px;
+        height: 35px;
+    }
+    
+    .sfq-options-controls {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .sfq-field-group {
+        margin-bottom: 15px;
+    }
+    
+    .sfq-tab-button {
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+    
+    /* Freestyle responsive */
+    .sfq-freestyle-add-buttons {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 6px;
+    }
+    
+    .sfq-add-freestyle-element {
+        padding: 8px 10px;
+        font-size: 12px;
+    }
+    
+    .sfq-freestyle-element-actions {
+        gap: 3px;
+    }
+    
+    .sfq-freestyle-action {
+        padding: 4px;
+    }
 }
 
 .sfq-next-button-text-setting {
@@ -1056,5 +1257,310 @@
     
     .sfq-builder-canvas {
         padding: 15px;
+    }
+}
+
+/* ==========================================================================
+   PANEL DE CONFIGURACIÓN INLINE PARA ELEMENTOS FREESTYLE
+   ========================================================================== */
+
+.sfq-element-config-panel {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    margin-top: 15px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    animation: sfq-slide-down 0.3s ease;
+}
+
+@keyframes sfq-slide-down {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        max-height: 500px;
+    }
+}
+
+.sfq-config-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: linear-gradient(135deg, #e9ecef 0%, #f8f9fa 100%);
+    border-bottom: 1px solid #dee2e6;
+    border-radius: 8px 8px 0 0;
+}
+
+.sfq-config-header h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.sfq-config-close {
+    background: none;
+    border: none;
+    padding: 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #6c757d;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sfq-config-close:hover {
+    background: #dee2e6;
+    color: #495057;
+}
+
+.sfq-config-close .dashicons {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+}
+
+.sfq-config-content {
+    padding: 20px;
+}
+
+.sfq-config-section {
+    margin-bottom: 20px;
+}
+
+.sfq-config-section:last-child {
+    margin-bottom: 0;
+}
+
+.sfq-config-section h5 {
+    margin: 0 0 15px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.sfq-config-label {
+    display: block;
+    margin-bottom: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #495057;
+}
+
+.sfq-config-label small {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: #6c757d;
+    font-weight: normal;
+    font-style: italic;
+}
+
+.sfq-config-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 13px;
+    transition: all 0.2s ease;
+    background: white;
+    font-family: var(--sfq-font-family);
+}
+
+.sfq-config-input:focus {
+    outline: none;
+    border-color: #9b59b6;
+    box-shadow: 0 0 0 2px rgba(155, 89, 182, 0.1);
+}
+
+.sfq-config-input[type="checkbox"] {
+    width: auto;
+    margin-right: 8px;
+    transform: scale(1.1);
+}
+
+.sfq-config-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 12px;
+}
+
+.sfq-config-row .sfq-config-label {
+    margin-bottom: 0;
+}
+
+/* Configuración específica de dropdown */
+.sfq-dropdown-options {
+    margin-top: 15px;
+}
+
+.sfq-options-list {
+    margin-bottom: 15px;
+}
+
+.sfq-option-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 10px;
+    margin-bottom: 8px;
+    align-items: center;
+}
+
+.sfq-option-row input {
+    padding: 6px 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.sfq-remove-option {
+    background: #dc3545;
+    color: white;
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.sfq-remove-option:hover {
+    background: #c82333;
+    transform: scale(1.1);
+}
+
+.sfq-add-dropdown-option {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.sfq-add-dropdown-option:hover {
+    background: #218838;
+    transform: translateY(-1px);
+}
+
+/* Configuraciones condicionales */
+.sfq-emoji-config,
+.sfq-acceptance-config {
+    margin-top: 15px;
+    padding: 15px;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+}
+
+.sfq-config-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 15px 20px;
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    border-radius: 0 0 8px 8px;
+}
+
+.sfq-config-cancel {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.sfq-config-cancel:hover {
+    background: #5a6268;
+    transform: translateY(-1px);
+}
+
+.sfq-config-save {
+    background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(155, 89, 182, 0.2);
+}
+
+.sfq-config-save:hover {
+    background: linear-gradient(135deg, #8e44ad 0%, #7d3c98 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(155, 89, 182, 0.3);
+}
+
+.sfq-config-notice {
+    background: #e3f2fd;
+    border: 1px solid #bbdefb;
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 20px;
+    color: #1976d2;
+    font-size: 13px;
+    text-align: center;
+}
+
+.sfq-config-notice p {
+    margin: 0;
+}
+
+/* Responsive para panel de configuración */
+@media (max-width: 768px) {
+    .sfq-config-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .sfq-option-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .sfq-option-row input {
+        width: 100%;
+    }
+    
+    .sfq-remove-option {
+        width: 100%;
+        height: 32px;
+        margin-top: 5px;
+    }
+    
+    .sfq-config-actions {
+        flex-direction: column;
+    }
+    
+    .sfq-config-cancel,
+    .sfq-config-save {
+        width: 100%;
+        padding: 12px;
     }
 }

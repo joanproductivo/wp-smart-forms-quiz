@@ -340,11 +340,25 @@ class SFQ_Database {
      * Procesar datos de una pregunta individual
      */
     private function process_question_data($question) {
-        // Procesar opciones
-        $question->options = $this->process_question_options($question->options);
+        // Procesar según el tipo de pregunta
+        if ($question->question_type === 'freestyle') {
+            // Para preguntas freestyle, los elementos están en el campo options
+            $question->freestyle_elements = $this->process_freestyle_elements($question->options);
+            $question->options = []; // Las preguntas freestyle no tienen opciones tradicionales
+            
+            // Procesar configuraciones globales de freestyle
+            $settings = $this->process_question_settings($question->settings);
+            $question->global_settings = $settings['global_settings'] ?? [];
+            $question->settings = $settings;
+        } else {
+            // Para preguntas regulares, procesar opciones normalmente
+            $question->options = $this->process_question_options($question->options);
+        }
         
         // Procesar configuraciones
-        $question->settings = $this->process_question_settings($question->settings);
+        if (!isset($question->settings)) {
+            $question->settings = $this->process_question_settings($question->settings);
+        }
         
         // Procesar campo required
         $question->required = $this->process_required_field($question->required);
@@ -385,6 +399,52 @@ class SFQ_Database {
     private function process_required_field($required) {
         // Usar método centralizado de la clase Utils
         return SFQ_Utils::process_required_field($required);
+    }
+    
+    /**
+     * Procesar elementos freestyle
+     */
+    private function process_freestyle_elements($elements_json) {
+        if (empty($elements_json)) {
+            return [];
+        }
+        
+        // Decodificar JSON
+        $elements = json_decode($elements_json, true);
+        
+        if (!is_array($elements)) {
+            return [];
+        }
+        
+        // Procesar cada elemento
+        $processed_elements = [];
+        foreach ($elements as $element) {
+            if (!is_array($element) || empty($element['type'])) {
+                continue;
+            }
+            
+            // Validar que el tipo sea válido
+            $valid_types = ['text', 'video', 'image', 'countdown', 'phone', 'email', 'file_upload', 'button', 'rating', 'dropdown', 'checkbox', 'legal_text'];
+            if (!in_array($element['type'], $valid_types)) {
+                continue;
+            }
+            
+            $processed_elements[] = [
+                'id' => $element['id'] ?? 'element_' . time() . '_' . count($processed_elements),
+                'type' => $element['type'],
+                'label' => sanitize_text_field($element['label'] ?? ''),
+                'order' => intval($element['order'] ?? count($processed_elements)),
+                'settings' => is_array($element['settings'] ?? null) ? $element['settings'] : [],
+                'value' => sanitize_text_field($element['value'] ?? '')
+            ];
+        }
+        
+        // Ordenar por orden
+        usort($processed_elements, function($a, $b) {
+            return $a['order'] - $b['order'];
+        });
+        
+        return $processed_elements;
     }
     
     /**
@@ -474,11 +534,19 @@ class SFQ_Database {
 
             // Process questions and prepare batch operations
             foreach ($questions as $index => $question) {
+                // Para preguntas freestyle, guardar elementos en el campo options
+                $options_data = array();
+                if ($question['question_type'] === 'freestyle') {
+                    $options_data = $question['freestyle_elements'] ?? array();
+                } else {
+                    $options_data = $question['options'] ?? array();
+                }
+                
                 $question_data = array(
                     'form_id' => $form_id,
                     'question_text' => sanitize_textarea_field($question['question_text']),
                     'question_type' => sanitize_text_field($question['question_type']),
-                    'options' => wp_json_encode($question['options'] ?? array()),
+                    'options' => wp_json_encode($options_data),
                     'settings' => wp_json_encode($question['settings'] ?? array()),
                     'required' => isset($question['required']) && $question['required'] ? 1 : 0,
                     'order_position' => $index,

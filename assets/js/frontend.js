@@ -63,6 +63,9 @@
                 option.addEventListener('click', (e) => this.handleImageChoice(e));
             });
 
+            // Elementos freestyle
+            this.bindFreestyleEvents();
+
             // Botones de navegación
             this.container.querySelectorAll('.sfq-next-button').forEach(button => {
                 button.addEventListener('click', () => this.nextQuestion());
@@ -633,9 +636,354 @@
                 case 'rating':
                     return this.responses[questionId] !== undefined;
                     
+                case 'freestyle':
+                    return this.validateFreestyleQuestion(currentQuestion);
+                    
                 default:
                     return true;
             }
+        }
+
+        /**
+         * Vincular eventos para elementos freestyle
+         */
+        bindFreestyleEvents() {
+            // Inputs de texto freestyle
+            this.container.querySelectorAll('.sfq-freestyle-input, .sfq-freestyle-textarea').forEach(input => {
+                input.addEventListener('input', (e) => this.handleFreestyleInput(e));
+            });
+
+            // Selects freestyle
+            this.container.querySelectorAll('.sfq-freestyle-select').forEach(select => {
+                select.addEventListener('change', (e) => this.handleFreestyleSelect(e));
+            });
+
+            // Checkboxes freestyle
+            this.container.querySelectorAll('.sfq-freestyle-checkbox, .sfq-legal-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => this.handleFreestyleCheckbox(e));
+            });
+
+            // Rating freestyle
+            this.container.querySelectorAll('.sfq-freestyle-star, .sfq-freestyle-heart, .sfq-freestyle-emoji').forEach(button => {
+                button.addEventListener('click', (e) => this.handleFreestyleRating(e));
+            });
+
+            // Botones freestyle
+            this.container.querySelectorAll('.sfq-freestyle-button').forEach(button => {
+                button.addEventListener('click', (e) => this.handleFreestyleButton(e));
+            });
+
+            // Imágenes clickeables freestyle
+            this.container.querySelectorAll('.sfq-clickable-image').forEach(image => {
+                image.addEventListener('click', (e) => this.handleFreestyleImageClick(e));
+            });
+
+            // File uploads freestyle
+            this.container.querySelectorAll('.sfq-file-input').forEach(input => {
+                input.addEventListener('change', (e) => this.handleFreestyleFileUpload(e));
+            });
+
+            // Inicializar countdowns freestyle
+            this.initializeFreestyleCountdowns();
+        }
+
+        /**
+         * Manejar input de texto freestyle
+         */
+        handleFreestyleInput(e) {
+            const input = e.target;
+            const elementId = input.id.replace('element_', '');
+            const questionContainer = input.closest('.sfq-freestyle-container');
+            const questionId = questionContainer.dataset.questionId;
+
+            // Inicializar respuesta freestyle si no existe
+            if (!this.responses[questionId]) {
+                this.responses[questionId] = {};
+            }
+
+            this.responses[questionId][elementId] = input.value;
+        }
+
+        /**
+         * Manejar select freestyle
+         */
+        handleFreestyleSelect(e) {
+            const select = e.target;
+            const elementId = select.id.replace('element_', '');
+            const questionContainer = select.closest('.sfq-freestyle-container');
+            const questionId = questionContainer.dataset.questionId;
+
+            // Inicializar respuesta freestyle si no existe
+            if (!this.responses[questionId]) {
+                this.responses[questionId] = {};
+            }
+
+            this.responses[questionId][elementId] = select.value;
+        }
+
+        /**
+         * Manejar checkbox freestyle
+         */
+        handleFreestyleCheckbox(e) {
+            const checkbox = e.target;
+            const elementId = checkbox.id.replace('element_', '');
+            const questionContainer = checkbox.closest('.sfq-freestyle-container');
+            const questionId = questionContainer.dataset.questionId;
+
+            // Inicializar respuesta freestyle si no existe
+            if (!this.responses[questionId]) {
+                this.responses[questionId] = {};
+            }
+
+            this.responses[questionId][elementId] = checkbox.checked ? checkbox.value : '';
+        }
+
+        /**
+         * Manejar rating freestyle
+         */
+        handleFreestyleRating(e) {
+            e.preventDefault();
+            const button = e.currentTarget;
+            const wrapper = button.closest('.sfq-freestyle-rating-wrapper');
+            const elementId = wrapper.dataset.elementId;
+            const questionContainer = wrapper.closest('.sfq-freestyle-container');
+            const questionId = questionContainer.dataset.questionId;
+            const value = button.dataset.value;
+            const ratingType = wrapper.dataset.type;
+
+            // Limpiar selección previa
+            wrapper.querySelectorAll('.sfq-freestyle-star, .sfq-freestyle-heart, .sfq-freestyle-emoji').forEach(b => {
+                b.classList.remove('active');
+            });
+
+            // Marcar hasta el seleccionado (para estrellas)
+            if (ratingType === 'stars') {
+                const stars = wrapper.querySelectorAll('.sfq-freestyle-star');
+                stars.forEach((star, index) => {
+                    if (index < value) {
+                        star.classList.add('active');
+                    }
+                });
+            } else {
+                // Para hearts y emojis, solo marcar el seleccionado
+                button.classList.add('active');
+            }
+
+            // Actualizar campo oculto
+            const hiddenInput = wrapper.querySelector('.sfq-rating-value');
+            if (hiddenInput) {
+                hiddenInput.value = value;
+            }
+
+            // Inicializar respuesta freestyle si no existe
+            if (!this.responses[questionId]) {
+                this.responses[questionId] = {};
+            }
+
+            this.responses[questionId][elementId] = value;
+        }
+
+        /**
+         * Manejar click en botón freestyle
+         */
+        handleFreestyleButton(e) {
+            const button = e.currentTarget;
+            const elementId = button.dataset.elementId;
+            const questionContainer = button.closest('.sfq-freestyle-container');
+            const questionId = questionContainer.dataset.questionId;
+
+            // Actualizar campo oculto para tracking
+            const tracker = questionContainer.querySelector(`.sfq-button-click-tracker`);
+            if (tracker) {
+                tracker.value = 'clicked_' + Date.now();
+            }
+
+            // Inicializar respuesta freestyle si no existe
+            if (!this.responses[questionId]) {
+                this.responses[questionId] = {};
+            }
+
+            this.responses[questionId][elementId] = 'clicked';
+
+            // Si es un botón con URL, el navegador manejará la navegación automáticamente
+        }
+
+        /**
+         * Manejar click en imagen freestyle
+         */
+        handleFreestyleImageClick(e) {
+            const imageContainer = e.currentTarget;
+            const elementId = imageContainer.dataset.elementId;
+            const questionContainer = imageContainer.closest('.sfq-freestyle-container');
+            const questionId = questionContainer.dataset.questionId;
+
+            // Actualizar campo oculto para tracking
+            const tracker = imageContainer.querySelector('.sfq-image-click-tracker');
+            if (tracker) {
+                tracker.value = 'clicked_' + Date.now();
+            }
+
+            // Inicializar respuesta freestyle si no existe
+            if (!this.responses[questionId]) {
+                this.responses[questionId] = {};
+            }
+
+            this.responses[questionId][elementId] = 'clicked';
+
+            // Añadir efecto visual
+            imageContainer.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                imageContainer.style.transform = 'scale(1)';
+            }, 150);
+        }
+
+        /**
+         * Manejar subida de archivos freestyle
+         */
+        handleFreestyleFileUpload(e) {
+            const input = e.target;
+            const elementId = input.id.replace('element_', '');
+            const questionContainer = input.closest('.sfq-freestyle-container');
+            const questionId = questionContainer.dataset.questionId;
+            const uploadArea = input.closest('.sfq-file-upload-area');
+            const preview = uploadArea.querySelector('.sfq-file-preview');
+
+            // Inicializar respuesta freestyle si no existe
+            if (!this.responses[questionId]) {
+                this.responses[questionId] = {};
+            }
+
+            if (input.files && input.files.length > 0) {
+                const fileNames = Array.from(input.files).map(file => file.name);
+                this.responses[questionId][elementId] = fileNames;
+
+                // Mostrar preview
+                if (preview) {
+                    preview.innerHTML = '';
+                    preview.style.display = 'block';
+
+                    Array.from(input.files).forEach(file => {
+                        const fileItem = document.createElement('div');
+                        fileItem.className = 'sfq-file-item';
+                        fileItem.innerHTML = `
+                            <span class="sfq-file-name">📎 ${file.name}</span>
+                            <span class="sfq-file-size">(${this.formatFileSize(file.size)})</span>
+                        `;
+                        preview.appendChild(fileItem);
+                    });
+                }
+            } else {
+                this.responses[questionId][elementId] = [];
+                if (preview) {
+                    preview.style.display = 'none';
+                }
+            }
+        }
+
+        /**
+         * Inicializar countdowns freestyle
+         */
+        initializeFreestyleCountdowns() {
+            this.container.querySelectorAll('.sfq-freestyle-countdown').forEach(countdown => {
+                const targetDate = countdown.dataset.targetDate;
+                const finishedText = countdown.dataset.finishedText;
+                const elementId = countdown.closest('.sfq-freestyle-countdown-wrapper').dataset.elementId;
+
+                if (!targetDate) return;
+
+                const targetTime = new Date(targetDate).getTime();
+
+                const updateCountdown = () => {
+                    const now = new Date().getTime();
+                    const distance = targetTime - now;
+
+                    if (distance < 0) {
+                        // Countdown terminado
+                        countdown.innerHTML = `<div class="sfq-countdown-finished">${finishedText}</div>`;
+                        return;
+                    }
+
+                    const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+                    // Actualizar números
+                    const daysEl = countdown.querySelector('[data-unit="days"]');
+                    const hoursEl = countdown.querySelector('[data-unit="hours"]');
+                    const minutesEl = countdown.querySelector('[data-unit="minutes"]');
+                    const secondsEl = countdown.querySelector('[data-unit="seconds"]');
+
+                    if (daysEl) daysEl.textContent = days.toString().padStart(2, '0');
+                    if (hoursEl) hoursEl.textContent = hours.toString().padStart(2, '0');
+                    if (minutesEl) minutesEl.textContent = minutes.toString().padStart(2, '0');
+                    if (secondsEl) secondsEl.textContent = seconds.toString().padStart(2, '0');
+                };
+
+                // Actualizar inmediatamente y luego cada segundo
+                updateCountdown();
+                setInterval(updateCountdown, 1000);
+            });
+        }
+
+        /**
+         * Validar pregunta freestyle
+         */
+        validateFreestyleQuestion(questionScreen) {
+            const questionId = questionScreen.dataset.questionId;
+            const freestyleContainer = questionScreen.querySelector('.sfq-freestyle-container');
+            
+            if (!freestyleContainer) return true;
+
+            // Obtener elementos requeridos
+            const requiredElements = freestyleContainer.querySelectorAll('[required], .sfq-required');
+            
+            for (const element of requiredElements) {
+                const elementId = element.id ? element.id.replace('element_', '') : null;
+                
+                if (!elementId) continue;
+
+                // Verificar si hay respuesta para este elemento
+                const hasResponse = this.responses[questionId] && 
+                                  this.responses[questionId][elementId] && 
+                                  this.responses[questionId][elementId] !== '';
+
+                if (!hasResponse) {
+                    // Hacer scroll al elemento problemático
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    // Añadir clase de error temporal
+                    element.classList.add('sfq-validation-error');
+                    setTimeout(() => {
+                        element.classList.remove('sfq-validation-error');
+                    }, 3000);
+                    
+                    return false;
+                }
+
+                // Validación específica para emails
+                if (element.type === 'email' && !element.checkValidity()) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    element.classList.add('sfq-validation-error');
+                    setTimeout(() => {
+                        element.classList.remove('sfq-validation-error');
+                    }, 3000);
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /**
+         * Formatear tamaño de archivo
+         */
+        formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
 
         showError(message) {
