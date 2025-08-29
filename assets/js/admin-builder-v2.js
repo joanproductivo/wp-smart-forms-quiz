@@ -225,14 +225,14 @@
             });
             
             // Event listeners para bloqueo de formulario
-            $('#block-form-icon, #block-form-title, #block-form-description, #block-form-button-text, #block-form-button-url').on('change input' + ns, () => {
+            $('#block-form-icon, #block-form-video-url, #block-form-title, #block-form-description, #block-form-button-text, #block-form-button-url').on('change input' + ns, () => {
                 if (!this.isDestroyed) {
                     this.isDirty = true;
                 }
             });
             
             // Event listeners para colores de bloqueo de formulario
-            $('#block-form-bg-color, #block-form-border-color, #block-form-icon-color, #block-form-title-color, #block-form-text-color, #block-form-button-bg-color, #block-form-button-text-color').on('change' + ns, () => {
+            $('#block-form-bg-color, #block-form-border-color, #block-form-icon-color, #block-form-title-color, #block-form-text-color, #block-form-button-bg-color, #block-form-button-text-color, #block-form-timer-unit-bg-color, #block-form-timer-container-bg-color, #block-form-timer-container-border-color, #block-form-timer-unit-border-color, #block-form-disable-shadow').on('change' + ns, () => {
                 if (!this.isDestroyed) {
                     this.isDirty = true;
                 }
@@ -242,8 +242,12 @@
             $('#block-form-enable-timer').on('change' + ns, function() {
                 if ($(this).is(':checked')) {
                     $('#block-form-timer-settings').slideDown();
+                    $('#block-form-timer-available-section').slideDown();
+                    $('.sfq-message-config-section:contains("🎨 Colores del Mensaje de Disponibilidad")').slideDown();
                 } else {
                     $('#block-form-timer-settings').slideUp();
+                    $('#block-form-timer-available-section').slideUp();
+                    $('.sfq-message-config-section:contains("🎨 Colores del Mensaje de Disponibilidad")').slideUp();
                 }
                 
                 if (!this.isDestroyed) {
@@ -251,7 +255,27 @@
                 }
             });
             
-            $('#block-form-timer-date, #block-form-timer-text, #block-form-timer-opened-text, #block-form-timer-show-form').on('change input' + ns, () => {
+            // Event listener para mostrar/ocultar la opción de desaparecer completamente
+            $('#block-form-timer-show-form').on('change' + ns, function() {
+                if ($(this).is(':checked')) {
+                    $('#block-form-timer-hide-all-container').slideDown();
+                } else {
+                    $('#block-form-timer-hide-all-container').slideUp();
+                }
+                
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                }
+            });
+            
+            $('#block-form-timer-date, #block-form-timer-text, #block-form-timer-opened-text, #block-form-timer-show-form, #block-form-timer-hide-all').on('change input' + ns, () => {
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                }
+            });
+            
+            // Event listeners para los nuevos campos del mensaje de disponibilidad del timer
+            $('#block-form-timer-available-icon, #block-form-timer-available-title, #block-form-timer-available-description, #block-form-timer-available-button-text, #block-form-timer-available-button-url').on('change input' + ns, () => {
                 if (!this.isDestroyed) {
                     this.isDirty = true;
                 }
@@ -397,6 +421,7 @@
             
             // Cargar configuraciones de bloqueo de formulario
             $('#block-form-icon').val(styles.block_form_icon || '');
+            $('#block-form-video-url').val(styles.block_form_video_url || '');
             $('#block-form-title').val(styles.block_form_title || '');
             $('#block-form-description').val(styles.block_form_description || '');
             $('#block-form-button-text').val(styles.block_form_button_text || '');
@@ -407,7 +432,24 @@
             $('#block-form-timer-date').val(styles.block_form_timer_date || '');
             $('#block-form-timer-text').val(styles.block_form_timer_text || '');
             $('#block-form-timer-opened-text').val(styles.block_form_timer_opened_text || '');
-            $('#block-form-timer-show-form').prop('checked', styles.block_form_timer_show_form === true);
+            $('#block-form-timer-show-form').prop('checked', styles.block_form_timer_show_form === true).trigger('change');
+            $('#block-form-timer-hide-all').prop('checked', styles.block_form_timer_hide_all === true);
+            
+            // Cargar configuraciones del mensaje de disponibilidad del timer
+            $('#block-form-timer-available-icon').val(styles.block_form_timer_available_icon || '');
+            $('#block-form-timer-available-title').val(styles.block_form_timer_available_title || '');
+            $('#block-form-timer-available-description').val(styles.block_form_timer_available_description || '');
+            $('#block-form-timer-available-button-text').val(styles.block_form_timer_available_button_text || '');
+            $('#block-form-timer-available-button-url').val(styles.block_form_timer_available_button_url || '');
+            
+            // Cargar colores del mensaje de disponibilidad del timer
+            $('#block-form-timer-available-bg-color').val(styles.block_form_timer_available_bg_color || '#f8f9fa').trigger('change');
+            $('#block-form-timer-available-border-color').val(styles.block_form_timer_available_border_color || '#e9ecef').trigger('change');
+            $('#block-form-timer-available-icon-color').val(styles.block_form_timer_available_icon_color || '#28a745').trigger('change');
+            $('#block-form-timer-available-title-color').val(styles.block_form_timer_available_title_color || '#28a745').trigger('change');
+            $('#block-form-timer-available-text-color').val(styles.block_form_timer_available_text_color || '#666666').trigger('change');
+            $('#block-form-timer-available-button-bg-color').val(styles.block_form_timer_available_button_bg_color || '#28a745').trigger('change');
+            $('#block-form-timer-available-button-text-color').val(styles.block_form_timer_available_button_text_color || '#ffffff').trigger('change');
             
             // Cargar colores específicos de bloqueo de formulario
             $('#block-form-bg-color').val(styles.block_form_bg_color || '#f8f9fa').trigger('change');
@@ -417,6 +459,11 @@
             $('#block-form-text-color').val(styles.block_form_text_color || '#666666').trigger('change');
             $('#block-form-button-bg-color').val(styles.block_form_button_bg_color || '#007cba').trigger('change');
             $('#block-form-button-text-color').val(styles.block_form_button_text_color || '#ffffff').trigger('change');
+            $('#block-form-timer-unit-bg-color').val(styles.block_form_timer_unit_bg_color || '#ffffff').trigger('change');
+            $('#block-form-timer-container-bg-color').val(styles.block_form_timer_container_bg_color || '#f8f9fa').trigger('change');
+            $('#block-form-timer-container-border-color').val(styles.block_form_timer_container_border_color || '#e9ecef').trigger('change');
+            $('#block-form-timer-unit-border-color').val(styles.block_form_timer_unit_border_color || '#e9ecef').trigger('change');
+            $('#block-form-disable-shadow').prop('checked', styles.block_form_disable_shadow === true);
             
             // Load limits settings - nueva estructura flexible
             $('#submission-limit-count').val(settings.submission_limit_count || '');
@@ -600,6 +647,7 @@
                 limit_button_text_color: $('#limit-button-text-color').val() || '#ffffff',
                 // Configuración de bloqueo de formulario
                 block_form_icon: $('#block-form-icon').val() || '',
+                block_form_video_url: $('#block-form-video-url').val() || '',
                 block_form_title: $('#block-form-title').val() || '',
                 block_form_description: $('#block-form-description').val() || '',
                 block_form_button_text: $('#block-form-button-text').val() || '',
@@ -610,6 +658,21 @@
                 block_form_timer_text: $('#block-form-timer-text').val() || '',
                 block_form_timer_opened_text: $('#block-form-timer-opened-text').val() || '',
                 block_form_timer_show_form: $('#block-form-timer-show-form').is(':checked'),
+                block_form_timer_hide_all: $('#block-form-timer-hide-all').is(':checked'),
+                // Configuración del mensaje de disponibilidad del timer
+                block_form_timer_available_icon: $('#block-form-timer-available-icon').val() || '',
+                block_form_timer_available_title: $('#block-form-timer-available-title').val() || '',
+                block_form_timer_available_description: $('#block-form-timer-available-description').val() || '',
+                block_form_timer_available_button_text: $('#block-form-timer-available-button-text').val() || '',
+                block_form_timer_available_button_url: $('#block-form-timer-available-button-url').val() || '',
+                // Colores del mensaje de disponibilidad del timer
+                block_form_timer_available_bg_color: $('#block-form-timer-available-bg-color').val() || '#f8f9fa',
+                block_form_timer_available_border_color: $('#block-form-timer-available-border-color').val() || '#e9ecef',
+                block_form_timer_available_icon_color: $('#block-form-timer-available-icon-color').val() || '#28a745',
+                block_form_timer_available_title_color: $('#block-form-timer-available-title-color').val() || '#28a745',
+                block_form_timer_available_text_color: $('#block-form-timer-available-text-color').val() || '#666666',
+                block_form_timer_available_button_bg_color: $('#block-form-timer-available-button-bg-color').val() || '#28a745',
+                block_form_timer_available_button_text_color: $('#block-form-timer-available-button-text-color').val() || '#ffffff',
                 // Colores específicos de bloqueo de formulario
                 block_form_bg_color: $('#block-form-bg-color').val() || '#f8f9fa',
                 block_form_border_color: $('#block-form-border-color').val() || '#e9ecef',
@@ -617,7 +680,12 @@
                 block_form_title_color: $('#block-form-title-color').val() || '#333333',
                 block_form_text_color: $('#block-form-text-color').val() || '#666666',
                 block_form_button_bg_color: $('#block-form-button-bg-color').val() || '#007cba',
-                block_form_button_text_color: $('#block-form-button-text-color').val() || '#ffffff'
+                block_form_button_text_color: $('#block-form-button-text-color').val() || '#ffffff',
+                block_form_timer_unit_bg_color: $('#block-form-timer-unit-bg-color').val() || '#ffffff',
+                block_form_timer_container_bg_color: $('#block-form-timer-container-bg-color').val() || '#f8f9fa',
+                block_form_timer_container_border_color: $('#block-form-timer-container-border-color').val() || '#e9ecef',
+                block_form_timer_unit_border_color: $('#block-form-timer-unit-border-color').val() || '#e9ecef',
+                block_form_disable_shadow: $('#block-form-disable-shadow').is(':checked')
             },
             questions: this.questionManager.getQuestionsData()
         };

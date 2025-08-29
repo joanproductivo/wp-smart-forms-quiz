@@ -443,6 +443,14 @@ class SFQ_Admin {
                                             </small>
                                         </div>
                                         <div class="sfq-field-row">
+                                            <label><?php _e('🎥 Video de YouTube/Vimeo (opcional)', 'smart-forms-quiz'); ?></label>
+                                            <input type="url" id="block-form-video-url" class="sfq-input" 
+                                                   placeholder="<?php _e('https://www.youtube.com/watch?v=... o https://vimeo.com/...', 'smart-forms-quiz'); ?>">
+                                            <small style="display: block; margin-top: 5px; color: #666; font-size: 11px;">
+                                                <?php _e('Pega la URL completa del video de YouTube o Vimeo. Se insertará automáticamente como embed responsivo encima del título.', 'smart-forms-quiz'); ?>
+                                            </small>
+                                        </div>
+                                        <div class="sfq-field-row">
                                             <label><?php _e('Título personalizado', 'smart-forms-quiz'); ?></label>
                                             <input type="text" id="block-form-title" class="sfq-input" 
                                                    placeholder="<?php _e('Formulario temporalmente bloqueado', 'smart-forms-quiz'); ?>">
@@ -462,35 +470,6 @@ class SFQ_Admin {
                                             <input type="url" id="block-form-button-url" class="sfq-input" 
                                                    placeholder="https://ejemplo.com">
                                         </div>
-                                        <div class="sfq-field-row">
-                                            <label>
-                                                <input type="checkbox" id="block-form-enable-timer">
-                                                <?php _e('⏰ Activar cuenta atrás', 'smart-forms-quiz'); ?>
-                                            </label>
-                                            <small style="display: block; margin-top: 5px; color: #666; font-size: 11px;">
-                                                <?php _e('Muestra una cuenta atrás hasta que se abra automáticamente el formulario', 'smart-forms-quiz'); ?>
-                                            </small>
-                                        </div>
-                                        <div class="sfq-field-row" id="block-form-timer-settings" style="display: none; margin-left: 20px; padding: 15px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e9ecef;">
-                                            <label><?php _e('Fecha y hora de apertura', 'smart-forms-quiz'); ?></label>
-                                            <input type="datetime-local" id="block-form-timer-date" class="sfq-input" 
-                                                   style="margin-bottom: 10px;">
-                                            <label><?php _e('Texto durante la cuenta atrás', 'smart-forms-quiz'); ?></label>
-                                            <input type="text" id="block-form-timer-text" class="sfq-input" 
-                                                   placeholder="<?php _e('El formulario se abrirá en:', 'smart-forms-quiz'); ?>"
-                                                   style="margin-bottom: 10px;">
-                                            <label><?php _e('Texto cuando se abra', 'smart-forms-quiz'); ?></label>
-                                            <input type="text" id="block-form-timer-opened-text" class="sfq-input" 
-                                                   placeholder="<?php _e('¡El formulario ya está disponible!', 'smart-forms-quiz'); ?>"
-                                                   style="margin-bottom: 10px;">
-                                            <label>
-                                                <input type="checkbox" id="block-form-timer-show-form">
-                                                <?php _e('🎯 Mostrar formulario sin recargar página', 'smart-forms-quiz'); ?>
-                                            </label>
-                                            <small style="display: block; margin-top: 5px; color: #666; font-size: 11px;">
-                                                <?php _e('Al expirar el timer, el formulario aparecerá directamente sin recargar la página', 'smart-forms-quiz'); ?>
-                                            </small>
-                                        </div>
                                     </div>
                                 </div>
                                 
@@ -498,6 +477,15 @@ class SFQ_Admin {
                                 <div class="sfq-message-config-section">
                                     <h4><?php _e('🎨 Colores del Mensaje de Bloqueo', 'smart-forms-quiz'); ?></h4>
                                     <div class="sfq-message-fields">
+                                        <div class="sfq-field-row" style="margin-bottom: 20px;">
+                                            <label>
+                                                <input type="checkbox" id="block-form-disable-shadow">
+                                                <?php _e('Quitar sombra del mensaje', 'smart-forms-quiz'); ?>
+                                            </label>
+                                            <small style="display: block; margin-top: 5px; color: #666; font-size: 11px;">
+                                                <?php _e('Desactiva la sombra del contenedor del mensaje de bloqueo', 'smart-forms-quiz'); ?>
+                                            </small>
+                                        </div>
                                         <div class="sfq-color-fields" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
                                             <div class="sfq-field-row">
                                                 <label><?php _e('Color de fondo', 'smart-forms-quiz'); ?></label>
@@ -527,12 +515,150 @@ class SFQ_Admin {
                                                 <label><?php _e('Color texto botón', 'smart-forms-quiz'); ?></label>
                                                 <input type="text" id="block-form-button-text-color" class="sfq-color-picker" value="#ffffff">
                                             </div>
+                                            <div class="sfq-field-row">
+                                                <label><?php _e('Color fondo recuadros timer', 'smart-forms-quiz'); ?></label>
+                                                <input type="text" id="block-form-timer-unit-bg-color" class="sfq-color-picker" value="#ffffff">
+                                            </div>
+                                            <div class="sfq-field-row">
+                                                <label><?php _e('Color fondo contenedor timer', 'smart-forms-quiz'); ?></label>
+                                                <input type="text" id="block-form-timer-container-bg-color" class="sfq-color-picker" value="#f8f9fa">
+                                            </div>
+                                            <div class="sfq-field-row">
+                                                <label><?php _e('Color borde contenedor timer', 'smart-forms-quiz'); ?></label>
+                                                <input type="text" id="block-form-timer-container-border-color" class="sfq-color-picker" value="#e9ecef">
+                                            </div>
+                                            <div class="sfq-field-row">
+                                                <label><?php _e('Color borde recuadros timer', 'smart-forms-quiz'); ?></label>
+                                                <input type="text" id="block-form-timer-unit-border-color" class="sfq-color-picker" value="#e9ecef">
+                                            </div>
                                         </div>
+                                    </div>
+                                </div>
+                                <!-- Nueva sección desplegable para Timer de Cuenta Atrás -->
+                        <div class="sfq-message-config-section collapsed">
+                            <h4><?php _e('⏰ Configuración de Cuenta Atrás', 'smart-forms-quiz'); ?></h4>
+                            <div class="sfq-message-fields">
+                                <div class="sfq-field-row">
+                                    <label>
+                                        <input type="checkbox" id="block-form-enable-timer">
+                                        <?php _e('⏰ Activar cuenta atrás', 'smart-forms-quiz'); ?>
+                                    </label>
+                                    <small style="display: block; margin-top: 5px; color: #666; font-size: 11px;">
+                                        <?php _e('Muestra una cuenta atrás hasta que se abra automáticamente el formulario', 'smart-forms-quiz'); ?>
+                                    </small>
+                                </div>
+                                <div class="sfq-field-row" id="block-form-timer-settings" style="display: none; margin-left: 20px; padding: 15px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e9ecef;">
+                                    <label><?php _e('Fecha y hora de apertura', 'smart-forms-quiz'); ?></label>
+                                    <input type="datetime-local" id="block-form-timer-date" class="sfq-input" 
+                                           style="margin-bottom: 10px;">
+                                    <label><?php _e('Texto durante la cuenta atrás', 'smart-forms-quiz'); ?></label>
+                                    <input type="text" id="block-form-timer-text" class="sfq-input" 
+                                           placeholder="<?php _e('El formulario se abrirá en:', 'smart-forms-quiz'); ?>"
+                                           style="margin-bottom: 10px;">
+                                    <label><?php _e('Texto cuando termina la cuenta atrás', 'smart-forms-quiz'); ?></label>
+                                    <input type="text" id="block-form-timer-opened-text" class="sfq-input" 
+                                           placeholder="<?php _e('¡El tiempo se agotó!', 'smart-forms-quiz'); ?>"
+                                           style="margin-bottom: 10px;">
+                                    <small style="display: block; margin-bottom: 10px; color: #666; font-size: 11px;">
+                                        <?php _e('Mensaje personalizado que aparece cuando el timer llega a cero', 'smart-forms-quiz'); ?>
+                                    </small>
+                                    <label>
+                                        <input type="checkbox" id="block-form-timer-show-form">
+                                        <?php _e('🚫 No mostrar ningún mensaje ni formulario al terminar, dejar el contador en pantalla', 'smart-forms-quiz'); ?>
+                                    </label>
+                                    <small style="display: block; margin-top: 5px; margin-bottom: 15px; color: #666; font-size: 11px;">
+                                        <?php _e('Al expirar el timer, no se mostrará mensaje de disponibilidad ni formulario, solo se mantendrá el contador visible', 'smart-forms-quiz'); ?>
+                                    </small>
+                                    
+                                    <div id="block-form-timer-hide-all-container" style="display: none; margin-left: 20px; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
+                                        <label>
+                                            <input type="checkbox" id="block-form-timer-hide-all">
+                                            <?php _e('🫥 Al terminar la cuenta atrás desaparece todo el mensaje de bloqueo y no muestra nada', 'smart-forms-quiz'); ?>
+                                        </label>
+                                        <small style="display: block; margin-top: 5px; color: #856404; font-size: 11px;">
+                                            <?php _e('Cuando el timer llegue a cero, todo el contenedor del mensaje desaparecerá completamente, dejando el espacio vacío', 'smart-forms-quiz'); ?>
+                                        </small>
+                                    </div>
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Nueva sección desplegable para Mensaje de Disponibilidad -->
+                        <div class="sfq-message-config-section collapsed" id="block-form-timer-available-section" style="display: none;">
+                            <h4><?php _e('🎉 Mensaje al termina cuenta atrás', 'smart-forms-quiz'); ?></h4>
+                            <div class="sfq-message-fields">
+                                <div class="sfq-field-row">
+                                    <label><?php _e('Icono (emoji, SVG, imagen o texto)', 'smart-forms-quiz'); ?></label>
+                                    <input type="text" id="block-form-timer-available-icon" class="sfq-input" 
+                                           placeholder="<?php _e('✅', 'smart-forms-quiz'); ?>">
+                                    <small style="display: block; margin-top: 5px; color: #666; font-size: 11px;">
+                                        <?php _e('Acepta emojis (✅), URLs de imagen, código SVG o texto simple', 'smart-forms-quiz'); ?>
+                                    </small>
+                                </div>
+                                <div class="sfq-field-row">
+                                    <label><?php _e('Título del mensaje', 'smart-forms-quiz'); ?></label>
+                                    <input type="text" id="block-form-timer-available-title" class="sfq-input" 
+                                           placeholder="<?php _e('¡El tiempo se agotó!', 'smart-forms-quiz'); ?>">
+                                </div>
+                                <div class="sfq-field-row">
+                                    <label><?php _e('Descripción del mensaje', 'smart-forms-quiz'); ?></label>
+                                    <input type="text" id="block-form-timer-available-description" class="sfq-input" 
+                                           placeholder="<?php _e('Puedes acceder al formulario ahora.', 'smart-forms-quiz'); ?>">
+                                </div>
+                                <div class="sfq-field-row">
+                                    <label><?php _e('Texto del botón', 'smart-forms-quiz'); ?></label>
+                                    <input type="text" id="block-form-timer-available-button-text" class="sfq-input" 
+                                           placeholder="<?php _e('Acceder al formulario', 'smart-forms-quiz'); ?>">
+                                </div>
+                                <div class="sfq-field-row">
+                                    <label><?php _e('URL del botón (opcional)', 'smart-forms-quiz'); ?></label>
+                                    <input type="url" id="block-form-timer-available-button-url" class="sfq-input" 
+                                           placeholder="https://ejemplo.com/pagina-destino">
+                                    <small style="display: block; margin-top: 5px; color: #666; font-size: 11px;">
+                                        <?php _e('Si especificas una URL, el botón redirigirá ahí en lugar de mostrar el formulario', 'smart-forms-quiz'); ?>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Nueva sección desplegable para Colores del Mensaje de Disponibilidad -->
+                        <div class="sfq-message-config-section collapsed">
+                            <h4><?php _e('🎨 Colores del Mensaje', 'smart-forms-quiz'); ?></h4>
+                            <div class="sfq-message-fields">
+                                <div class="sfq-color-fields" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                                    <div class="sfq-field-row">
+                                        <label><?php _e('Color de fondo', 'smart-forms-quiz'); ?></label>
+                                        <input type="text" id="block-form-timer-available-bg-color" class="sfq-color-picker" value="#f8f9fa">
+                                    </div>
+                                    <div class="sfq-field-row">
+                                        <label><?php _e('Color del borde', 'smart-forms-quiz'); ?></label>
+                                        <input type="text" id="block-form-timer-available-border-color" class="sfq-color-picker" value="#e9ecef">
+                                    </div>
+                                    <div class="sfq-field-row">
+                                        <label><?php _e('Color del icono', 'smart-forms-quiz'); ?></label>
+                                        <input type="text" id="block-form-timer-available-icon-color" class="sfq-color-picker" value="#28a745">
+                                    </div>
+                                    <div class="sfq-field-row">
+                                        <label><?php _e('Color del título', 'smart-forms-quiz'); ?></label>
+                                        <input type="text" id="block-form-timer-available-title-color" class="sfq-color-picker" value="#28a745">
+                                    </div>
+                                    <div class="sfq-field-row">
+                                        <label><?php _e('Color del texto', 'smart-forms-quiz'); ?></label>
+                                        <input type="text" id="block-form-timer-available-text-color" class="sfq-color-picker" value="#666666">
+                                    </div>
+                                    <div class="sfq-field-row">
+                                        <label><?php _e('Color del botón', 'smart-forms-quiz'); ?></label>
+                                        <input type="text" id="block-form-timer-available-button-bg-color" class="sfq-color-picker" value="#28a745">
+                                    </div>
+                                    <div class="sfq-field-row">
+                                        <label><?php _e('Color texto botón', 'smart-forms-quiz'); ?></label>
+                                        <input type="text" id="block-form-timer-available-button-text-color" class="sfq-color-picker" value="#ffffff">
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        
+                            </div>
+                        </div>
+                    
                         <div class="sfq-field-group">
                             <label>
                                 <input type="checkbox" id="show-intro-screen" <?php echo ($form && isset($form->settings['show_intro_screen']) && $form->settings['show_intro_screen']) ? 'checked' : ''; ?>>

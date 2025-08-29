@@ -2062,7 +2062,7 @@ class SFQ_Ajax {
     }
     
     /**
-     * Verificar que el timer realmente ha expirado
+     * Verificar que el timer realmente ha expirado usando UTC
      */
     private function verify_timer_expired($form_id) {
         $form = $this->database->get_form($form_id);
@@ -2080,11 +2080,45 @@ class SFQ_Ajax {
             return false;
         }
         
-        // Verificar que el timer realmente haya expirado
-        $timer_timestamp = strtotime($styles['block_form_timer_date']);
-        $current_timestamp = current_time('timestamp');
+        // Verificar que el timer realmente haya expirado usando UTC
+        $timer_date = $styles['block_form_timer_date'];
+        $timezone = $styles['block_form_timer_timezone'] ?? wp_timezone_string();
+        
+        $timer_timestamp = $this->convert_to_utc_timestamp($timer_date, $timezone);
+        $current_timestamp = time(); // UTC timestamp
         
         return $current_timestamp >= $timer_timestamp;
+    }
+    
+    /**
+     * Convertir fecha y zona horaria a timestamp UTC (método auxiliar para AJAX)
+     */
+    private function convert_to_utc_timestamp($date_string, $timezone_string) {
+        try {
+            // Crear objeto DateTime con la zona horaria especificada
+            $timezone = new DateTimeZone($timezone_string);
+            $datetime = new DateTime($date_string, $timezone);
+            
+            // Convertir a UTC y obtener timestamp
+            $datetime->setTimezone(new DateTimeZone('UTC'));
+            return $datetime->getTimestamp();
+            
+        } catch (Exception $e) {
+            // Si hay error con la zona horaria, usar la zona horaria de WordPress
+            error_log('SFQ Timer Timezone Error (AJAX): ' . $e->getMessage());
+            
+            try {
+                $wp_timezone = new DateTimeZone(wp_timezone_string());
+                $datetime = new DateTime($date_string, $wp_timezone);
+                $datetime->setTimezone(new DateTimeZone('UTC'));
+                return $datetime->getTimestamp();
+                
+            } catch (Exception $e2) {
+                // Como último recurso, usar strtotime
+                error_log('SFQ Timer Fallback Error (AJAX): ' . $e2->getMessage());
+                return strtotime($date_string);
+            }
+        }
     }
     
 }

@@ -42,16 +42,51 @@ class SFQ_Frontend {
             // Verificar si hay timer configurado
             $styles = $form->style_settings ?: array();
             if (!empty($styles['block_form_enable_timer']) && !empty($styles['block_form_timer_date'])) {
-                // Verificar si ya es hora de abrir el formulario (igual que schedule-start)
+                // Verificar si ya es hora de abrir el formulario con manejo mejorado de zona horaria
                 $timer_date = $styles['block_form_timer_date'];
+                $timezone = $styles['block_form_timer_timezone'] ?? wp_timezone_string();
                 
-                // Convertir ambas fechas a timestamp para comparación precisa
-                $timer_timestamp = strtotime($timer_date);
-                $current_timestamp = current_time('timestamp');
+                // Convertir ambas fechas a UTC para comparación precisa
+                $timer_timestamp = $this->convert_to_utc_timestamp($timer_date, $timezone);
+                $current_timestamp = time(); // UTC timestamp
                 
                 if ($current_timestamp >= $timer_timestamp) {
-                    // El timer ya expiró - NO bloquear el formulario
-                    // Continuar con el renderizado normal del formulario
+                    // El timer ya expiró - verificar si debe mantener contador visible
+                    if (isset($styles['block_form_timer_show_form']) && $styles['block_form_timer_show_form']) {
+                        // Verificar si debe ocultar todo completamente
+                        if (isset($styles['block_form_timer_hide_all']) && $styles['block_form_timer_hide_all']) {
+                            // No renderizar nada - devolver cadena vacía
+                            return '';
+                        }
+                        
+                        // Renderizar contador en estado expirado (mantener solo timer visible)
+                        $block_check = array(
+                            'allowed' => false,
+                            'code' => 'FORM_BLOCKED_WITH_TIMER_EXPIRED',
+                            'message' => __('Este formulario está temporalmente bloqueado.', 'smart-forms-quiz'),
+                            'timer_date' => $timer_date,
+                            'timer_timezone' => $timezone,
+                            'timer_utc_timestamp' => $timer_timestamp,
+                            'timer_text' => $styles['block_form_timer_opened_text'] ?? __('¡El tiempo se agotó!', 'smart-forms-quiz'),
+                            'timer_expired' => true,
+                            'keep_counter_visible' => true,
+                            // Incluir todas las configuraciones del timer para que se renderice correctamente
+                            'available_icon' => $styles['block_form_timer_available_icon'] ?? '✅',
+                            'available_title' => $styles['block_form_timer_available_title'] ?? __('¡El tiempo se agotó!', 'smart-forms-quiz'),
+                            'available_description' => $styles['block_form_timer_available_description'] ?? __('Puedes acceder al formulario ahora.', 'smart-forms-quiz'),
+                            'available_button_text' => $styles['block_form_timer_available_button_text'] ?? __('Acceder al formulario', 'smart-forms-quiz'),
+                            'available_button_url' => $styles['block_form_timer_available_button_url'] ?? '',
+                            'available_bg_color' => $styles['block_form_timer_available_bg_color'] ?? '#f8f9fa',
+                            'available_border_color' => $styles['block_form_timer_available_border_color'] ?? '#e9ecef',
+                            'available_icon_color' => $styles['block_form_timer_available_icon_color'] ?? '#28a745',
+                            'available_title_color' => $styles['block_form_timer_available_title_color'] ?? '#28a745',
+                            'available_text_color' => $styles['block_form_timer_available_text_color'] ?? '#666666',
+                            'available_button_bg_color' => $styles['block_form_timer_available_button_bg_color'] ?? '#28a745',
+                            'available_button_text_color' => $styles['block_form_timer_available_button_text_color'] ?? '#ffffff'
+                        );
+                        return $this->render_limit_message($form_id, $block_check, $styles);
+                    }
+                    // Si no debe mantener contador, continuar con renderizado normal del formulario
                 } else {
                     // El timer aún no ha expirado - mostrar mensaje con timer
                     $block_check = array(
@@ -59,8 +94,21 @@ class SFQ_Frontend {
                         'code' => 'FORM_BLOCKED_WITH_TIMER',
                         'message' => __('Este formulario está temporalmente bloqueado.', 'smart-forms-quiz'),
                         'timer_date' => $timer_date,
+                        'timer_timezone' => $timezone,
+                        'timer_utc_timestamp' => $timer_timestamp,
                         'timer_text' => $styles['block_form_timer_text'] ?? __('El formulario se abrirá en:', 'smart-forms-quiz'),
-                        'timer_opened_text' => $styles['block_form_timer_opened_text'] ?? __('¡El formulario ya está disponible!', 'smart-forms-quiz')
+                        'available_icon' => $styles['block_form_timer_available_icon'] ?? '✅',
+                        'available_title' => $styles['block_form_timer_available_title'] ?? __('¡El tiempo se agotó!', 'smart-forms-quiz'),
+                        'available_description' => $styles['block_form_timer_available_description'] ?? __('Puedes acceder al formulario ahora.', 'smart-forms-quiz'),
+                        'available_button_text' => $styles['block_form_timer_available_button_text'] ?? __('Acceder al formulario', 'smart-forms-quiz'),
+                        'available_button_url' => $styles['block_form_timer_available_button_url'] ?? '',
+                        'available_bg_color' => $styles['block_form_timer_available_bg_color'] ?? '#f8f9fa',
+                        'available_border_color' => $styles['block_form_timer_available_border_color'] ?? '#e9ecef',
+                        'available_icon_color' => $styles['block_form_timer_available_icon_color'] ?? '#28a745',
+                        'available_title_color' => $styles['block_form_timer_available_title_color'] ?? '#28a745',
+                        'available_text_color' => $styles['block_form_timer_available_text_color'] ?? '#666666',
+                        'available_button_bg_color' => $styles['block_form_timer_available_button_bg_color'] ?? '#28a745',
+                        'available_button_text_color' => $styles['block_form_timer_available_button_text_color'] ?? '#ffffff'
                     );
                     return $this->render_limit_message($form_id, $block_check, $styles);
                 }
@@ -569,6 +617,17 @@ class SFQ_Frontend {
                 $use_block_colors = true;
                 break;
                 
+            case 'FORM_BLOCKED_WITH_TIMER_EXPIRED':
+                $icon = !empty($styles['block_form_icon']) ? $this->process_icon_content($styles['block_form_icon']) : '<svg width="80" height="80" viewBox="0 0 80 80" fill="none"><circle cx="40" cy="40" r="38" stroke="currentColor" stroke-width="4"/><path d="M40 20V40L52 52" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>';
+                $title = !empty($styles['block_form_title']) ? $styles['block_form_title'] : __('Formulario temporalmente bloqueado', 'smart-forms-quiz');
+                $custom_message = !empty($styles['block_form_description']) ? $styles['block_form_description'] : $message;
+                $button_text = $styles['block_form_button_text'] ?? '';
+                $button_url = $styles['block_form_button_url'] ?? '';
+                
+                // Usar colores específicos de bloqueo si están disponibles
+                $use_block_colors = true;
+                break;
+                
             default:
                 $icon = $default_icons['SUBMISSION_LIMIT_EXCEEDED'];
                 $title = $default_titles['SUBMISSION_LIMIT_EXCEEDED'];
@@ -584,37 +643,47 @@ class SFQ_Frontend {
                     <?php echo $icon; ?>
                 </div>
                 
+                <?php 
+                // Mostrar video si está configurado (solo para mensajes de bloqueo) - DESPUÉS del icono
+                if (isset($use_block_colors) && $use_block_colors && !empty($styles['block_form_video_url'])) {
+                    $video_embed = $this->convert_video_url_to_embed($styles['block_form_video_url']);
+                    if ($video_embed) {
+                        echo '<div class="sfq-video-container" style="margin-bottom: 15px;">' . $video_embed . '</div>';
+                    }
+                }
+                ?>
+                
                 <h2 class="sfq-limit-title"><?php echo esc_html($title); ?></h2>
                 
                 <div class="sfq-limit-text">
                     <?php echo wp_kses_post($custom_message); ?>
                 </div>
                 
-                <?php if ($limit_type === 'FORM_BLOCKED_WITH_TIMER' && isset($limit_check['timer_date'])) : ?>
+                <?php if (($limit_type === 'FORM_BLOCKED_WITH_TIMER' || $limit_type === 'FORM_BLOCKED_WITH_TIMER_EXPIRED') && isset($limit_check['timer_date'])) : ?>
                     <div class="sfq-timer-container">
                         <div class="sfq-timer-text">
                             <?php echo esc_html($limit_check['timer_text'] ?? __('El formulario se abrirá en:', 'smart-forms-quiz')); ?>
                         </div>
-                        <div class="sfq-countdown-timer" 
+                        <div class="sfq-countdown-timer <?php echo $limit_type === 'FORM_BLOCKED_WITH_TIMER_EXPIRED' ? 'expired keep-visible' : ''; ?>" 
                              data-target-date="<?php echo esc_attr($limit_check['timer_date']); ?>"
-                             data-opened-text="<?php echo esc_attr($limit_check['timer_opened_text'] ?? __('¡El formulario ya está disponible!', 'smart-forms-quiz')); ?>"
+                             data-opened-text="<?php echo esc_attr($styles['block_form_timer_opened_text'] ?? __('¡El formulario ya está disponible!', 'smart-forms-quiz')); ?>"
                              data-form-id="<?php echo esc_attr($form_id); ?>"
                              data-show-form="<?php echo esc_attr($styles['block_form_timer_show_form'] ? 'true' : 'false'); ?>">
                             <div class="sfq-countdown-display">
                                 <div class="sfq-countdown-unit">
-                                    <span class="sfq-countdown-number" id="days-<?php echo $form_id; ?>">0</span>
+                                    <span class="sfq-countdown-number" id="days-<?php echo $form_id; ?>"><?php echo $limit_type === 'FORM_BLOCKED_WITH_TIMER_EXPIRED' ? '00' : '0'; ?></span>
                                     <span class="sfq-countdown-label"><?php _e('días', 'smart-forms-quiz'); ?></span>
                                 </div>
                                 <div class="sfq-countdown-unit">
-                                    <span class="sfq-countdown-number" id="hours-<?php echo $form_id; ?>">0</span>
+                                    <span class="sfq-countdown-number" id="hours-<?php echo $form_id; ?>"><?php echo $limit_type === 'FORM_BLOCKED_WITH_TIMER_EXPIRED' ? '00' : '0'; ?></span>
                                     <span class="sfq-countdown-label"><?php _e('horas', 'smart-forms-quiz'); ?></span>
                                 </div>
                                 <div class="sfq-countdown-unit">
-                                    <span class="sfq-countdown-number" id="minutes-<?php echo $form_id; ?>">0</span>
+                                    <span class="sfq-countdown-number" id="minutes-<?php echo $form_id; ?>"><?php echo $limit_type === 'FORM_BLOCKED_WITH_TIMER_EXPIRED' ? '00' : '0'; ?></span>
                                     <span class="sfq-countdown-label"><?php _e('min', 'smart-forms-quiz'); ?></span>
                                 </div>
                                 <div class="sfq-countdown-unit">
-                                    <span class="sfq-countdown-number" id="seconds-<?php echo $form_id; ?>">0</span>
+                                    <span class="sfq-countdown-number" id="seconds-<?php echo $form_id; ?>"><?php echo $limit_type === 'FORM_BLOCKED_WITH_TIMER_EXPIRED' ? '00' : '0'; ?></span>
                                     <span class="sfq-countdown-label"><?php _e('seg', 'smart-forms-quiz'); ?></span>
                                 </div>
                             </div>
@@ -692,14 +761,16 @@ class SFQ_Frontend {
                 background: var(--sfq-limit-bg);
                 border: 2px solid var(--sfq-limit-border);
                 border-radius: var(--sfq-border-radius);
-                padding: 40px 30px;
+                padding: 10px 30px;
                 text-align: center;
+                <?php if (empty($styles['block_form_disable_shadow']) || !$styles['block_form_disable_shadow']) : ?>
                 box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+                <?php endif; ?>
             }
             
             .sfq-limit-icon {
                 color: var(--sfq-limit-icon-color);
-                margin-bottom: 20px;
+                margin-bottom: 10px;
                 opacity: 0.8;
             }
             
@@ -714,7 +785,7 @@ class SFQ_Frontend {
                 height: 80px;
                 object-fit: contain;
                 border-radius: 8px;
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                
             }
             
             /* Estilos para texto/emoji de iconos */
@@ -835,9 +906,9 @@ class SFQ_Frontend {
             .sfq-timer-container {
                 margin: 25px 0;
                 padding: 20px;
-                background: rgba(0, 0, 0, 0.03);
+                background: <?php echo esc_attr($styles['block_form_timer_container_bg_color'] ?? '#f8f9fa'); ?>;
                 border-radius: calc(var(--sfq-border-radius) / 2);
-                border: 1px solid rgba(0, 0, 0, 0.1);
+                border: 1px solid <?php echo esc_attr($styles['block_form_timer_container_border_color'] ?? '#e9ecef'); ?>;
             }
             
             .sfq-timer-text {
@@ -861,8 +932,8 @@ class SFQ_Frontend {
                 align-items: center;
                 min-width: 60px;
                 padding: 12px 8px;
-                background: var(--sfq-limit-bg);
-                border: 2px solid var(--sfq-limit-border);
+                background: <?php echo esc_attr($styles['block_form_timer_unit_bg_color'] ?? '#ffffff'); ?>;
+                border: 2px solid <?php echo esc_attr($styles['block_form_timer_unit_border_color'] ?? '#e9ecef'); ?>;
                 border-radius: 8px;
                 box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             }
@@ -885,12 +956,29 @@ class SFQ_Frontend {
                 opacity: 0.8;
             }
             
-            .sfq-countdown-timer.expired .sfq-countdown-display {
+            .sfq-countdown-timer.expired:not(.keep-visible) .sfq-countdown-display {
                 display: none;
             }
             
-            .sfq-countdown-timer.expired .sfq-timer-text {
+            .sfq-countdown-timer.expired.keep-visible .sfq-countdown-display {
+                display: flex;
+            }
+            
+            .sfq-countdown-timer.expired.keep-visible .sfq-countdown-number {
+                color: var(--sfq-primary-color);
+                animation: sfq-pulse 2s infinite;
+            }
+            
+            .sfq-countdown-timer.expired:not(.keep-visible) .sfq-timer-text {
                 font-size: 20px;
+                color: var(--sfq-primary-color);
+                font-weight: 600;
+                text-align: center;
+                animation: sfq-pulse 2s infinite;
+            }
+            
+            .sfq-countdown-timer.expired.keep-visible .sfq-timer-text {
+                font-size: 18px;
                 color: var(--sfq-primary-color);
                 font-weight: 600;
                 text-align: center;
@@ -905,10 +993,15 @@ class SFQ_Frontend {
             /* Responsive */
             @media (max-width: 768px) {
                 .sfq-limit-message {
-                    padding: 30px 20px;
+                    padding: 10px 20px;
                     margin: 0 15px;
                 }
-                
+                 /* Estilos para texto/emoji de iconos */
+                .sfq-limit-icon-text {
+                font-size: 48px;
+                line-height: 1;
+                display: block;
+            }
                 .sfq-limit-title {
                     font-size: 20px;
                 }
@@ -942,7 +1035,7 @@ class SFQ_Frontend {
         </style>
         
         <?php if ($limit_type === 'FORM_BLOCKED_WITH_TIMER' && isset($limit_check['timer_date'])) : ?>
-        <!-- JavaScript moderno para la cuenta atrás (basado en mejores prácticas SitePoint) -->
+        <!-- JavaScript mejorado para la cuenta atrás con manejo UTC y sin bucles infinitos -->
         <script>
         (function() {
             'use strict';
@@ -951,9 +1044,17 @@ class SFQ_Frontend {
             const timerElement = document.querySelector('.sfq-countdown-timer');
             if (!timerElement) return;
             
-            const deadline = timerElement.dataset.targetDate;
             const openedText = timerElement.dataset.openedText;
             const formId = timerElement.dataset.formId;
+            
+            // Usar timestamp UTC del servidor para evitar problemas de zona horaria
+            const targetTimestamp = <?php echo isset($limit_check['timer_utc_timestamp']) ? $limit_check['timer_utc_timestamp'] : 'null'; ?>;
+            const timezone = '<?php echo esc_js($limit_check['timer_timezone'] ?? wp_timezone_string()); ?>';
+            
+            if (!targetTimestamp) {
+                console.error('SFQ Timer: No se pudo obtener el timestamp UTC del timer');
+                return;
+            }
             
             // Referencias a elementos del DOM
             const daysSpan = document.getElementById('days-' + formId);
@@ -962,94 +1063,224 @@ class SFQ_Frontend {
             const secondsSpan = document.getElementById('seconds-' + formId);
             const timerTextEl = document.querySelector('.sfq-timer-text');
             
-            // Función para calcular tiempo restante
-            function getTimeRemaining(endtime) {
-                const total = Date.parse(endtime) - Date.parse(new Date());
+            // Estado del timer para evitar múltiples ejecuciones
+            let timerExpired = false;
+            let timeinterval = null;
+            
+            // Función para calcular tiempo restante usando UTC
+            function getTimeRemaining() {
+                // Obtener timestamp actual en UTC (en segundos)
+                const currentTimestamp = Math.floor(Date.now() / 1000);
+                const total = (targetTimestamp - currentTimestamp) * 1000; // Convertir a milisegundos
+                
+                if (total <= 0) {
+                    return { total: 0, days: 0, hours: 0, minutes: 0, seconds: 0 };
+                }
+                
                 const seconds = Math.floor((total / 1000) % 60);
                 const minutes = Math.floor((total / 1000 / 60) % 60);
                 const hours = Math.floor((total / (1000 * 60 * 60)) % 24);
                 const days = Math.floor(total / (1000 * 60 * 60 * 24));
                 
-                return {
-                    total,
-                    days,
-                    hours,
-                    minutes,
-                    seconds
-                };
+                return { total, days, hours, minutes, seconds };
             }
-            
-            let timeinterval;
             
             // Función para actualizar el reloj
             function updateClock() {
-                const t = getTimeRemaining(deadline);
+                if (timerExpired) return;
+                
+                const t = getTimeRemaining();
                 
                 // Verificar si el timer ha expirado
                 if (t.total <= 0) {
-                    clearInterval(timeinterval);
-                    timerElement.classList.add('expired');
-                    if (timerTextEl) timerTextEl.textContent = openedText;
-                    
-                    // Verificar si debe mostrar formulario sin recargar
-                    const showFormDirectly = timerElement.dataset.showForm === 'true';
-                    
-                    if (showFormDirectly) {
-                        // Mostrar formulario sin recargar página
-                        setTimeout(function() {
-                            // Ocultar mensaje de bloqueo con animación
-                            const limitContainer = document.querySelector('.sfq-limit-message-container');
-                            if (limitContainer) {
-                                limitContainer.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
-                                limitContainer.style.opacity = '0';
-                                limitContainer.style.transform = 'translateY(-20px)';
-                                
-                                setTimeout(function() {
-                                    limitContainer.style.display = 'none';
-                                    
-                                    // Cargar y mostrar el formulario
-                                    loadAndShowForm();
-                                }, 500);
-                            }
-                        }, 2000);
-                    } else {
-                        // Recargar página después de 3 segundos (comportamiento original)
-                        setTimeout(function() {
-                            window.location.reload();
-                        }, 3000);
-                    }
+                    handleTimerExpired();
                     return;
                 }
                 
                 // Actualizar display con ceros a la izquierda
-                if (daysSpan) daysSpan.textContent = ('0' + t.days).slice(-2);
-                if (hoursSpan) hoursSpan.textContent = ('0' + t.hours).slice(-2);
-                if (minutesSpan) minutesSpan.textContent = ('0' + t.minutes).slice(-2);
-                if (secondsSpan) secondsSpan.textContent = ('0' + t.seconds).slice(-2);
+                if (daysSpan) daysSpan.textContent = String(t.days).padStart(2, '0');
+                if (hoursSpan) hoursSpan.textContent = String(t.hours).padStart(2, '0');
+                if (minutesSpan) minutesSpan.textContent = String(t.minutes).padStart(2, '0');
+                if (secondsSpan) secondsSpan.textContent = String(t.seconds).padStart(2, '0');
+            }
+            
+            // Manejar expiración del timer
+            function handleTimerExpired() {
+                if (timerExpired) return; // Evitar múltiples ejecuciones
+                
+                timerExpired = true;
+                clearInterval(timeinterval);
+                
+                            // Verificar si está activada la opción de no mostrar mensaje ni formulario
+                            const showFormSetting = '<?php echo esc_js($styles['block_form_timer_show_form'] ?? false); ?>';
+                            const hideAllSetting = '<?php echo esc_js($styles['block_form_timer_hide_all'] ?? false); ?>';
+                            
+                            if (showFormSetting === '1' || showFormSetting === 'true') {
+                                // Verificar si debe ocultar todo completamente
+                                if (hideAllSetting === '1' || hideAllSetting === 'true') {
+                                    // Ocultar completamente todo el contenedor del mensaje
+                                    const limitContainer = document.querySelector('.sfq-limit-message-container');
+                                    if (limitContainer) {
+                                        limitContainer.style.transition = 'opacity 0.5s ease, height 0.5s ease';
+                                        limitContainer.style.opacity = '0';
+                                        limitContainer.style.height = '0';
+                                        limitContainer.style.overflow = 'hidden';
+                                        limitContainer.style.margin = '0';
+                                        limitContainer.style.padding = '0';
+                                        
+                                        setTimeout(() => {
+                                            limitContainer.style.display = 'none';
+                                        }, 500);
+                                    }
+                                    
+                                    // Guardar estado en localStorage
+                                    localStorage.setItem('sfq_timer_expired_hide_all_' + formId, Date.now().toString());
+                                    return;
+                                }
+                                
+                                // Solo mantener el contador visible, no mostrar mensaje ni formulario
+                                timerElement.classList.add('expired', 'keep-visible');
+                                if (timerTextEl) timerTextEl.textContent = openedText;
+                                
+                                // Mantener los números en 00:00:00:00
+                                if (daysSpan) daysSpan.textContent = '00';
+                                if (hoursSpan) hoursSpan.textContent = '00';
+                                if (minutesSpan) minutesSpan.textContent = '00';
+                                if (secondsSpan) secondsSpan.textContent = '00';
+                                
+                                // Guardar estado en localStorage
+                                localStorage.setItem('sfq_timer_expired_' + formId, Date.now().toString());
+                                
+                                // No hacer nada más, mantener el contador en pantalla
+                                return;
+                            }
+                
+                // Comportamiento normal: mostrar mensaje de disponibilidad
+                timerElement.classList.add('expired');
+                if (timerTextEl) timerTextEl.textContent = openedText;
+                
+                // Guardar estado en localStorage para evitar recargas innecesarias
+                localStorage.setItem('sfq_timer_expired_' + formId, Date.now().toString());
+                
+                // Mostrar mensaje de disponibilidad y botón para acceder
+                setTimeout(function() {
+                    showFormAvailableMessage();
+                }, 2000);
+            }
+            
+            // Mostrar mensaje de formulario disponible
+            function showFormAvailableMessage() {
+                const limitContainer = document.querySelector('.sfq-limit-message-container');
+                if (!limitContainer) return;
+                
+                // Obtener configuraciones personalizables del PHP con valores por defecto
+                const availableIcon = '<?php echo esc_js(!empty($limit_check['available_icon']) ? $limit_check['available_icon'] : '✅'); ?>';
+                const availableTitle = '<?php echo esc_js(!empty($limit_check['available_title']) ? $limit_check['available_title'] : __('¡El formulario ya está disponible!', 'smart-forms-quiz')); ?>';
+                const availableDescription = '<?php echo esc_js(!empty($limit_check['available_description']) ? $limit_check['available_description'] : __('Puedes acceder al formulario ahora.', 'smart-forms-quiz')); ?>';
+                const availableButtonText = '<?php echo esc_js(!empty($limit_check['available_button_text']) ? $limit_check['available_button_text'] : __('Acceder al formulario', 'smart-forms-quiz')); ?>';
+                const availableButtonUrl = '<?php echo esc_js($limit_check['available_button_url'] ?? ''); ?>';
+                
+                // Obtener colores personalizados del mensaje de disponibilidad
+                const availableBgColor = '<?php echo esc_js($limit_check['available_bg_color'] ?? '#f8f9fa'); ?>';
+                const availableBorderColor = '<?php echo esc_js($limit_check['available_border_color'] ?? '#e9ecef'); ?>';
+                const availableIconColor = '<?php echo esc_js($limit_check['available_icon_color'] ?? '#28a745'); ?>';
+                const availableTitleColor = '<?php echo esc_js($limit_check['available_title_color'] ?? '#28a745'); ?>';
+                const availableTextColor = '<?php echo esc_js($limit_check['available_text_color'] ?? '#666666'); ?>';
+                const availableButtonBgColor = '<?php echo esc_js($limit_check['available_button_bg_color'] ?? '#28a745'); ?>';
+                const availableButtonTextColor = '<?php echo esc_js($limit_check['available_button_text_color'] ?? '#ffffff'); ?>';
+                
+                // Crear mensaje de formulario disponible con colores personalizados
+                const availableMessage = document.createElement('div');
+                availableMessage.className = 'sfq-form-available-message';
+                availableMessage.innerHTML = `
+                    <div style="text-align: center; padding: 40px; background: ${availableBgColor}; border: 2px solid ${availableBorderColor}; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+                        <div style="color: ${availableIconColor}; font-size: 48px; margin-bottom: 20px; animation: sfq-bounce 1s ease-in-out;">${availableIcon}</div>
+                        <h3 style="color: ${availableTitleColor}; margin-bottom: 15px; font-size: 24px; font-weight: 600;">${availableTitle}</h3>
+                        <p style="color: ${availableTextColor}; margin-bottom: 25px; font-size: 16px;">${availableDescription}</p>
+                        <button onclick="accessForm()" style="
+                            background: ${availableButtonBgColor}; 
+                            color: ${availableButtonTextColor}; 
+                            border: none; 
+                            padding: 14px 28px; 
+                            border-radius: 8px; 
+                            font-size: 16px; 
+                            font-weight: 500;
+                            cursor: pointer;
+                            transition: all 0.2s ease;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                        " onmouseover="this.style.opacity='0.9'; this.style.transform='translateY(-1px)'" 
+                           onmouseout="this.style.opacity='1'; this.style.transform='translateY(0)'">
+                            ${availableButtonText}
+                        </button>
+                    </div>
+                `;
+                
+                // Función global para acceder al formulario
+                window.accessForm = function() {
+                    // Limpiar localStorage
+                    localStorage.removeItem('sfq_timer_expired_' + formId);
+                    
+                    // Si hay URL personalizada, redirigir ahí, sino recargar para mostrar formulario
+                    if (availableButtonUrl && availableButtonUrl.trim() !== '') {
+                        window.location.href = availableButtonUrl;
+                    } else {
+                        // Recargar página para mostrar formulario
+                        window.location.reload();
+                    }
+                };
+                
+                // Reemplazar contenido con animación
+                limitContainer.style.transition = 'opacity 0.3s ease';
+                limitContainer.style.opacity = '0';
+                
+                setTimeout(() => {
+                    limitContainer.innerHTML = '';
+                    limitContainer.appendChild(availableMessage);
+                    limitContainer.style.opacity = '1';
+                }, 300);
             }
             
             // Función para inicializar el reloj
             function initializeClock() {
-                // Verificar inmediatamente si ya expiró
-                const t = getTimeRemaining(deadline);
-                if (t.total <= 0) {
-                    timerElement.classList.add('expired');
-                    if (timerTextEl) timerTextEl.textContent = openedText;
+                // Verificar si debe estar completamente oculto (nueva opción)
+                const hideAllExpiredTime = localStorage.getItem('sfq_timer_expired_hide_all_' + formId);
+                if (hideAllExpiredTime) {
+                    const expiredTimestamp = parseInt(hideAllExpiredTime);
+                    const now = Date.now();
                     
-                    // Verificar si debe mostrar formulario sin recargar
-                    const showFormDirectly = timerElement.dataset.showForm === 'true';
-                    
-                    if (showFormDirectly) {
-                        // Mostrar formulario sin recargar página
-                        setTimeout(function() {
-                            loadAndShowForm();
-                        }, 1000);
+                    // Si expiró hace menos de 24 horas, mantener oculto
+                    if (now - expiredTimestamp < 24 * 60 * 60 * 1000) {
+                        const limitContainer = document.querySelector('.sfq-limit-message-container');
+                        if (limitContainer) {
+                            limitContainer.style.display = 'none';
+                        }
+                        return;
                     } else {
-                        // Solo recargar si no está configurado para mostrar formulario directamente
-                        setTimeout(function() {
-                            window.location.reload();
-                        }, 1000);
+                        // Si expiró hace más de 24 horas, limpiar localStorage
+                        localStorage.removeItem('sfq_timer_expired_hide_all_' + formId);
                     }
+                }
+                
+                // Verificar si el timer ya expiró previamente (localStorage)
+                const expiredTime = localStorage.getItem('sfq_timer_expired_' + formId);
+                if (expiredTime) {
+                    const expiredTimestamp = parseInt(expiredTime);
+                    const now = Date.now();
+                    
+                    // Si expiró hace menos de 5 minutos, mostrar mensaje directamente
+                    if (now - expiredTimestamp < 5 * 60 * 1000) {
+                        handleTimerExpired();
+                        return;
+                    } else {
+                        // Si expiró hace más de 5 minutos, limpiar localStorage y verificar de nuevo
+                        localStorage.removeItem('sfq_timer_expired_' + formId);
+                    }
+                }
+                
+                // Verificar inmediatamente si ya expiró
+                const t = getTimeRemaining();
+                if (t.total <= 0) {
+                    handleTimerExpired();
                     return;
                 }
                 
@@ -1060,59 +1291,26 @@ class SFQ_Frontend {
                 timeinterval = setInterval(updateClock, 1000);
             }
             
-            // Función simplificada para mostrar mensaje "empezamos ya" sin loading
-            function loadAndShowForm() {
-                // Control de estado global para evitar múltiples ejecuciones
-                if (window.sfqTimerExpired) {
-                    return;
+            // Agregar estilos para animación
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes sfq-bounce {
+                    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+                    40% { transform: translateY(-10px); }
+                    60% { transform: translateY(-5px); }
                 }
-                
-                // Marcar que el timer ha expirado
-                window.sfqTimerExpired = true;
-                
-                // Simplemente mostrar el mensaje "empezamos ya" sin loading ni AJAX
-                showReadyMessage();
-            }
-            
-            // Mostrar mensaje de "empezamos ya" sin loading
-            function showReadyMessage() {
-                const limitContainer = document.querySelector('.sfq-limit-message-container');
-                if (!limitContainer) return;
-                
-                // Mostrar mensaje simple sin loading
-                limitContainer.innerHTML = `
-                    <div style="text-align: center; padding: 40px;">
-                        <div style="color: #28a745; font-size: 48px; margin-bottom: 20px;">✅</div>
-                        <h3 style="color: #28a745; margin-bottom: 15px;">¡Empezamos ya!</h3>
-                        <p style="color: #666; margin-bottom: 20px;">El formulario ya está disponible.</p>
-                        <button onclick="window.location.reload()" style="
-                            background: #007cba; 
-                            color: white; 
-                            border: none; 
-                            padding: 12px 24px; 
-                            border-radius: 6px; 
-                            font-size: 16px; 
-                            cursor: pointer;
-                            transition: background 0.2s ease;
-                        " onmouseover="this.style.background='#005a87'" onmouseout="this.style.background='#007cba'">
-                            Acceder al formulario
-                        </button>
-                    </div>
-                `;
-                
-                // Animación de entrada suave
-                limitContainer.style.opacity = '0';
-                limitContainer.style.transform = 'translateY(20px)';
-                limitContainer.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
-                
-                setTimeout(() => {
-                    limitContainer.style.opacity = '1';
-                    limitContainer.style.transform = 'translateY(0)';
-                }, 100);
-            }
+            `;
+            document.head.appendChild(style);
             
             // Inicializar el reloj
             initializeClock();
+            
+            // Limpiar interval al salir de la página
+            window.addEventListener('beforeunload', function() {
+                if (timeinterval) {
+                    clearInterval(timeinterval);
+                }
+            });
             
         })();
         </script>
@@ -1240,7 +1438,7 @@ class SFQ_Frontend {
             return true;
         }
         
-        // Verificar si el timer ya expiró naturalmente
+        // Verificar si el timer ya expiró naturalmente usando UTC
         $form = $this->database->get_form($form_id);
         if ($form) {
             $settings = $form->settings ?: array();
@@ -1249,17 +1447,116 @@ class SFQ_Frontend {
             if (isset($settings['block_form']) && $settings['block_form'] &&
                 !empty($styles['block_form_enable_timer']) && !empty($styles['block_form_timer_date'])) {
                 
-                $timer_timestamp = strtotime($styles['block_form_timer_date']);
-                $current_timestamp = current_time('timestamp');
+                // Usar la nueva lógica UTC para verificar expiración
+                $timer_date = $styles['block_form_timer_date'];
+                $timezone = $styles['block_form_timer_timezone'] ?? wp_timezone_string();
                 
-                // Si el timer ya expiró naturalmente, permitir bypass
+                $timer_timestamp = $this->convert_to_utc_timestamp($timer_date, $timezone);
+                $current_timestamp = time(); // UTC timestamp
+                
+                // Si el timer ya expiró naturalmente, verificar configuración de mostrar formulario
                 if ($current_timestamp >= $timer_timestamp) {
+                    // 🆕 NUEVA LÓGICA: Verificar configuración de mostrar formulario
+                    if (isset($styles['block_form_timer_show_form']) && $styles['block_form_timer_show_form']) {
+                        // Si está configurado para MANTENER SOLO EL TIMER, NO permitir bypass
+                        return false;
+                    }
                     return true;
                 }
             }
         }
         
         return false;
+    }
+    
+    /**
+     * Convertir fecha y zona horaria a timestamp UTC
+     */
+    private function convert_to_utc_timestamp($date_string, $timezone_string) {
+        try {
+            // Crear objeto DateTime con la zona horaria especificada
+            $timezone = new DateTimeZone($timezone_string);
+            $datetime = new DateTime($date_string, $timezone);
+            
+            // Convertir a UTC y obtener timestamp
+            $datetime->setTimezone(new DateTimeZone('UTC'));
+            return $datetime->getTimestamp();
+            
+        } catch (Exception $e) {
+            // Si hay error con la zona horaria, usar la zona horaria de WordPress
+            error_log('SFQ Timer Timezone Error: ' . $e->getMessage());
+            
+            try {
+                $wp_timezone = new DateTimeZone(wp_timezone_string());
+                $datetime = new DateTime($date_string, $wp_timezone);
+                $datetime->setTimezone(new DateTimeZone('UTC'));
+                return $datetime->getTimestamp();
+                
+            } catch (Exception $e2) {
+                // Como último recurso, usar strtotime
+                error_log('SFQ Timer Fallback Error: ' . $e2->getMessage());
+                return strtotime($date_string);
+            }
+        }
+    }
+    
+    /**
+     * Convertir URL de YouTube/Vimeo a embed responsivo
+     */
+    private function convert_video_url_to_embed($url) {
+        if (empty($url)) {
+            return '';
+        }
+        
+        $url = trim($url);
+        
+        // Detectar YouTube
+        if (preg_match('/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/', $url, $matches)) {
+            $video_id = $matches[1];
+            return $this->create_youtube_embed($video_id);
+        }
+        
+        // Detectar Vimeo
+        if (preg_match('/vimeo\.com\/(?:channels\/[^\/]+\/|groups\/[^\/]+\/videos\/|album\/\d+\/video\/|video\/|)(\d+)(?:$|\/|\?)/', $url, $matches)) {
+            $video_id = $matches[1];
+            return $this->create_vimeo_embed($video_id);
+        }
+        
+        return '';
+    }
+    
+    /**
+     * Crear embed de YouTube responsivo
+     */
+    private function create_youtube_embed($video_id) {
+        return sprintf(
+            '<div class="sfq-video-embed" style="position: relative; padding-bottom: 56.25%%; height: 0; overflow: hidden; max-width: 100%%; background: #000; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+                <iframe src="https://www.youtube.com/embed/%s?rel=0&showinfo=0&modestbranding=1" 
+                        style="position: absolute; top: 0; left: 0; width: 100%%; height: 100%%; border: 0;" 
+                        allowfullscreen 
+                        loading="lazy"
+                        title="Video de YouTube">
+                </iframe>
+            </div>',
+            esc_attr($video_id)
+        );
+    }
+    
+    /**
+     * Crear embed de Vimeo responsivo
+     */
+    private function create_vimeo_embed($video_id) {
+        return sprintf(
+            '<div class="sfq-video-embed" style="position: relative; padding-bottom: 56.25%%; height: 0; overflow: hidden; max-width: 100%%; background: #000; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+                <iframe src="https://player.vimeo.com/video/%s?title=0&byline=0&portrait=0" 
+                        style="position: absolute; top: 0; left: 0; width: 100%%; height: 100%%; border: 0;" 
+                        allowfullscreen 
+                        loading="lazy"
+                        title="Video de Vimeo">
+                </iframe>
+            </div>',
+            esc_attr($video_id)
+        );
     }
     
     /**
