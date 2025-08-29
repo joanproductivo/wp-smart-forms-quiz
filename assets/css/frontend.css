@@ -8,6 +8,7 @@
     --sfq-primary-color: #007cba;
     --sfq-secondary-color: #6c757d;
     --sfq-background-color: #ffffff;
+    --sfq-options-background-color: #ffffff;
     --sfq-text-color: #333333;
     --sfq-border-radius: 12px;
     --sfq-font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -148,7 +149,7 @@
 
 /* Cards de opciones (diseño moderno) */
 .sfq-option-card {
-    background: var(--sfq-background-color);
+    background: var(--sfq-options-background-color);
     border: 2px solid #e0e0e0;
     border-radius: var(--sfq-border-radius);
     padding: 1.25rem 1.5rem;

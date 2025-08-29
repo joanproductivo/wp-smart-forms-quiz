@@ -19,6 +19,72 @@ class SFQ_Admin {
         // Menú de administración
         add_action('admin_menu', array($this, 'add_admin_menu'));
         
+        // Cargar scripts y estilos
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
+    }
+    
+    /**
+     * Cargar scripts y estilos del admin
+     */
+    public function enqueue_admin_scripts($hook) {
+        // Solo cargar en las páginas del plugin
+        if (strpos($hook, 'smart-forms-quiz') === false && strpos($hook, 'sfq-') === false) {
+            return;
+        }
+        
+        // Cargar scripts y estilos existentes
+        wp_enqueue_script('jquery');
+        wp_enqueue_script('jquery-ui-sortable');
+        wp_enqueue_style('wp-color-picker');
+        wp_enqueue_script('wp-color-picker');
+        
+        // Cargar CSS consolidado
+        wp_enqueue_style(
+            'sfq-admin-consolidated',
+            SFQ_PLUGIN_URL . 'assets/css/admin-consolidated.css',
+            array(),
+            SFQ_VERSION
+        );
+        
+        // Cargar CSS de previsualización flotante
+        wp_enqueue_style(
+            'sfq-preview-floating',
+            SFQ_PLUGIN_URL . 'assets/css/preview-floating.css',
+            array('sfq-admin-consolidated'),
+            SFQ_VERSION
+        );
+        
+        // Cargar JavaScript del builder
+        wp_enqueue_script(
+            'sfq-admin-builder-v2',
+            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2.js',
+            array('jquery', 'jquery-ui-sortable', 'wp-color-picker'),
+            SFQ_VERSION,
+            true
+        );
+        
+        // Cargar JavaScript del preview manager
+        wp_enqueue_script(
+            'sfq-preview-manager',
+            SFQ_PLUGIN_URL . 'assets/js/preview-manager.js',
+            array('jquery', 'sfq-admin-builder-v2'),
+            SFQ_VERSION,
+            true
+        );
+        
+        // Localizar script con datos AJAX
+        wp_localize_script('sfq-admin-builder-v2', 'sfq_ajax', array(
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('sfq_nonce'),
+            'strings' => array(
+                'confirm_delete' => __('¿Estás seguro de eliminar esta pregunta?', 'smart-forms-quiz'),
+                'confirm_delete_form' => __('¿Estás seguro de eliminar este formulario?', 'smart-forms-quiz'),
+                'saving' => __('Guardando...', 'smart-forms-quiz'),
+                'saved' => __('Guardado', 'smart-forms-quiz'),
+                'error' => __('Error', 'smart-forms-quiz'),
+                'loading' => __('Cargando...', 'smart-forms-quiz')
+            )
+        ));
     }
     
     /**
@@ -750,6 +816,12 @@ class SFQ_Admin {
                         </div>
                         
                         <div class="sfq-field-group">
+                            <label><?php _e('Color de Fondo de Opciones', 'smart-forms-quiz'); ?></label>
+                            <input type="text" id="options-background-color" class="sfq-color-picker" value="#ffffff">
+                            <p class="description"><?php _e('Color de fondo específico para las opciones de preguntas (diferente al fondo general)', 'smart-forms-quiz'); ?></p>
+                        </div>
+                        
+                        <div class="sfq-field-group">
                             <label><?php _e('Color de Texto', 'smart-forms-quiz'); ?></label>
                             <input type="text" id="text-color" class="sfq-color-picker" value="#333333">
                         </div>
@@ -1122,6 +1194,16 @@ class SFQ_Admin {
                                 <input type="checkbox" id="save-partial">
                                 <?php _e('Guardar respuestas parciales', 'smart-forms-quiz'); ?>
                             </label>
+                        </div>
+                        
+                        <div class="sfq-field-group">
+                            <label>
+                                <input type="checkbox" id="enable-floating-preview">
+                                <?php _e('🔍 Activar previsualización flotante', 'smart-forms-quiz'); ?>
+                            </label>
+                            <p class="description" style="margin-left: 24px; margin-top: 5px; font-size: 12px; color: #666;">
+                                <?php _e('Muestra una previsualización en tiempo real de las preguntas y mensajes mientras los editas', 'smart-forms-quiz'); ?>
+                            </p>
                         </div>
                     </div>
                 </div>

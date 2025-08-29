@@ -1,0 +1,756 @@
+/**
+ * Smart Forms & Quiz - Preview Floating Styles
+ * Estilos para la previsualización flotante de preguntas y mensajes
+ */
+
+/* ==========================================================================
+   CONTENEDOR PRINCIPAL DE PREVISUALIZACIÓN
+   ========================================================================== */
+
+.sfq-preview-floating {
+    position: fixed !important;
+    z-index: 10000;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+    max-width: 380px;
+    min-width: 280px;
+    max-height: 500px;
+    overflow: hidden;
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    /* Posicionamiento lateral fijo - se ajustará con JavaScript */
+    top: 80px !important;
+    /* left se establecerá dinámicamente por JavaScript */
+}
+
+.sfq-preview-floating.active {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    pointer-events: auto;
+}
+
+/* ==========================================================================
+   HEADER DE PREVISUALIZACIÓN
+   ========================================================================== */
+
+.sfq-preview-header {
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #f0f0f1 100%);
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.sfq-preview-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sfq-preview-title::before {
+    content: '👁️';
+    font-size: 14px;
+}
+
+.sfq-preview-close {
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: #666;
+    cursor: pointer;
+    padding: 4px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    line-height: 1;
+}
+
+.sfq-preview-close:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #333;
+    transform: scale(1.1);
+}
+
+/* ==========================================================================
+   CONTENIDO DE PREVISUALIZACIÓN
+   ========================================================================== */
+
+.sfq-preview-content {
+    padding: 20px;
+    max-height: 500px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #ccc transparent;
+    background: #ffffff;
+}
+
+.sfq-preview-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sfq-preview-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sfq-preview-content::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 3px;
+}
+
+.sfq-preview-content::-webkit-scrollbar-thumb:hover {
+    background: #999;
+}
+
+/* ==========================================================================
+   FOOTER DE PREVISUALIZACIÓN
+   ========================================================================== */
+
+.sfq-preview-footer {
+    padding: 8px 16px;
+    background: #f8f9fa;
+    border-top: 1px solid #e0e0e0;
+    text-align: center;
+}
+
+.sfq-preview-info {
+    font-size: 11px;
+    color: #666;
+    font-style: italic;
+}
+
+/* ==========================================================================
+   PREVISUALIZACIÓN DE PREGUNTAS - Estructura exacta del frontend
+   ========================================================================== */
+
+.sfq-preview-question-content {
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    padding: 0;
+    margin: 0;
+}
+
+.sfq-preview-question-number {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-bottom: 1rem;
+    font-weight: 500;
+}
+
+.sfq-preview-question-text {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 2rem;
+    line-height: 1.4;
+    color: #333333;
+}
+
+.sfq-required {
+    color: #e74c3c;
+    margin-left: 0.25rem;
+}
+
+.sfq-preview-answer-container {
+    flex: 1;
+    margin-bottom: 2rem;
+}
+
+/* Usar estilos exactos del frontend - sin override */
+.sfq-preview-content .sfq-options-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr;
+}
+
+.sfq-preview-content .sfq-option-card {
+    background: #ffffff;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: #333333;
+}
+
+.sfq-preview-content .sfq-option-card:hover {
+    border-color: #007cba;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.sfq-preview-content .sfq-hidden-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.sfq-preview-content .sfq-option-text {
+    font-size: 1.1rem;
+    font-weight: 500;
+    flex: 1;
+    color: #333333;
+}
+
+/* Checkbox específico */
+.sfq-preview-content .sfq-checkbox-card {
+    padding: 1rem 1.25rem;
+}
+
+.sfq-preview-content .sfq-checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.sfq-preview-content .sfq-checkbox-input {
+    display: none;
+}
+
+.sfq-preview-content .sfq-checkbox-wrapper label {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    cursor: pointer;
+    width: 100%;
+    color: #333333;
+}
+
+.sfq-preview-content .sfq-checkbox-box {
+    width: 24px;
+    height: 24px;
+    border: 2px solid #d0d0d0;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+    background: #ffffff;
+}
+
+.sfq-preview-content .sfq-checkbox-input:checked + label .sfq-checkbox-box {
+    background: #007cba;
+    border-color: #007cba;
+}
+
+.sfq-preview-content .sfq-checkbox-icon {
+    width: 16px;
+    height: 16px;
+    fill: white;
+    opacity: 0;
+    transform: scale(0);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sfq-preview-content .sfq-checkbox-input:checked + label .sfq-checkbox-icon {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Input de texto - Estilo exacto del frontend */
+.sfq-preview-text-input {
+    position: relative;
+    max-width: 500px;
+    margin-top: 2rem;
+}
+
+.sfq-preview-text-field {
+    width: 100%;
+    padding: 1rem 0;
+    font-size: 1.1rem;
+    border: none;
+    border-bottom: 2px solid #e0e0e0;
+    background: transparent;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #999;
+    font-style: italic;
+}
+
+.sfq-preview-text-field:focus {
+    outline: none;
+    border-bottom-color: #007cba;
+}
+
+.sfq-preview-input-line {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: #007cba;
+    transition: width 0.3s ease;
+}
+
+.sfq-preview-text-field:focus ~ .sfq-preview-input-line {
+    width: 100%;
+}
+
+/* Rating */
+.sfq-preview-rating {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    padding: 12px;
+}
+
+.sfq-preview-star {
+    font-size: 24px;
+    color: #007cba;
+    opacity: 0.3;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.sfq-preview-star:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+/* Tipo genérico */
+.sfq-preview-generic {
+    padding: 20px;
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 2px dashed #ddd;
+}
+
+/* ==========================================================================
+   PREVISUALIZACIÓN DE MENSAJES
+   ========================================================================== */
+
+.sfq-preview-message-container {
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    background: #f8f9fa;
+    position: relative;
+    overflow: hidden;
+}
+
+.sfq-preview-message-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #007cba, #0056b3);
+}
+
+.sfq-preview-message-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    display: block;
+    line-height: 1;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.sfq-preview-message-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0 0 12px 0;
+    color: #333;
+    line-height: 1.3;
+}
+
+.sfq-preview-message-description {
+    font-size: 14px;
+    color: #666;
+    margin: 0 0 20px 0;
+    line-height: 1.5;
+    max-width: 300px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.sfq-preview-message-button {
+    display: inline-block;
+    padding: 12px 24px;
+    background: #007cba;
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 124, 186, 0.2);
+}
+
+.sfq-preview-message-button:hover {
+    background: #0056b3;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 124, 186, 0.3);
+}
+
+/* ==========================================================================
+   PREVISUALIZACIÓN DE BLOQUEO
+   ========================================================================== */
+
+.sfq-preview-block-container {
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    background: #f8f9fa;
+    position: relative;
+    overflow: hidden;
+}
+
+.sfq-preview-block-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #dc3545, #c82333);
+}
+
+.sfq-preview-video {
+    margin-bottom: 16px;
+    padding: 20px;
+    background: #f0f0f0;
+    border-radius: 8px;
+    color: #666;
+    font-size: 13px;
+    border: 2px dashed #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.sfq-preview-block-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    display: block;
+    line-height: 1;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+/* Timer de cuenta atrás */
+.sfq-preview-timer {
+    margin-bottom: 20px;
+    padding: 16px;
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+}
+
+.sfq-preview-countdown {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.sfq-preview-timer-unit {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px 8px;
+    min-width: 50px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.sfq-preview-timer-unit div:first-child {
+    font-weight: bold;
+    font-size: 18px;
+    color: #333;
+    line-height: 1;
+}
+
+.sfq-preview-timer-unit div:last-child {
+    font-size: 10px;
+    color: #666;
+    text-transform: uppercase;
+    margin-top: 4px;
+    letter-spacing: 0.5px;
+}
+
+/* ==========================================================================
+   ESTADOS DE CARGA
+   ========================================================================== */
+
+.sfq-preview-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: #666;
+    font-size: 14px;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.sfq-preview-loading::before {
+    content: '';
+    width: 24px;
+    height: 24px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #007cba;
+    border-radius: 50%;
+    animation: sfq-preview-spin 1s linear infinite;
+}
+
+@keyframes sfq-preview-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   RESPONSIVE
+   ========================================================================== */
+
+@media (max-width: 1400px) {
+    .sfq-preview-floating {
+        max-width: 380px;
+        min-width: 280px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .sfq-preview-floating {
+        max-width: 320px;
+        min-width: 250px;
+    }
+    
+    .sfq-preview-content {
+        padding: 16px;
+    }
+    
+    .sfq-preview-question-text {
+        font-size: 15px;
+    }
+    
+    .sfq-preview-message-icon,
+    .sfq-preview-block-icon {
+        font-size: 40px;
+    }
+}
+
+@media (max-width: 768px) {
+    .sfq-preview-floating {
+        position: absolute;
+        max-width: 280px;
+        min-width: 200px;
+        max-height: 400px;
+    }
+    
+    .sfq-preview-content {
+        padding: 12px;
+        max-height: 300px;
+    }
+    
+    .sfq-preview-question-text {
+        font-size: 14px;
+        padding: 10px;
+    }
+    
+    .sfq-preview-option {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+    
+    .sfq-preview-message-container,
+    .sfq-preview-block-container {
+        padding: 16px;
+    }
+    
+    .sfq-preview-message-title {
+        font-size: 18px;
+    }
+    
+    .sfq-preview-message-description {
+        font-size: 13px;
+    }
+    
+    .sfq-preview-countdown {
+        gap: 8px;
+    }
+    
+    .sfq-preview-timer-unit {
+        padding: 8px 6px;
+        min-width: 40px;
+    }
+    
+    .sfq-preview-timer-unit div:first-child {
+        font-size: 16px;
+    }
+}
+
+/* ==========================================================================
+   ANIMACIONES Y EFECTOS
+   ========================================================================== */
+
+/* Animación de entrada */
+@keyframes sfq-preview-slide-in {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Animación de salida */
+@keyframes sfq-preview-slide-out {
+    from {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: scale(0.9) translateY(-20px);
+    }
+}
+
+/* Efecto de hover en el contenedor */
+.sfq-preview-floating:hover {
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+}
+
+/* Efecto de pulsación en elementos interactivos */
+.sfq-preview-option:active,
+.sfq-preview-message-button:active {
+    transform: scale(0.98);
+}
+
+/* ==========================================================================
+   TEMAS Y VARIACIONES
+   ========================================================================== */
+
+/* Tema oscuro (para futuras implementaciones) */
+@media (prefers-color-scheme: dark) {
+    .sfq-preview-floating {
+        background: #2d3748;
+        border-color: #4a5568;
+        color: #e2e8f0;
+    }
+    
+    .sfq-preview-header {
+        background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+        border-bottom-color: #4a5568;
+    }
+    
+    .sfq-preview-title {
+        color: #e2e8f0;
+    }
+    
+    .sfq-preview-close {
+        color: #a0aec0;
+    }
+    
+    .sfq-preview-close:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #e2e8f0;
+    }
+    
+    .sfq-preview-question-text {
+        background: #4a5568;
+        color: #e2e8f0;
+    }
+    
+    .sfq-preview-option {
+        background: #4a5568;
+        border-color: #718096;
+        color: #e2e8f0;
+    }
+    
+    .sfq-preview-option:hover {
+        background: #718096;
+    }
+    
+    .sfq-preview-text-input {
+        background: #4a5568;
+        border-color: #718096;
+        color: #a0aec0;
+    }
+}
+
+/* Indicadores de estado */
+.sfq-preview-floating.sfq-preview-question {
+    border-left: 4px solid #007cba;
+}
+
+.sfq-preview-floating.sfq-preview-message {
+    border-left: 4px solid #28a745;
+}
+
+.sfq-preview-floating.sfq-preview-block {
+    border-left: 4px solid #dc3545;
+}
+
+/* Efectos de transición suaves */
+* {
+    transition: all 0.2s ease;
+}
+
+/* Mejoras de accesibilidad */
+.sfq-preview-floating:focus-within {
+    outline: 2px solid #007cba;
+    outline-offset: 2px;
+}
+
+/* Optimizaciones de rendimiento */
+.sfq-preview-floating {
+    will-change: transform, opacity;
+    contain: layout style paint;
+}
+
+.sfq-preview-content {
+    contain: layout style;
+}
+
+/* Prevenir selección de texto en elementos interactivos */
+.sfq-preview-close,
+.sfq-preview-option,
+.sfq-preview-message-button {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+/* Estilos para impresión (ocultar previsualización) */
+@media print {
+    .sfq-preview-floating {
+        display: none !important;
+    }
+}

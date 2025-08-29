@@ -27,6 +27,7 @@
             this.conditionEngine = new ConditionEngine(this);
             this.uiRenderer = new UIRenderer(this);
             this.dataValidator = new DataValidator();
+            this.previewManager = null; // Se inicializará después
             
             this.init();
         }
@@ -243,22 +244,24 @@
                 if ($(this).is(':checked')) {
                     $('#block-form-timer-settings').slideDown();
                     $('#block-form-timer-available-section').slideDown();
-                    // Buscar la sección de colores del mensaje de disponibilidad de forma más específica
+                    // Mostrar la sección de colores del mensaje de disponibilidad (la última sección)
                     $('.sfq-message-config-section').each(function() {
                         const $section = $(this);
                         const titleText = $section.find('h4').text();
-                        if (titleText.includes('🎨 Colores del Mensaje')) {
+                        // Buscar específicamente la sección que NO incluye "Bloqueo" en el título
+                        if (titleText.includes('🎨 Colores del Mensaje') && !titleText.includes('Bloqueo')) {
                             $section.slideDown();
                         }
                     });
                 } else {
                     $('#block-form-timer-settings').slideUp();
                     $('#block-form-timer-available-section').slideUp();
-                    // Buscar la sección de colores del mensaje de disponibilidad de forma más específica
+                    // Ocultar la sección de colores del mensaje de disponibilidad (la última sección)
                     $('.sfq-message-config-section').each(function() {
                         const $section = $(this);
                         const titleText = $section.find('h4').text();
-                        if (titleText.includes('🎨 Colores del Mensaje')) {
+                        // Buscar específicamente la sección que NO incluye "Bloqueo" en el título
+                        if (titleText.includes('🎨 Colores del Mensaje') && !titleText.includes('Bloqueo')) {
                             $section.slideUp();
                         }
                     });
@@ -315,6 +318,11 @@
             this.questionManager.init();
             this.conditionEngine.init();
             this.uiRenderer.init();
+            
+            // Inicializar PreviewManager si está disponible
+            if (typeof PreviewManager !== 'undefined') {
+                this.previewManager = new PreviewManager(this);
+            }
         }
 
         switchTab(e) {
@@ -384,6 +392,7 @@
             $('#randomize-questions').prop('checked', settings.randomize_questions === true);
             $('#save-partial').prop('checked', settings.save_partial === true);
             $('#show-intro-screen').prop('checked', settings.show_intro_screen !== false);
+            $('#enable-floating-preview').prop('checked', settings.enable_floating_preview === true);
             
             // Bloqueo de formulario
             $('#block-form').prop('checked', settings.block_form === true).trigger('change');
@@ -396,6 +405,7 @@
             $('#primary-color').val(styles.primary_color || '#007cba').trigger('change');
             $('#secondary-color').val(styles.secondary_color || '#6c757d').trigger('change');
             $('#background-color').val(styles.background_color || '#ffffff').trigger('change');
+            $('#options-background-color').val(styles.options_background_color || '#ffffff').trigger('change');
             $('#text-color').val(styles.text_color || '#333333').trigger('change');
             $('#border-radius').val(styles.border_radius || '8');
             $('.sfq-range-value').text((styles.border_radius || '8') + 'px');
@@ -605,6 +615,7 @@
                 randomize_questions: $('#randomize-questions').is(':checked'),
                 save_partial: $('#save-partial').is(':checked'),
                 show_intro_screen: $('#show-intro-screen').is(':checked'),
+                enable_floating_preview: $('#enable-floating-preview').is(':checked'),
                 // Bloqueo de formulario
                 block_form: $('#block-form').is(':checked'),
                 // Límites de envío - nueva estructura flexible
@@ -628,6 +639,7 @@
                 primary_color: $('#primary-color').val() || '#007cba',
                 secondary_color: $('#secondary-color').val() || '#6c757d',
                 background_color: $('#background-color').val() || '#ffffff',
+                options_background_color: $('#options-background-color').val() || '#ffffff',
                 text_color: $('#text-color').val() || '#333333',
                 border_radius: $('#border-radius').val() || '8',
                 font_family: $('#font-family').val() || 'inherit',
