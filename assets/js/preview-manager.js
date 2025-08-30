@@ -17,6 +17,11 @@
             this.currentContext = null;
             this.debounceTimers = {};
             this.previewContainer = null;
+            this.isMinimized = false;
+            this.isDragging = false;
+            this.dragOffset = { x: 0, y: 0 };
+            this.minimizedButton = null;
+            this.lastPosition = null; // Para recordar la última posición
             
             // Configuración
             this.config = {
@@ -43,27 +48,41 @@
             // Crear contenedor principal de previsualización
             this.previewContainer = $(`
                 <div class="sfq-preview-floating" id="sfq-preview-floating">
-                    <div class="sfq-preview-header">
+                    <div class="sfq-preview-header sfq-draggable-handle">
                         <span class="sfq-preview-title">Vista Previa</span>
-                        <button class="sfq-preview-close" type="button">&times;</button>
+                        <div class="sfq-preview-controls">
+                            <button class="sfq-preview-minimize" type="button" title="Minimizar">−</button>
+                            <button class="sfq-preview-close" type="button" title="Cerrar">&times;</button>
+                        </div>
                     </div>
                     <div class="sfq-preview-content">
                         <!-- El contenido se renderizará aquí -->
                     </div>
                     <div class="sfq-preview-footer">
-                        <small class="sfq-preview-info">Previsualización en tiempo real</small>
+                        <small class="sfq-preview-info">Previsualización en tiempo real • Arrastra para mover</small>
                     </div>
                 </div>
             `);
             
-            // Añadir al body pero oculto inicialmente
-            $('body').append(this.previewContainer);
-            this.previewContainer.hide();
+            // Crear botón minimizado
+            this.minimizedButton = $(`
+                <div class="sfq-preview-minimized" id="sfq-preview-minimized">
+                    <button class="sfq-preview-restore" type="button" title="Mostrar previsualización">
+                        <span class="dashicons dashicons-visibility"></span>
+                        Vista Previa
+                    </button>
+                </div>
+            `);
             
-            // Bind close button
-            this.previewContainer.find('.sfq-preview-close').on('click', () => {
-                this.hidePreview();
-            });
+            // Añadir al body pero ocultos inicialmente
+            $('body').append(this.previewContainer);
+            $('body').append(this.minimizedButton);
+            this.previewContainer.hide();
+            this.minimizedButton.hide();
+            
+            // Bind eventos de control
+            this.bindPreviewControls();
+            this.makeDraggable();
         }
 
         bindEvents() {
@@ -84,11 +103,8 @@
                 }
             });
             
-            $(document).on('blur' + ns, '.sfq-question-text-input', (e) => {
-                if (this.isEnabled) {
-                    this.scheduleHidePreview();
-                }
-            });
+            // Removido: ya no ocultamos automáticamente al hacer blur
+            // La previsualización ahora es persistente hasta que el usuario la cierre o minimice
             
             // Eventos para opciones de preguntas
             $(document).on('focus' + ns, '.sfq-option-input', (e) => {
@@ -138,6 +154,105 @@
                     this.debounceUpdate('block-message-content', () => {
                         this.updateBlockMessagePreview(e.target);
                     });
+                }
+            });
+            
+            // NUEVOS EVENTOS PARA CAMPOS DE ESTILO
+            // Eventos para campos de color y estilos en tab-style
+            $(document).on('focus' + ns, '#tab-style input, #tab-style select', (e) => {
+                if (this.isEnabled) {
+                    this.handleStyleFocus(e);
+                }
+            });
+            
+            // Eventos para color pickers (WordPress wp-color-picker)
+            $(document).on('change' + ns, '#tab-style .sfq-color-picker', (e) => {
+                if (this.isEnabled && this.currentContext === 'style') {
+                    this.debounceUpdate('style-colors', () => {
+                        this.updateStylePreview();
+                    });
+                }
+            });
+            
+            // Eventos para range slider (border-radius)
+            $(document).on('input' + ns, '#tab-style #border-radius', (e) => {
+                if (this.isEnabled && this.currentContext === 'style') {
+                    this.debounceUpdate('style-border-radius', () => {
+                        this.updateStylePreview();
+                    });
+                }
+            });
+            
+            // Eventos para select de fuente
+            $(document).on('change' + ns, '#tab-style #font-family', (e) => {
+                if (this.isEnabled && this.currentContext === 'style') {
+                    this.debounceUpdate('style-font', () => {
+                        this.updateStylePreview();
+                    });
+                }
+            });
+            
+            // Eventos específicos para WordPress Color Picker
+            $(document).on('wpcolorpickerchange' + ns, '#tab-style .sfq-color-picker', (e) => {
+                if (this.isEnabled && this.currentContext === 'style') {
+                    this.debounceUpdate('style-colors-wp', () => {
+                        this.updateStylePreview();
+                    });
+                }
+            });
+            
+            // Eventos para elementos internos del WordPress Color Picker
+            $(document).on('click' + ns, '.wp-picker-holder, .iris-picker, .iris-picker-inner, .iris-square, .iris-square-inner, .iris-strip, .iris-slider', (e) => {
+                if (this.isEnabled) {
+                    // Mantener el contexto de estilo activo
+                    this.currentContext = 'style';
+                    
+                    // Cancelar cualquier timer de ocultación
+                    if (this.hideTimer) {
+                        clearTimeout(this.hideTimer);
+                        this.hideTimer = null;
+                    }
+                    
+                    // Actualizar previsualización después de un pequeño delay para que el color se aplique
+                    setTimeout(() => {
+                        if (this.currentContext === 'style') {
+                            this.updateStylePreview();
+                        }
+                    }, 50);
+                }
+            });
+            
+            // Eventos para cambios en tiempo real del iris picker
+            $(document).on('irischange' + ns, '#tab-style .sfq-color-picker', (e) => {
+                if (this.isEnabled && this.currentContext === 'style') {
+                    this.debounceUpdate('style-colors-iris', () => {
+                        this.updateStylePreview();
+                    });
+                }
+            });
+            
+            // Eventos para el selector de fuente
+            $(document).on('click' + ns, '#tab-style .sfq-select', (e) => {
+                if (this.isEnabled) {
+                    this.currentContext = 'style';
+                    
+                    // Cancelar timer de ocultación
+                    if (this.hideTimer) {
+                        clearTimeout(this.hideTimer);
+                        this.hideTimer = null;
+                    }
+                    
+                    // Mostrar previsualización si no está visible
+                    if (!this.currentPreview) {
+                        this.showStylePreview($(e.target));
+                    }
+                }
+            });
+            
+            $(document).on('blur' + ns, '#tab-style input, #tab-style select', (e) => {
+                // Solo ocultar si no se está interactuando con el color picker
+                if (this.isEnabled && !$(e.relatedTarget).closest('.wp-picker-container, .wp-picker-holder').length) {
+                    this.scheduleHidePreview();
                 }
             });
             
@@ -222,6 +337,13 @@
             this.showBlockMessagePreview(input);
         }
 
+        handleStyleFocus(e) {
+            console.log('PreviewManager: Style focus detected', e.target);
+            const input = $(e.target);
+            this.currentContext = 'style';
+            this.showStylePreview(input);
+        }
+
         showQuestionPreview(questionContainer, focusedInput) {
             const questionType = questionContainer.data('type');
             const questionId = questionContainer.attr('id');
@@ -264,6 +386,27 @@
             
             // Actualizar título
             this.previewContainer.find('.sfq-preview-title').text('Vista Previa - Bloqueo');
+        }
+
+        showStylePreview(focusedInput) {
+            console.log('PreviewManager: Showing style preview');
+            
+            // Crear una pregunta de ejemplo para mostrar los estilos
+            const sampleQuestionData = {
+                text: 'Pregunta de ejemplo para mostrar estilos',
+                type: 'single_choice',
+                required: true,
+                options: ['Opción 1', 'Opción 2', 'Opción 3']
+            };
+            
+            // Renderizar previsualización con los estilos actuales
+            const previewHtml = this.renderQuestionPreview(sampleQuestionData);
+            
+            // Mostrar previsualización a la DERECHA (como solicita el usuario)
+            this.showPreview(previewHtml, focusedInput, 'right');
+            
+            // Actualizar título
+            this.previewContainer.find('.sfq-preview-title').text('Vista Previa - Estilos');
         }
 
         showPreview(content, referenceElement, preferredSide = 'left') {
@@ -865,6 +1008,24 @@
             this.previewContainer.find('.sfq-preview-content').html(previewHtml);
         }
 
+        updateStylePreview() {
+            if (!this.currentPreview) return;
+            
+            console.log('PreviewManager: Updating style preview');
+            
+            // Crear una pregunta de ejemplo para mostrar los estilos actualizados
+            const sampleQuestionData = {
+                text: 'Pregunta de ejemplo para mostrar estilos',
+                type: 'single_choice',
+                required: true,
+                options: ['Opción 1', 'Opción 2', 'Opción 3']
+            };
+            
+            // Renderizar previsualización con los estilos actuales
+            const previewHtml = this.renderQuestionPreview(sampleQuestionData);
+            this.previewContainer.find('.sfq-preview-content').html(previewHtml);
+        }
+
         debounceUpdate(key, callback) {
             if (this.debounceTimers[key]) {
                 clearTimeout(this.debounceTimers[key]);
@@ -888,6 +1049,141 @@
             return text.replace(/[&<>"']/g, m => map[m]);
         }
 
+        bindPreviewControls() {
+            // Botón de cerrar
+            this.previewContainer.find('.sfq-preview-close').on('click', () => {
+                this.hidePreview();
+            });
+            
+            // Botón de minimizar
+            this.previewContainer.find('.sfq-preview-minimize').on('click', () => {
+                this.minimizePreview();
+            });
+            
+            // Botón de restaurar (en el botón minimizado)
+            this.minimizedButton.find('.sfq-preview-restore').on('click', () => {
+                this.restorePreview();
+            });
+        }
+
+        makeDraggable() {
+            const $handle = this.previewContainer.find('.sfq-draggable-handle');
+            
+            $handle.on('mousedown', (e) => {
+                this.isDragging = true;
+                
+                // Calcular offset desde el punto de clic
+                const containerOffset = this.previewContainer.offset();
+                this.dragOffset = {
+                    x: e.pageX - containerOffset.left,
+                    y: e.pageY - containerOffset.top
+                };
+                
+                // Añadir clase de arrastre
+                this.previewContainer.addClass('sfq-dragging');
+                $('body').addClass('sfq-dragging-active');
+                
+                // Prevenir selección de texto
+                e.preventDefault();
+            });
+            
+            $(document).on('mousemove', (e) => {
+                if (!this.isDragging) return;
+                
+                // Calcular nueva posición
+                const newLeft = e.pageX - this.dragOffset.x;
+                const newTop = e.pageY - this.dragOffset.y;
+                
+                // Límites de la ventana
+                const windowWidth = $(window).width();
+                const windowHeight = $(window).height();
+                const containerWidth = this.previewContainer.outerWidth();
+                const containerHeight = this.previewContainer.outerHeight();
+                
+                // Aplicar límites
+                const constrainedLeft = Math.max(0, Math.min(newLeft, windowWidth - containerWidth));
+                const constrainedTop = Math.max(0, Math.min(newTop, windowHeight - containerHeight));
+                
+                // Aplicar posición
+                this.previewContainer.css({
+                    left: constrainedLeft + 'px',
+                    top: constrainedTop + 'px'
+                });
+            });
+            
+            $(document).on('mouseup', () => {
+                if (this.isDragging) {
+                    this.isDragging = false;
+                    this.previewContainer.removeClass('sfq-dragging');
+                    $('body').removeClass('sfq-dragging-active');
+                }
+            });
+        }
+
+        minimizePreview() {
+            if (!this.previewContainer || this.isMinimized) return;
+            
+            this.isMinimized = true;
+            
+            // Ocultar previsualización con animación
+            this.previewContainer.fadeOut(200, () => {
+                // Mostrar botón minimizado en la parte inferior central
+                this.minimizedButton.css({
+                    position: 'fixed',
+                    bottom: '20px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 9999
+                }).fadeIn(200);
+            });
+        }
+
+        restorePreview() {
+            if (!this.minimizedButton || !this.isMinimized) return;
+            
+            this.isMinimized = false;
+            
+            // Ocultar botón minimizado
+            this.minimizedButton.fadeOut(200, () => {
+                // Mostrar previsualización en la última posición conocida
+                if (this.lastPosition) {
+                    this.previewContainer.css({
+                        left: this.lastPosition.left + 'px',
+                        top: this.lastPosition.top + 'px'
+                    });
+                }
+                this.previewContainer.fadeIn(200);
+            });
+        }
+
+        showRestoreButton() {
+            // Mostrar siempre el botón de restaurar al inicializar
+            if (this.minimizedButton) {
+                this.minimizedButton.css({
+                    position: 'fixed',
+                    bottom: '20px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 9999
+                }).show();
+                this.isMinimized = true;
+            }
+        }
+
+        hidePreview() {
+            if (this.previewContainer && this.previewContainer.is(':visible')) {
+                this.previewContainer.fadeOut(this.config.animationDuration);
+            }
+            
+            if (this.minimizedButton && this.minimizedButton.is(':visible')) {
+                this.minimizedButton.fadeOut(this.config.animationDuration);
+            }
+            
+            this.currentPreview = null;
+            this.currentContext = null;
+            this.isMinimized = false;
+        }
+
         destroy() {
             const ns = '.preview-' + this.formBuilder.instanceId;
             
@@ -904,15 +1200,22 @@
                 this.hideTimer = null;
             }
             
-            // Remover contenedor
+            // Remover contenedores
             if (this.previewContainer) {
                 this.previewContainer.remove();
                 this.previewContainer = null;
             }
             
+            if (this.minimizedButton) {
+                this.minimizedButton.remove();
+                this.minimizedButton = null;
+            }
+            
             // Limpiar referencias
             this.currentPreview = null;
             this.currentContext = null;
+            this.isMinimized = false;
+            this.isDragging = false;
         }
     }
 

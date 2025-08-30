@@ -320,10 +320,94 @@ class SFQ_Frontend {
                     --sfq-primary-color: <?php echo esc_attr($styles['primary_color'] ?? '#007cba'); ?>;
                     --sfq-secondary-color: <?php echo esc_attr($styles['secondary_color'] ?? '#6c757d'); ?>;
                     --sfq-background-color: <?php echo esc_attr($styles['background_color'] ?? '#ffffff'); ?>;
+                    --sfq-options-background-color: <?php echo esc_attr($styles['options_background_color'] ?? '#ffffff'); ?>;
+                    --sfq-options-border-color: <?php echo esc_attr($styles['options_border_color'] ?? '#e0e0e0'); ?>;
                     --sfq-text-color: <?php echo esc_attr($styles['text_color'] ?? '#333333'); ?>;
                     --sfq-border-radius: <?php echo esc_attr($styles['border_radius'] ?? '12'); ?>px;
                     --sfq-font-family: <?php echo esc_attr($styles['font_family'] ?? 'system-ui, -apple-system, sans-serif'); ?>;
+                    
+                    /* Nuevas variables CSS para las opciones de estilo */
+                    --sfq-form-container-border-radius: <?php echo esc_attr($styles['form_container_border_radius'] ?? '20'); ?>px;
+                    --sfq-question-text-size: <?php echo esc_attr($styles['question_text_size'] ?? '24'); ?>px;
+                    --sfq-option-text-size: <?php echo esc_attr($styles['option_text_size'] ?? '16'); ?>px;
+                    --sfq-question-text-align: <?php echo esc_attr($styles['question_text_align'] ?? 'left'); ?>;
+                    --sfq-general-text-align: <?php echo esc_attr($styles['general_text_align'] ?? 'left'); ?>;
                 }
+                
+                /* Aplicar estilos específicos con las variables CSS */
+                #sfq-form-<?php echo $form_id; ?> .sfq-form-container {
+                    border-radius: var(--sfq-form-container-border-radius) !important;
+                    <?php if (!empty($styles['form_container_shadow'])) : ?>
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+                    <?php else : ?>
+                    box-shadow: none !important;
+                    <?php endif; ?>
+                }
+                
+                #sfq-form-<?php echo $form_id; ?> .sfq-option-card {
+                    background-color: var(--sfq-options-background-color) !important;
+                    border-color: var(--sfq-options-border-color) !important;
+                }
+                
+                #sfq-form-<?php echo $form_id; ?> .sfq-question-text {
+                    font-size: var(--sfq-question-text-size) !important;
+                    text-align: var(--sfq-question-text-align) !important;
+                }
+                
+                #sfq-form-<?php echo $form_id; ?> .sfq-option-text {
+                    font-size: var(--sfq-option-text-size) !important;
+                    text-align: var(--sfq-general-text-align) !important;
+                }
+                
+                /* Ancho del contenedor según configuración */
+                <?php 
+                $container_width = $styles['form_container_width'] ?? 'responsive';
+                if ($container_width === 'full') : ?>
+                #sfq-form-<?php echo $form_id; ?> {
+                    max-width: 100% !important;
+                    width: 100% !important;
+                }
+                <?php elseif ($container_width === 'custom') : ?>
+                #sfq-form-<?php echo $form_id; ?> {
+                    max-width: <?php echo esc_attr($styles['form_container_custom_width'] ?? '720'); ?>px !important;
+                }
+                <?php else : ?>
+                #sfq-form-<?php echo $form_id; ?> {
+                    max-width: 720px !important;
+                }
+                <?php endif; ?>
+                
+                /* Ancho del contenido de preguntas según configuración - aplicado a sfq-question-screen */
+                <?php 
+                $content_width = $styles['question_content_width'] ?? 'responsive';
+                if ($content_width === 'full') : ?>
+                #sfq-form-<?php echo $form_id; ?> .sfq-question-screen {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                }
+                <?php elseif ($content_width === 'custom') : ?>
+                #sfq-form-<?php echo $form_id; ?> .sfq-question-screen {
+                    width: <?php echo esc_attr($styles['question_content_custom_width'] ?? '600'); ?>px !important;
+                    max-width: <?php echo esc_attr($styles['question_content_custom_width'] ?? '600'); ?>px !important;
+                    margin: 0 auto !important;
+                }
+                #sfq-form-<?php echo $form_id; ?> .sfq-question-content {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    margin: 0 !important;
+                }
+                <?php else : ?>
+                #sfq-form-<?php echo $form_id; ?> .sfq-question-screen {
+                    width: 100% !important;
+                    max-width: 720px !important;
+                    margin: 0 auto !important;
+                }
+                #sfq-form-<?php echo $form_id; ?> .sfq-question-content {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    margin: 0 !important;
+                }
+                <?php endif; ?>
             </style>
         <?php endif; ?>
         

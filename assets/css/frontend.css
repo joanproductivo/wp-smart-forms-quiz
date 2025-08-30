@@ -9,12 +9,23 @@
     --sfq-secondary-color: #6c757d;
     --sfq-background-color: #ffffff;
     --sfq-options-background-color: #ffffff;
+    --sfq-options-border-color: #e0e0e0;
     --sfq-text-color: #333333;
     --sfq-border-radius: 12px;
     --sfq-font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --sfq-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     --sfq-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
     --sfq-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* Nuevas variables CSS para las opciones de estilo */
+    --sfq-form-container-border-radius: 20px;
+    --sfq-form-container-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    --sfq-form-container-width: responsive;
+    --sfq-question-content-width: responsive;
+    --sfq-question-text-size: 24px;
+    --sfq-option-text-size: 16px;
+    --sfq-question-text-align: left;
+    --sfq-general-text-align: left;
 }
 
 /* Contenedor principal */
@@ -26,6 +37,29 @@
     margin: 0 auto;
     padding: 2rem;
     position: relative;
+    
+    /* Aplicar nuevas opciones de estilo */
+    border-radius: var(--sfq-form-container-border-radius);
+    box-shadow: var(--sfq-form-container-shadow);
+}
+
+/* Ancho del contenedor según configuración */
+.sfq-form-container[data-width="full"] {
+    max-width: 100% !important;
+    width: 100% !important;
+}
+
+.sfq-form-container[data-width="responsive"] {
+    max-width: 720px !important;
+}
+
+.sfq-form-container[data-width="custom"] {
+    max-width: var(--sfq-form-container-custom-width, 720px) !important;
+}
+
+/* Desactivar sombra si está configurado */
+.sfq-form-container[data-shadow="false"] {
+    box-shadow: none;
 }
 
 /* Barra de progreso */
@@ -115,6 +149,31 @@
     flex-direction: column;
 }
 
+/* Ancho del contenido de preguntas según configuración - aplicado a sfq-question-screen */
+.sfq-question-screen[data-width="full"] {
+    width: 100%;
+    max-width: 100%;
+}
+
+.sfq-question-screen[data-width="responsive"] {
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.sfq-question-screen[data-width="custom"] {
+    width: 100%;
+    max-width: var(--sfq-question-content-custom-width, 600px);
+    margin: 0 auto;
+}
+
+/* Asegurar que el contenido dentro de sfq-question-screen ocupe todo el ancho disponible */
+.sfq-question-screen .sfq-question-content {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+}
+
 .sfq-question-number {
     font-size: 0.875rem;
     color: var(--sfq-secondary-color);
@@ -123,10 +182,11 @@
 }
 
 .sfq-question-text {
-    font-size: 1.5rem;
+    font-size: var(--sfq-question-text-size);
     font-weight: 600;
     margin-bottom: 2rem;
     line-height: 1.4;
+    text-align: var(--sfq-question-text-align);
 }
 
 .sfq-required {
@@ -150,7 +210,7 @@
 /* Cards de opciones (diseño moderno) */
 .sfq-option-card {
     background: var(--sfq-options-background-color);
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--sfq-options-border-color);
     border-radius: var(--sfq-border-radius);
     padding: 1.25rem 1.5rem;
     cursor: pointer;
@@ -183,9 +243,10 @@
 }
 
 .sfq-option-text {
-    font-size: 1.1rem;
+    font-size: var(--sfq-option-text-size);
     font-weight: 500;
     flex: 1;
+    text-align: var(--sfq-general-text-align);
 }
 
 .sfq-hidden-input {

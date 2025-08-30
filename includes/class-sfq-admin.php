@@ -807,6 +807,8 @@ class SFQ_Admin {
                     
                     <!-- Tab Estilo -->
                     <div class="sfq-tab-content" id="tab-style">
+                        <h3><?php _e('🎨 Colores Principales', 'smart-forms-quiz'); ?></h3>
+                        
                         <div class="sfq-field-group">
                             <label><?php _e('Color Primario', 'smart-forms-quiz'); ?></label>
                             <input type="text" id="primary-color" class="sfq-color-picker" value="#007cba">
@@ -825,7 +827,13 @@ class SFQ_Admin {
                         <div class="sfq-field-group">
                             <label><?php _e('Color de Fondo de Opciones', 'smart-forms-quiz'); ?></label>
                             <input type="text" id="options-background-color" class="sfq-color-picker" value="#ffffff">
-                            <p class="description"><?php _e('Color de fondo específico para las opciones de preguntas (diferente al fondo general)', 'smart-forms-quiz'); ?></p>
+                            <p class="description"><?php _e('Color de fondo específico para las tarjetas de opciones (sfq-option-card)', 'smart-forms-quiz'); ?></p>
+                        </div>
+                        
+                        <div class="sfq-field-group">
+                            <label><?php _e('Color de Borde de Opciones', 'smart-forms-quiz'); ?></label>
+                            <input type="text" id="options-border-color" class="sfq-color-picker" value="#e0e0e0">
+                            <p class="description"><?php _e('Color del borde para las tarjetas de opciones (sfq-option-card)', 'smart-forms-quiz'); ?></p>
                         </div>
                         
                         <div class="sfq-field-group">
@@ -833,11 +841,65 @@ class SFQ_Admin {
                             <input type="text" id="text-color" class="sfq-color-picker" value="#333333">
                         </div>
                         
+                        <h3><?php _e('📐 Bordes y Formas', 'smart-forms-quiz'); ?></h3>
+                        
                         <div class="sfq-field-group">
-                            <label><?php _e('Radio de Bordes', 'smart-forms-quiz'); ?></label>
+                            <label><?php _e('Radio de Bordes de Opciones', 'smart-forms-quiz'); ?></label>
                             <input type="range" id="border-radius" min="0" max="30" value="12" class="sfq-range">
                             <span class="sfq-range-value">12px</span>
+                            <p class="description"><?php _e('Radio de bordes para las opciones de respuesta', 'smart-forms-quiz'); ?></p>
                         </div>
+                        
+                        <div class="sfq-field-group">
+                            <label><?php _e('Radio de Bordes del Contenedor', 'smart-forms-quiz'); ?></label>
+                            <input type="range" id="form-container-border-radius" min="0" max="50" value="20" class="sfq-range">
+                            <span class="sfq-form-container-radius-value">20px</span>
+                            <p class="description"><?php _e('Radio de bordes para el contenedor principal del formulario (sfq-form-container)', 'smart-forms-quiz'); ?></p>
+                        </div>
+                        
+                        <div class="sfq-field-group">
+                            <label>
+                                <input type="checkbox" id="form-container-shadow">
+                                <?php _e('Activar sombreado del contenedor', 'smart-forms-quiz'); ?>
+                            </label>
+                            <p class="description"><?php _e('Añade una sombra sutil al contenedor principal del formulario', 'smart-forms-quiz'); ?></p>
+                        </div>
+                        
+                        <h3><?php _e('📏 Dimensiones y Espaciado', 'smart-forms-quiz'); ?></h3>
+                        
+                        <div class="sfq-field-group">
+                            <label><?php _e('Ancho del Contenedor del Formulario', 'smart-forms-quiz'); ?></label>
+                            <select id="form-container-width" class="sfq-select">
+                                <option value="responsive"><?php _e('Responsive (se adapta)', 'smart-forms-quiz'); ?></option>
+                                <option value="full"><?php _e('Ancho completo (100%)', 'smart-forms-quiz'); ?></option>
+                                <option value="custom"><?php _e('Personalizado', 'smart-forms-quiz'); ?></option>
+                            </select>
+                            <p class="description"><?php _e('Controla el ancho del contenedor principal (sfq-form-container)', 'smart-forms-quiz'); ?></p>
+                            
+                            <div class="sfq-custom-width-container" id="form-container-custom-width-container" style="display: none; margin-top: 10px;">
+                                <label><?php _e('Ancho personalizado (px)', 'smart-forms-quiz'); ?></label>
+                                <input type="number" id="form-container-custom-width" class="sfq-input" min="300" max="2000" value="720" placeholder="720">
+                                <p class="description"><?php _e('Ancho en píxeles para el contenedor del formulario', 'smart-forms-quiz'); ?></p>
+                            </div>
+                        </div>
+                        
+                        <div class="sfq-field-group">
+                            <label><?php _e('Ancho del Contenido de Preguntas', 'smart-forms-quiz'); ?></label>
+                            <select id="question-content-width" class="sfq-select">
+                                <option value="responsive"><?php _e('Responsive (se adapta)', 'smart-forms-quiz'); ?></option>
+                                <option value="full"><?php _e('Ancho completo (100%)', 'smart-forms-quiz'); ?></option>
+                                <option value="custom"><?php _e('Personalizado', 'smart-forms-quiz'); ?></option>
+                            </select>
+                            <p class="description"><?php _e('Controla el ancho del contenido de preguntas (sfq-question-content)', 'smart-forms-quiz'); ?></p>
+                            
+                            <div class="sfq-custom-width-container" id="question-content-custom-width-container" style="display: none; margin-top: 10px;">
+                                <label><?php _e('Ancho personalizado (px)', 'smart-forms-quiz'); ?></label>
+                                <input type="number" id="question-content-custom-width" class="sfq-input" min="300" max="2000" value="600" placeholder="600">
+                                <p class="description"><?php _e('Ancho en píxeles para el contenido de preguntas', 'smart-forms-quiz'); ?></p>
+                            </div>
+                        </div>
+                        
+                        <h3><?php _e('🔤 Tipografía', 'smart-forms-quiz'); ?></h3>
                         
                         <div class="sfq-field-group">
                             <label><?php _e('Fuente', 'smart-forms-quiz'); ?></label>
@@ -848,6 +910,40 @@ class SFQ_Admin {
                                 <option value="Roboto">Roboto</option>
                                 <option value="Open Sans">Open Sans</option>
                             </select>
+                        </div>
+                        
+                        <div class="sfq-field-group">
+                            <label><?php _e('Tamaño de Texto de Preguntas', 'smart-forms-quiz'); ?></label>
+                            <input type="range" id="question-text-size" min="14" max="36" value="24" class="sfq-range">
+                            <span class="sfq-question-text-size-value">24px</span>
+                            <p class="description"><?php _e('Tamaño del texto para los títulos de preguntas (sfq-question-text)', 'smart-forms-quiz'); ?></p>
+                        </div>
+                        
+                        <div class="sfq-field-group">
+                            <label><?php _e('Tamaño de Texto de Opciones', 'smart-forms-quiz'); ?></label>
+                            <input type="range" id="option-text-size" min="12" max="24" value="16" class="sfq-range">
+                            <span class="sfq-option-text-size-value">16px</span>
+                            <p class="description"><?php _e('Tamaño del texto para las opciones de respuesta (sfq-option-text)', 'smart-forms-quiz'); ?></p>
+                        </div>
+                        
+                        <div class="sfq-field-group">
+                            <label><?php _e('Alineación del Texto de Preguntas', 'smart-forms-quiz'); ?></label>
+                            <select id="question-text-align" class="sfq-select">
+                                <option value="left"><?php _e('Izquierda', 'smart-forms-quiz'); ?></option>
+                                <option value="center"><?php _e('Centrado', 'smart-forms-quiz'); ?></option>
+                                <option value="right"><?php _e('Derecha', 'smart-forms-quiz'); ?></option>
+                            </select>
+                            <p class="description"><?php _e('Alineación del texto de los títulos de preguntas', 'smart-forms-quiz'); ?></p>
+                        </div>
+                        
+                        <div class="sfq-field-group">
+                            <label><?php _e('Alineación del Texto General', 'smart-forms-quiz'); ?></label>
+                            <select id="general-text-align" class="sfq-select">
+                                <option value="left"><?php _e('Izquierda', 'smart-forms-quiz'); ?></option>
+                                <option value="center"><?php _e('Centrado', 'smart-forms-quiz'); ?></option>
+                                <option value="right"><?php _e('Derecha', 'smart-forms-quiz'); ?></option>
+                            </select>
+                            <p class="description"><?php _e('Alineación del texto para opciones y otros elementos de texto', 'smart-forms-quiz'); ?></p>
                         </div>
                     </div>
                     
@@ -1504,6 +1600,25 @@ class SFQ_Admin {
                     // Colapsar
                     $section.addClass('collapsed');
                     $fields.slideUp(300);
+                }
+            });
+            
+            // Manejar campos personalizados de ancho
+            $('#form-container-width').on('change', function() {
+                const container = $('#form-container-custom-width-container');
+                if ($(this).val() === 'custom') {
+                    container.slideDown(300);
+                } else {
+                    container.slideUp(300);
+                }
+            });
+            
+            $('#question-content-width').on('change', function() {
+                const container = $('#question-content-custom-width-container');
+                if ($(this).val() === 'custom') {
+                    container.slideDown(300);
+                } else {
+                    container.slideUp(300);
                 }
             });
         });

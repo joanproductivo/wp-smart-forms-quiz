@@ -109,6 +109,76 @@
             // Range slider
             $('#border-radius').on('input' + ns, function() {
                 $('.sfq-range-value').text($(this).val() + 'px');
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                }
+            });
+            
+            // Nuevos range sliders para las opciones de estilo
+            $('#form-container-border-radius').on('input' + ns, function() {
+                $('.sfq-form-container-radius-value').text($(this).val() + 'px');
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                    this.updatePreviewStyles();
+                }
+            });
+            
+            $('#question-text-size').on('input' + ns, function() {
+                $('.sfq-question-text-size-value').text($(this).val() + 'px');
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                    this.updatePreviewStyles();
+                }
+            });
+            
+            $('#option-text-size').on('input' + ns, function() {
+                $('.sfq-option-text-size-value').text($(this).val() + 'px');
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                    this.updatePreviewStyles();
+                }
+            });
+            
+            // Event listeners para las nuevas opciones de estilo
+            $('#form-container-shadow, #form-container-width, #question-content-width, #question-text-align, #general-text-align, #form-container-custom-width, #question-content-custom-width').on('change input' + ns, () => {
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                    this.updatePreviewStyles();
+                }
+            });
+            
+            // Event listeners para actualizar la previsualización en tiempo real
+            $('#primary-color, #secondary-color, #background-color, #options-background-color, #options-border-color, #text-color, #border-radius, #font-family, #form-container-border-radius, #question-text-size, #option-text-size, #form-container-shadow, #form-container-width, #question-content-width, #question-text-align, #general-text-align, #form-container-custom-width, #question-content-custom-width').on('change input' + ns, () => {
+                if (!this.isDestroyed) {
+                    this.updatePreviewStyles();
+                }
+            });
+            
+            // Event listeners específicos para campos personalizados de ancho
+            $('#form-container-width').on('change' + ns, (e) => {
+                const $customContainer = $('#form-container-custom-width-container');
+                if ($(e.target).val() === 'custom') {
+                    $customContainer.slideDown(300);
+                } else {
+                    $customContainer.slideUp(300);
+                }
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                    this.updatePreviewStyles();
+                }
+            });
+            
+            $('#question-content-width').on('change' + ns, (e) => {
+                const $customContainer = $('#question-content-custom-width-container');
+                if ($(e.target).val() === 'custom') {
+                    $customContainer.slideDown(300);
+                } else {
+                    $customContainer.slideUp(300);
+                }
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                    this.updatePreviewStyles();
+                }
             });
             
             // Límites - Mostrar/ocultar campos dinámicamente
@@ -416,6 +486,22 @@
             $('.sfq-range-value').text((styles.border_radius || '8') + 'px');
             $('#font-family').val(styles.font_family || 'inherit');
             
+            // Nuevas opciones de estilo
+            $('#form-container-border-radius').val(styles.form_container_border_radius || '20');
+            $('.sfq-form-container-radius-value').text((styles.form_container_border_radius || '20') + 'px');
+            $('#form-container-shadow').prop('checked', styles.form_container_shadow === true);
+            $('#form-container-width').val(styles.form_container_width || 'responsive');
+            $('#question-content-width').val(styles.question_content_width || 'responsive');
+            $('#question-text-size').val(styles.question_text_size || '24');
+            $('.sfq-question-text-size-value').text((styles.question_text_size || '24') + 'px');
+            $('#option-text-size').val(styles.option_text_size || '16');
+            $('.sfq-option-text-size-value').text((styles.option_text_size || '16') + 'px');
+            $('#question-text-align').val(styles.question_text_align || 'left');
+            $('#general-text-align').val(styles.general_text_align || 'left');
+            
+            // Color del borde de opciones
+            $('#options-border-color').val(styles.options_border_color || '#e0e0e0').trigger('change');
+            
             // Cargar configuraciones de personalización de mensajes de límite
             $('#limit-submission-icon').val(styles.limit_submission_icon || '');
             $('#limit-submission-title').val(styles.limit_submission_title || '');
@@ -659,6 +745,16 @@
                 text_color: $('#text-color').val() || '#333333',
                 border_radius: $('#border-radius').val() || '8',
                 font_family: $('#font-family').val() || 'inherit',
+                // Nuevas opciones de estilo
+                form_container_border_radius: $('#form-container-border-radius').val() || '20',
+                form_container_shadow: $('#form-container-shadow').is(':checked'),
+                form_container_width: $('#form-container-width').val() || 'responsive',
+                question_content_width: $('#question-content-width').val() || 'responsive',
+                question_text_size: $('#question-text-size').val() || '24',
+                option_text_size: $('#option-text-size').val() || '16',
+                question_text_align: $('#question-text-align').val() || 'left',
+                general_text_align: $('#general-text-align').val() || 'left',
+                options_border_color: $('#options-border-color').val() || '#e0e0e0',
                 // Personalización de mensajes de límite
                 limit_submission_icon: $('#limit-submission-icon').val() || '',
                 limit_submission_title: $('#limit-submission-title').val() || '',
@@ -763,10 +859,20 @@
 
         initColorPickers() {
             if ($.fn.wpColorPicker) {
+                const self = this;
                 $('.sfq-color-picker').each(function() {
                     $(this).wpColorPicker({
-                        change: () => {
-                            this.isDirty = true;
+                        change: function(event, ui) {
+                            self.isDirty = true;
+                            
+                            // Disparar evento personalizado para el PreviewManager
+                            $(this).trigger('wpcolorpickerchange');
+                        },
+                        clear: function() {
+                            self.isDirty = true;
+                            
+                            // Disparar evento personalizado para el PreviewManager
+                            $(this).trigger('wpcolorpickerchange');
                         }
                     });
                 });
@@ -801,6 +907,9 @@
             if (this.conditionEngine) {
                 this.conditionEngine.destroy();
             }
+            if (this.previewManager) {
+                this.previewManager.destroy();
+            }
             
             // Clear references
             this.stateManager = null;
@@ -808,6 +917,7 @@
             this.conditionEngine = null;
             this.uiRenderer = null;
             this.dataValidator = null;
+            this.previewManager = null;
         }
         
         // Actualizar resumen dinámico de límites
@@ -1233,6 +1343,167 @@
                 "'": '&#039;'
             };
             return text.replace(/[&<>"']/g, m => map[m]);
+        }
+        
+        // Función para actualizar estilos en tiempo real
+        updatePreviewStyles() {
+            // Crear o actualizar el elemento de estilo dinámico
+            let $styleElement = $('#sfq-dynamic-styles');
+            if ($styleElement.length === 0) {
+                $styleElement = $('<style id="sfq-dynamic-styles"></style>');
+                $('head').append($styleElement);
+            }
+            
+            // Recopilar valores actuales
+            const styles = {
+                primaryColor: $('#primary-color').val() || '#007cba',
+                secondaryColor: $('#secondary-color').val() || '#6c757d',
+                backgroundColor: $('#background-color').val() || '#ffffff',
+                optionsBackgroundColor: $('#options-background-color').val() || '#ffffff',
+                optionsBorderColor: $('#options-border-color').val() || '#e0e0e0',
+                textColor: $('#text-color').val() || '#333333',
+                borderRadius: $('#border-radius').val() || '12',
+                fontFamily: $('#font-family').val() || 'inherit',
+                formContainerBorderRadius: $('#form-container-border-radius').val() || '20',
+                formContainerShadow: $('#form-container-shadow').is(':checked'),
+                formContainerWidth: $('#form-container-width').val() || 'responsive',
+                formContainerCustomWidth: $('#form-container-custom-width').val() || '720',
+                questionContentWidth: $('#question-content-width').val() || 'responsive',
+                questionContentCustomWidth: $('#question-content-custom-width').val() || '600',
+                questionTextSize: $('#question-text-size').val() || '24',
+                optionTextSize: $('#option-text-size').val() || '16',
+                questionTextAlign: $('#question-text-align').val() || 'left',
+                generalTextAlign: $('#general-text-align').val() || 'left'
+            };
+            
+            // Generar CSS dinámico mejorado
+            let css = `
+                /* Estilos dinámicos aplicados en tiempo real */
+                .sfq-form-container {
+                    --sfq-primary-color: ${styles.primaryColor} !important;
+                    --sfq-secondary-color: ${styles.secondaryColor} !important;
+                    --sfq-background-color: ${styles.backgroundColor} !important;
+                    --sfq-options-background-color: ${styles.optionsBackgroundColor} !important;
+                    --sfq-options-border-color: ${styles.optionsBorderColor} !important;
+                    --sfq-text-color: ${styles.textColor} !important;
+                    --sfq-border-radius: ${styles.borderRadius}px !important;
+                    --sfq-font-family: ${styles.fontFamily} !important;
+                    --sfq-form-container-border-radius: ${styles.formContainerBorderRadius}px !important;
+                    --sfq-question-text-size: ${styles.questionTextSize}px !important;
+                    --sfq-option-text-size: ${styles.optionTextSize}px !important;
+                    --sfq-question-text-align: ${styles.questionTextAlign} !important;
+                    --sfq-general-text-align: ${styles.generalTextAlign} !important;
+                    
+                    /* Aplicar estilos directamente al contenedor */
+                    background-color: ${styles.backgroundColor} !important;
+                    color: ${styles.textColor} !important;
+                    border-radius: ${styles.formContainerBorderRadius}px !important;
+                    font-family: ${styles.fontFamily} !important;
+                    ${styles.formContainerShadow ? 'box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;' : 'box-shadow: none !important;'}
+                }
+                
+                /* Ancho del contenedor según configuración */
+                .sfq-form-container[data-width="full"] {
+                    max-width: 100% !important;
+                    width: 100% !important;
+                }
+                
+                .sfq-form-container[data-width="responsive"] {
+                    max-width: 720px !important;
+                }
+                
+                .sfq-form-container[data-width="custom"] {
+                    max-width: ${styles.formContainerCustomWidth}px !important;
+                }
+                
+                /* Ancho del contenido de preguntas */
+                .sfq-question-content[data-width="full"] {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                }
+                
+                .sfq-question-content[data-width="responsive"] {
+                    width: 100% !important;
+                    max-width: 720px !important;
+                    margin: 0 auto !important;
+                }
+                
+                .sfq-question-content[data-width="custom"] {
+                    width: ${styles.questionContentCustomWidth}px !important;
+                    max-width: ${styles.questionContentCustomWidth}px !important;
+                    margin: 0 auto !important;
+                }
+                
+                /* CRÍTICO: Aplicar estilos a elementos específicos con mayor especificidad */
+                .sfq-form-container .sfq-option-card,
+                .sfq-option-card {
+                    background-color: ${styles.optionsBackgroundColor} !important;
+                    border-radius: ${styles.borderRadius}px !important;
+                    border-color: ${styles.optionsBorderColor || '#e0e0e0'} !important;
+                }
+                
+                .sfq-form-container .sfq-question-text,
+                .sfq-question-text {
+                    font-size: ${styles.questionTextSize}px !important;
+                    text-align: ${styles.questionTextAlign} !important;
+                    color: ${styles.textColor} !important;
+                }
+                
+                .sfq-form-container .sfq-option-text,
+                .sfq-option-text {
+                    font-size: ${styles.optionTextSize}px !important;
+                    text-align: ${styles.generalTextAlign} !important;
+                    color: ${styles.textColor} !important;
+                }
+                
+                /* Aplicar también a elementos del admin para previsualización */
+                .sfq-builder-wrap .sfq-form-container,
+                .sfq-builder-wrap .sfq-question-text,
+                .sfq-builder-wrap .sfq-option-text,
+                .sfq-builder-wrap .sfq-option-card {
+                    transition: all 0.3s ease !important;
+                }
+                
+                /* Asegurar que los elementos del preview también reciban los estilos */
+                #sfq-preview-iframe .sfq-form-container {
+                    --sfq-primary-color: ${styles.primaryColor} !important;
+                    --sfq-secondary-color: ${styles.secondaryColor} !important;
+                    --sfq-background-color: ${styles.backgroundColor} !important;
+                    --sfq-options-background-color: ${styles.optionsBackgroundColor} !important;
+                    --sfq-text-color: ${styles.textColor} !important;
+                    --sfq-border-radius: ${styles.borderRadius}px !important;
+                    --sfq-form-container-border-radius: ${styles.formContainerBorderRadius}px !important;
+                    --sfq-question-text-size: ${styles.questionTextSize}px !important;
+                    --sfq-option-text-size: ${styles.optionTextSize}px !important;
+                    --sfq-question-text-align: ${styles.questionTextAlign} !important;
+                    --sfq-general-text-align: ${styles.generalTextAlign} !important;
+                }
+            `;
+            
+            // Aplicar el CSS
+            $styleElement.html(css);
+            
+            // También aplicar atributos data para el ancho si hay elementos en la página
+            if ($('.sfq-form-container').length > 0) {
+                $('.sfq-form-container').attr('data-width', styles.formContainerWidth);
+                $('.sfq-form-container').attr('data-shadow', styles.formContainerShadow ? 'true' : 'false');
+                
+                // Aplicar ancho personalizado como variable CSS si es necesario
+                if (styles.formContainerWidth === 'custom') {
+                    $('.sfq-form-container').css('--sfq-form-container-custom-width', styles.formContainerCustomWidth + 'px');
+                }
+            }
+            
+            if ($('.sfq-question-content').length > 0) {
+                $('.sfq-question-content').attr('data-width', styles.questionContentWidth);
+                
+                // Aplicar ancho personalizado como variable CSS si es necesario
+                if (styles.questionContentWidth === 'custom') {
+                    $('.sfq-question-content').css('--sfq-question-content-custom-width', styles.questionContentCustomWidth + 'px');
+                }
+            }
+            
+            console.log('SFQ: Updated preview styles dynamically with improved specificity');
         }
     }
 

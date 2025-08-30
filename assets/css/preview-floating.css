@@ -18,10 +18,10 @@
     min-width: 280px;
     max-height: 500px;
     overflow: hidden;
-    opacity: 0;
-    transform: scale(0.95) translateY(-10px);
+    opacity: 1;
+    transform: scale(1) translateY(0);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    pointer-events: none;
+    pointer-events: auto;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     /* Posicionamiento lateral fijo - se ajustará con JavaScript */
@@ -748,9 +748,193 @@
     -ms-user-select: none;
 }
 
+/* ==========================================================================
+   FUNCIONALIDAD DE ARRASTRAR Y MINIMIZAR
+   ========================================================================== */
+
+/* Controles de la previsualización */
+.sfq-preview-controls {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.sfq-preview-minimize,
+.sfq-preview-close {
+    background: none;
+    border: none;
+    font-size: 16px;
+    color: #666;
+    cursor: pointer;
+    padding: 4px 8px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    line-height: 1;
+    font-weight: bold;
+}
+
+.sfq-preview-minimize:hover,
+.sfq-preview-close:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #333;
+    transform: scale(1.1);
+}
+
+.sfq-preview-minimize {
+    font-size: 18px;
+}
+
+/* Handle para arrastrar */
+.sfq-draggable-handle {
+    cursor: move;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+.sfq-draggable-handle:hover {
+    background: linear-gradient(135deg, #f0f0f1 0%, #e8e9ea 100%);
+}
+
+/* Estados de arrastre */
+.sfq-preview-floating.sfq-dragging {
+    opacity: 0.9;
+    transform: scale(1.02);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    z-index: 10001;
+}
+
+.sfq-dragging-active {
+    cursor: move !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+}
+
+.sfq-dragging-active * {
+    cursor: move !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+}
+
+/* Botón minimizado */
+.sfq-preview-minimized {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: none;
+}
+
+.sfq-preview-restore {
+    background: linear-gradient(135deg, #007cba 0%, #005a8b 100%);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 25px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 16px rgba(0, 124, 186, 0.3);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.sfq-preview-restore:hover {
+    background: linear-gradient(135deg, #005a8b 0%, #004666 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 124, 186, 0.4);
+}
+
+.sfq-preview-restore:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(0, 124, 186, 0.3);
+}
+
+.sfq-preview-restore .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+}
+
+/* Animaciones mejoradas */
+.sfq-preview-floating {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sfq-preview-floating:not(.sfq-dragging) {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Indicador visual de que se puede arrastrar */
+.sfq-draggable-handle::after {
+    content: '';
+    position: absolute;
+    right: 50px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 12px;
+    background-image: 
+        radial-gradient(circle, #ccc 1px, transparent 1px),
+        radial-gradient(circle, #ccc 1px, transparent 1px);
+    background-size: 6px 6px;
+    background-position: 0 0, 3px 3px;
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.sfq-draggable-handle:hover::after {
+    opacity: 0.8;
+}
+
+/* Mejoras responsive para funcionalidad de arrastrar */
+@media (max-width: 768px) {
+    .sfq-preview-minimize,
+    .sfq-preview-close {
+        width: 32px;
+        height: 32px;
+        font-size: 18px;
+    }
+    
+    .sfq-preview-restore {
+        padding: 10px 16px;
+        font-size: 13px;
+        bottom: 15px;
+    }
+    
+    .sfq-draggable-handle::after {
+        display: none; /* Ocultar indicador en móvil */
+    }
+}
+
+/* Estados de hover mejorados */
+.sfq-preview-floating:hover {
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+}
+
+.sfq-preview-floating:hover .sfq-draggable-handle::after {
+    opacity: 1;
+}
+
 /* Estilos para impresión (ocultar previsualización) */
 @media print {
-    .sfq-preview-floating {
+    .sfq-preview-floating,
+    .sfq-preview-minimized {
         display: none !important;
     }
 }
