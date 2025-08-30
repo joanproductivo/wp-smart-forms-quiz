@@ -12,12 +12,12 @@
     class PreviewManager {
         constructor(formBuilder) {
             this.formBuilder = formBuilder;
-            this.isEnabled = false;
+            this.isEnabled = true;
             this.currentPreview = null;
             this.currentContext = null;
             this.debounceTimers = {};
             this.previewContainer = null;
-            this.isMinimized = false;
+            this.isMinimized = true;
             this.isDragging = false;
             this.dragOffset = { x: 0, y: 0 };
             this.minimizedButton = null;
@@ -41,6 +41,7 @@
             this.createPreviewContainer();
             this.bindEvents();
             this.checkIfEnabled();
+            this.showRestoreButton(); // Siempre mostrar el botón de restaurar
             console.log('PreviewManager: Inicialización completa. Habilitado:', this.isEnabled);
         }
 
@@ -78,7 +79,7 @@
             $('body').append(this.previewContainer);
             $('body').append(this.minimizedButton);
             this.previewContainer.hide();
-            this.minimizedButton.hide();
+            this.minimizedButton.show();
             
             // Bind eventos de control
             this.bindPreviewControls();
@@ -262,9 +263,9 @@
             });
             
             // Limpiar al cambiar de tab
-            $(document).on('click' + ns, '.sfq-tab-button', () => {
-                this.hidePreview();
-            });
+           // $(document).on('click' + ns, '.sfq-tab-button', () => {
+          //      this.hidePreview();
+          //  });
             
             // Limpiar al hacer scroll
             $(window).on('scroll' + ns, () => {
@@ -291,6 +292,9 @@
                 this.isEnabled = false;
                 console.log('PreviewManager: Previsualización deshabilitada');
             }
+            
+            // IMPORTANTE: El botón de restaurar siempre se muestra, independientemente del estado del checkbox
+            // Esto permite que el usuario pueda activar la previsualización haciendo clic en el botón
         }
 
         togglePreview(enabled) {
@@ -467,19 +471,65 @@
             const windowWidth = $(window).width();
             const windowHeight = $(window).height();
             const previewWidth = 380; // Ancho fijo de la previsualización
+            const previewHeight = 400; // Altura estimada de la previsualización
+            const margin = 20; // Margen mínimo desde los bordes
             
-            let left, top = 80; // Top fijo desde arriba
+            // Obtener posición y dimensiones del elemento de referencia
+            const elementOffset = referenceElement.offset();
+            const elementWidth = referenceElement.outerWidth();
+            const elementHeight = referenceElement.outerHeight();
+            
+            let left, top;
             
             if (preferredSide === 'left') {
-                // Posicionar a la izquierda de la pantalla
-                left = 20;
+                // Intentar posicionar a la izquierda del elemento
+                left = elementOffset.left - previewWidth - margin;
+                
+                // Si no cabe a la izquierda, ponerlo a la derecha
+                if (left < margin) {
+                    left = elementOffset.left + elementWidth + margin;
+                }
+                
+                // Si tampoco cabe a la derecha, centrarlo en la pantalla
+                if (left + previewWidth > windowWidth - margin) {
+                    left = (windowWidth - previewWidth) / 2;
+                }
             } else {
-                // Posicionar a la derecha de la pantalla
-                left = windowWidth - previewWidth - 20;
+                // Intentar posicionar a la derecha del elemento
+                left = elementOffset.left + elementWidth + margin;
+                
+                // Si no cabe a la derecha, ponerlo a la izquierda
+                if (left + previewWidth > windowWidth - margin) {
+                    left = elementOffset.left - previewWidth - margin;
+                }
+                
+                // Si tampoco cabe a la izquierda, centrarlo en la pantalla
+                if (left < margin) {
+                    left = (windowWidth - previewWidth) / 2;
+                }
             }
             
-            // Asegurar que no se salga de los límites
-            left = Math.max(20, Math.min(left, windowWidth - previewWidth - 20));
+            // Calcular posición vertical - alinear con el elemento pero ajustar si es necesario
+            top = elementOffset.top;
+            
+            // Ajustar si se sale por arriba
+            if (top < margin) {
+                top = margin;
+            }
+            
+            // Ajustar si se sale por abajo
+            if (top + previewHeight > windowHeight - margin) {
+                top = windowHeight - previewHeight - margin;
+                
+                // Si aún no cabe, ponerlo en la parte superior
+                if (top < margin) {
+                    top = margin;
+                }
+            }
+            
+            // Asegurar límites finales
+            left = Math.max(margin, Math.min(left, windowWidth - previewWidth - margin));
+            top = Math.max(margin, Math.min(top, windowHeight - previewHeight - margin));
             
             return { left: left, top: top };
         }
@@ -1051,18 +1101,27 @@
 
         bindPreviewControls() {
             // Botón de cerrar
-            this.previewContainer.find('.sfq-preview-close').on('click', () => {
-                this.hidePreview();
+            this.previewContainer.find('.sfq-preview-close').on('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('PreviewManager: Close button clicked');
+                this.forceMinimizePreview();
             });
             
             // Botón de minimizar
-            this.previewContainer.find('.sfq-preview-minimize').on('click', () => {
-                this.minimizePreview();
+            this.previewContainer.find('.sfq-preview-minimize').on('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('PreviewManager: Minimize button clicked');
+                this.forceMinimizePreview();
             });
             
             // Botón de restaurar (en el botón minimizado)
-            this.minimizedButton.find('.sfq-preview-restore').on('click', () => {
-                this.restorePreview();
+            this.minimizedButton.find('.sfq-preview-restore').on('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('PreviewManager: Restore button clicked');
+                this.restorePreviewAndActivate();
             });
         }
 
@@ -1138,6 +1197,50 @@
             });
         }
 
+        forceMinimizePreview() {
+            console.log('PreviewManager: Force minimize preview - current state:', {
+                containerExists: !!this.previewContainer,
+                isMinimized: this.isMinimized,
+                containerVisible: this.previewContainer ? this.previewContainer.is(':visible') : false
+            });
+            
+            // Cancelar cualquier animación pendiente
+            if (this.previewContainer) {
+                this.previewContainer.stop(true, false);
+            }
+            if (this.minimizedButton) {
+                this.minimizedButton.stop(true, false);
+            }
+            
+            // Forzar el estado minimizado
+            this.isMinimized = true;
+            
+            // Ocultar inmediatamente la ventana de previsualización
+            if (this.previewContainer) {
+                this.previewContainer.hide();
+                console.log('PreviewManager: Preview container hidden');
+            }
+            
+            // Mostrar inmediatamente el botón minimizado
+            if (this.minimizedButton) {
+                this.minimizedButton.css({
+                    position: 'fixed',
+                    bottom: '20px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 9999,
+                    display: 'block'
+                });
+                console.log('PreviewManager: Minimized button shown');
+            }
+            
+            // Limpiar referencias de previsualización activa
+            this.currentPreview = null;
+            this.currentContext = null;
+            
+            console.log('PreviewManager: Force minimize completed');
+        }
+
         restorePreview() {
             if (!this.minimizedButton || !this.isMinimized) return;
             
@@ -1154,6 +1257,63 @@
                 }
                 this.previewContainer.fadeIn(200);
             });
+        }
+
+        restorePreviewAndActivate() {
+            console.log('PreviewManager: Restore and activate preview');
+            
+            // Activar el sistema de previsualización
+            this.isEnabled = true;
+            
+            // Marcar el checkbox de enable-floating-preview si existe
+            const enableCheckbox = $('#enable-floating-preview');
+            if (enableCheckbox.length && !enableCheckbox.is(':checked')) {
+                enableCheckbox.prop('checked', true).trigger('change');
+            }
+            
+            // Restaurar la ventana de previsualización
+            this.restorePreview();
+            
+            // Mostrar una previsualización de ejemplo si no hay contenido activo
+            if (!this.currentPreview) {
+                // Crear una pregunta de ejemplo para mostrar
+                const sampleQuestionData = {
+                    text: 'Vista previa activada - Haz clic en cualquier campo para ver la previsualización',
+                    type: 'single_choice',
+                    required: false,
+                    options: ['La previsualización está ahora activa', 'Edita cualquier campo para ver los cambios']
+                };
+                
+                // Renderizar previsualización de ejemplo
+                const previewHtml = this.renderQuestionPreview(sampleQuestionData);
+                
+                // Mostrar previsualización en el centro
+                this.previewContainer.find('.sfq-preview-content').html(previewHtml);
+                this.previewContainer.find('.sfq-preview-title').text('Vista Previa - Activada');
+                
+                // Posicionar en el centro-derecha
+                const windowWidth = $(window).width();
+                const previewWidth = 380;
+                const position = {
+                    left: windowWidth - previewWidth - 20,
+                    top: 80
+                };
+                
+                this.previewContainer.css({
+                    position: 'fixed',
+                    left: position.left + 'px',
+                    top: position.top + 'px',
+                    zIndex: 10000,
+                    display: 'block',
+                    visibility: 'visible',
+                    opacity: '1'
+                });
+                
+                this.previewContainer.fadeIn(this.config.animationDuration);
+                this.currentContext = 'activated';
+            }
+            
+            console.log('PreviewManager: Preview system activated and restored');
         }
 
         showRestoreButton() {

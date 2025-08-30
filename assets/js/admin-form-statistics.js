@@ -57,6 +57,16 @@
                 this.exportStatistics();
             });
 
+            // ✅ NUEVO: Selector de período en pestaña de abandono
+            $('#sfq-abandonment-timeline-period').on('change', (e) => {
+                const period = $(e.target).val();
+                // Actualizar el período principal para que afecte a todas las estadísticas
+                $('#sfq-stats-period').val(period);
+                this.currentPeriod = period;
+                // Recargar analytics de abandono con el nuevo período
+                this.loadAbandonmentAnalytics();
+            });
+
             // Country selector
             $('#sfq-select-country').on('change', (e) => {
                 const countryCode = $(e.target).val();
@@ -88,6 +98,9 @@
                     break;
                 case 'timeline':
                     this.updateTimelineChart();
+                    break;
+                case 'abandonment':
+                    this.loadAbandonmentAnalytics();
                     break;
                 case 'responses':
                     this.loadResponses();
@@ -157,12 +170,13 @@
             }
         }
 
-        updateGeneralStats(stats) {
-            $('#total-responses').text(stats.total_responses.toLocaleString());
-            $('#completion-rate').text(stats.completion_rate + '%');
-            $('#avg-time').text(stats.avg_time);
-            $('#countries-count').text(stats.countries_count);
-        }
+    updateGeneralStats(stats) {
+        $('#total-responses').text(stats.total_responses.toLocaleString());
+        $('#completion-rate').text(stats.completion_rate + '%');
+        $('#avg-time').text(stats.avg_time);
+        $('#countries-count').text(stats.countries_count);
+        $('#partial-responses').text(stats.partial_responses || 0);
+    }
 
         updateQuestionsStats(questions) {
             const container = $('#sfq-questions-container');
@@ -1637,7 +1651,396 @@
         }
 
         /**
-         * Vincular eventos para elementos freestyle
+         * ✅ NUEVO: Cargar analytics de abandono
+         */
+        async loadAbandonmentAnalytics() {
+            const period = $('#sfq-stats-period').val();
+            
+            // Show loading state
+            $('#partial-responses-count').text('-');
+            $('#abandonment-rate').text('-');
+            $('#top-exit-question').text('-');
+            $('#top-abandonment-country').text('-');
+            
+            try {
+                const response = await $.ajax({
+                    url: sfq_ajax.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'sfq_get_abandonment_analytics',
+                        nonce: sfq_ajax.nonce,
+                        form_id: this.formId,
+                        period: period
+                    }
+                });
+
+                if (response.success) {
+                    this.updateAbandonmentDisplay(response.data);
+                } else {
+                    console.error('Error loading abandonment analytics:', response.data);
+                    this.showAbandonmentError(response.data);
+                }
+            } catch (error) {
+                console.error('Error loading abandonment analytics:', error);
+                this.showAbandonmentError('Error de conexión');
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Actualizar display de analytics de abandono
+         */
+        updateAbandonmentDisplay(data) {
+            // Update summary cards
+            $('#partial-responses-count').text(data.summary.partial_responses_count);
+            $('#abandonment-rate').text(data.summary.abandonment_rate);
+            $('#top-exit-question').text(data.summary.top_exit_question);
+            $('#top-abandonment-country').text(data.summary.top_abandonment_country);
+            
+            // Create charts
+            this.createAbandonmentQuestionsChart(data.questions_chart);
+            this.createAbandonmentCountriesChart(data.countries_chart);
+            this.createAbandonmentTimelineChart(data.timeline_chart);
+            
+            // Load partial responses table
+            this.loadPartialResponsesTable();
+        }
+
+        /**
+         * ✅ NUEVO: Crear gráfico de abandono por preguntas
+         */
+        createAbandonmentQuestionsChart(questionsData) {
+            const canvas = document.getElementById('sfq-abandonment-questions-chart');
+            if (!canvas || !questionsData || questionsData.length === 0) {
+                if (canvas) {
+                    canvas.parentElement.innerHTML = '<p style="text-align: center; color: #646970;">No hay datos de abandono por pregunta</p>';
+                }
+                return;
+            }
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Destroy existing chart if exists
+            if (this.charts.abandonmentQuestions) {
+                this.charts.abandonmentQuestions.destroy();
+            }
+            
+            // Take top 10 questions with most abandonment
+            const topQuestions = questionsData.slice(0, 10);
+            
+            this.charts.abandonmentQuestions = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: topQuestions.map(q => 
+                        q.question_text.length > 30 ? 
+                        q.question_text.substring(0, 30) + '...' : 
+                        q.question_text
+                    ),
+                    datasets: [{
+                        label: 'Abandonos',
+                        data: topQuestions.map(q => q.count),
+                        backgroundColor: '#dc3232',
+                        borderColor: '#a00',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1 }
+                        },
+                        x: {
+                            ticks: { maxRotation: 45 }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.parsed.y;
+                                    const percentage = topQuestions[context.dataIndex].percentage;
+                                    return `Abandonos: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * ✅ NUEVO: Crear gráfico de abandono por países
+         */
+        createAbandonmentCountriesChart(countriesData) {
+            const canvas = document.getElementById('sfq-abandonment-countries-chart');
+            if (!canvas || !countriesData || countriesData.length === 0) {
+                if (canvas) {
+                    canvas.parentElement.innerHTML = '<p style="text-align: center; color: #646970;">No hay datos de abandono por país</p>';
+                }
+                return;
+            }
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Destroy existing chart if exists
+            if (this.charts.abandonmentCountries) {
+                this.charts.abandonmentCountries.destroy();
+            }
+            
+            // Take top 8 countries
+            const topCountries = countriesData.slice(0, 8);
+            
+            this.charts.abandonmentCountries = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: topCountries.map(c => c.flag_emoji + ' ' + c.country_name),
+                    datasets: [{
+                        data: topCountries.map(c => c.count),
+                        backgroundColor: [
+                            '#dc3232', '#ff6b6b', '#ff8e8e', '#ffb1b1',
+                            '#ffd4d4', '#ffe7e7', '#fff0f0', '#fff8f8'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { padding: 10, font: { size: 11 } }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.parsed;
+                                    const percentage = topCountries[context.dataIndex].percentage;
+                                    return `${context.label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * ✅ NUEVO: Crear gráfico temporal de abandono
+         */
+        createAbandonmentTimelineChart(timelineData) {
+            const canvas = document.getElementById('sfq-abandonment-timeline-chart');
+            if (!canvas || !timelineData || timelineData.length === 0) {
+                if (canvas) {
+                    canvas.parentElement.innerHTML = '<p style="text-align: center; color: #646970;">No hay datos de timeline de abandono</p>';
+                }
+                return;
+            }
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Destroy existing chart if exists
+            if (this.charts.abandonmentTimeline) {
+                this.charts.abandonmentTimeline.destroy();
+            }
+            
+            const labels = timelineData.map(item => {
+                const date = new Date(item.date);
+                return date.toLocaleDateString('es-ES', { 
+                    month: 'short', 
+                    day: 'numeric' 
+                });
+            });
+            const data = timelineData.map(item => parseInt(item.count) || 0);
+            
+            this.charts.abandonmentTimeline = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Abandonos por día',
+                        data: data,
+                        borderColor: '#dc3232',
+                        backgroundColor: 'rgba(220, 50, 50, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#dc3232',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1 }
+                        },
+                        x: {
+                            ticks: { maxRotation: 45 }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Abandonos: ${context.parsed.y}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * ✅ NUEVO: Cargar tabla de respuestas parciales
+         */
+        async loadPartialResponsesTable(page = 1) {
+            const countryFilter = $('#sfq-abandonment-filter-country').val();
+            const questionFilter = $('#sfq-abandonment-filter-question').val();
+            
+            try {
+                const response = await $.ajax({
+                    url: sfq_ajax.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'sfq_get_partial_responses_list',
+                        nonce: sfq_ajax.nonce,
+                        form_id: this.formId,
+                        page: page,
+                        per_page: 20,
+                        country_filter: countryFilter,
+                        question_filter: questionFilter
+                    }
+                });
+
+                if (response.success) {
+                    this.displayPartialResponsesTable(response.data);
+                } else {
+                    console.error('Error loading partial responses:', response.data);
+                }
+            } catch (error) {
+                console.error('Error loading partial responses:', error);
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Mostrar tabla de respuestas parciales
+         */
+        displayPartialResponsesTable(data) {
+            const tbody = $('#sfq-abandonment-tbody');
+            
+            if (!data.data || data.data.length === 0) {
+                tbody.html('<tr><td colspan="7" style="text-align: center; color: #646970;">No hay respuestas parciales disponibles</td></tr>');
+                return;
+            }
+            
+            const html = data.data.map(item => `
+                <tr>
+                    <td>${this.escapeHtml(item.session_id)}</td>
+                    <td>${item.country}</td>
+                    <td>${item.last_question}</td>
+                    <td>
+                        <div class="sfq-progress-bar">
+                            <div class="sfq-progress-fill" style="width: ${item.progress}"></div>
+                            <span class="sfq-progress-text">${item.progress}</span>
+                        </div>
+                    </td>
+                    <td>${item.time_elapsed}</td>
+                    <td>${item.last_activity}</td>
+                    <td>
+                        <span class="sfq-status sfq-status-${item.status}">
+                            ${item.status === 'expired' ? 'Expirado' : 'Activo'}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+            
+            tbody.html(html);
+            
+            // Update pagination
+            this.updateAbandonmentPagination(data.current_page, data.pages);
+        }
+
+        /**
+         * ✅ NUEVO: Actualizar paginación de abandono
+         */
+        updateAbandonmentPagination(currentPage, totalPages) {
+            const container = $('#sfq-abandonment-pagination');
+            
+            if (totalPages <= 1) {
+                container.empty();
+                return;
+            }
+            
+            let html = '';
+            
+            // Previous button
+            if (currentPage > 1) {
+                html += `<button class="button" data-page="${currentPage - 1}">‹</button>`;
+            }
+            
+            // Page numbers
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === currentPage) {
+                    html += `<button class="button button-primary" disabled>${i}</button>`;
+                } else if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                    html += `<button class="button" data-page="${i}">${i}</button>`;
+                } else if (i === currentPage - 3 || i === currentPage + 3) {
+                    html += `<span>...</span>`;
+                }
+            }
+            
+            // Next button
+            if (currentPage < totalPages) {
+                html += `<button class="button" data-page="${currentPage + 1}">›</button>`;
+            }
+            
+            container.html(html);
+            
+            // Bind pagination events
+            container.find('button[data-page]').on('click', (e) => {
+                const page = $(e.target).data('page');
+                this.loadPartialResponsesTable(page);
+            });
+        }
+
+        /**
+         * ✅ NUEVO: Mostrar error de abandono
+         */
+        showAbandonmentError(error) {
+            $('#partial-responses-count').text('Error');
+            $('#abandonment-rate').text('Error');
+            $('#top-exit-question').text('Error');
+            $('#top-abandonment-country').text('Error');
+            
+            // Show error in charts
+            const chartContainers = [
+                '#sfq-abandonment-questions-chart',
+                '#sfq-abandonment-countries-chart', 
+                '#sfq-abandonment-timeline-chart'
+            ];
+            
+            chartContainers.forEach(selector => {
+                const canvas = document.querySelector(selector);
+                if (canvas) {
+                    canvas.parentElement.innerHTML = `<p style="text-align: center; color: #dc3232;">Error al cargar datos: ${error}</p>`;
+                }
+            });
+        }
+
+        /**
+         * Initialize when DOM is ready
          */
         bindFreestyleEvents() {
             // Toggle individual elements

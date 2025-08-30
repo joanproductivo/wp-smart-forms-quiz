@@ -20,6 +20,13 @@
             this.startTime = Date.now();
             this.questionStartTime = Date.now();
             
+            // ✅ NUEVO: Variables para guardado parcial
+            this.savePartialEnabled = this.settings.save_partial || false;
+            this.savePartialInterval = null;
+            this.lastSaveTime = 0;
+            this.savePartialDelay = 3000; // 3 segundos después de cambios
+            this.savePartialTimer = null;
+            
             // ✅ CRÍTICO: Inicializar variables globales desde el campo oculto
             this.initializeGlobalVariables();
             
@@ -49,6 +56,11 @@
         init() {
             this.bindEvents();
             this.initializeForm();
+            
+            // ✅ NUEVO: Inicializar guardado parcial si está habilitado
+            if (this.savePartialEnabled) {
+                this.initializePartialSave();
+            }
             
             // Registrar vista del formulario
             this.trackEvent('view');
@@ -681,8 +693,10 @@
             // Controlar visibilidad del botón siguiente
             this.updateNextButtonVisibility(screen);
 
-            // Hacer scroll al top
-            this.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Hacer scroll al top solo si está habilitado
+            if (this.settings.auto_scroll_to_form !== false) {
+                this.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         }
 
         initializeAllQuestionButtons() {
@@ -1313,6 +1327,449 @@
             }
             container.classList.remove('sfq-processing');
         }
+
+        /**
+         * ✅ NUEVO: Inicializar sistema de guardado parcial
+         */
+        async initializePartialSave() {
+            console.log('SFQ Partial Save: Initializing partial save system');
+            
+            // Intentar recuperar respuesta parcial existente
+            await this.loadPartialResponse();
+            
+            // Configurar auto-guardado
+            this.setupAutoSave();
+            
+            // Configurar guardado antes de salir de la página
+            this.setupBeforeUnloadSave();
+        }
+
+        /**
+         * ✅ NUEVO: Cargar respuesta parcial existente
+         */
+        async loadPartialResponse() {
+            if (!this.formId || !this.sessionId) {
+                console.log('SFQ Partial Save: Missing form ID or session ID');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('action', 'sfq_get_partial_response');
+                formData.append('nonce', sfq_ajax.nonce);
+                formData.append('form_id', this.formId);
+                formData.append('session_id', this.sessionId);
+
+                const response = await fetch(sfq_ajax.ajax_url, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (result.success && result.data && result.data.has_partial) {
+                    console.log('SFQ Partial Save: Found partial response, restoring...');
+                    
+                    // Restaurar respuestas
+                    if (result.data.responses && typeof result.data.responses === 'object') {
+                        this.responses = { ...result.data.responses };
+                    }
+                    
+                    // Restaurar variables
+                    if (result.data.variables && typeof result.data.variables === 'object') {
+                        this.variables = { ...result.data.variables };
+                    }
+                    
+                    // Restaurar estado visual del formulario
+                    this.restoreFormState();
+                    
+                    // Mostrar notificación de recuperación
+                    this.showPartialRestoreNotification(result.data.expires_in_hours);
+                    
+                    console.log('SFQ Partial Save: Partial response restored successfully');
+                } else {
+                    console.log('SFQ Partial Save: No partial response found');
+                }
+            } catch (error) {
+                console.error('SFQ Partial Save: Error loading partial response:', error);
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Restaurar estado visual del formulario
+         */
+        restoreFormState() {
+            // Restaurar respuestas de opción única
+            Object.keys(this.responses).forEach(questionId => {
+                const answer = this.responses[questionId];
+                
+                // Buscar contenedor de pregunta
+                const questionContainer = this.container.querySelector(`[data-question-id="${questionId}"]`);
+                if (!questionContainer) return;
+                
+                const questionType = questionContainer.dataset.questionType;
+                
+                switch (questionType) {
+                    case 'single_choice':
+                        this.restoreSingleChoice(questionContainer, answer);
+                        break;
+                        
+                    case 'multiple_choice':
+                        this.restoreMultipleChoice(questionContainer, answer);
+                        break;
+                        
+                    case 'text':
+                    case 'email':
+                        this.restoreTextInput(questionContainer, answer);
+                        break;
+                        
+                    case 'rating':
+                        this.restoreRating(questionContainer, answer);
+                        break;
+                        
+                    case 'image_choice':
+                        this.restoreImageChoice(questionContainer, answer);
+                        break;
+                        
+                    case 'freestyle':
+                        this.restoreFreestyle(questionContainer, answer);
+                        break;
+                }
+            });
+        }
+
+        /**
+         * ✅ NUEVO: Restaurar respuesta única
+         */
+        restoreSingleChoice(container, answer) {
+            const cards = container.querySelectorAll('.sfq-option-card');
+            cards.forEach(card => {
+                const input = card.querySelector('input');
+                if (card.dataset.value === answer) {
+                    card.classList.add('selected');
+                    if (input) input.checked = true;
+                } else {
+                    card.classList.remove('selected');
+                    if (input) input.checked = false;
+                }
+            });
+        }
+
+        /**
+         * ✅ NUEVO: Restaurar respuesta múltiple
+         */
+        restoreMultipleChoice(container, answers) {
+            if (!Array.isArray(answers)) return;
+            
+            const checkboxes = container.querySelectorAll('.sfq-checkbox-input');
+            checkboxes.forEach(checkbox => {
+                const card = checkbox.closest('.sfq-option-card');
+                if (answers.includes(checkbox.value)) {
+                    checkbox.checked = true;
+                    if (card) card.classList.add('selected');
+                } else {
+                    checkbox.checked = false;
+                    if (card) card.classList.remove('selected');
+                }
+            });
+        }
+
+        /**
+         * ✅ NUEVO: Restaurar input de texto
+         */
+        restoreTextInput(container, answer) {
+            const input = container.querySelector('.sfq-text-input');
+            if (input && answer) {
+                input.value = answer;
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Restaurar rating
+         */
+        restoreRating(container, answer) {
+            const wrapper = container.querySelector('.sfq-rating-wrapper');
+            if (!wrapper || !answer) return;
+            
+            const value = parseInt(answer);
+            const buttons = wrapper.querySelectorAll('.sfq-star, .sfq-emoji');
+            
+            buttons.forEach((button, index) => {
+                if (button.classList.contains('sfq-star')) {
+                    // Para estrellas, marcar hasta el valor seleccionado
+                    if (index < value) {
+                        button.classList.add('active');
+                    } else {
+                        button.classList.remove('active');
+                    }
+                } else {
+                    // Para emojis, marcar solo el seleccionado
+                    if (parseInt(button.dataset.value) === value) {
+                        button.classList.add('active');
+                    } else {
+                        button.classList.remove('active');
+                    }
+                }
+            });
+            
+            // Actualizar campo oculto
+            const hiddenInput = wrapper.querySelector('input[type="hidden"]');
+            if (hiddenInput) {
+                hiddenInput.value = answer;
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Restaurar selección de imagen
+         */
+        restoreImageChoice(container, answer) {
+            const options = container.querySelectorAll('.sfq-image-option');
+            options.forEach(option => {
+                const input = option.querySelector('input');
+                if (option.dataset.value === answer) {
+                    option.classList.add('selected');
+                    if (input) input.checked = true;
+                } else {
+                    option.classList.remove('selected');
+                    if (input) input.checked = false;
+                }
+            });
+        }
+
+        /**
+         * ✅ NUEVO: Restaurar elementos freestyle
+         */
+        restoreFreestyle(container, answers) {
+            if (!answers || typeof answers !== 'object') return;
+            
+            Object.keys(answers).forEach(elementId => {
+                const value = answers[elementId];
+                const element = container.querySelector(`#element_${elementId}`);
+                
+                if (!element) return;
+                
+                const elementType = element.type || element.tagName.toLowerCase();
+                
+                switch (elementType) {
+                    case 'text':
+                    case 'email':
+                    case 'textarea':
+                        element.value = value;
+                        break;
+                        
+                    case 'select':
+                        element.value = value;
+                        break;
+                        
+                    case 'checkbox':
+                        element.checked = !!value;
+                        break;
+                        
+                    default:
+                        // Para elementos personalizados como rating
+                        if (element.closest('.sfq-freestyle-rating-wrapper')) {
+                            this.restoreFreestyleRating(element.closest('.sfq-freestyle-rating-wrapper'), value);
+                        }
+                }
+            });
+        }
+
+        /**
+         * ✅ NUEVO: Restaurar rating freestyle
+         */
+        restoreFreestyleRating(wrapper, value) {
+            const ratingValue = parseInt(value);
+            const buttons = wrapper.querySelectorAll('.sfq-freestyle-star, .sfq-freestyle-heart, .sfq-freestyle-emoji');
+            const ratingType = wrapper.dataset.type;
+            
+            buttons.forEach((button, index) => {
+                if (ratingType === 'stars') {
+                    if (index < ratingValue) {
+                        button.classList.add('active');
+                    } else {
+                        button.classList.remove('active');
+                    }
+                } else {
+                    if (parseInt(button.dataset.value) === ratingValue) {
+                        button.classList.add('active');
+                    } else {
+                        button.classList.remove('active');
+                    }
+                }
+            });
+            
+            const hiddenInput = wrapper.querySelector('.sfq-rating-value');
+            if (hiddenInput) {
+                hiddenInput.value = value;
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Configurar auto-guardado
+         */
+        setupAutoSave() {
+            // Configurar guardado con debounce
+            const debouncedSave = this.debounce(() => {
+                this.savePartialResponse();
+            }, this.savePartialDelay);
+            
+            // Escuchar cambios en todos los inputs del formulario
+            this.container.addEventListener('input', debouncedSave);
+            this.container.addEventListener('change', debouncedSave);
+            
+            // Guardado periódico cada 30 segundos si hay cambios
+            this.savePartialInterval = setInterval(() => {
+                if (this.hasUnsavedChanges()) {
+                    this.savePartialResponse();
+                }
+            }, 30000);
+        }
+
+        /**
+         * ✅ NUEVO: Configurar guardado antes de salir
+         */
+        setupBeforeUnloadSave() {
+            window.addEventListener('beforeunload', () => {
+                if (this.hasUnsavedChanges()) {
+                    // Guardado síncrono antes de salir
+                    navigator.sendBeacon(sfq_ajax.ajax_url, new URLSearchParams({
+                        action: 'sfq_save_partial_response',
+                        nonce: sfq_ajax.nonce,
+                        form_id: this.formId,
+                        session_id: this.sessionId,
+                        responses: JSON.stringify(this.responses),
+                        variables: JSON.stringify(this.variables),
+                        current_question: this.currentQuestionIndex
+                    }));
+                }
+            });
+        }
+
+        /**
+         * ✅ NUEVO: Verificar si hay cambios sin guardar
+         */
+        hasUnsavedChanges() {
+            const currentTime = Date.now();
+            return (currentTime - this.lastSaveTime) > 5000 && Object.keys(this.responses).length > 0;
+        }
+
+        /**
+         * ✅ NUEVO: Guardar respuesta parcial
+         */
+        async savePartialResponse() {
+            if (!this.formId || !this.sessionId || Object.keys(this.responses).length === 0) {
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('action', 'sfq_save_partial_response');
+                formData.append('nonce', sfq_ajax.nonce);
+                formData.append('form_id', this.formId);
+                formData.append('session_id', this.sessionId);
+                formData.append('responses', JSON.stringify(this.responses));
+                formData.append('variables', JSON.stringify(this.variables));
+                formData.append('current_question', this.currentQuestionIndex);
+
+                const response = await fetch(sfq_ajax.ajax_url, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        this.lastSaveTime = Date.now();
+                        console.log('SFQ Partial Save: Response saved successfully');
+                        this.showSaveIndicator();
+                    }
+                }
+            } catch (error) {
+                console.error('SFQ Partial Save: Error saving partial response:', error);
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Mostrar indicador de guardado
+         */
+        showSaveIndicator() {
+            // Crear o actualizar indicador de guardado
+            let indicator = this.container.querySelector('.sfq-save-indicator');
+            if (!indicator) {
+                indicator = document.createElement('div');
+                indicator.className = 'sfq-save-indicator';
+                indicator.innerHTML = '✓ Guardado';
+                this.container.appendChild(indicator);
+            }
+            
+            indicator.classList.add('show');
+            
+            // Ocultar después de 2 segundos
+            setTimeout(() => {
+                indicator.classList.remove('show');
+            }, 2000);
+        }
+
+        /**
+         * ✅ NUEVO: Mostrar notificación de recuperación
+         */
+        showPartialRestoreNotification(hoursLeft) {
+            const notification = document.createElement('div');
+            notification.className = 'sfq-restore-notification';
+            notification.innerHTML = `
+                <div class="sfq-restore-content">
+                    <span class="sfq-restore-icon">🔄</span>
+                    <div class="sfq-restore-text">
+                        <strong>Respuestas recuperadas</strong>
+                        <small>Se han restaurado tus respuestas anteriores (expiran en ${hoursLeft}h)</small>
+                    </div>
+                    <button class="sfq-restore-close" onclick="this.parentElement.parentElement.remove()">×</button>
+                </div>
+            `;
+            
+            this.container.insertBefore(notification, this.container.firstChild);
+            
+            // Auto-ocultar después de 8 segundos
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 8000);
+        }
+
+        /**
+         * ✅ NUEVO: Función debounce para optimizar guardado
+         */
+        debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        /**
+         * ✅ NUEVO: Limpiar recursos de guardado parcial
+         */
+        cleanupPartialSave() {
+            if (this.savePartialInterval) {
+                clearInterval(this.savePartialInterval);
+                this.savePartialInterval = null;
+            }
+            
+            if (this.savePartialTimer) {
+                clearTimeout(this.savePartialTimer);
+                this.savePartialTimer = null;
+            }
+        }
     }
 
     // Inicializar cuando el DOM esté listo
@@ -1435,6 +1892,135 @@ style.textContent = `
     @keyframes pulse {
         0%, 100% { opacity: 1; }
         50% { opacity: 0.5; }
+    }
+    
+    /* ✅ NUEVOS: Estilos para guardado parcial */
+    .sfq-save-indicator {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #28a745;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        z-index: 10000;
+        opacity: 0;
+        transform: translateY(-10px);
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+    }
+    
+    .sfq-save-indicator.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    
+    .sfq-restore-notification {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+        animation: slideInDown 0.5s ease-out;
+    }
+    
+    .sfq-restore-content {
+        display: flex;
+        align-items: center;
+        padding: 16px 20px;
+        gap: 12px;
+    }
+    
+    .sfq-restore-icon {
+        font-size: 1.5rem;
+        animation: rotate 2s linear infinite;
+    }
+    
+    .sfq-restore-text {
+        flex: 1;
+        line-height: 1.4;
+    }
+    
+    .sfq-restore-text strong {
+        display: block;
+        font-size: 1rem;
+        margin-bottom: 2px;
+    }
+    
+    .sfq-restore-text small {
+        font-size: 0.85rem;
+        opacity: 0.9;
+    }
+    
+    .sfq-restore-close {
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: white;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 1.2rem;
+        line-height: 1;
+        transition: background 0.2s ease;
+    }
+    
+    .sfq-restore-close:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+    
+    @keyframes slideInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes rotate {
+        from {
+            transform: rotate(0deg);
+        }
+        to {
+            transform: rotate(360deg);
+        }
+    }
+    
+    /* Responsive para móviles */
+    @media (max-width: 768px) {
+        .sfq-save-indicator {
+            top: 10px;
+            right: 10px;
+            font-size: 0.8rem;
+            padding: 6px 12px;
+        }
+        
+        .sfq-restore-notification {
+            margin: 10px;
+            border-radius: 8px;
+        }
+        
+        .sfq-restore-content {
+            padding: 12px 16px;
+            gap: 10px;
+        }
+        
+        .sfq-restore-icon {
+            font-size: 1.3rem;
+        }
+        
+        .sfq-restore-text strong {
+            font-size: 0.9rem;
+        }
+        
+        .sfq-restore-text small {
+            font-size: 0.8rem;
+        }
     }
 `;
 document.head.appendChild(style);

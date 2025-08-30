@@ -388,6 +388,160 @@ $('#color-input').on('input', function() {
 **Causa:** No se especifica la unidad en PHP
 **Solución:** Concatenar la unidad: `<?php echo esc_attr($value); ?>px`
 
+### ⚠️ Problema 6: Selectores CSS Incorrectos (CRÍTICO)
+**Causa:** Aplicar estilos al selector equivocado
+**Ejemplo Problemático:**
+```php
+/* ❌ INCORRECTO - Aplicar ancho personalizado directamente */
+#sfq-form-<?php echo $form_id; ?> .sfq-question-content {
+    width: <?php echo esc_attr($styles['custom_width']); ?>px !important;
+}
+```
+
+**Solución Correcta:**
+```php
+/* ✅ CORRECTO - Usar width: 100% y max-width personalizable */
+#sfq-form-<?php echo $form_id; ?> .sfq-question-screen {
+    width: 100% !important;
+    max-width: <?php echo esc_attr($styles['custom_width']); ?>px !important;
+    margin: 0 auto !important;
+}
+```
+
+**Regla de Oro:** Para anchos personalizables, siempre usar `width: 100%` y controlar con `max-width`
+
+### ⚠️ Problema 7: Aplicación Redundante de Estilos
+**Causa:** Aplicar el mismo estilo a múltiples selectores innecesariamente
+**Ejemplo Problemático:**
+```php
+/* ❌ INCORRECTO - Aplicación redundante */
+#sfq-form-<?php echo $form_id; ?> .sfq-question-screen {
+    max-width: <?php echo esc_attr($styles['custom_width']); ?>px !important;
+}
+#sfq-form-<?php echo $form_id; ?> .sfq-question-content {
+    max-width: 100% !important; /* Redundante y confuso */
+}
+```
+
+**Solución:** Aplicar estilos solo donde sean necesarios y lógicos
+
+### ⚠️ Problema 8: Inconsistencia entre JavaScript y PHP
+**Causa:** Los selectores en JavaScript no coinciden con los de PHP
+**Ejemplo Problemático:**
+```javascript
+// ❌ JavaScript aplica a .sfq-question-content
+$('.sfq-question-content').css('max-width', width + 'px');
+```
+```php
+/* ❌ Pero PHP aplica a .sfq-question-screen */
+#sfq-form-<?php echo $form_id; ?> .sfq-question-screen {
+    max-width: <?php echo esc_attr($styles['custom_width']); ?>px !important;
+}
+```
+
+**Solución:** Mantener consistencia absoluta entre JavaScript y PHP:
+```javascript
+// ✅ JavaScript y PHP usan el mismo selector
+$('.sfq-question-screen').css('max-width', width + 'px');
+```
+
+## 🚨 Casos Específicos y Lecciones Aprendidas
+
+### Caso 1: Anchos Personalizables - La Regla del 100%
+**Problema:** Los anchos personalizables no funcionan correctamente cuando se aplica el valor directamente a `width`.
+
+**Solución Correcta:**
+```php
+/* ✅ SIEMPRE usar este patrón para anchos personalizables */
+#sfq-form-<?php echo $form_id; ?> .sfq-element {
+    width: 100% !important;                    /* Siempre 100% */
+    max-width: <?php echo esc_attr($styles['custom_width'] ?? '600'); ?>px !important;  /* Valor personalizable */
+    margin: 0 auto !important;                 /* Centrar */
+}
+```
+
+**JavaScript correspondiente:**
+```javascript
+// ✅ Mantener consistencia en JavaScript
+$('.sfq-element').css({
+    'width': '100%',
+    'max-width': customWidth + 'px',
+    'margin': '0 auto'
+});
+```
+
+### Caso 2: Selectores Específicos vs Genéricos
+**Problema:** Aplicar estilos a selectores demasiado genéricos o incorrectos.
+
+**Reglas de Selectores:**
+- `.sfq-question-screen` → Para el contenedor completo de la pregunta
+- `.sfq-question-content` → Para el contenido interno (texto, opciones)
+- `.sfq-option-card` → Para cada opción individual
+- `.sfq-form-container` → Para el contenedor principal del formulario
+
+**Ejemplo Correcto:**
+```php
+/* ✅ Aplicar ancho al contenedor correcto */
+#sfq-form-<?php echo $form_id; ?> .sfq-question-screen {
+    max-width: <?php echo esc_attr($styles['question_width']); ?>px !important;
+}
+
+/* ✅ Aplicar estilos de texto al elemento correcto */
+#sfq-form-<?php echo $form_id; ?> .sfq-question-text {
+    font-size: var(--sfq-question-text-size) !important;
+}
+```
+
+### Caso 3: Variables CSS vs Valores Directos
+**Cuándo usar Variables CSS:**
+- ✅ Para valores que se reutilizan en múltiples lugares
+- ✅ Para valores que pueden cambiar dinámicamente
+- ✅ Para mantener consistencia en el tema
+
+**Cuándo usar Valores Directos:**
+- ✅ Para valores únicos y específicos
+- ✅ Para estilos condicionales complejos
+
+**Ejemplo:**
+```php
+/* ✅ Variable CSS para valores reutilizables */
+--sfq-primary-color: <?php echo esc_attr($styles['primary_color']); ?>;
+
+/* ✅ Valor directo para configuración específica */
+<?php if ($styles['enable_shadows']) : ?>
+box-shadow: 0 4px 20px rgba(0,0,0,0.1) !important;
+<?php endif; ?>
+```
+
+### Caso 4: Orden de Aplicación de Estilos
+**Orden Correcto en PHP:**
+1. Definir variables CSS primero
+2. Aplicar estilos que usan variables
+3. Aplicar estilos condicionales al final
+
+```php
+<style>
+    /* 1. Variables CSS */
+    #sfq-form-<?php echo $form_id; ?> {
+        --sfq-primary-color: <?php echo esc_attr($styles['primary_color']); ?>;
+        --sfq-border-radius: <?php echo esc_attr($styles['border_radius']); ?>px;
+    }
+    
+    /* 2. Estilos que usan variables */
+    #sfq-form-<?php echo $form_id; ?> .sfq-option-card {
+        border-radius: var(--sfq-border-radius) !important;
+        background: var(--sfq-primary-color) !important;
+    }
+    
+    /* 3. Estilos condicionales */
+    <?php if ($styles['enable_shadows']) : ?>
+    #sfq-form-<?php echo $form_id; ?> .sfq-option-card {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+    }
+    <?php endif; ?>
+</style>
+```
+
 ## 📝 Checklist de Implementación
 
 Para cada nuevo estilo, verificar:
@@ -398,12 +552,15 @@ Para cada nuevo estilo, verificar:
 - [ ] ✅ Variable CSS definida en PHP
 - [ ] ✅ Estilo aplicado con `!important` en PHP
 - [ ] ✅ Variable por defecto en CSS
-- [ ] ✅ Selector CSS correcto
+- [ ] ✅ Selector CSS correcto y específico
 - [ ] ✅ Valores escapados con `esc_attr()`
 - [ ] ✅ Valores por defecto proporcionados
+- [ ] ✅ Consistencia entre JavaScript y PHP
 - [ ] ✅ Prueba en previsualización
 - [ ] ✅ Prueba en formulario real
 - [ ] ✅ Prueba de guardado y carga
+- [ ] ✅ Verificar que no hay aplicación redundante
+- [ ] ✅ Comprobar que los selectores son los correctos
 
 ## 🎯 Ejemplo Completo: Color de Fondo de Navegación
 

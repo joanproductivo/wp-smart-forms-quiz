@@ -10,6 +10,7 @@
     --sfq-background-color: #ffffff;
     --sfq-options-background-color: #ffffff;
     --sfq-options-border-color: #e0e0e0;
+    --sfq-input-border-color: #ddd;
     --sfq-text-color: #333333;
     --sfq-border-radius: 12px;
     --sfq-font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -40,7 +41,7 @@
     
     /* Aplicar nuevas opciones de estilo */
     border-radius: var(--sfq-form-container-border-radius);
-    box-shadow: var(--sfq-form-container-shadow);
+    /* box-shadow: var(--sfq-form-container-shadow);
 }
 
 /* Ancho del contenedor según configuración */
@@ -320,7 +321,7 @@
     padding: 1rem 0;
     font-size: 1.1rem;
     border: none;
-    border-bottom: 2px solid #e0e0e0;
+    border-bottom: 2px solid var(--sfq-input-border-color);
     background: transparent;
     transition: var(--sfq-transition);
     font-family: var(--sfq-font-family);
@@ -380,7 +381,7 @@
 .sfq-star svg {
     width: 48px;
     height: 48px;
-    stroke: #d0d0d0;
+    stroke: var(--sfq-input-border-color);
     fill: transparent;
     transition: var(--sfq-transition);
 }
@@ -714,10 +715,10 @@
 /* Inputs freestyle */
 .sfq-freestyle-input,
 .sfq-freestyle-textarea {
-    width: 100%;
+    width: 80%;
     padding: 12px 16px;
-    border: 2px solid #e0e0e0;
-    border-radius: var(--sfq-border-radius);
+    border: none;
+    border-bottom: 2px solid var(--sfq-input-border-color);
     font-size: 1rem;
     font-family: var(--sfq-font-family);
     transition: var(--sfq-transition);

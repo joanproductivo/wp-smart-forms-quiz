@@ -103,6 +103,7 @@
             // Animar la actualización de los números
             this.animateNumber(`#views-${formId}`, stats.views || 0);
             this.animateNumber(`#completed-${formId}`, stats.completed || 0);
+            this.animateNumber(`#partial-${formId}`, stats.partial_responses || 0);
             
             // Actualizar la tasa de conversión
             const rateElement = $(`#rate-${formId}`);

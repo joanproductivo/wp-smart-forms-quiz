@@ -132,6 +132,61 @@
     gap: 10px;
 }
 
+/* Botón de toggle para desplegar/plegar */
+#sfq-toggle-main {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: var(--sfq-transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2);
+}
+
+#sfq-toggle-main:hover {
+    background: linear-gradient(135deg, #5a6268 0%, #495057 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
+}
+
+#sfq-toggle-main .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    transition: transform 0.3s ease;
+}
+
+/* Estados del área principal */
+.sfq-builder-main {
+    flex: 1;
+    background: white;
+    border-radius: var(--sfq-radius);
+    box-shadow: var(--sfq-shadow);
+    overflow: hidden;
+    transition: var(--sfq-transition);
+}
+
+.sfq-builder-main.collapsed .sfq-builder-canvas {
+    display: none;
+}
+
+.sfq-builder-main.collapsed #sfq-toggle-main .dashicons {
+    transform: rotate(180deg);
+}
+
+/* Animación suave para el colapso */
+.sfq-builder-canvas {
+    padding: 20px;
+    min-height: 400px;
+    background: #fafafa;
+    transition: var(--sfq-transition);
+}
+
 .sfq-builder-canvas {
     padding: 20px;
     min-height: 400px;

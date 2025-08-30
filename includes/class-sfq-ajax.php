@@ -52,6 +52,13 @@ class SFQ_Ajax {
         add_action('wp_ajax_sfq_get_rate_limit_stats', array($this, 'get_rate_limit_stats'));
         add_action('wp_ajax_sfq_clear_rate_limits', array($this, 'clear_rate_limits'));
         
+        // ✅ NUEVOS: AJAX handlers para guardado parcial
+        add_action('wp_ajax_sfq_save_partial_response', array($this, 'save_partial_response'));
+        add_action('wp_ajax_nopriv_sfq_save_partial_response', array($this, 'save_partial_response'));
+        add_action('wp_ajax_sfq_get_partial_response', array($this, 'get_partial_response'));
+        add_action('wp_ajax_nopriv_sfq_get_partial_response', array($this, 'get_partial_response'));
+        add_action('wp_ajax_sfq_cleanup_partial_responses', array($this, 'cleanup_partial_responses'));
+        
     }
     
     /**
@@ -1455,6 +1462,18 @@ class SFQ_Ajax {
             $total_views = $total_submissions * 2; // Estimación conservadora
         }
         
+        // ✅ NUEVO: Obtener conteo de respuestas parciales
+        $partial_table = $wpdb->prefix . 'sfq_partial_responses';
+        $partial_table_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $partial_table)) === $partial_table;
+        
+        $partial_responses_count = 0;
+        if ($partial_table_exists) {
+            $partial_responses_count = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$partial_table} WHERE form_id = %d",
+                $form_id
+            ));
+        }
+        
         // Calcular tasa de conversión: (total_submissions / total_views) * 100
         // Usar la misma lógica exacta que get_dashboard_stats para consistencia
         $conversion_rate = 0;
@@ -1472,7 +1491,8 @@ class SFQ_Ajax {
         wp_send_json_success(array(
             'views' => intval($total_views),
             'completed' => intval($total_submissions),
-            'rate' => $conversion_rate
+            'rate' => $conversion_rate,
+            'partial_responses' => intval($partial_responses_count)
         ));
     }
     
@@ -2282,6 +2302,270 @@ class SFQ_Ajax {
                 error_log('SFQ Timer Fallback Error (AJAX): ' . $e2->getMessage());
                 return strtotime($date_string);
             }
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Guardar respuesta parcial
+     */
+    public function save_partial_response() {
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Rate limiting para guardado parcial (más permisivo que envío completo)
+        if (!$this->check_rate_limit('save_partial', 30, 60)) {
+            wp_send_json_error(array(
+                'message' => __('Demasiadas peticiones de guardado. Intenta de nuevo en un momento.', 'smart-forms-quiz'),
+                'code' => 'RATE_LIMIT_EXCEEDED'
+            ));
+            return;
+        }
+        
+        // Validar datos requeridos
+        $form_id = intval($_POST['form_id'] ?? 0);
+        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
+        
+        // Si no se proporciona session_id, generar uno
+        if (empty($session_id)) {
+            $session_id = SFQ_Utils::get_or_create_session_id($form_id);
+        }
+        
+        if (!$form_id || !$session_id) {
+            wp_send_json_error(__('Datos del formulario incompletos', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Verificar que el formulario tenga habilitado el guardado parcial
+        $form = $this->database->get_form($form_id);
+        if (!$form || empty($form->settings['save_partial'])) {
+            wp_send_json_error(array(
+                'message' => __('El guardado parcial no está habilitado para este formulario', 'smart-forms-quiz'),
+                'code' => 'PARTIAL_SAVE_DISABLED'
+            ));
+            return;
+        }
+        
+        // Decodificar datos JSON
+        $responses = json_decode(stripslashes($_POST['responses'] ?? '{}'), true);
+        $variables = json_decode(stripslashes($_POST['variables'] ?? '{}'), true);
+        $current_question = intval($_POST['current_question'] ?? 0);
+        
+        if (!is_array($responses)) {
+            $responses = array();
+        }
+        if (!is_array($variables)) {
+            $variables = array();
+        }
+        
+        global $wpdb;
+        
+        try {
+            // Preparar datos para guardado parcial
+            $partial_data = array(
+                'form_id' => $form_id,
+                'session_id' => $session_id,
+                'user_id' => get_current_user_id() ?: null,
+                'user_ip' => $this->get_user_ip(),
+                'responses' => json_encode($responses, JSON_UNESCAPED_UNICODE),
+                'variables' => json_encode($variables, JSON_UNESCAPED_UNICODE),
+                'current_question' => $current_question,
+                'last_updated' => current_time('mysql'),
+                'expires_at' => date('Y-m-d H:i:s', strtotime('+7 days')) // Expira en 7 días
+            );
+            
+            // Verificar si ya existe una respuesta parcial para esta sesión
+            $existing_partial = $wpdb->get_row($wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}sfq_partial_responses 
+                WHERE form_id = %d AND session_id = %s",
+                $form_id,
+                $session_id
+            ));
+            
+            if ($existing_partial) {
+                // Actualizar respuesta parcial existente
+                $result = $wpdb->update(
+                    $wpdb->prefix . 'sfq_partial_responses',
+                    $partial_data,
+                    array('id' => $existing_partial->id),
+                    array('%d', '%s', '%d', '%s', '%s', '%s', '%d', '%s', '%s'),
+                    array('%d')
+                );
+                
+                $partial_id = $existing_partial->id;
+            } else {
+                // Crear nueva respuesta parcial
+                $result = $wpdb->insert(
+                    $wpdb->prefix . 'sfq_partial_responses',
+                    $partial_data,
+                    array('%d', '%s', '%d', '%s', '%s', '%s', '%d', '%s', '%s')
+                );
+                
+                $partial_id = $wpdb->insert_id;
+            }
+            
+            if ($result === false) {
+                throw new Exception('Error al guardar respuesta parcial: ' . $wpdb->last_error);
+            }
+            
+            wp_send_json_success(array(
+                'partial_id' => $partial_id,
+                'message' => __('Respuesta parcial guardada', 'smart-forms-quiz'),
+                'timestamp' => current_time('timestamp'),
+                'expires_in_days' => 7
+            ));
+            
+        } catch (Exception $e) {
+            error_log('SFQ Error in save_partial_response: ' . $e->getMessage());
+            
+            wp_send_json_error(array(
+                'message' => __('Error al guardar respuesta parcial', 'smart-forms-quiz'),
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Obtener respuesta parcial guardada
+     */
+    public function get_partial_response() {
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Validar datos requeridos
+        $form_id = intval($_POST['form_id'] ?? 0);
+        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
+        
+        if (!$form_id || !$session_id) {
+            wp_send_json_error(__('Datos del formulario incompletos', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Verificar que el formulario tenga habilitado el guardado parcial
+        $form = $this->database->get_form($form_id);
+        if (!$form || empty($form->settings['save_partial'])) {
+            wp_send_json_success(array(
+                'has_partial' => false,
+                'message' => __('El guardado parcial no está habilitado', 'smart-forms-quiz')
+            ));
+            return;
+        }
+        
+        global $wpdb;
+        
+        try {
+            // Buscar respuesta parcial válida (no expirada)
+            $partial_response = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}sfq_partial_responses 
+                WHERE form_id = %d AND session_id = %s AND expires_at > NOW()
+                ORDER BY last_updated DESC
+                LIMIT 1",
+                $form_id,
+                $session_id
+            ));
+            
+            if (!$partial_response) {
+                wp_send_json_success(array(
+                    'has_partial' => false,
+                    'message' => __('No hay respuesta parcial guardada', 'smart-forms-quiz')
+                ));
+                return;
+            }
+            
+            // Decodificar datos JSON
+            $responses = json_decode($partial_response->responses, true);
+            $variables = json_decode($partial_response->variables, true);
+            
+            if (!is_array($responses)) {
+                $responses = array();
+            }
+            if (!is_array($variables)) {
+                $variables = array();
+            }
+            
+            // Calcular tiempo restante hasta expiración
+            $expires_timestamp = strtotime($partial_response->expires_at);
+            $current_timestamp = current_time('timestamp');
+            $expires_in_hours = max(0, ceil(($expires_timestamp - $current_timestamp) / 3600));
+            
+            wp_send_json_success(array(
+                'has_partial' => true,
+                'partial_id' => $partial_response->id,
+                'responses' => $responses,
+                'variables' => $variables,
+                'current_question' => intval($partial_response->current_question),
+                'last_updated' => $partial_response->last_updated,
+                'expires_in_hours' => $expires_in_hours,
+                'message' => sprintf(__('Respuesta parcial encontrada (expira en %d horas)', 'smart-forms-quiz'), $expires_in_hours)
+            ));
+            
+        } catch (Exception $e) {
+            error_log('SFQ Error in get_partial_response: ' . $e->getMessage());
+            
+            wp_send_json_error(array(
+                'message' => __('Error al recuperar respuesta parcial', 'smart-forms-quiz'),
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Limpiar respuestas parciales expiradas (Admin AJAX)
+     */
+    public function cleanup_partial_responses() {
+        // Verificar permisos de administrador
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array(
+                'message' => __('No tienes permisos para realizar esta acción', 'smart-forms-quiz')
+            ));
+            return;
+        }
+        
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(array(
+                'message' => __('Error de seguridad', 'smart-forms-quiz')
+            ));
+            return;
+        }
+        
+        global $wpdb;
+        
+        try {
+            // Eliminar respuestas parciales expiradas
+            $deleted_count = $wpdb->query(
+                "DELETE FROM {$wpdb->prefix}sfq_partial_responses 
+                WHERE expires_at < NOW()"
+            );
+            
+            // Obtener estadísticas actuales
+            $total_partial = $wpdb->get_var(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}sfq_partial_responses"
+            );
+            
+            $oldest_partial = $wpdb->get_var(
+                "SELECT MIN(last_updated) FROM {$wpdb->prefix}sfq_partial_responses"
+            );
+            
+            wp_send_json_success(array(
+                'deleted_count' => intval($deleted_count),
+                'remaining_count' => intval($total_partial),
+                'oldest_partial' => $oldest_partial,
+                'message' => sprintf(__('Se eliminaron %d respuestas parciales expiradas', 'smart-forms-quiz'), $deleted_count)
+            ));
+            
+        } catch (Exception $e) {
+            error_log('SFQ Error in cleanup_partial_responses: ' . $e->getMessage());
+            
+            wp_send_json_error(array(
+                'message' => __('Error al limpiar respuestas parciales', 'smart-forms-quiz'),
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
         }
     }
     

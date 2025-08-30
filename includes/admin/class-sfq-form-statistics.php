@@ -27,6 +27,9 @@ class SFQ_Form_Statistics {
         add_action('wp_ajax_sfq_get_question_analytics', array($this, 'get_question_analytics'));
         add_action('wp_ajax_sfq_export_form_statistics', array($this, 'export_form_statistics'));
         add_action('wp_ajax_sfq_get_form_country_stats', array($this, 'get_form_country_stats'));
+        // ✅ NUEVO: AJAX handlers para análisis de abandono
+        add_action('wp_ajax_sfq_get_abandonment_analytics', array($this, 'get_abandonment_analytics'));
+        add_action('wp_ajax_sfq_get_partial_responses_list', array($this, 'get_partial_responses_list'));
     }
     
     /**
@@ -152,6 +155,16 @@ class SFQ_Form_Statistics {
                             <div class="sfq-summary-label"><?php _e('Países', 'smart-forms-quiz'); ?></div>
                         </div>
                     </div>
+                    
+                    <div class="sfq-summary-card">
+                        <div class="sfq-summary-icon">
+                            <span class="dashicons dashicons-backup"></span>
+                        </div>
+                        <div class="sfq-summary-content">
+                            <div class="sfq-summary-value" id="partial-responses">-</div>
+                            <div class="sfq-summary-label"><?php _e('Respuestas Parciales', 'smart-forms-quiz'); ?></div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -169,6 +182,10 @@ class SFQ_Form_Statistics {
                     <button class="sfq-tab-button" data-tab="timeline">
                         <span class="dashicons dashicons-chart-line"></span>
                         <?php _e('Evolución Temporal', 'smart-forms-quiz'); ?>
+                    </button>
+                    <button class="sfq-tab-button" data-tab="abandonment">
+                        <span class="dashicons dashicons-warning"></span>
+                        <?php _e('Análisis de Abandono', 'smart-forms-quiz'); ?>
                     </button>
                     <button class="sfq-tab-button" data-tab="responses">
                         <span class="dashicons dashicons-list-view"></span>
@@ -256,6 +273,157 @@ class SFQ_Form_Statistics {
                                 <h4><?php _e('Tendencia', 'smart-forms-quiz'); ?></h4>
                                 <div class="sfq-timeline-value" id="trend">-</div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Análisis de Abandono -->
+            <div class="sfq-tab-content" id="tab-abandonment">
+                <div class="sfq-abandonment-container">
+                    <!-- Resumen de abandono -->
+                    <div class="sfq-abandonment-summary">
+                        <div class="sfq-abandonment-grid">
+                            <div class="sfq-abandonment-card">
+                                <div class="sfq-abandonment-icon">
+                                    <span class="dashicons dashicons-backup"></span>
+                                </div>
+                                <div class="sfq-abandonment-content">
+                                    <div class="sfq-abandonment-value" id="partial-responses-count">-</div>
+                                    <div class="sfq-abandonment-label"><?php _e('Respuestas Parciales', 'smart-forms-quiz'); ?></div>
+                                </div>
+                            </div>
+                            
+                            <div class="sfq-abandonment-card">
+                                <div class="sfq-abandonment-icon">
+                                    <span class="dashicons dashicons-warning"></span>
+                                </div>
+                                <div class="sfq-abandonment-content">
+                                    <div class="sfq-abandonment-value" id="abandonment-rate">-</div>
+                                    <div class="sfq-abandonment-label"><?php _e('Tasa de Abandono', 'smart-forms-quiz'); ?></div>
+                                </div>
+                            </div>
+                            
+                            <div class="sfq-abandonment-card">
+                                <div class="sfq-abandonment-icon">
+                                    <span class="dashicons dashicons-location-alt"></span>
+                                </div>
+                                <div class="sfq-abandonment-content">
+                                    <div class="sfq-abandonment-value" id="top-exit-question">-</div>
+                                    <div class="sfq-abandonment-label"><?php _e('Pregunta con Más Abandonos', 'smart-forms-quiz'); ?></div>
+                                </div>
+                            </div>
+                            
+                            <div class="sfq-abandonment-card">
+                                <div class="sfq-abandonment-icon">
+                                    <span class="dashicons dashicons-admin-site-alt3"></span>
+                                </div>
+                                <div class="sfq-abandonment-content">
+                                    <div class="sfq-abandonment-value" id="top-abandonment-country">-</div>
+                                    <div class="sfq-abandonment-label"><?php _e('País con Más Abandonos', 'smart-forms-quiz'); ?></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Gráficos de abandono -->
+                    <div class="sfq-abandonment-charts">
+                        <div class="sfq-abandonment-charts-grid">
+                            <!-- Gráfico de puntos de abandono -->
+                            <div class="sfq-chart-container">
+                                <div class="sfq-chart-header">
+                                    <h3><?php _e('Puntos de Abandono por Pregunta', 'smart-forms-quiz'); ?></h3>
+                                    <div class="sfq-chart-info">
+                                        <span class="dashicons dashicons-info"></span>
+                                        <div class="sfq-tooltip">
+                                            <?php _e('Muestra en qué preguntas los usuarios abandonan más el formulario', 'smart-forms-quiz'); ?>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="sfq-chart-content">
+                                    <canvas id="sfq-abandonment-questions-chart" width="400" height="300"></canvas>
+                                </div>
+                            </div>
+                            
+                            <!-- Gráfico de países con más abandonos -->
+                            <div class="sfq-chart-container">
+                                <div class="sfq-chart-header">
+                                    <h3><?php _e('Abandonos por País', 'smart-forms-quiz'); ?></h3>
+                                    <div class="sfq-chart-info">
+                                        <span class="dashicons dashicons-info"></span>
+                                        <div class="sfq-tooltip">
+                                            <?php _e('Distribución geográfica de los abandonos del formulario', 'smart-forms-quiz'); ?>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="sfq-chart-content">
+                                    <canvas id="sfq-abandonment-countries-chart" width="400" height="300"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Gráfico temporal de abandonos -->
+                        <div class="sfq-chart-container sfq-chart-full-width">
+                            <div class="sfq-chart-header">
+                                <h3><?php _e('Evolución Temporal de Abandonos', 'smart-forms-quiz'); ?></h3>
+                                <div class="sfq-chart-controls">
+                                    <select id="sfq-abandonment-timeline-period">
+                                        <option value="today"><?php _e('Hoy', 'smart-forms-quiz'); ?></option>
+                                        <option value="7"><?php _e('Últimos 7 días', 'smart-forms-quiz'); ?></option>
+                                        <option value="30" selected><?php _e('Últimos 30 días', 'smart-forms-quiz'); ?></option>
+                                        <option value="90"><?php _e('Últimos 90 días', 'smart-forms-quiz'); ?></option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="sfq-chart-content">
+                                <canvas id="sfq-abandonment-timeline-chart" width="800" height="300"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tabla detallada de abandonos -->
+                    <div class="sfq-abandonment-details">
+                        <div class="sfq-abandonment-details-header">
+                            <h3><?php _e('Detalles de Respuestas Parciales', 'smart-forms-quiz'); ?></h3>
+                            <div class="sfq-abandonment-filters">
+                                <select id="sfq-abandonment-filter-country">
+                                    <option value=""><?php _e('Todos los países', 'smart-forms-quiz'); ?></option>
+                                </select>
+                                <select id="sfq-abandonment-filter-question">
+                                    <option value=""><?php _e('Todas las preguntas', 'smart-forms-quiz'); ?></option>
+                                </select>
+                                <button class="button" id="sfq-apply-abandonment-filters">
+                                    <?php _e('Filtrar', 'smart-forms-quiz'); ?>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="sfq-abandonment-table">
+                            <table class="wp-list-table widefat fixed striped">
+                                <thead>
+                                    <tr>
+                                        <th><?php _e('Sesión', 'smart-forms-quiz'); ?></th>
+                                        <th><?php _e('País', 'smart-forms-quiz'); ?></th>
+                                        <th><?php _e('Última Pregunta', 'smart-forms-quiz'); ?></th>
+                                        <th><?php _e('Progreso', 'smart-forms-quiz'); ?></th>
+                                        <th><?php _e('Tiempo Transcurrido', 'smart-forms-quiz'); ?></th>
+                                        <th><?php _e('Última Actividad', 'smart-forms-quiz'); ?></th>
+                                        <th><?php _e('Estado', 'smart-forms-quiz'); ?></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sfq-abandonment-tbody">
+                                    <tr>
+                                        <td colspan="7" class="sfq-loading-cell">
+                                            <div class="sfq-loading-spinner"></div>
+                                            <?php _e('Cargando datos de abandono...', 'smart-forms-quiz'); ?>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="sfq-abandonment-pagination" id="sfq-abandonment-pagination">
+                            <!-- Paginación se genera dinámicamente -->
                         </div>
                     </div>
                 </div>
@@ -457,13 +625,17 @@ class SFQ_Form_Statistics {
         // Países únicos - usar la misma lógica que get_countries_distribution para consistencia
         $countries_count = $this->get_valid_countries_count($form_id, $date_condition);
         
+        // ✅ NUEVO: Obtener conteo de respuestas parciales
+        $partial_responses_count = $this->get_partial_responses_count($form_id, $date_condition);
+        
         return array(
             'total_responses' => intval($total_responses),
             'total_views' => intval($total_views),
             'completion_rate' => $completion_rate,
             'avg_time' => $this->format_time(intval($avg_time)),
             'avg_time_seconds' => intval($avg_time),
-            'countries_count' => intval($countries_count)
+            'countries_count' => intval($countries_count),
+            'partial_responses' => intval($partial_responses_count)
         );
     }
     
@@ -1817,5 +1989,470 @@ class SFQ_Form_Statistics {
         });
         
         return array_slice(array_values($countries_count), 0, 5);
+    }
+    
+    /**
+     * ✅ NUEVO: Obtener analytics de abandono
+     */
+    public function get_abandonment_analytics() {
+        // Verificar permisos
+        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
+            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        $form_id = intval($_POST['form_id'] ?? 0);
+        $period = sanitize_text_field($_POST['period'] ?? 'month');
+        
+        if (!$form_id) {
+            wp_send_json_error(__('ID de formulario inválido', 'smart-forms-quiz'));
+            return;
+        }
+        
+        try {
+            $date_condition = $this->build_date_condition($period, '', '');
+            
+            // Obtener estadísticas de abandono
+            $abandonment_stats = $this->calculate_abandonment_stats($form_id, $date_condition);
+            
+            wp_send_json_success($abandonment_stats);
+        } catch (Exception $e) {
+            error_log('SFQ Abandonment Analytics Error: ' . $e->getMessage());
+            wp_send_json_error('Error al obtener analytics de abandono: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Obtener lista de respuestas parciales
+     */
+    public function get_partial_responses_list() {
+        // Verificar permisos
+        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
+            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        $form_id = intval($_POST['form_id'] ?? 0);
+        $page = intval($_POST['page'] ?? 1);
+        $per_page = intval($_POST['per_page'] ?? 20);
+        $country_filter = sanitize_text_field($_POST['country_filter'] ?? '');
+        $question_filter = intval($_POST['question_filter'] ?? 0);
+        
+        if (!$form_id) {
+            wp_send_json_error(__('ID de formulario inválido', 'smart-forms-quiz'));
+            return;
+        }
+        
+        try {
+            $partial_responses = $this->get_partial_responses_data($form_id, $page, $per_page, $country_filter, $question_filter);
+            wp_send_json_success($partial_responses);
+        } catch (Exception $e) {
+            error_log('SFQ Partial Responses List Error: ' . $e->getMessage());
+            wp_send_json_error('Error al obtener respuestas parciales: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Calcular estadísticas de abandono
+     */
+    private function calculate_abandonment_stats($form_id, $date_condition) {
+        global $wpdb;
+        
+        // Verificar si existe la tabla de respuestas parciales
+        $partial_table = $wpdb->prefix . 'sfq_partial_responses';
+        $table_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $partial_table)) === $partial_table;
+        
+        if (!$table_exists) {
+            return array(
+                'summary' => array(
+                    'partial_responses_count' => 0,
+                    'abandonment_rate' => 0,
+                    'top_exit_question' => 'N/A',
+                    'top_abandonment_country' => 'N/A'
+                ),
+                'questions_chart' => array(),
+                'countries_chart' => array(),
+                'timeline_chart' => array()
+            );
+        }
+        
+        // Obtener respuestas parciales del período
+        $partial_query = "SELECT * FROM {$partial_table} WHERE form_id = %d";
+        $partial_params = [$form_id];
+        
+        if (!empty($date_condition['params'])) {
+            $partial_date_condition = str_replace('completed_at', 'last_updated', $date_condition['where']);
+            $partial_query .= $partial_date_condition;
+            $partial_params = array_merge($partial_params, $date_condition['params']);
+        }
+        
+        $partial_responses = $wpdb->get_results($wpdb->prepare($partial_query, $partial_params));
+        
+        // Obtener respuestas completadas del mismo período para comparar
+        $completed_query = "SELECT COUNT(*) FROM {$wpdb->prefix}sfq_submissions WHERE form_id = %d AND status = 'completed'";
+        $completed_params = [$form_id];
+        
+        if (!empty($date_condition['params'])) {
+            $completed_query .= $date_condition['where'];
+            $completed_params = array_merge($completed_params, $date_condition['params']);
+        }
+        
+        $completed_count = $wpdb->get_var($wpdb->prepare($completed_query, $completed_params));
+        
+        // Calcular estadísticas de resumen
+        $partial_count = count($partial_responses);
+        $total_attempts = $partial_count + $completed_count;
+        $abandonment_rate = $total_attempts > 0 ? round(($partial_count / $total_attempts) * 100, 1) : 0;
+        
+        // Analizar puntos de abandono por pregunta
+        $questions_abandonment = $this->analyze_abandonment_by_question($form_id, $partial_responses);
+        
+        // Analizar abandono por país
+        $countries_abandonment = $this->analyze_abandonment_by_country($partial_responses);
+        
+        // Analizar evolución temporal
+        $timeline_abandonment = $this->analyze_abandonment_timeline($partial_responses, $date_condition);
+        
+        // Encontrar pregunta con más abandonos
+        $top_exit_question = 'N/A';
+        if (!empty($questions_abandonment)) {
+            $max_abandonment = max(array_column($questions_abandonment, 'count'));
+            foreach ($questions_abandonment as $question) {
+                if ($question['count'] === $max_abandonment) {
+                    $top_exit_question = substr($question['question_text'], 0, 30) . '...';
+                    break;
+                }
+            }
+        }
+        
+        // Encontrar país con más abandonos
+        $top_abandonment_country = 'N/A';
+        if (!empty($countries_abandonment)) {
+            $max_country_abandonment = max(array_column($countries_abandonment, 'count'));
+            foreach ($countries_abandonment as $country) {
+                if ($country['count'] === $max_country_abandonment) {
+                    $top_abandonment_country = $country['flag_emoji'] . ' ' . $country['country_name'];
+                    break;
+                }
+            }
+        }
+        
+        return array(
+            'summary' => array(
+                'partial_responses_count' => $partial_count,
+                'abandonment_rate' => $abandonment_rate . '%',
+                'top_exit_question' => $top_exit_question,
+                'top_abandonment_country' => $top_abandonment_country
+            ),
+            'questions_chart' => $questions_abandonment,
+            'countries_chart' => $countries_abandonment,
+            'timeline_chart' => $timeline_abandonment
+        );
+    }
+    
+    /**
+     * ✅ NUEVO: Analizar abandono por pregunta
+     */
+    private function analyze_abandonment_by_question($form_id, $partial_responses) {
+        global $wpdb;
+        
+        // Obtener todas las preguntas del formulario
+        $questions = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}sfq_questions WHERE form_id = %d ORDER BY order_position ASC",
+            $form_id
+        ));
+        
+        if (empty($questions)) {
+            return array();
+        }
+        
+        // Contar abandonos por pregunta
+        $question_abandonment = array();
+        
+        foreach ($questions as $question) {
+            $abandonment_count = 0;
+            
+            foreach ($partial_responses as $partial) {
+                // Verificar si la última pregunta respondida fue esta
+                if ($partial->current_question == $question->order_position) {
+                    $abandonment_count++;
+                }
+            }
+            
+            $question_abandonment[] = array(
+                'question_id' => $question->id,
+                'question_text' => $question->question_text,
+                'order_position' => $question->order_position,
+                'count' => $abandonment_count,
+                'percentage' => count($partial_responses) > 0 ? round(($abandonment_count / count($partial_responses)) * 100, 1) : 0
+            );
+        }
+        
+        // Ordenar por cantidad de abandonos
+        usort($question_abandonment, function($a, $b) {
+            return $b['count'] - $a['count'];
+        });
+        
+        return $question_abandonment;
+    }
+    
+    /**
+     * ✅ NUEVO: Analizar abandono por país
+     */
+    private function analyze_abandonment_by_country($partial_responses) {
+        if (empty($partial_responses)) {
+            return array();
+        }
+        
+        // Extraer IPs únicas
+        $ips = array_unique(array_filter(array_column($partial_responses, 'user_ip')));
+        
+        if (empty($ips)) {
+            return array();
+        }
+        
+        // Obtener información de países
+        if (class_exists('SFQ_Admin_Submissions')) {
+            $submissions_handler = new SFQ_Admin_Submissions();
+            
+            // Usar reflection para acceder al método privado
+            $reflection = new ReflectionClass($submissions_handler);
+            $method = $reflection->getMethod('get_countries_info_batch');
+            $method->setAccessible(true);
+            
+            $countries_info = $method->invoke($submissions_handler, $ips);
+        } else {
+            return array();
+        }
+        
+        $countries_count = array();
+        
+        // Contar abandonos por país
+        foreach ($partial_responses as $partial) {
+            $country_info = $countries_info[$partial->user_ip] ?? null;
+            
+            if ($country_info && $country_info['country_code'] !== 'XX') {
+                $country_key = $country_info['country_code'];
+                
+                if (!isset($countries_count[$country_key])) {
+                    $countries_count[$country_key] = array(
+                        'country_code' => $country_info['country_code'],
+                        'country_name' => $country_info['country_name'],
+                        'flag_emoji' => $country_info['flag_emoji'],
+                        'count' => 0
+                    );
+                }
+                
+                $countries_count[$country_key]['count']++;
+            }
+        }
+        
+        // Calcular porcentajes
+        $total_partial = count($partial_responses);
+        foreach ($countries_count as &$country) {
+            $country['percentage'] = $total_partial > 0 ? round(($country['count'] / $total_partial) * 100, 1) : 0;
+        }
+        
+        // Ordenar por cantidad y limitar a top 10
+        uasort($countries_count, function($a, $b) {
+            return $b['count'] - $a['count'];
+        });
+        
+        return array_slice(array_values($countries_count), 0, 10);
+    }
+    
+    /**
+     * ✅ NUEVO: Analizar evolución temporal de abandonos
+     */
+    private function analyze_abandonment_timeline($partial_responses, $date_condition) {
+        if (empty($partial_responses)) {
+            return array();
+        }
+        
+        // Agrupar por fecha
+        $daily_abandonment = array();
+        
+        foreach ($partial_responses as $partial) {
+            $date = date('Y-m-d', strtotime($partial->last_updated));
+            
+            if (!isset($daily_abandonment[$date])) {
+                $daily_abandonment[$date] = 0;
+            }
+            
+            $daily_abandonment[$date]++;
+        }
+        
+        // Ordenar por fecha
+        ksort($daily_abandonment);
+        
+        // Convertir a formato para gráfico
+        $timeline_data = array();
+        foreach ($daily_abandonment as $date => $count) {
+            $timeline_data[] = array(
+                'date' => $date,
+                'count' => $count
+            );
+        }
+        
+        return $timeline_data;
+    }
+    
+    /**
+     * ✅ NUEVO: Obtener datos de respuestas parciales para tabla
+     */
+    private function get_partial_responses_data($form_id, $page, $per_page, $country_filter, $question_filter) {
+        global $wpdb;
+        
+        // Verificar si existe la tabla
+        $partial_table = $wpdb->prefix . 'sfq_partial_responses';
+        $table_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $partial_table)) === $partial_table;
+        
+        if (!$table_exists) {
+            return array(
+                'data' => array(),
+                'total' => 0,
+                'pages' => 0
+            );
+        }
+        
+        // Construir consulta con filtros
+        $where_conditions = array("form_id = %d");
+        $params = array($form_id);
+        
+        // Aplicar filtros si existen
+        if (!empty($country_filter)) {
+            // Filtro por país requiere análisis de IP
+            $where_conditions[] = "user_ip IS NOT NULL";
+        }
+        
+        if ($question_filter > 0) {
+            $where_conditions[] = "current_question = %d";
+            $params[] = $question_filter;
+        }
+        
+        $where_clause = implode(' AND ', $where_conditions);
+        
+        // Obtener total
+        $total = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$partial_table} WHERE {$where_clause}",
+            $params
+        ));
+        
+        // Obtener datos paginados
+        $offset = ($page - 1) * $per_page;
+        $partial_responses = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$partial_table} WHERE {$where_clause} 
+            ORDER BY last_updated DESC LIMIT %d OFFSET %d",
+            array_merge($params, [$per_page, $offset])
+        ));
+        
+        // Procesar datos para la tabla
+        $processed_data = array();
+        
+        foreach ($partial_responses as $partial) {
+            // Obtener información del país
+            $country_info = array('country_name' => 'Desconocido', 'flag_emoji' => '🌍');
+            if (!empty($partial->user_ip) && class_exists('SFQ_Admin_Submissions')) {
+                $submissions_handler = new SFQ_Admin_Submissions();
+                $reflection = new ReflectionClass($submissions_handler);
+                $method = $reflection->getMethod('get_countries_info_batch');
+                $method->setAccessible(true);
+                
+                $countries_info = $method->invoke($submissions_handler, [$partial->user_ip]);
+                if (isset($countries_info[$partial->user_ip])) {
+                    $country_info = $countries_info[$partial->user_ip];
+                }
+            }
+            
+            // Calcular progreso
+            $responses_data = json_decode($partial->responses, true) ?: array();
+            $total_questions = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}sfq_questions WHERE form_id = %d",
+                $form_id
+            ));
+            
+            $progress = $total_questions > 0 ? round((count($responses_data) / $total_questions) * 100, 1) : 0;
+            
+            // Determinar estado
+            $is_expired = strtotime($partial->expires_at) < time();
+            $status = $is_expired ? 'expired' : 'active';
+            
+            // Calcular tiempo transcurrido aproximado
+            $time_elapsed = time() - strtotime($partial->last_updated);
+            $time_elapsed_formatted = $this->format_time_elapsed($time_elapsed);
+            
+            $processed_data[] = array(
+                'session_id' => substr($partial->session_id, 0, 8) . '...',
+                'country' => $country_info['flag_emoji'] . ' ' . $country_info['country_name'],
+                'last_question' => $partial->current_question + 1,
+                'progress' => $progress . '%',
+                'time_elapsed' => $time_elapsed_formatted,
+                'last_activity' => date_i18n('d/m/Y H:i', strtotime($partial->last_updated)),
+                'status' => $status,
+                'expires_at' => date_i18n('d/m/Y H:i', strtotime($partial->expires_at))
+            );
+        }
+        
+        return array(
+            'data' => $processed_data,
+            'total' => intval($total),
+            'pages' => ceil($total / $per_page),
+            'current_page' => $page
+        );
+    }
+    
+    /**
+     * ✅ NUEVO: Formatear tiempo transcurrido
+     */
+    private function format_time_elapsed($seconds) {
+        if ($seconds < 60) {
+            return $seconds . 's';
+        } elseif ($seconds < 3600) {
+            return floor($seconds / 60) . 'm';
+        } elseif ($seconds < 86400) {
+            return floor($seconds / 3600) . 'h';
+        } else {
+            return floor($seconds / 86400) . 'd';
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Obtener conteo de respuestas parciales
+     */
+    private function get_partial_responses_count($form_id, $date_condition) {
+        global $wpdb;
+        
+        // Verificar si existe la tabla de respuestas parciales
+        $partial_table = $wpdb->prefix . 'sfq_partial_responses';
+        $table_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $partial_table)) === $partial_table;
+        
+        if (!$table_exists) {
+            return 0;
+        }
+        
+        // Construir consulta con condiciones de fecha
+        $query = "SELECT COUNT(*) FROM {$partial_table} WHERE form_id = %d";
+        $params = [$form_id];
+        
+        if (!empty($date_condition['params'])) {
+            // Usar last_updated en lugar de completed_at para respuestas parciales
+            $partial_date_condition = str_replace('completed_at', 'last_updated', $date_condition['where']);
+            $query .= $partial_date_condition;
+            $params = array_merge($params, $date_condition['params']);
+        }
+        
+        return intval($wpdb->get_var($wpdb->prepare($query, $params)));
     }
 }

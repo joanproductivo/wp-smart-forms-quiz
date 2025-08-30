@@ -1509,6 +1509,386 @@
     }
 }
 
+/* ✅ NUEVO: Estilos para Análisis de Abandono */
+.sfq-abandonment-container {
+    min-height: 400px;
+}
+
+.sfq-abandonment-summary {
+    margin-bottom: 30px;
+}
+
+.sfq-abandonment-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.sfq-abandonment-card {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    transition: all 0.3s ease;
+    border-left: 4px solid #dc3232;
+}
+
+.sfq-abandonment-card:hover {
+    box-shadow: 0 4px 12px rgba(220, 50, 50, 0.15);
+    transform: translateY(-2px);
+}
+
+.sfq-abandonment-icon {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, #dc3232 0%, #a00 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sfq-abandonment-icon .dashicons {
+    color: #fff;
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+}
+
+.sfq-abandonment-content {
+    flex: 1;
+}
+
+.sfq-abandonment-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #dc3232;
+    line-height: 1;
+}
+
+.sfq-abandonment-label {
+    font-size: 13px;
+    color: #646970;
+    margin-top: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Gráficos de abandono */
+.sfq-abandonment-charts {
+    margin-bottom: 30px;
+}
+
+.sfq-abandonment-charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 30px;
+    margin-bottom: 30px;
+}
+
+.sfq-chart-full-width {
+    grid-column: 1 / -1;
+}
+
+.sfq-chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.sfq-chart-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+.sfq-chart-info {
+    position: relative;
+    cursor: help;
+}
+
+.sfq-chart-info .dashicons {
+    color: #646970;
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+}
+
+.sfq-chart-info:hover .dashicons {
+    color: #007cba;
+}
+
+.sfq-tooltip {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: #1d2327;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    margin-top: 5px;
+}
+
+.sfq-chart-info:hover .sfq-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
+.sfq-chart-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.sfq-chart-content {
+    position: relative;
+    height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Detalles de abandono */
+.sfq-abandonment-details {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 8px;
+    padding: 25px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.sfq-abandonment-details-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e0e0e0;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.sfq-abandonment-details-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+.sfq-abandonment-filters {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.sfq-abandonment-filters select {
+    min-width: 150px;
+}
+
+.sfq-abandonment-table {
+    overflow-x: auto;
+    margin-bottom: 20px;
+}
+
+.sfq-abandonment-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.sfq-abandonment-table th,
+.sfq-abandonment-table td {
+    padding: 12px 8px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.sfq-abandonment-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #1d2327;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.sfq-abandonment-table td {
+    font-size: 14px;
+    color: #646970;
+}
+
+.sfq-loading-cell {
+    text-align: center;
+    padding: 40px 20px;
+    color: #646970;
+}
+
+.sfq-progress-bar {
+    position: relative;
+    height: 20px;
+    background: #f0f0f1;
+    border-radius: 10px;
+    overflow: hidden;
+    min-width: 80px;
+}
+
+.sfq-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #dc3232 0%, #ff6b6b 100%);
+    border-radius: 10px;
+    transition: width 0.3s ease;
+}
+
+.sfq-progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.sfq-status {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.sfq-status-active {
+    background: rgba(40, 167, 69, 0.1);
+    color: #28a745;
+    border: 1px solid rgba(40, 167, 69, 0.2);
+}
+
+.sfq-status-expired {
+    background: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+    border: 1px solid rgba(220, 53, 69, 0.2);
+}
+
+.sfq-abandonment-pagination {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+    margin-top: 20px;
+}
+
+.sfq-abandonment-pagination button {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 8px;
+    border: 1px solid #c3c4c7;
+    background: #fff;
+    color: #646970;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.sfq-abandonment-pagination button:hover {
+    background: #f0f0f1;
+    border-color: #007cba;
+    color: #007cba;
+}
+
+.sfq-abandonment-pagination button.button-primary {
+    background: #007cba;
+    color: #fff;
+    border-color: #007cba;
+}
+
+.sfq-abandonment-pagination span {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 8px;
+    color: #646970;
+}
+
+/* Responsive para abandono */
+@media (max-width: 768px) {
+    .sfq-abandonment-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .sfq-abandonment-charts-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .sfq-abandonment-details-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .sfq-abandonment-filters {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    
+    .sfq-abandonment-filters select {
+        min-width: 120px;
+        flex: 1;
+    }
+    
+    .sfq-abandonment-table {
+        font-size: 12px;
+    }
+    
+    .sfq-abandonment-table th,
+    .sfq-abandonment-table td {
+        padding: 8px 4px;
+    }
+    
+    .sfq-progress-bar {
+        min-width: 60px;
+        height: 16px;
+    }
+    
+    .sfq-progress-text {
+        font-size: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .sfq-abandonment-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .sfq-abandonment-card {
+        padding: 15px;
+    }
+    
+    .sfq-abandonment-value {
+        font-size: 24px;
+    }
+    
+    .sfq-chart-content {
+        height: 250px;
+    }
+    
+    .sfq-abandonment-table th:nth-child(n+5),
+    .sfq-abandonment-table td:nth-child(n+5) {
+        display: none;
+    }
+}
+
 /* Utility Classes */
 .sfq-text-center {
     text-align: center;

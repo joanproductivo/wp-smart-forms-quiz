@@ -71,6 +71,12 @@
                 this.showPreview();
             });
             
+            // Toggle main area button
+            $('#sfq-toggle-main').on('click' + ns, (e) => {
+                e.preventDefault();
+                this.toggleMainArea();
+            });
+            
             // Form field changes
             $('#form-title, #form-description, #form-type').on('change' + ns, () => {
                 if (!this.isDestroyed) {
@@ -148,7 +154,7 @@
             });
             
             // Event listeners para actualizar la previsualización en tiempo real
-            $('#primary-color, #secondary-color, #background-color, #options-background-color, #options-border-color, #text-color, #border-radius, #font-family, #form-container-border-radius, #question-text-size, #option-text-size, #form-container-shadow, #form-container-width, #question-content-width, #question-text-align, #general-text-align, #form-container-custom-width, #question-content-custom-width').on('change input' + ns, () => {
+            $('#primary-color, #secondary-color, #background-color, #options-background-color, #options-border-color, #input-border-color, #text-color, #border-radius, #font-family, #form-container-border-radius, #question-text-size, #option-text-size, #form-container-shadow, #form-container-width, #question-content-width, #question-text-align, #general-text-align, #form-container-custom-width, #question-content-custom-width').on('change input' + ns, () => {
                 if (!this.isDestroyed) {
                     this.updatePreviewStyles();
                 }
@@ -461,13 +467,14 @@
             // Settings
             const settings = formData.settings || {};
             $('#show-progress-bar').prop('checked', settings.show_progress_bar !== false);
-            $('#show-question-numbers').prop('checked', settings.show_question_numbers === false);
+            $('#show-question-numbers').prop('checked', settings.show_question_numbers === true);
             $('#auto-advance').prop('checked', settings.auto_advance !== false);
             $('#allow-back').prop('checked', settings.allow_back === true);
             $('#randomize-questions').prop('checked', settings.randomize_questions === true);
             $('#save-partial').prop('checked', settings.save_partial === true);
             $('#show-intro-screen').prop('checked', settings.show_intro_screen !== false);
             $('#enable-floating-preview').prop('checked', settings.enable_floating_preview === true);
+            $('#auto-scroll-to-form').prop('checked', settings.auto_scroll_to_form === true);
             
             // Bloqueo de formulario
             $('#block-form').prop('checked', settings.block_form === true).trigger('change');
@@ -492,6 +499,7 @@
             $('#form-container-shadow').prop('checked', styles.form_container_shadow === true);
             $('#form-container-width').val(styles.form_container_width || 'responsive');
             $('#question-content-width').val(styles.question_content_width || 'responsive');
+            $('#question-content-custom-width').val(styles.question_content_custom_width || '600');
             $('#question-text-size').val(styles.question_text_size || '24');
             $('.sfq-question-text-size-value').text((styles.question_text_size || '24') + 'px');
             $('#option-text-size').val(styles.option_text_size || '16');
@@ -501,6 +509,9 @@
             
             // Color del borde de opciones
             $('#options-border-color').val(styles.options_border_color || '#e0e0e0').trigger('change');
+            
+            // Color del borde de inputs y estrellas
+            $('#input-border-color').val(styles.input_border_color || '#ddd').trigger('change');
             
             // Cargar configuraciones de personalización de mensajes de límite
             $('#limit-submission-icon').val(styles.limit_submission_icon || '');
@@ -718,6 +729,7 @@
                 save_partial: $('#save-partial').is(':checked'),
                 show_intro_screen: $('#show-intro-screen').is(':checked'),
                 enable_floating_preview: $('#enable-floating-preview').is(':checked'),
+                auto_scroll_to_form: $('#auto-scroll-to-form').is(':checked'),
                 // Bloqueo de formulario
                 block_form: $('#block-form').is(':checked'),
                 // Límites de envío - nueva estructura flexible
@@ -749,12 +761,15 @@
                 form_container_border_radius: $('#form-container-border-radius').val() || '20',
                 form_container_shadow: $('#form-container-shadow').is(':checked'),
                 form_container_width: $('#form-container-width').val() || 'responsive',
+                form_container_custom_width: $('#form-container-custom-width').val() || '720',
                 question_content_width: $('#question-content-width').val() || 'responsive',
+                question_content_custom_width: $('#question-content-custom-width').val() || '600',
                 question_text_size: $('#question-text-size').val() || '24',
                 option_text_size: $('#option-text-size').val() || '16',
                 question_text_align: $('#question-text-align').val() || 'left',
                 general_text_align: $('#general-text-align').val() || 'left',
                 options_border_color: $('#options-border-color').val() || '#e0e0e0',
+                input_border_color: $('#input-border-color').val() || '#ddd',
                 // Personalización de mensajes de límite
                 limit_submission_icon: $('#limit-submission-icon').val() || '',
                 limit_submission_title: $('#limit-submission-title').val() || '',
@@ -857,6 +872,24 @@
             });
         }
 
+        toggleMainArea() {
+            const $mainArea = $('.sfq-builder-main');
+            const $toggleButton = $('#sfq-toggle-main');
+            const $icon = $toggleButton.find('.dashicons');
+            
+            if ($mainArea.hasClass('collapsed')) {
+                // Expandir
+                $mainArea.removeClass('collapsed');
+                $icon.removeClass('dashicons-arrow-down-alt2').addClass('dashicons-arrow-up-alt2');
+                $toggleButton.attr('title', 'Plegar área principal');
+            } else {
+                // Colapsar
+                $mainArea.addClass('collapsed');
+                $icon.removeClass('dashicons-arrow-up-alt2').addClass('dashicons-arrow-down-alt2');
+                $toggleButton.attr('title', 'Desplegar área principal');
+            }
+        }
+
         initColorPickers() {
             if ($.fn.wpColorPicker) {
                 const self = this;
@@ -865,11 +898,17 @@
                         change: function(event, ui) {
                             self.isDirty = true;
                             
+                            // CRÍTICO: Llamar a updatePreviewStyles para actualización en tiempo real
+                            self.updatePreviewStyles();
+                            
                             // Disparar evento personalizado para el PreviewManager
                             $(this).trigger('wpcolorpickerchange');
                         },
                         clear: function() {
                             self.isDirty = true;
+                            
+                            // CRÍTICO: Llamar a updatePreviewStyles para actualización en tiempo real
+                            self.updatePreviewStyles();
                             
                             // Disparar evento personalizado para el PreviewManager
                             $(this).trigger('wpcolorpickerchange');
@@ -1361,6 +1400,7 @@
                 backgroundColor: $('#background-color').val() || '#ffffff',
                 optionsBackgroundColor: $('#options-background-color').val() || '#ffffff',
                 optionsBorderColor: $('#options-border-color').val() || '#e0e0e0',
+                inputBorderColor: $('#input-border-color').val() || '#ddd',
                 textColor: $('#text-color').val() || '#333333',
                 borderRadius: $('#border-radius').val() || '12',
                 fontFamily: $('#font-family').val() || 'inherit',
@@ -1385,10 +1425,12 @@
                     --sfq-background-color: ${styles.backgroundColor} !important;
                     --sfq-options-background-color: ${styles.optionsBackgroundColor} !important;
                     --sfq-options-border-color: ${styles.optionsBorderColor} !important;
+                    --sfq-input-border-color: ${styles.inputBorderColor} !important;
                     --sfq-text-color: ${styles.textColor} !important;
                     --sfq-border-radius: ${styles.borderRadius}px !important;
                     --sfq-font-family: ${styles.fontFamily} !important;
                     --sfq-form-container-border-radius: ${styles.formContainerBorderRadius}px !important;
+                    --sfq-form-container-shadow: ${styles.formContainerShadow ? '0 4px 20px rgba(0, 0, 0, 0.1)' : 'none'} !important;
                     --sfq-question-text-size: ${styles.questionTextSize}px !important;
                     --sfq-option-text-size: ${styles.optionTextSize}px !important;
                     --sfq-question-text-align: ${styles.questionTextAlign} !important;
@@ -1399,7 +1441,7 @@
                     color: ${styles.textColor} !important;
                     border-radius: ${styles.formContainerBorderRadius}px !important;
                     font-family: ${styles.fontFamily} !important;
-                    ${styles.formContainerShadow ? 'box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;' : 'box-shadow: none !important;'}
+                    box-shadow: var(--sfq-form-container-shadow) !important;
                 }
                 
                 /* Ancho del contenedor según configuración */
@@ -1416,20 +1458,20 @@
                     max-width: ${styles.formContainerCustomWidth}px !important;
                 }
                 
-                /* Ancho del contenido de preguntas */
-                .sfq-question-content[data-width="full"] {
+                /* Ancho del contenido de preguntas - aplicado a sfq-question-screen */
+                .sfq-question-screen[data-width="full"] {
                     width: 100% !important;
                     max-width: 100% !important;
                 }
                 
-                .sfq-question-content[data-width="responsive"] {
+                .sfq-question-screen[data-width="responsive"] {
                     width: 100% !important;
                     max-width: 720px !important;
                     margin: 0 auto !important;
                 }
                 
-                .sfq-question-content[data-width="custom"] {
-                    width: ${styles.questionContentCustomWidth}px !important;
+                .sfq-question-screen[data-width="custom"] {
+                    width: 100% !important;
                     max-width: ${styles.questionContentCustomWidth}px !important;
                     margin: 0 auto !important;
                 }
@@ -1442,8 +1484,20 @@
                     border-color: ${styles.optionsBorderColor || '#e0e0e0'} !important;
                 }
                 
+                /* Aplicar color de borde a inputs de texto y estrellas */
+                .sfq-form-container .sfq-text-input,
+                .sfq-text-input {
+                    border-color: ${styles.inputBorderColor} !important;
+                }
+                
+                .sfq-form-container .sfq-star svg,
+                .sfq-star svg {
+                    stroke: ${styles.inputBorderColor} !important;
+                }
+                
                 .sfq-form-container .sfq-question-text,
-                .sfq-question-text {
+                .sfq-question-text,
+                .sfq-preview-question-text {
                     font-size: ${styles.questionTextSize}px !important;
                     text-align: ${styles.questionTextAlign} !important;
                     color: ${styles.textColor} !important;
@@ -1500,6 +1554,16 @@
                 // Aplicar ancho personalizado como variable CSS si es necesario
                 if (styles.questionContentWidth === 'custom') {
                     $('.sfq-question-content').css('--sfq-question-content-custom-width', styles.questionContentCustomWidth + 'px');
+                }
+            }
+            
+            // CRÍTICO: También aplicar atributos a .sfq-question-screen
+            if ($('.sfq-question-screen').length > 0) {
+                $('.sfq-question-screen').attr('data-width', styles.questionContentWidth);
+                
+                // Aplicar ancho personalizado como variable CSS si es necesario
+                if (styles.questionContentWidth === 'custom') {
+                    $('.sfq-question-screen').css('--sfq-question-content-custom-width', styles.questionContentCustomWidth + 'px');
                 }
             }
             

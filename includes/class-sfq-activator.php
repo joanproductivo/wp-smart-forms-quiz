@@ -171,6 +171,28 @@ class SFQ_Activator {
             KEY question_id (question_id)
         ) $charset_collate;";
         
+        // ✅ NUEVA: Tabla de respuestas parciales
+        $table_partial_responses = $wpdb->prefix . 'sfq_partial_responses';
+        $sql_partial_responses = "CREATE TABLE IF NOT EXISTS $table_partial_responses (
+            id INT(11) NOT NULL AUTO_INCREMENT,
+            form_id INT(11) NOT NULL,
+            session_id VARCHAR(100) NOT NULL,
+            user_id INT(11) NULL,
+            user_ip VARCHAR(45),
+            responses LONGTEXT,
+            variables LONGTEXT,
+            current_question INT(11) DEFAULT 0,
+            last_updated DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            expires_at DATETIME NOT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY unique_form_session (form_id, session_id),
+            KEY form_id (form_id),
+            KEY session_id (session_id),
+            KEY user_id (user_id),
+            KEY expires_at (expires_at),
+            KEY last_updated (last_updated)
+        ) $charset_collate;";
+        
         // Ejecutar las consultas
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         
@@ -180,6 +202,7 @@ class SFQ_Activator {
         dbDelta($sql_submissions);
         dbDelta($sql_analytics);
         dbDelta($sql_conditions);
+        dbDelta($sql_partial_responses); // ✅ NUEVO
         
         // Verificar que las tablas se crearon correctamente
         $tables_created = self::verify_tables();
@@ -202,7 +225,8 @@ class SFQ_Activator {
             $wpdb->prefix . 'sfq_responses',
             $wpdb->prefix . 'sfq_submissions',
             $wpdb->prefix . 'sfq_analytics',
-            $wpdb->prefix . 'sfq_conditions'
+            $wpdb->prefix . 'sfq_conditions',
+            $wpdb->prefix . 'sfq_partial_responses' // ✅ NUEVO
         );
         
         foreach ($required_tables as $table) {

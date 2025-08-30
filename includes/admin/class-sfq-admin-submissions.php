@@ -256,6 +256,7 @@ class SFQ_Admin_Submissions {
                             <option value=""><?php _e('Todos', 'smart-forms-quiz'); ?></option>
                             <option value="completed"><?php _e('Completados', 'smart-forms-quiz'); ?></option>
                             <option value="partial"><?php _e('Parciales', 'smart-forms-quiz'); ?></option>
+                            <option value="expired"><?php _e('Expirados', 'smart-forms-quiz'); ?></option>
                         </select>
                     </div>
                     
@@ -774,8 +775,16 @@ class SFQ_Admin_Submissions {
         
         // Filtro por estado
         if (!empty($filters['status'])) {
-            $where_conditions[] = "s.status = %s";
-            $params[] = $filters['status'];
+            if ($filters['status'] === 'partial') {
+                // Para parciales, consultar la tabla de respuestas parciales
+                $where_conditions[] = "EXISTS (SELECT 1 FROM {$this->wpdb->prefix}sfq_partial_responses pr WHERE pr.form_id = s.form_id AND pr.expires_at > NOW())";
+            } elseif ($filters['status'] === 'expired') {
+                // Para expirados, consultar respuestas parciales expiradas
+                $where_conditions[] = "EXISTS (SELECT 1 FROM {$this->wpdb->prefix}sfq_partial_responses pr WHERE pr.form_id = s.form_id AND pr.expires_at <= NOW())";
+            } else {
+                $where_conditions[] = "s.status = %s";
+                $params[] = $filters['status'];
+            }
         }
         
         // Filtro por tiempo
@@ -1096,6 +1105,9 @@ class SFQ_Admin_Submissions {
             $conversion_rate = max(0, min(100, $conversion_rate));
         }
         
+        // ✅ NUEVO: Obtener estadísticas de respuestas parciales
+        $partial_stats = $this->get_partial_responses_stats($date_from, $date_to, $is_all_time, $is_today);
+        
         // Calcular cambios porcentuales (período actual vs período anterior)
         $period_change = 0;
         if ($previous_period_unique_views > 0) {
@@ -1116,8 +1128,109 @@ class SFQ_Admin_Submissions {
             'period_days' => $is_all_time ? 'all' : ($is_today ? 'today' : intval($period)),
             'date_from' => $date_from,
             'date_to' => $date_to,
-            'is_all_time' => $is_all_time
+            'is_all_time' => $is_all_time,
+            // ✅ NUEVO: Añadir estadísticas de respuestas parciales
+            'partial_responses' => $partial_stats['total'],
+            'partial_active' => $partial_stats['active'],
+            'partial_expired' => $partial_stats['expired'],
+            'abandonment_rate' => $partial_stats['abandonment_rate']
         ));
+    }
+    
+    /**
+     * ✅ NUEVO: Obtener estadísticas de respuestas parciales
+     */
+    private function get_partial_responses_stats($date_from, $date_to, $is_all_time, $is_today) {
+        // Verificar si existe la tabla de respuestas parciales
+        $partial_table = $this->wpdb->prefix . 'sfq_partial_responses';
+        $table_exists = $this->wpdb->get_var($this->wpdb->prepare("SHOW TABLES LIKE %s", $partial_table)) === $partial_table;
+        
+        if (!$table_exists) {
+            return array(
+                'total' => 0,
+                'active' => 0,
+                'expired' => 0,
+                'abandonment_rate' => 0
+            );
+        }
+        
+        // Total de respuestas parciales del período
+        if ($is_all_time) {
+            $total_partial = $this->wpdb->get_var(
+                "SELECT COUNT(*) FROM {$partial_table}"
+            );
+        } elseif ($is_today) {
+            $total_partial = $this->wpdb->get_var($this->wpdb->prepare(
+                "SELECT COUNT(*) FROM {$partial_table} 
+                WHERE DATE(last_updated) = %s",
+                current_time('Y-m-d')
+            ));
+        } else {
+            $total_partial = $this->wpdb->get_var($this->wpdb->prepare(
+                "SELECT COUNT(*) FROM {$partial_table} 
+                WHERE DATE(last_updated) >= %s AND DATE(last_updated) <= %s",
+                $date_from, $date_to
+            ));
+        }
+        
+        // Respuestas parciales activas (no expiradas)
+        if ($is_all_time) {
+            $active_partial = $this->wpdb->get_var(
+                "SELECT COUNT(*) FROM {$partial_table} WHERE expires_at > NOW()"
+            );
+        } elseif ($is_today) {
+            $active_partial = $this->wpdb->get_var($this->wpdb->prepare(
+                "SELECT COUNT(*) FROM {$partial_table} 
+                WHERE expires_at > NOW() AND DATE(last_updated) = %s",
+                current_time('Y-m-d')
+            ));
+        } else {
+            $active_partial = $this->wpdb->get_var($this->wpdb->prepare(
+                "SELECT COUNT(*) FROM {$partial_table} 
+                WHERE expires_at > NOW() 
+                AND DATE(last_updated) >= %s AND DATE(last_updated) <= %s",
+                $date_from, $date_to
+            ));
+        }
+        
+        // Respuestas parciales expiradas
+        $expired_partial = $total_partial - $active_partial;
+        
+        // Calcular tasa de abandono
+        // Obtener total de submissions completadas del mismo período para comparar
+        if ($is_all_time) {
+            $completed_submissions = $this->wpdb->get_var($this->wpdb->prepare(
+                "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_submissions WHERE status = %s",
+                'completed'
+            ));
+        } elseif ($is_today) {
+            $completed_submissions = $this->wpdb->get_var($this->wpdb->prepare(
+                "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_submissions 
+                WHERE status = 'completed' AND DATE(completed_at) = %s",
+                current_time('Y-m-d')
+            ));
+        } else {
+            $completed_submissions = $this->wpdb->get_var($this->wpdb->prepare(
+                "SELECT COUNT(*) FROM {$this->wpdb->prefix}sfq_submissions 
+                WHERE status = 'completed' 
+                AND DATE(completed_at) >= %s AND DATE(completed_at) <= %s",
+                $date_from, $date_to
+            ));
+        }
+        
+        // Calcular tasa de abandono: (parciales / (parciales + completadas)) * 100
+        $abandonment_rate = 0;
+        $total_attempts = $total_partial + $completed_submissions;
+        if ($total_attempts > 0) {
+            $abandonment_rate = round(($total_partial / $total_attempts) * 100, 1);
+        }
+        
+        return array(
+            'total' => intval($total_partial),
+            'active' => intval($active_partial),
+            'expired' => intval($expired_partial),
+            'abandonment_rate' => $abandonment_rate
+        );
     }
     
     /**

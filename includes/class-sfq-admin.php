@@ -204,6 +204,10 @@ class SFQ_Admin {
                                         <span class="sfq-stat-value" id="completed-<?php echo $form->id; ?>">0</span>
                                     </div>
                                     <div class="sfq-stat">
+                                        <span class="sfq-stat-label"><?php _e('Parciales', 'smart-forms-quiz'); ?></span>
+                                        <span class="sfq-stat-value" id="partial-<?php echo $form->id; ?>">0</span>
+                                    </div>
+                                    <div class="sfq-stat">
                                         <span class="sfq-stat-label"><?php _e('Tasa', 'smart-forms-quiz'); ?></span>
                                         <span class="sfq-stat-value" id="rate-<?php echo $form->id; ?>">0%</span>
                                     </div>
@@ -841,6 +845,12 @@ class SFQ_Admin {
                             <input type="text" id="text-color" class="sfq-color-picker" value="#333333">
                         </div>
                         
+                        <div class="sfq-field-group">
+                            <label><?php _e('Color de Borde de Inputs y Estrellas', 'smart-forms-quiz'); ?></label>
+                            <input type="text" id="input-border-color" class="sfq-color-picker" value="#ddd">
+                            <p class="description"><?php _e('Color del borde para campos de texto (.sfq-text-input) y contorno de estrellas (.sfq-star svg)', 'smart-forms-quiz'); ?></p>
+                        </div>
+                        
                         <h3><?php _e('📐 Bordes y Formas', 'smart-forms-quiz'); ?></h3>
                         
                         <div class="sfq-field-group">
@@ -1308,6 +1318,16 @@ class SFQ_Admin {
                                 <?php _e('Muestra una previsualización en tiempo real de las preguntas y mensajes mientras los editas', 'smart-forms-quiz'); ?>
                             </p>
                         </div>
+                        
+                        <div class="sfq-field-group">
+                            <label>
+                                <input type="checkbox" id="auto-scroll-to-form">
+                                <?php _e('📍 Desplazamiento automático al formulario', 'smart-forms-quiz'); ?>
+                            </label>
+                            <p class="description" style="margin-left: 24px; margin-top: 5px; font-size: 12px; color: #666;">
+                                <?php _e('Hace scroll automáticamente hacia el formulario cuando se carga la página', 'smart-forms-quiz'); ?>
+                            </p>
+                        </div>
                     </div>
                     
                     <!-- Tab Variables Globales -->
@@ -1369,6 +1389,9 @@ class SFQ_Admin {
                 
                 <div class="sfq-builder-main">
                     <div class="sfq-builder-header">
+                        <button class="button" id="sfq-toggle-main" title="<?php _e('Desplegar/Plegar área principal', 'smart-forms-quiz'); ?>">
+                            <span class="dashicons dashicons-arrow-up-alt2"></span>
+                        </button>
                         <button class="button" id="sfq-preview-form">
                             <span class="dashicons dashicons-visibility"></span>
                             <?php _e('Vista Previa', 'smart-forms-quiz'); ?>

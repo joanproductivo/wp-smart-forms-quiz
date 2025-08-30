@@ -387,25 +387,15 @@ class SFQ_Frontend {
                 }
                 <?php elseif ($content_width === 'custom') : ?>
                 #sfq-form-<?php echo $form_id; ?> .sfq-question-screen {
-                    width: <?php echo esc_attr($styles['question_content_custom_width'] ?? '600'); ?>px !important;
+                    width: 100% !important;
                     max-width: <?php echo esc_attr($styles['question_content_custom_width'] ?? '600'); ?>px !important;
                     margin: 0 auto !important;
-                }
-                #sfq-form-<?php echo $form_id; ?> .sfq-question-content {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                    margin: 0 !important;
                 }
                 <?php else : ?>
                 #sfq-form-<?php echo $form_id; ?> .sfq-question-screen {
                     width: 100% !important;
                     max-width: 720px !important;
                     margin: 0 auto !important;
-                }
-                #sfq-form-<?php echo $form_id; ?> .sfq-question-content {
-                    width: 100% !important;
-                    max-width: 100% !important;
-                    margin: 0 !important;
                 }
                 <?php endif; ?>
             </style>

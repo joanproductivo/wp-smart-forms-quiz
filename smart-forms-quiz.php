@@ -102,3 +102,48 @@ function sfq_plugin_action_links($links) {
     array_unshift($links, $settings_link);
     return $links;
 }
+
+// ✅ NUEVO: Configurar cron job para limpiar respuestas parciales expiradas
+add_action('wp', 'sfq_schedule_partial_cleanup');
+function sfq_schedule_partial_cleanup() {
+    if (!wp_next_scheduled('sfq_cleanup_partial_responses')) {
+        wp_schedule_event(time(), 'daily', 'sfq_cleanup_partial_responses');
+    }
+}
+
+// ✅ NUEVO: Ejecutar limpieza de respuestas parciales expiradas
+add_action('sfq_cleanup_partial_responses', 'sfq_cleanup_expired_partial_responses');
+function sfq_cleanup_expired_partial_responses() {
+    global $wpdb;
+    
+    try {
+        // Eliminar respuestas parciales expiradas
+        $deleted_count = $wpdb->query(
+            "DELETE FROM {$wpdb->prefix}sfq_partial_responses 
+            WHERE expires_at < NOW()"
+        );
+        
+        if ($deleted_count > 0) {
+            error_log("SFQ Cron: Se eliminaron {$deleted_count} respuestas parciales expiradas");
+        }
+        
+        // Opcional: Limpiar también respuestas muy antiguas (más de 30 días)
+        $old_deleted_count = $wpdb->query(
+            "DELETE FROM {$wpdb->prefix}sfq_partial_responses 
+            WHERE last_updated < DATE_SUB(NOW(), INTERVAL 30 DAY)"
+        );
+        
+        if ($old_deleted_count > 0) {
+            error_log("SFQ Cron: Se eliminaron {$old_deleted_count} respuestas parciales muy antiguas");
+        }
+        
+    } catch (Exception $e) {
+        error_log('SFQ Cron Error: Error al limpiar respuestas parciales - ' . $e->getMessage());
+    }
+}
+
+// ✅ NUEVO: Limpiar cron job al desactivar el plugin
+register_deactivation_hook(__FILE__, 'sfq_clear_scheduled_hooks');
+function sfq_clear_scheduled_hooks() {
+    wp_clear_scheduled_hook('sfq_cleanup_partial_responses');
+}
