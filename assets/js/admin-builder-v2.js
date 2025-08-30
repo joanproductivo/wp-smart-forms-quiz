@@ -1285,6 +1285,7 @@
             this.questions = [];
             this.container = null;
             this.isAddingQuestion = false; // Flag para prevenir duplicación
+            this.idMapping = new Map(); // Mapeo de IDs temporales a IDs reales
         }
 
         init() {
@@ -1338,6 +1339,7 @@
             // Clear container
             this.container.empty();
             this.questions = [];
+            this.idMapping.clear(); // Limpiar mapeo anterior
             
             if (!questionsData || questionsData.length === 0) {
                 this.formBuilder.uiRenderer.showEmptyState();
@@ -1352,6 +1354,13 @@
                 const question = this.createQuestionObject(questionData, index);
                 if (question) {
                     this.questions.push(question);
+                    
+                    // CRÍTICO: Crear mapeo de ID temporal a ID real
+                    if (question.originalId) {
+                        this.idMapping.set(question.id, question.originalId);
+                        console.log('SFQ: Created ID mapping:', question.id, '->', question.originalId);
+                    }
+                    
                     const element = this.formBuilder.uiRenderer.renderQuestion(question);
                     this.container.append(element);
                     this.bindQuestionEvents(question.id);
@@ -2447,7 +2456,9 @@
                 
                 console.log(`SFQ: Question ${index + 1} (${question.id}):`, {
                     text: question.text,
-                    conditions: conditionsData
+                    conditions: conditionsData,
+                    originalId: question.originalId,
+                    temporalId: question.id
                 });
                 
                 const baseData = {
@@ -2458,6 +2469,16 @@
                     conditions: conditionsData,
                     settings: question.settings || {}
                 };
+
+                // CRÍTICO: Incluir IDs para mapeo correcto
+                if (question.originalId) {
+                    // Si tiene ID original (de la base de datos), usarlo como ID principal
+                    baseData.id = question.originalId;
+                    baseData.temporal_id = question.id; // Guardar ID temporal para mapeo
+                } else {
+                    // Si es nueva pregunta, solo incluir el ID temporal
+                    baseData.temporal_id = question.id;
+                }
 
                 // Handle freestyle questions
                 if (question.type === 'freestyle') {
@@ -3194,7 +3215,7 @@
         }
 
         /**
-         * Generar desplegable con las preguntas disponibles
+         * Generar desplegable con las preguntas disponibles - MEJORADO con mapeo de IDs
          */
         generateQuestionDropdown(selectedValue) {
             const questions = this.formBuilder.questionManager.questions || [];
@@ -3207,11 +3228,36 @@
                 const truncatedText = questionText.length > 50 ? 
                     questionText.substring(0, 50) + '...' : questionText;
                 
-                // Usar el ID original de la base de datos si existe, sino usar el ID temporal
+                // CRÍTICO: Usar el ID real de la base de datos si existe, sino usar el ID temporal
                 const questionId = question.originalId || question.id;
-                const isSelected = selectedValue == questionId ? 'selected' : '';
                 
-                options += `<option value="${questionId}" ${isSelected}>
+                // CRÍTICO: Mejorar la lógica de selección para manejar tanto IDs temporales como reales
+                let isSelected = false;
+                
+                if (selectedValue) {
+                    // Primero intentar match directo
+                    if (selectedValue == questionId) {
+                        isSelected = true;
+                    } 
+                    // Si no hay match directo, verificar si el selectedValue es un ID temporal
+                    // que mapea al ID real de esta pregunta
+                    else if (question.originalId && selectedValue == question.id) {
+                        isSelected = true;
+                        console.log('SFQ: Mapped temporal ID', selectedValue, 'to real ID', question.originalId);
+                    }
+                    // También verificar el mapeo inverso usando el idMapping del QuestionManager
+                    else if (this.formBuilder.questionManager.idMapping.has(selectedValue)) {
+                        const mappedId = this.formBuilder.questionManager.idMapping.get(selectedValue);
+                        if (mappedId == questionId) {
+                            isSelected = true;
+                            console.log('SFQ: Used ID mapping', selectedValue, '->', mappedId);
+                        }
+                    }
+                }
+                
+                const selectedAttr = isSelected ? 'selected' : '';
+                
+                options += `<option value="${questionId}" ${selectedAttr}>
                     Pregunta ${questionNumber}: ${this.escapeHtml(truncatedText)}
                 </option>`;
             });

@@ -526,7 +526,7 @@ class SFQ_Database {
     }
     
     /**
-     * Guardar preguntas (optimizado con transacciones)
+     * Guardar preguntas (optimizado con transacciones) - MEJORADO con mapeo de IDs
      */
     private function save_questions($form_id, $questions) {
         global $wpdb;
@@ -544,6 +544,7 @@ class SFQ_Database {
             $updated_question_ids = [];
             $questions_to_insert = [];
             $questions_to_update = [];
+            $id_mapping = []; // CRÍTICO: Mapeo de IDs temporales a IDs reales
 
             // Process questions and prepare batch operations
             foreach ($questions as $index => $question) {
@@ -568,6 +569,12 @@ class SFQ_Database {
                 );
 
                 $existing_question_id = null;
+                $temporal_id = null;
+                
+                // CRÍTICO: Capturar el ID temporal si existe
+                if (isset($question['temporal_id'])) {
+                    $temporal_id = $question['temporal_id'];
+                }
                 
                 // Try to match by ID first, then by text
                 if (isset($question['id']) && isset($existing_questions[$question['id']])) {
@@ -583,9 +590,15 @@ class SFQ_Database {
                 }
 
                 if ($existing_question_id) {
+                    // CRÍTICO: Crear mapeo si hay ID temporal
+                    if ($temporal_id) {
+                        $id_mapping[$temporal_id] = $existing_question_id;
+                    }
+                    
                     // Prepare for update
                     $questions_to_update[] = array(
                         'id' => $existing_question_id,
+                        'temporal_id' => $temporal_id,
                         'data' => $question_data,
                         'conditions' => $question['conditions'] ?? []
                     );
@@ -594,6 +607,7 @@ class SFQ_Database {
                 } else {
                     // Prepare for insert
                     $questions_to_insert[] = array(
+                        'temporal_id' => $temporal_id,
                         'data' => $question_data,
                         'conditions' => $question['conditions'] ?? []
                     );
@@ -614,9 +628,12 @@ class SFQ_Database {
                     throw new Exception('Failed to update question ID: ' . $update_data['id']);
                 }
 
-                // Save conditions
-                if (!empty($update_data['conditions'])) {
-                    $this->save_conditions($update_data['id'], $update_data['conditions']);
+                // CRÍTICO: Aplicar mapeo de IDs a las condiciones antes de guardar
+                $mapped_conditions = $this->apply_id_mapping_to_conditions($update_data['conditions'], $id_mapping);
+                
+                // Save conditions with mapped IDs
+                if (!empty($mapped_conditions)) {
+                    $this->save_conditions($update_data['id'], $mapped_conditions);
                 }
             }
 
@@ -634,10 +651,18 @@ class SFQ_Database {
 
                 $question_id = $wpdb->insert_id;
                 $updated_question_ids[] = $question_id;
+                
+                // CRÍTICO: Crear mapeo para nueva pregunta
+                if ($insert_data['temporal_id']) {
+                    $id_mapping[$insert_data['temporal_id']] = $question_id;
+                }
 
-                // Save conditions
-                if (!empty($insert_data['conditions'])) {
-                    $this->save_conditions($question_id, $insert_data['conditions']);
+                // CRÍTICO: Aplicar mapeo de IDs a las condiciones antes de guardar
+                $mapped_conditions = $this->apply_id_mapping_to_conditions($insert_data['conditions'], $id_mapping);
+                
+                // Save conditions with mapped IDs
+                if (!empty($mapped_conditions)) {
+                    $this->save_conditions($question_id, $mapped_conditions);
                 }
             }
 
@@ -666,6 +691,11 @@ class SFQ_Database {
             }
 
             $wpdb->query('COMMIT');
+            
+            // CRÍTICO: Log del mapeo final para debugging
+            if (!empty($id_mapping)) {
+                error_log('SFQ: Final ID mapping: ' . json_encode($id_mapping));
+            }
             
         } catch (Exception $e) {
             $wpdb->query('ROLLBACK');
@@ -793,6 +823,45 @@ class SFQ_Database {
         }
         
         error_log("SFQ: === END SAVE CONDITIONS DEBUG ===");
+    }
+    
+    /**
+     * CRÍTICO: Aplicar mapeo de IDs temporales a IDs reales en las condiciones
+     */
+    private function apply_id_mapping_to_conditions($conditions, $id_mapping) {
+        if (empty($conditions) || !is_array($conditions) || empty($id_mapping)) {
+            return $conditions;
+        }
+        
+        error_log('SFQ: Applying ID mapping to conditions. Mapping: ' . json_encode($id_mapping));
+        
+        $mapped_conditions = [];
+        
+        foreach ($conditions as $condition) {
+            $mapped_condition = $condition;
+            
+            // CRÍTICO: Solo mapear si la acción es 'goto_question' y hay un action_value
+            if (isset($condition['action_type']) && $condition['action_type'] === 'goto_question' && 
+                !empty($condition['action_value'])) {
+                
+                $original_action_value = $condition['action_value'];
+                
+                // Verificar si el action_value es un ID temporal que necesita ser mapeado
+                if (isset($id_mapping[$original_action_value])) {
+                    $mapped_condition['action_value'] = $id_mapping[$original_action_value];
+                    
+                    error_log('SFQ: Mapped condition action_value from ' . $original_action_value . ' to ' . $mapped_condition['action_value']);
+                } else {
+                    error_log('SFQ: No mapping found for action_value: ' . $original_action_value);
+                }
+            }
+            
+            $mapped_conditions[] = $mapped_condition;
+        }
+        
+        error_log('SFQ: Finished applying ID mapping. Original conditions: ' . count($conditions) . ', Mapped conditions: ' . count($mapped_conditions));
+        
+        return $mapped_conditions;
     }
     
     /**
