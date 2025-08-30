@@ -2669,7 +2669,12 @@
             // Bind initial action value events
             this.bindActionValueEvents($condition, condition);
             
-            // Eliminación de condiciones deshabilitada - sin event listeners
+            // Delete condition button
+            $condition.find('.sfq-condition-delete').off('click').on('click', function() {
+                if (confirm('¿Estás seguro de eliminar esta condición?')) {
+                    self.deleteCondition(conditionId, questionId);
+                }
+            });
         }
 
         /**
@@ -2768,6 +2773,39 @@
             });
             
             console.log('SFQ: Finished re-populating dropdowns for question', questionId);
+        }
+
+        /**
+         * Eliminar una condición específica
+         */
+        deleteCondition(conditionId, questionId) {
+            const conditions = this.conditions[questionId] || [];
+            
+            // Encontrar el índice de la condición a eliminar
+            const conditionIndex = conditions.findIndex(c => c.id === conditionId);
+            
+            if (conditionIndex === -1) {
+                console.warn('SFQ: Condition not found for deletion:', conditionId);
+                return;
+            }
+            
+            // Eliminar la condición del array
+            conditions.splice(conditionIndex, 1);
+            
+            // Actualizar el array de condiciones
+            this.conditions[questionId] = conditions;
+            
+            // Eliminar el elemento del DOM con animación
+            const $condition = $(`#${conditionId}`);
+            $condition.fadeOut(300, function() {
+                $(this).remove();
+            });
+            
+            // Marcar el formulario como modificado
+            this.formBuilder.isDirty = true;
+            
+            console.log('SFQ: Deleted condition', conditionId, 'from question', questionId);
+            console.log('SFQ: Remaining conditions for question', questionId, ':', this.conditions[questionId]);
         }
 
         getConditionsData(questionId) {
@@ -3126,6 +3164,12 @@
             
             return `
                 <div class="sfq-condition-item" id="${condition.id}">
+                    <div class="sfq-condition-header">
+                        <span class="sfq-condition-title">Condición</span>
+                        <button class="sfq-condition-delete" type="button" title="Eliminar condición">
+                            <span class="dashicons dashicons-trash"></span>
+                        </button>
+                    </div>
                     <div class="sfq-condition-row">
                         <select class="sfq-condition-type">
                             <option value="answer_equals" ${condition.type === 'answer_equals' ? 'selected' : ''}>

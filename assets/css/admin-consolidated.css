@@ -1028,6 +1028,47 @@
     padding: 15px;
     margin-bottom: 10px;
     animation: sfq-fade-in 0.3s ease;
+    position: relative;
+}
+
+.sfq-condition-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--sfq-border);
+}
+
+.sfq-condition-title {
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+}
+
+.sfq-condition-delete {
+    background: var(--sfq-danger);
+    color: white;
+    border: none;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: var(--sfq-transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+}
+
+.sfq-condition-delete:hover {
+    background: #c82333;
+    transform: scale(1.05);
+}
+
+.sfq-condition-delete .dashicons {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
 }
 
 .sfq-condition-row {
