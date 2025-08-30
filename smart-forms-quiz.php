@@ -26,6 +26,7 @@ require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-security.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-activator.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-loader.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-database.php';
+require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-migration.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-limits.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-admin.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-frontend.php';
@@ -57,12 +58,41 @@ function sfq_init() {
     // Cargar textdomain para traducciones
     load_plugin_textdomain('smart-forms-quiz', false, dirname(SFQ_PLUGIN_BASENAME) . '/languages');
     
+    // Verificar y ejecutar migraciones si es necesario
+    sfq_check_and_run_migrations();
+    
     // Añadir headers de seguridad
     add_action('init', array('SFQ_Security', 'add_security_headers'));
     
     // Inicializar componentes
     $loader = new SFQ_Loader();
     $loader->init();
+}
+
+// Verificar y ejecutar migraciones automáticamente
+function sfq_check_and_run_migrations() {
+    $current_db_version = get_option('sfq_db_version', '1.0.0');
+    $target_db_version = '1.1.0';
+    
+    // Solo ejecutar si la versión de BD es menor que la objetivo
+    if (version_compare($current_db_version, $target_db_version, '<')) {
+        $migration = new SFQ_Migration();
+        
+        if ($migration->is_migration_needed()) {
+            error_log('SFQ: Ejecutando migración automática de v' . $current_db_version . ' a v' . $target_db_version);
+            
+            $migration_results = $migration->run_all_migrations();
+            
+            // Log de resultados
+            foreach ($migration_results as $migration_name => $result) {
+                if ($result['success']) {
+                    error_log("SFQ: Migración automática {$migration_name} exitosa - {$result['message']}");
+                } else {
+                    error_log("SFQ: Error en migración automática {$migration_name} - {$result['message']}");
+                }
+            }
+        }
+    }
 }
 
 // Añadir enlace de configuración en la página de plugins

@@ -320,54 +320,87 @@ class SFQ_Ajax {
             $variables = array();
         }
         
+        // Debug: Log del estado inicial
+        error_log('SFQ Debug: Initial variables state: ' . json_encode($variables));
+        error_log('SFQ Debug: Processing question ' . $current_question_id . ' with answer: ' . $answer);
+        
         // Obtener condiciones de la pregunta actual
         $conditions = $this->get_question_conditions($current_question_id);
         
+        error_log('SFQ Debug: Found ' . count($conditions) . ' conditions for question ' . $current_question_id);
+        
         $next_question_id = null;
         $redirect_url = null;
-        $update_variables = array();
+        $updated_variables = $variables; // Trabajar con una copia
         
         foreach ($conditions as $condition) {
-            if ($this->evaluate_condition($condition, $answer, $variables)) {
-                // Aplicar acción de la condición
+            error_log('SFQ Debug: Evaluating condition: ' . json_encode($condition));
+            
+            if ($this->evaluate_condition($condition, $answer, $updated_variables)) {
+                error_log('SFQ Debug: Condition matched! Executing action: ' . $condition->action_type);
+                
+                // ✅ CRÍTICO: Ejecutar acciones de variables correctamente
                 switch ($condition->action_type) {
                     case 'goto_question':
                         $next_question_id = intval($condition->action_value);
+                        error_log('SFQ Debug: Setting next question to: ' . $next_question_id);
+                        break;
+                        
+                    case 'skip_to_end':
+                        $next_question_id = null; // Indica fin del formulario
+                        error_log('SFQ Debug: Skipping to end');
                         break;
                         
                     case 'redirect_url':
                         $redirect_url = esc_url_raw($condition->action_value);
+                        error_log('SFQ Debug: Setting redirect URL to: ' . $redirect_url);
                         break;
                         
                     case 'add_variable':
                         $var_name = $condition->action_value;
                         $var_amount = intval($condition->variable_amount);
-                        $update_variables[$var_name] = ($variables[$var_name] ?? 0) + $var_amount;
+                        $current_value = $updated_variables[$var_name] ?? 0;
+                        $new_value = $current_value + $var_amount;
+                        $updated_variables[$var_name] = $new_value;
+                        
+                        error_log("SFQ Debug: ADD_VARIABLE - Variable: {$var_name}, Current: {$current_value}, Adding: {$var_amount}, New: {$new_value}");
+                        break;
+                        
+                    case 'set_variable':
+                        $var_name = $condition->action_value;
+                        $var_value = $condition->variable_amount;
+                        $updated_variables[$var_name] = $var_value;
+                        
+                        error_log("SFQ Debug: SET_VARIABLE - Variable: {$var_name}, Set to: {$var_value}");
+                        break;
+                        
+                    case 'show_message':
+                        // Los mensajes se manejan en el frontend
+                        error_log('SFQ Debug: Show message action: ' . $condition->action_value);
                         break;
                 }
-                
-                // Si hay operación de variable
-                if ($condition->variable_operation === 'add') {
-                    $var_name = $condition->action_value;
-                    $variables[$var_name] = ($variables[$var_name] ?? 0) + intval($condition->variable_amount);
-                }
+            } else {
+                error_log('SFQ Debug: Condition did not match');
             }
         }
         
         // Si no hay condición específica, obtener siguiente pregunta en orden
         if (!$next_question_id && !$redirect_url) {
             $next_question_id = $this->get_next_question_in_order($form_id, $current_question_id);
+            error_log('SFQ Debug: No specific next question, using order-based: ' . $next_question_id);
         }
+        
+        error_log('SFQ Debug: Final variables state: ' . json_encode($updated_variables));
         
         wp_send_json_success(array(
             'next_question_id' => $next_question_id,
             'redirect_url' => $redirect_url,
-            'variables' => array_merge($variables, $update_variables)
+            'variables' => $updated_variables
         ));
     }
     
     /**
-     * Evaluar condición
+     * Evaluar condición con comparación inteligente de tipos
      */
     private function evaluate_condition($condition, $answer, $variables) {
         switch ($condition->condition_type) {
@@ -377,21 +410,77 @@ class SFQ_Ajax {
             case 'answer_contains':
                 return strpos($answer, $condition->condition_value) !== false;
                 
+            case 'answer_not_equals':
+                return $answer !== $condition->condition_value;
+                
             case 'variable_greater':
                 $var_name = $condition->condition_value;
-                $threshold = intval($condition->variable_amount);
-                return ($variables[$var_name] ?? 0) > $threshold;
+                $comparison_value = $this->get_comparison_value($condition);
+                $var_value = $variables[$var_name] ?? 0;
+                return $this->smart_compare($var_value, $comparison_value, '>');
                 
             case 'variable_less':
                 $var_name = $condition->condition_value;
-                $threshold = intval($condition->variable_amount);
-                return ($variables[$var_name] ?? 0) < $threshold;
+                $comparison_value = $this->get_comparison_value($condition);
+                $var_value = $variables[$var_name] ?? 0;
+                return $this->smart_compare($var_value, $comparison_value, '<');
                 
             case 'variable_equals':
                 $var_name = $condition->condition_value;
-                $value = intval($condition->variable_amount);
-                return ($variables[$var_name] ?? 0) === $value;
+                $comparison_value = $this->get_comparison_value($condition);
+                $var_value = $variables[$var_name] ?? 0;
+                return $this->smart_compare($var_value, $comparison_value, '==');
                 
+            default:
+                return false;
+        }
+    }
+    
+    /**
+     * Obtener valor de comparación con fallback para compatibilidad
+     */
+    private function get_comparison_value($condition) {
+        // Priorizar comparison_value si existe y no está vacío
+        if (isset($condition->comparison_value) && $condition->comparison_value !== '') {
+            return $condition->comparison_value;
+        }
+        
+        // Fallback a variable_amount para compatibilidad con datos existentes
+        return $condition->variable_amount ?? 0;
+    }
+    
+    /**
+     * Comparación inteligente que maneja números y texto automáticamente
+     */
+    private function smart_compare($value1, $value2, $operator) {
+        // Si ambos valores parecen números, comparar como números
+        if (is_numeric($value1) && is_numeric($value2)) {
+            $num1 = floatval($value1);
+            $num2 = floatval($value2);
+            
+            switch ($operator) {
+                case '>':
+                    return $num1 > $num2;
+                case '<':
+                    return $num1 < $num2;
+                case '==':
+                    return $num1 == $num2;
+                default:
+                    return false;
+            }
+        }
+        
+        // Si alguno no es numérico, comparar como strings
+        $str1 = strval($value1);
+        $str2 = strval($value2);
+        
+        switch ($operator) {
+            case '>':
+                return strcmp($str1, $str2) > 0;
+            case '<':
+                return strcmp($str1, $str2) < 0;
+            case '==':
+                return $str1 === $str2;
             default:
                 return false;
         }
@@ -902,6 +991,7 @@ class SFQ_Ajax {
                 'action_value' => $condition['action_value'] ?? '',
                 'variable_operation' => $condition['variable_operation'] ?? '',
                 'variable_amount' => intval($condition['variable_amount'] ?? 0),
+                'comparison_value' => $condition['comparison_value'] ?? '',  // ✅ CRÍTICO: Incluir nuevo campo
                 'order_position' => intval($condition['order_position'] ?? 0)
             ];
         }

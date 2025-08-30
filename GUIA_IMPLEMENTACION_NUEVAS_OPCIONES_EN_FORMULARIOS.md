@@ -49,6 +49,8 @@ Este documento establece los requerimientos y procedimientos estándar para aña
   - **Configuración**: ⭐ **Aquí se añaden nuevas opciones**
 - **Renderizado**: HTML + PHP
 - **Validación**: Server-side
+  - Límites: Limites de acceso a los formularios
+  - Variables: Variables globales permiten para lógica condicional.
 
 #### 3. **AJAX Handler** (`class-sfq-ajax.php`)
 - **Guardado**: `save_form()` method

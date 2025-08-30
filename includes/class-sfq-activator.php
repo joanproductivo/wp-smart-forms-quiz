@@ -14,11 +14,44 @@ class SFQ_Activator {
      */
     public static function activate() {
         self::create_tables();
+        self::run_migrations();
         self::set_default_options();
         self::create_capabilities();
         
         // Limpiar el caché de rewrite rules
         flush_rewrite_rules();
+    }
+    
+    /**
+     * Ejecutar migraciones de base de datos
+     */
+    private static function run_migrations() {
+        $migration = new SFQ_Migration();
+        
+        // Verificar si necesita migración
+        if ($migration->is_migration_needed()) {
+            error_log('SFQ Activator: Ejecutando migraciones de base de datos...');
+            
+            $migration_results = $migration->run_all_migrations();
+            
+            foreach ($migration_results as $migration_name => $result) {
+                if ($result['success']) {
+                    error_log("SFQ Activator: Migración {$migration_name} exitosa - {$result['message']}");
+                } else {
+                    error_log("SFQ Activator: Error en migración {$migration_name} - {$result['message']}");
+                }
+            }
+            
+            // Verificar integridad después de la migración
+            $integrity_check = $migration->verify_migration_integrity();
+            if ($integrity_check['success']) {
+                error_log('SFQ Activator: Verificación de integridad exitosa');
+            } else {
+                error_log('SFQ Activator: Problemas de integridad: ' . $integrity_check['message']);
+            }
+        } else {
+            error_log('SFQ Activator: No se necesitan migraciones');
+        }
     }
     
     /**

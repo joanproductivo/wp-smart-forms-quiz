@@ -455,6 +455,9 @@ class SFQ_Admin {
                         <button class="sfq-tab-button" data-tab="limits">
                             <?php _e('Límites', 'smart-forms-quiz'); ?>
                         </button>
+                        <button class="sfq-tab-button" data-tab="variables">
+                            <?php _e('Variables', 'smart-forms-quiz'); ?>
+                        </button>
                     </div>
                     
                     <!-- Tab General -->
@@ -1207,6 +1210,62 @@ class SFQ_Admin {
                             </label>
                             <p class="description" style="margin-left: 24px; margin-top: 5px; font-size: 12px; color: #666;">
                                 <?php _e('Muestra una previsualización en tiempo real de las preguntas y mensajes mientras los editas', 'smart-forms-quiz'); ?>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab Variables Globales -->
+                    <div class="sfq-tab-content" id="tab-variables">
+                        <div class="sfq-field-group">
+                            <h3><?php _e('🔢 Variables Globales del Formulario', 'smart-forms-quiz'); ?></h3>
+                            <p class="description" style="margin-bottom: 20px;">
+                                <?php _e('Las variables globales permiten crear sistemas de puntuación, categorización y lógica avanzada. Se pueden modificar mediante condiciones en las preguntas.', 'smart-forms-quiz'); ?>
+                            </p>
+                            
+                            <div class="sfq-variables-container">
+                                <div class="sfq-variables-list" id="sfq-global-variables-list">
+                                    <!-- Las variables se cargarán dinámicamente -->
+                                </div>
+                                
+                                <div class="sfq-variables-controls">
+                                    <button type="button" class="button button-primary" id="sfq-add-variable">
+                                        <span class="dashicons dashicons-plus-alt"></span>
+                                        <?php _e('Añadir Variable', 'smart-forms-quiz'); ?>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="sfq-field-group" style="margin-top: 30px;">
+                            <h4><?php _e('📋 Ejemplos de Uso', 'smart-forms-quiz'); ?></h4>
+                            <div class="sfq-examples-grid">
+                                <div class="sfq-example-card">
+                                    <h5>🏆 Sistema de Puntuación</h5>
+                                    <p>Variable: <code>puntos_total</code></p>
+                                    <p>Suma puntos según las respuestas del usuario</p>
+                                </div>
+                                <div class="sfq-example-card">
+                                    <h5>📊 Categorización</h5>
+                                    <p>Variable: <code>categoria_usuario</code></p>
+                                    <p>Clasifica usuarios según sus respuestas</p>
+                                </div>
+                                <div class="sfq-example-card">
+                                    <h5>🎯 Nivel de Satisfacción</h5>
+                                    <p>Variable: <code>satisfaccion</code></p>
+                                    <p>Acumula valoraciones de diferentes preguntas</p>
+                                </div>
+                                <div class="sfq-example-card">
+                                    <h5>🔢 Contador de Respuestas</h5>
+                                    <p>Variable: <code>respuestas_si</code></p>
+                                    <p>Cuenta cuántas veces el usuario responde "Sí"</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="notice notice-info inline" style="margin-top: 20px;">
+                            <p>
+                                <strong><?php _e('💡 Consejo:', 'smart-forms-quiz'); ?></strong> 
+                                <?php _e('Las variables se pueden usar en las condiciones de las preguntas para crear lógica avanzada. Por ejemplo: "Si puntos_total > 50, ir a pregunta de felicitación".', 'smart-forms-quiz'); ?>
                             </p>
                         </div>
                     </div>

@@ -83,7 +83,7 @@ class SFQ_Utils {
             $_SERVER['HTTP_USER_AGENT'] ?? '',
             $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '',
             $_SERVER['HTTP_ACCEPT_ENCODING'] ?? '',
-            date('Y-m-d') // Renovar diariamente para privacidad
+            self::get_time_block() // añade el bloque de 30 días
         );
         
         // Filtrar componentes vacíos
@@ -91,7 +91,11 @@ class SFQ_Utils {
         
         return 'fp_' . md5(implode('|', $components));
     }
-    
+     private static function get_time_block() {
+        // Cada bloque = 30 días exactos
+        return floor(time() / (60 * 60 * 24 * 30));
+    }
+
     /**
      * Obtener o crear session ID inteligente que persiste por dispositivo/navegador
      */

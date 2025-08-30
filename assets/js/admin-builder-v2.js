@@ -306,6 +306,11 @@
                 }
             });
             
+            // Variables globales
+            $('#sfq-add-variable').off('click' + ns).on('click' + ns, () => {
+                this.showVariableModal();
+            });
+            
             // Prevent accidental navigation
             $(window).on('beforeunload' + ns, () => {
                 if (this.isDirty && !this.isDestroyed) {
@@ -522,6 +527,9 @@
             
             // Actualizar resumen de límites después de cargar los datos
             this.updateLimitsSummary();
+            
+            // Renderizar variables globales
+            this.renderVariables();
         }
 
         // Crear versión con debounce del saveForm
@@ -559,6 +567,14 @@
             
             // Collect form data
             const formData = this.collectFormData();
+            
+            // Debug: Log form data being sent to server
+            console.log('SFQ: === SAVING FORM DATA ===');
+            console.log('SFQ: Questions data being sent:', formData.questions);
+            formData.questions.forEach((question, index) => {
+                console.log(`SFQ: Question ${index + 1} conditions:`, question.conditions);
+            });
+            console.log('SFQ: === END FORM DATA ===');
             
             try {
                 const response = await $.ajax({
@@ -713,7 +729,8 @@
                 block_form_timer_unit_border_color: $('#block-form-timer-unit-border-color').val() || '#e9ecef',
                 block_form_disable_shadow: $('#block-form-disable-shadow').is(':checked')
             },
-            questions: this.questionManager.getQuestionsData()
+            questions: this.questionManager.getQuestionsData(),
+            global_variables: this.getGlobalVariables()
         };
     }
 
@@ -895,6 +912,327 @@
                 clearTimeout(timeout);
                 timeout = setTimeout(later, wait);
             };
+        }
+        
+        // Variables globales
+        showVariableModal(variableData = null) {
+            const isEdit = variableData !== null;
+            const modalHtml = `
+                <div class="sfq-variable-modal">
+                    <div class="sfq-variable-modal-content">
+                        <div class="sfq-variable-modal-header">
+                            <h3>${isEdit ? '✏️ Editar Variable' : '➕ Añadir Variable Global'}</h3>
+                            <button class="sfq-variable-modal-close" type="button">&times;</button>
+                        </div>
+                        
+                        <div class="sfq-variable-modal-body">
+                            <div class="sfq-variable-form-group">
+                                <label>Nombre de la variable</label>
+                                <input type="text" id="sfq-variable-name" class="sfq-variable-input" 
+                                       value="${isEdit ? this.escapeHtml(variableData.name) : ''}"
+                                       placeholder="Ej: puntos_total, categoria_usuario">
+                                <small>Solo letras, números y guiones bajos. Sin espacios.</small>
+                            </div>
+                            
+                            <div class="sfq-variable-form-group">
+                                <label>Descripción</label>
+                                <textarea id="sfq-variable-description" class="sfq-variable-textarea" rows="3"
+                                          placeholder="Describe para qué se usa esta variable">${isEdit ? this.escapeHtml(variableData.description) : ''}</textarea>
+                            </div>
+                            
+                            <div class="sfq-variable-form-group">
+                                <label>Tipo de variable</label>
+                                <select id="sfq-variable-type" class="sfq-variable-select">
+                                    <option value="number" ${isEdit && variableData.type === 'number' ? 'selected' : ''}>Número</option>
+                                    <option value="text" ${isEdit && variableData.type === 'text' ? 'selected' : ''}>Texto</option>
+                                    <option value="boolean" ${isEdit && variableData.type === 'boolean' ? 'selected' : ''}>Verdadero/Falso</option>
+                                </select>
+                            </div>
+                            
+                            <div class="sfq-variable-form-group">
+                                <label>Valor inicial</label>
+                                <input type="text" id="sfq-variable-initial-value" class="sfq-variable-input"
+                                       value="${isEdit ? this.escapeHtml(variableData.initial_value) : '0'}"
+                                       placeholder="Valor por defecto al iniciar el formulario">
+                                <small>Para números usa 0, para texto deja vacío, para boolean usa true o false</small>
+                            </div>
+                        </div>
+                        
+                        <div class="sfq-variable-modal-footer">
+                            <button type="button" class="button button-secondary sfq-variable-cancel">Cancelar</button>
+                            <button type="button" class="button button-primary sfq-variable-save">
+                                ${isEdit ? 'Actualizar Variable' : 'Crear Variable'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Añadir modal al DOM
+            $('body').append(modalHtml);
+            
+            // Bind events
+            this.bindVariableModalEvents(isEdit, variableData);
+        }
+        
+        bindVariableModalEvents(isEdit, variableData) {
+            const self = this;
+            
+            // Cerrar modal
+            $('.sfq-variable-modal-close, .sfq-variable-cancel').on('click', function() {
+                $('.sfq-variable-modal').fadeOut(300, function() {
+                    $(this).remove();
+                });
+            });
+            
+            // Cerrar al hacer clic fuera
+            $('.sfq-variable-modal').on('click', function(e) {
+                if (e.target === this) {
+                    $(this).fadeOut(300, function() {
+                        $(this).remove();
+                    });
+                }
+            });
+            
+            // Validación en tiempo real del nombre
+            $('#sfq-variable-name').on('input', function() {
+                const value = $(this).val();
+                const isValid = /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(value);
+                
+                if (value && !isValid) {
+                    $(this).css('border-color', '#dc3232');
+                    $(this).siblings('small').text('Solo letras, números y guiones bajos. Debe empezar con letra o guión bajo.').css('color', '#dc3232');
+                } else {
+                    $(this).css('border-color', '');
+                    $(this).siblings('small').text('Solo letras, números y guiones bajos. Sin espacios.').css('color', '');
+                }
+            });
+            
+            // Cambio de tipo de variable
+            $('#sfq-variable-type').on('change', function() {
+                const type = $(this).val();
+                const $initialValue = $('#sfq-variable-initial-value');
+                
+                switch (type) {
+                    case 'number':
+                        $initialValue.attr('placeholder', '0').val(isEdit ? variableData?.initial_value : '0');
+                        $initialValue.siblings('small').text('Valor numérico inicial (ej: 0, 100, -5)');
+                        break;
+                    case 'text':
+                        $initialValue.attr('placeholder', 'Texto inicial').val(isEdit ? variableData?.initial_value : '');
+                        $initialValue.siblings('small').text('Texto inicial (puede estar vacío)');
+                        break;
+                    case 'boolean':
+                        $initialValue.attr('placeholder', 'true o false').val(isEdit ? variableData?.initial_value : 'false');
+                        $initialValue.siblings('small').text('true (verdadero) o false (falso)');
+                        break;
+                }
+            });
+            
+            // Guardar variable
+            $('.sfq-variable-save').on('click', function() {
+                const name = $('#sfq-variable-name').val().trim();
+                const description = $('#sfq-variable-description').val().trim();
+                const type = $('#sfq-variable-type').val();
+                const initialValue = $('#sfq-variable-initial-value').val().trim();
+                
+                // Validaciones
+                if (!name) {
+                    alert('El nombre de la variable es obligatorio');
+                    return;
+                }
+                
+                if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+                    alert('El nombre de la variable solo puede contener letras, números y guiones bajos, y debe empezar con letra o guión bajo');
+                    return;
+                }
+                
+                if (!description) {
+                    alert('La descripción es obligatoria');
+                    return;
+                }
+                
+                // Validar valor inicial según tipo
+                if (type === 'number' && initialValue && isNaN(initialValue)) {
+                    alert('El valor inicial debe ser un número válido');
+                    return;
+                }
+                
+                if (type === 'boolean' && initialValue && !['true', 'false'].includes(initialValue.toLowerCase())) {
+                    alert('El valor inicial para boolean debe ser "true" o "false"');
+                    return;
+                }
+                
+                // Verificar que no existe otra variable con el mismo nombre (solo en modo crear)
+                if (!isEdit && self.variableExists(name)) {
+                    alert('Ya existe una variable con ese nombre');
+                    return;
+                }
+                
+                // Crear/actualizar variable
+                const variable = {
+                    id: isEdit ? variableData.id : 'var_' + Date.now(),
+                    name: name,
+                    description: description,
+                    type: type,
+                    initial_value: initialValue || (type === 'number' ? '0' : type === 'boolean' ? 'false' : '')
+                };
+                
+                if (isEdit) {
+                    self.updateVariable(variable);
+                } else {
+                    self.addVariable(variable);
+                }
+                
+                // Cerrar modal
+                $('.sfq-variable-modal').fadeOut(300, function() {
+                    $(this).remove();
+                });
+            });
+        }
+        
+        variableExists(name) {
+            const variables = this.getGlobalVariables();
+            return variables.some(v => v.name === name);
+        }
+        
+        addVariable(variable) {
+            let variables = this.getGlobalVariables();
+            variables.push(variable);
+            this.saveGlobalVariables(variables);
+            this.renderVariables();
+            this.isDirty = true;
+        }
+        
+        updateVariable(variable) {
+            let variables = this.getGlobalVariables();
+            const index = variables.findIndex(v => v.id === variable.id);
+            if (index !== -1) {
+                variables[index] = variable;
+                this.saveGlobalVariables(variables);
+                this.renderVariables();
+                this.isDirty = true;
+            }
+        }
+        
+        deleteVariable(variableId) {
+            if (!confirm('¿Estás seguro de eliminar esta variable? Esta acción no se puede deshacer.')) {
+                return;
+            }
+            
+            let variables = this.getGlobalVariables();
+            variables = variables.filter(v => v.id !== variableId);
+            this.saveGlobalVariables(variables);
+            this.renderVariables();
+            this.isDirty = true;
+        }
+        
+        getGlobalVariables() {
+            const formData = this.stateManager.getState('formData');
+            return formData?.global_variables || [];
+        }
+        
+        saveGlobalVariables(variables) {
+            const formData = this.stateManager.getState('formData') || {};
+            formData.global_variables = variables;
+            this.stateManager.setState('formData', formData);
+        }
+        
+        renderVariables() {
+            const variables = this.getGlobalVariables();
+            const $container = $('#sfq-global-variables-list');
+            
+            if (variables.length === 0) {
+                $container.html(`
+                    <div class="sfq-variables-empty">
+                        <span class="dashicons dashicons-admin-settings"></span>
+                        <p>No hay variables globales creadas</p>
+                        <p>Las variables te permiten crear lógica avanzada en tus formularios</p>
+                    </div>
+                `);
+                return;
+            }
+            
+            const variablesHtml = variables.map(variable => this.renderVariable(variable)).join('');
+            $container.html(variablesHtml);
+            
+            // Bind events para cada variable
+            this.bindVariableEvents();
+        }
+        
+        renderVariable(variable) {
+            const typeIcons = {
+                'number': '🔢',
+                'text': '📝',
+                'boolean': '☑️'
+            };
+            
+            const typeNames = {
+                'number': 'Número',
+                'text': 'Texto',
+                'boolean': 'Verdadero/Falso'
+            };
+            
+            return `
+                <div class="sfq-variable-item" data-variable-id="${variable.id}">
+                    <div class="sfq-variable-icon">
+                        ${typeIcons[variable.type] || '🔢'}
+                    </div>
+                    <div class="sfq-variable-content">
+                        <div class="sfq-variable-name">${this.escapeHtml(variable.name)}</div>
+                        <div class="sfq-variable-description">
+                            ${this.escapeHtml(variable.description)} 
+                            <span style="color: #999; font-size: 11px;">(${typeNames[variable.type]})</span>
+                        </div>
+                    </div>
+                    <div class="sfq-variable-value">
+                        ${this.escapeHtml(variable.initial_value)}
+                    </div>
+                    <div class="sfq-variable-actions">
+                        <button class="sfq-variable-action edit" type="button" title="Editar variable">
+                            <span class="dashicons dashicons-edit"></span>
+                        </button>
+                        <button class="sfq-variable-action delete" type="button" title="Eliminar variable">
+                            <span class="dashicons dashicons-trash"></span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        bindVariableEvents() {
+            const self = this;
+            
+            // Editar variable
+            $('.sfq-variable-action.edit').off('click').on('click', function() {
+                const $item = $(this).closest('.sfq-variable-item');
+                const variableId = $item.data('variable-id');
+                const variables = self.getGlobalVariables();
+                const variable = variables.find(v => v.id === variableId);
+                
+                if (variable) {
+                    self.showVariableModal(variable);
+                }
+            });
+            
+            // Eliminar variable
+            $('.sfq-variable-action.delete').off('click').on('click', function() {
+                const $item = $(this).closest('.sfq-variable-item');
+                const variableId = $item.data('variable-id');
+                self.deleteVariable(variableId);
+            });
+        }
+        
+        escapeHtml(text) {
+            if (typeof text !== 'string') return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
         }
     }
 
@@ -2101,13 +2439,23 @@
         }
 
         getQuestionsData() {
+            console.log('SFQ: === GETTING QUESTIONS DATA FOR SAVE ===');
+            
             return this.questions.map((question, index) => {
+                // CRÍTICO: Obtener condiciones del ConditionEngine
+                const conditionsData = this.formBuilder.conditionEngine.getConditionsData(question.id);
+                
+                console.log(`SFQ: Question ${index + 1} (${question.id}):`, {
+                    text: question.text,
+                    conditions: conditionsData
+                });
+                
                 const baseData = {
                     question_text: question.text,
                     question_type: question.type,
                     required: question.required ? 1 : 0,
                     order_position: index,
-                    conditions: this.formBuilder.conditionEngine.getConditionsData(question.id),
+                    conditions: conditionsData,
                     settings: question.settings || {}
                 };
 
@@ -2143,38 +2491,69 @@
 
         init() {
             // Initialize conditions storage
+            this.setupGlobalEventDelegation();
+        }
+
+        /**
+         * Configurar event delegation básico (sin eliminación de condiciones)
+         */
+        setupGlobalEventDelegation() {
+            console.log('SFQ: Condition removal disabled - no event delegation needed');
         }
 
         loadConditions(questionId, conditionsData) {
             if (!conditionsData || !Array.isArray(conditionsData)) return;
             
-            this.conditions[questionId] = conditionsData.map((cond, index) => ({
-                id: 'c_' + questionId + '_' + index,
-                type: cond.condition_type || 'answer_equals',
-                value: cond.condition_value || '',
-                action: cond.action_type || 'goto_question',
-                actionValue: cond.action_value || '',
-                operator: cond.variable_operation || '',
-                amount: cond.variable_amount || 0
-            }));
+            console.log('SFQ: Loading conditions for question', questionId, ':', conditionsData);
+            
+            this.conditions[questionId] = conditionsData.map((cond, index) => {
+                // ✅ CRÍTICO: Usar campos separados para variable_amount y comparison_value
+                const condition = {
+                    id: 'c_' + questionId + '_' + index,
+                    type: cond.condition_type || 'answer_equals',
+                    value: cond.condition_value || '',
+                    action: cond.action_type || 'goto_question',
+                    actionValue: cond.action_value || '',
+                    operator: cond.variable_operation || '',
+                    amount: cond.variable_amount || 0,  // Para acciones de variables
+                    comparisonValue: cond.comparison_value || ''  // Para condiciones de variables
+                };
+                
+                console.log('SFQ: Restored condition with separate fields:', condition);
+                
+                return condition;
+            });
+            
+            console.log('SFQ: Processed conditions for question', questionId, ':', this.conditions[questionId]);
             
             // Render conditions
             this.renderConditions(questionId);
+            
+            // CRÍTICO: Re-poblar dropdowns después de renderizar
+            setTimeout(() => {
+                this.repopulateConditionDropdowns(questionId);
+            }, 100);
         }
 
         renderConditions(questionId) {
             const $container = $(`#conditions-${questionId}`);
             if (!$container.length) return;
             
+            console.log('SFQ: Rendering conditions for question', questionId);
+            
             // Clear existing conditions (keep add button)
             $container.find('.sfq-condition-item').remove();
             
             const conditions = this.conditions[questionId] || [];
+            console.log('SFQ: Conditions to render:', conditions);
+            
             conditions.forEach(condition => {
                 const html = this.formBuilder.uiRenderer.renderCondition(condition);
                 $container.find('.sfq-add-condition').before(html);
                 this.bindConditionEvents(condition.id, questionId);
             });
+            
+            console.log('SFQ: Rendered', conditions.length, 'conditions for question', questionId);
         }
 
         addCondition(questionId) {
@@ -2186,8 +2565,11 @@
                 action: 'goto_question',
                 actionValue: '',
                 operator: '',
-                amount: 0
+                amount: 0,
+                comparisonValue: 0  // ✅ CRÍTICO: Inicializar comparisonValue
             };
+            
+            console.log('SFQ: Creating new condition with initialized comparisonValue:', condition);
             
             if (!this.conditions[questionId]) {
                 this.conditions[questionId] = [];
@@ -2212,53 +2594,197 @@
             
             // Update condition fields
             $condition.find('.sfq-condition-type').off('change').on('change', function() {
-                condition.type = $(this).val();
-                self.formBuilder.isDirty = true; // Usar self en lugar de this
+                const newConditionType = $(this).val();
+                condition.type = newConditionType;
+                
+                // Regenerar el campo de valor de condición según el nuevo tipo
+                const newConditionValueField = self.formBuilder.uiRenderer.generateConditionValueField(condition);
+                $condition.find('.sfq-condition-value-container').html(newConditionValueField);
+                
+                // Rebind events para los nuevos campos
+                self.bindConditionValueEvents($condition, condition);
+                
+                self.formBuilder.isDirty = true;
             });
             
+            // Bind initial condition value events
+            this.bindConditionValueEvents($condition, condition);
+            
+            // Handle action type change - regenerate action value field and show/hide amount field
+            $condition.find('.sfq-action-type').off('change').on('change', function() {
+                const newActionType = $(this).val();
+                condition.action = newActionType;
+                
+                // Limpiar el valor anterior si cambia el tipo de acción
+                condition.actionValue = '';
+                
+                // Regenerar el campo de valor de acción
+                const newActionValueField = self.formBuilder.uiRenderer.generateActionValueField(condition);
+                $condition.find('.sfq-action-value-container').html(newActionValueField);
+                
+                // Mostrar/ocultar campo de cantidad según el tipo de acción
+                const $amountRow = $condition.find('.sfq-condition-amount-row');
+                const $amountLabel = $condition.find('.sfq-condition-amount-label');
+                
+                if (['add_variable', 'set_variable'].includes(newActionType)) {
+                    $amountRow.show();
+                    $amountLabel.text(newActionType === 'add_variable' ? 'Cantidad a sumar:' : 'Valor a establecer:');
+                } else {
+                    $amountRow.hide();
+                }
+                
+                // Rebind events para el nuevo campo
+                self.bindActionValueEvents($condition, condition);
+                
+                self.formBuilder.isDirty = true;
+            });
+            
+            // Handle amount field changes
+            $condition.find('.sfq-condition-amount').off('input').on('input', function() {
+                condition.amount = parseInt($(this).val()) || 0;
+                self.formBuilder.isDirty = true;
+            });
+            
+            // Bind initial action value events
+            this.bindActionValueEvents($condition, condition);
+            
+            // Eliminación de condiciones deshabilitada - sin event listeners
+        }
+
+        /**
+         * Bind events para el campo de valor de acción - MEJORADO
+         */
+        bindActionValueEvents($condition, condition) {
+            const self = this;
+            
+            // Handle input/change events for action value
+            $condition.find('.sfq-action-value').off('input change keyup').on('input change keyup', function() {
+                condition.actionValue = $(this).val();
+                self.formBuilder.isDirty = true;
+                console.log('SFQ: Updated action value for condition', condition.id, 'to:', condition.actionValue);
+            });
+            
+            // Handle select events for dropdowns - MEJORADO con más eventos
+            $condition.find('.sfq-question-dropdown, .sfq-variable-dropdown').off('change click focus').on('change click focus', function() {
+                const newValue = $(this).val();
+                if (newValue !== condition.actionValue) {
+                    condition.actionValue = newValue;
+                    self.formBuilder.isDirty = true;
+                    console.log('SFQ: Updated dropdown value for condition', condition.id, 'to:', condition.actionValue);
+                }
+            });
+            
+            // CRÍTICO: Asegurar que el valor inicial esté establecido correctamente
+            const $actionValue = $condition.find('.sfq-action-value, .sfq-question-dropdown, .sfq-variable-dropdown');
+            if ($actionValue.length > 0 && condition.actionValue) {
+                $actionValue.val(condition.actionValue);
+                console.log('SFQ: Set initial value for condition', condition.id, 'to:', condition.actionValue);
+            }
+        }
+
+        /**
+         * Bind events para los campos de valor de condición
+         */
+        bindConditionValueEvents($condition, condition) {
+            const self = this;
+            
+            // Para condiciones de respuesta (campo simple)
             $condition.find('.sfq-condition-value').off('input').on('input', function() {
                 condition.value = $(this).val();
-                self.formBuilder.isDirty = true; // Usar self en lugar de this
+                self.formBuilder.isDirty = true;
+                console.log('SFQ: Updated condition value for condition', condition.id, 'to:', condition.value);
             });
             
-            $condition.find('.sfq-action-type').off('change').on('change', function() {
-                condition.action = $(this).val();
-                self.formBuilder.isDirty = true; // Usar self en lugar de this
+            // Para condiciones de variables (campos compuestos)
+            $condition.find('.sfq-condition-variable-name').off('change').on('change', function() {
+                condition.value = $(this).val(); // El nombre de la variable va en 'value'
+                self.formBuilder.isDirty = true;
+                console.log('SFQ: Updated variable name for condition', condition.id, 'to:', condition.value);
             });
             
-            $condition.find('.sfq-action-value').off('input').on('input', function() {
-                condition.actionValue = $(this).val();
-                self.formBuilder.isDirty = true; // Usar self en lugar de this
-            });
-            
-            // Remove condition
-            $condition.find('.sfq-remove-condition').off('click').on('click', () => {
-                this.removeCondition(conditionId, questionId);
+            // ✅ CRÍTICO: Event binding para el campo de valor de comparación
+            $condition.find('.sfq-condition-comparison-value').off('input').on('input', function() {
+                condition.comparisonValue = $(this).val(); // El valor de comparación va en 'comparisonValue'
+                self.formBuilder.isDirty = true;
+                console.log('SFQ: Updated comparison value for condition', condition.id, 'to:', condition.comparisonValue);
             });
         }
 
-        removeCondition(conditionId, questionId) {
-            $(`#${conditionId}`).fadeOut(300, function() {
-                $(this).remove();
+
+        /**
+         * CRÍTICO: Re-poblar dropdowns de condiciones después de cargar
+         */
+        repopulateConditionDropdowns(questionId) {
+            console.log('SFQ: Re-populating condition dropdowns for question', questionId);
+            
+            const conditions = this.conditions[questionId] || [];
+            
+            conditions.forEach(condition => {
+                const $conditionElement = $(`#${condition.id}`);
+                if ($conditionElement.length === 0) {
+                    console.warn('SFQ: Condition element not found:', condition.id);
+                    return;
+                }
+                
+                // Re-generar el campo de valor de acción con el valor correcto
+                if (condition.action === 'goto_question') {
+                    const newDropdown = this.formBuilder.uiRenderer.generateQuestionDropdown(condition.actionValue);
+                    $conditionElement.find('.sfq-action-value-container').html(newDropdown);
+                    
+                    // Re-bind events para el nuevo dropdown
+                    this.bindActionValueEvents($conditionElement, condition);
+                    
+                    console.log('SFQ: Re-populated question dropdown for condition', condition.id, 'with value', condition.actionValue);
+                } else if (condition.action === 'add_variable' || condition.action === 'set_variable') {
+                    const newVariableField = this.formBuilder.uiRenderer.generateVariableField(condition.actionValue);
+                    $conditionElement.find('.sfq-action-value-container').html(newVariableField);
+                    
+                    // Re-bind events para el nuevo campo
+                    this.bindActionValueEvents($conditionElement, condition);
+                    
+                    console.log('SFQ: Re-populated variable field for condition', condition.id, 'with value', condition.actionValue);
+                }
             });
             
-            if (this.conditions[questionId]) {
-                this.conditions[questionId] = this.conditions[questionId].filter(c => c.id !== conditionId);
-            }
-            
-            this.formBuilder.isDirty = true;
+            console.log('SFQ: Finished re-populating dropdowns for question', questionId);
         }
 
         getConditionsData(questionId) {
             const conditions = this.conditions[questionId] || [];
-            return conditions.map(cond => ({
-                condition_type: cond.type,
-                condition_value: cond.value,
-                action_type: cond.action,
-                action_value: cond.actionValue,
-                variable_operation: cond.operator,
-                variable_amount: cond.amount
-            }));
+            
+            // Debug: Mostrar las condiciones que se van a guardar
+            console.log('SFQ: Getting conditions data for question ' + questionId + ':', conditions);
+            
+            const conditionsData = conditions.map(cond => {
+                // ✅ CRÍTICO: Normalizar comparison_value según el contexto
+                let normalizedComparisonValue = cond.comparisonValue || '';
+                
+                // Si es una condición de variable y el valor parece numérico, convertirlo
+                if (['variable_greater', 'variable_less', 'variable_equals'].includes(cond.type)) {
+                    if (normalizedComparisonValue !== '' && !isNaN(normalizedComparisonValue)) {
+                        // Es numérico, convertir a número para consistencia
+                        normalizedComparisonValue = parseFloat(normalizedComparisonValue);
+                    }
+                    // Si no es numérico, mantener como string
+                }
+                
+                const conditionData = {
+                    condition_type: cond.type,
+                    condition_value: cond.value,
+                    action_type: cond.action,
+                    action_value: cond.actionValue,
+                    variable_operation: cond.operator,
+                    variable_amount: cond.amount || 0,  // Para acciones de variables
+                    comparison_value: normalizedComparisonValue  // Normalizado según contexto
+                };
+                
+                console.log('SFQ: Mapped condition with normalized comparison_value:', conditionData);
+                return conditionData;
+            });
+            
+            console.log('SFQ: Final mapped conditions data for question ' + questionId + ':', conditionsData);
+            
+            return conditionsData;
         }
 
         destroy() {
@@ -2574,6 +3100,9 @@
         }
 
         renderCondition(condition) {
+            // Generar el campo de valor de acción dinámicamente
+            const actionValueField = this.generateActionValueField(condition);
+            
             return `
                 <div class="sfq-condition-item" id="${condition.id}">
                     <div class="sfq-condition-row">
@@ -2597,9 +3126,9 @@
                                 Si la variable es igual a
                             </option>
                         </select>
-                        <input type="text" class="sfq-condition-value" 
-                               placeholder="Valor" 
-                               value="${this.escapeHtml(condition.value)}">
+                        <div class="sfq-condition-value-container">
+                            ${this.generateConditionValueField(condition)}
+                        </div>
                     </div>
                     <div class="sfq-condition-row">
                         <select class="sfq-action-type">
@@ -2622,15 +3151,174 @@
                                 Establecer variable
                             </option>
                         </select>
-                        <input type="text" class="sfq-action-value" 
-                               placeholder="Valor de acción" 
-                               value="${this.escapeHtml(condition.actionValue)}">
-                        <button class="sfq-remove-condition" type="button" title="Eliminar condición">
-                            <span class="dashicons dashicons-trash"></span>
-                        </button>
+                        <div class="sfq-action-value-container">
+                            ${actionValueField}
+                        </div>
+                    </div>
+                    <div class="sfq-condition-amount-row" style="display: ${['add_variable', 'set_variable'].includes(condition.action) ? 'flex' : 'none'};">
+                        <label class="sfq-condition-amount-label">
+                            ${condition.action === 'add_variable' ? 'Cantidad a sumar:' : 'Valor a establecer:'}
+                        </label>
+                        <input type="number" class="sfq-condition-amount" 
+                               placeholder="${condition.action === 'add_variable' ? '5' : '10'}" 
+                               value="${condition.amount || ''}"
+                               min="0" step="1">
                     </div>
                 </div>
             `;
+        }
+
+        /**
+         * Generar el campo de valor de acción según el tipo de acción
+         */
+        generateActionValueField(condition) {
+            switch (condition.action) {
+                case 'goto_question':
+                    return this.generateQuestionDropdown(condition.actionValue);
+                case 'redirect_url':
+                    return `<input type="url" class="sfq-action-value" 
+                                   placeholder="https://ejemplo.com" 
+                                   value="${this.escapeHtml(condition.actionValue)}">`;
+                case 'show_message':
+                    return `<textarea class="sfq-action-value" 
+                                      placeholder="Mensaje a mostrar" 
+                                      rows="2">${this.escapeHtml(condition.actionValue)}</textarea>`;
+                case 'add_variable':
+                case 'set_variable':
+                    return this.generateVariableField(condition.actionValue);
+                default:
+                    return `<input type="text" class="sfq-action-value" 
+                                   placeholder="Valor de acción" 
+                                   value="${this.escapeHtml(condition.actionValue)}">`;
+            }
+        }
+
+        /**
+         * Generar desplegable con las preguntas disponibles
+         */
+        generateQuestionDropdown(selectedValue) {
+            const questions = this.formBuilder.questionManager.questions || [];
+            
+            let options = '<option value="">Selecciona una pregunta...</option>';
+            
+            questions.forEach((question, index) => {
+                const questionNumber = index + 1;
+                const questionText = question.text || 'Pregunta sin título';
+                const truncatedText = questionText.length > 50 ? 
+                    questionText.substring(0, 50) + '...' : questionText;
+                
+                // Usar el ID original de la base de datos si existe, sino usar el ID temporal
+                const questionId = question.originalId || question.id;
+                const isSelected = selectedValue == questionId ? 'selected' : '';
+                
+                options += `<option value="${questionId}" ${isSelected}>
+                    Pregunta ${questionNumber}: ${this.escapeHtml(truncatedText)}
+                </option>`;
+            });
+            
+            return `<select class="sfq-action-value sfq-question-dropdown">
+                        ${options}
+                    </select>`;
+        }
+
+        /**
+         * Generar campo para variables globales
+         */
+        generateVariableField(selectedValue) {
+            const variables = this.formBuilder.getGlobalVariables() || [];
+            
+            if (variables.length === 0) {
+                return `<input type="text" class="sfq-action-value" 
+                               placeholder="Nombre de la variable" 
+                               value="${this.escapeHtml(selectedValue)}">
+                        <small style="display: block; color: #666; font-size: 11px; margin-top: 4px;">
+                            💡 Tip: Crea variables globales en la pestaña "Variables"
+                        </small>`;
+            }
+            
+            let options = '<option value="">Selecciona una variable...</option>';
+            
+            variables.forEach(variable => {
+                const isSelected = selectedValue === variable.name ? 'selected' : '';
+                options += `<option value="${variable.name}" ${isSelected}>
+                    ${this.escapeHtml(variable.name)} (${variable.type})
+                </option>`;
+            });
+            
+            return `<select class="sfq-action-value sfq-variable-dropdown">
+                        ${options}
+                    </select>`;
+        }
+
+        /**
+         * Generar el campo de valor de condición según el tipo de condición
+         */
+        generateConditionValueField(condition) {
+            switch (condition.type) {
+                case 'variable_greater':
+                case 'variable_less':
+                case 'variable_equals':
+                    // Para condiciones de variables, mostrar dropdown de variables + campo de valor
+                    return this.generateVariableConditionFields(condition);
+                case 'answer_equals':
+                case 'answer_contains':
+                case 'answer_not_equals':
+                default:
+                    // Para condiciones de respuesta, campo de texto simple
+                    return `<input type="text" class="sfq-condition-value" 
+                                   placeholder="Valor" 
+                                   value="${this.escapeHtml(condition.value)}">`;
+            }
+        }
+
+        /**
+         * Generar campos específicos para condiciones de variables
+         */
+        generateVariableConditionFields(condition) {
+            const variables = this.formBuilder.getGlobalVariables() || [];
+            
+            // ✅ CRÍTICO: Usar directamente condition.value y condition.comparisonValue
+            const variableName = condition.value || '';
+            const comparisonValue = condition.comparisonValue || '';
+            
+            console.log('SFQ: Generating variable condition fields for condition:', condition.id);
+            console.log('SFQ: Variable name:', variableName);
+            console.log('SFQ: Comparison value:', comparisonValue);
+            
+            if (variables.length === 0) {
+                return `<div class="sfq-variable-condition-fields">
+                            <input type="text" class="sfq-condition-variable-name" 
+                                   placeholder="Nombre de variable" 
+                                   value="${this.escapeHtml(variableName)}"
+                                   style="width: 45%; margin-right: 10px;">
+                            <input type="text" class="sfq-condition-comparison-value" 
+                                   placeholder="Valor a comparar" 
+                                   value="${this.escapeHtml(comparisonValue)}"
+                                   style="width: 45%;">
+                            <small style="display: block; color: #666; font-size: 11px; margin-top: 4px;">
+                                💡 Tip: Crea variables globales en la pestaña "Variables"
+                            </small>
+                        </div>`;
+            }
+            
+            let variableOptions = '<option value="">Selecciona una variable...</option>';
+            
+            variables.forEach(variable => {
+                const isSelected = variableName === variable.name ? 'selected' : '';
+                variableOptions += `<option value="${variable.name}" ${isSelected}>
+                    ${this.escapeHtml(variable.name)} (${variable.type})
+                </option>`;
+            });
+            
+            return `<div class="sfq-variable-condition-fields">
+                        <select class="sfq-condition-variable-name" style="width: 45%; margin-right: 10px;">
+                            ${variableOptions}
+                        </select>
+                        <input type="text" class="sfq-condition-comparison-value" 
+                               placeholder="Valor a comparar" 
+                               value="${this.escapeHtml(comparisonValue)}"
+                               style="width: 45%;">
+                    </div>`;
         }
 
         showEmptyState() {

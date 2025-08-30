@@ -288,7 +288,28 @@ class SFQ_Frontend {
             </div>
             
             <!-- Variables ocultas para lógica condicional -->
-            <input type="hidden" id="sfq-variables-<?php echo $form_id; ?>" value="{}">
+            <?php 
+            // ✅ CRÍTICO: Inicializar variables globales desde la configuración del formulario
+            $global_variables = array();
+            if (isset($form->global_variables) && is_array($form->global_variables)) {
+                foreach ($form->global_variables as $variable) {
+                    $initial_value = $variable['initial_value'] ?? '';
+                    
+                    // Convertir valor inicial según el tipo
+                    switch ($variable['type'] ?? 'text') {
+                        case 'number':
+                            $global_variables[$variable['name']] = floatval($initial_value);
+                            break;
+                        case 'boolean':
+                            $global_variables[$variable['name']] = in_array(strtolower($initial_value), ['true', '1', 'yes']);
+                            break;
+                        default:
+                            $global_variables[$variable['name']] = $initial_value;
+                    }
+                }
+            }
+            ?>
+            <input type="hidden" id="sfq-variables-<?php echo $form_id; ?>" value='<?php echo json_encode($global_variables); ?>'>
             <input type="hidden" id="sfq-redirect-url-<?php echo $form_id; ?>" value="<?php echo esc_attr($form->redirect_url); ?>">
         </div>
         

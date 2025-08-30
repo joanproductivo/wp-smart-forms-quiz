@@ -103,9 +103,9 @@
   - Determinar rutas condicionales
   - Mostrar resultados personalizados
 
-### Analytics:
+### Estadísticas:
 
-- Ve a **Analytics** para ver:
+- Ve a **Estadísticas** para ver:
   - Total de vistas
   - Formularios completados
   - Tasa de conversión

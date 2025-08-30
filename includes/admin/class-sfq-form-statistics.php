@@ -1354,39 +1354,39 @@ class SFQ_Form_Statistics {
             case 'text':
             case 'email':
             case 'phone':
-                return $this->process_text_element($element, $element_responses);
+                return $this->process_text_element($element, $element_responses, $date_condition);
                 
             case 'rating':
-                return $this->process_rating_element($element, $element_responses);
+                return $this->process_rating_element($element, $element_responses, $date_condition);
                 
             case 'dropdown':
-                return $this->process_dropdown_element($element, $element_responses);
+                return $this->process_dropdown_element($element, $element_responses, $date_condition);
                 
             case 'checkbox':
-                return $this->process_checkbox_element($element, $element_responses);
+                return $this->process_checkbox_element($element, $element_responses, $date_condition);
                 
             case 'button':
             case 'image':
-                return $this->process_interaction_element($element, $element_responses);
+                return $this->process_interaction_element($element, $element_responses, $date_condition);
                 
             case 'file_upload':
-                return $this->process_file_element($element, $element_responses);
+                return $this->process_file_element($element, $element_responses, $date_condition);
                 
             case 'countdown':
-                return $this->process_countdown_element($element, $element_responses);
+                return $this->process_countdown_element($element, $element_responses, $date_condition);
                 
             case 'legal_text':
-                return $this->process_legal_element($element, $element_responses);
+                return $this->process_legal_element($element, $element_responses, $date_condition);
                 
             default:
-                return $this->process_generic_element($element, $element_responses);
+                return $this->process_generic_element($element, $element_responses, $date_condition);
         }
     }
     
     /**
      * Procesar elementos de texto (text, email, phone)
      */
-    private function process_text_element($element, $element_responses) {
+    private function process_text_element($element, $element_responses, $date_condition = null) {
         $total_responses = count($element_responses);
         $values = array_column($element_responses, 'value');
         $values = array_filter($values, function($v) { return !empty(trim($v)); });
@@ -1404,10 +1404,19 @@ class SFQ_Form_Statistics {
         foreach ($value_counts as $value => $count) {
             if ($i >= 5) break; // Top 5
             $percentage = $total_responses > 0 ? round(($count / $total_responses) * 100, 1) : 0;
+            
+            // Obtener datos de países para este valor específico
+            $countries_data = $this->get_countries_for_freestyle_element_value(
+                $element['id'], 
+                $value, 
+                $element_responses
+            );
+            
             $most_common[] = [
                 'value' => substr($value, 0, 50) . (strlen($value) > 50 ? '...' : ''),
                 'count' => $count,
-                'percentage' => $percentage
+                'percentage' => $percentage,
+                'countries_data' => $countries_data
             ];
             $i++;
         }
@@ -1494,7 +1503,7 @@ class SFQ_Form_Statistics {
     /**
      * Procesar elementos dropdown
      */
-    private function process_dropdown_element($element, $element_responses) {
+    private function process_dropdown_element($element, $element_responses, $date_condition = null) {
         $total_responses = count($element_responses);
         $values = array_column($element_responses, 'value');
         $values = array_filter($values, function($v) { return !empty(trim($v)); });
@@ -1523,10 +1532,19 @@ class SFQ_Form_Statistics {
         $distribution = [];
         foreach ($option_counts as $option => $count) {
             $percentage = $total_responses > 0 ? round(($count / $total_responses) * 100, 1) : 0;
+            
+            // Obtener datos de países para esta opción
+            $countries_data = $this->get_countries_for_freestyle_element_value(
+                $element['id'], 
+                $option, 
+                $element_responses
+            );
+            
             $distribution[] = [
                 'option' => $option,
                 'count' => $count,
-                'percentage' => $percentage
+                'percentage' => $percentage,
+                'countries_data' => $countries_data
             ];
         }
         
@@ -1727,5 +1745,77 @@ class SFQ_Form_Statistics {
             default:
                 return (string)$rating;
         }
+    }
+    
+    /**
+     * Obtener datos de países para un valor específico de elemento freestyle
+     */
+    private function get_countries_for_freestyle_element_value($element_id, $value, $element_responses) {
+        // Filtrar respuestas que coincidan con el valor específico
+        $matching_responses = array_filter($element_responses, function($response) use ($value) {
+            return $response['value'] === $value;
+        });
+        
+        if (empty($matching_responses)) {
+            return array();
+        }
+        
+        // Extraer IPs únicas
+        $ips = array_unique(array_column($matching_responses, 'user_ip'));
+        $ips = array_filter($ips, function($ip) { return !empty($ip); });
+        
+        if (empty($ips)) {
+            return array();
+        }
+        
+        // Obtener información de países para todas las IPs
+        if (class_exists('SFQ_Admin_Submissions')) {
+            $submissions_handler = new SFQ_Admin_Submissions();
+            
+            // Usar reflection para acceder al método privado
+            $reflection = new ReflectionClass($submissions_handler);
+            $method = $reflection->getMethod('get_countries_info_batch');
+            $method->setAccessible(true);
+            
+            $countries_info = $method->invoke($submissions_handler, $ips);
+        } else {
+            return array();
+        }
+        
+        $countries_count = array();
+        $total_responses = count($matching_responses);
+        
+        // Procesar resultados agrupando por país
+        foreach ($matching_responses as $response) {
+            $country_info = $countries_info[$response['user_ip']] ?? null;
+            
+            if ($country_info && $country_info['country_code'] !== 'XX') {
+                $country_key = $country_info['country_code'];
+                
+                if (!isset($countries_count[$country_key])) {
+                    $countries_count[$country_key] = array(
+                        'country_code' => $country_info['country_code'],
+                        'country_name' => $country_info['country_name'],
+                        'flag_emoji' => $country_info['flag_emoji'],
+                        'count' => 0
+                    );
+                }
+                
+                $countries_count[$country_key]['count']++;
+            }
+        }
+        
+        // Calcular porcentajes y ordenar
+        foreach ($countries_count as &$country) {
+            $country['percentage'] = $total_responses > 0 ? 
+                round(($country['count'] / $total_responses) * 100, 1) : 0;
+        }
+        
+        // Ordenar por cantidad descendente y limitar a top 5
+        uasort($countries_count, function($a, $b) {
+            return $b['count'] - $a['count'];
+        });
+        
+        return array_slice(array_values($countries_count), 0, 5);
     }
 }

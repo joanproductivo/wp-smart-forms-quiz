@@ -1036,6 +1036,10 @@
                                 <span class="dashicons dashicons-arrow-down-alt2"></span>
                                 <span class="sfq-expand-text">Expandir Todo</span>
                             </button>
+                            <button class="sfq-expand-all-countries-freestyle" data-question="${questionIndex}">
+                                <span class="dashicons dashicons-admin-site-alt3"></span>
+                                <span class="sfq-expand-countries-text">Mostrar países</span>
+                            </button>
                         </div>
                     </div>
                     <div class="sfq-freestyle-elements" id="${questionId}">
@@ -1142,20 +1146,54 @@
 
             // Mostrar respuestas más comunes
             if (element.most_common && element.most_common.length > 0) {
+                // Verificar si alguna respuesta común tiene datos de países
+                const hasAnyCountriesData = element.most_common.some(item => 
+                    item.countries_data && item.countries_data.length > 0
+                );
+                
                 html += `
                     <div class="sfq-most-common">
-                        <h5>Respuestas Más Comunes</h5>
+                        <div class="sfq-most-common-header">
+                            <h5>Respuestas Más Comunes</h5>
+                            ${hasAnyCountriesData ? `
+                                <button class="sfq-expand-all-btn sfq-expand-all-countries-text" data-element="${element.id}" title="Expandir/colapsar todos los países">
+                                    <span class="dashicons dashicons-admin-site-alt3"></span>
+                                    <span class="sfq-expand-countries-text">Mostrar países</span>
+                                </button>
+                            ` : ''}
+                        </div>
                         <div class="sfq-common-list">
                 `;
                 
-                element.most_common.forEach(item => {
+                element.most_common.forEach((item, index) => {
+                    const hasCountriesData = item.countries_data && item.countries_data.length > 0;
+                    const itemId = `common-item-${element.id}-${index}`;
+                    
                     html += `
                         <div class="sfq-common-item">
-                            <span class="sfq-common-text">${this.escapeHtml(item.value)}</span>
-                            <span class="sfq-common-stats">${item.count} (${item.percentage}%)</span>
+                            <div class="sfq-common-info">
+                                <span class="sfq-common-text">${this.escapeHtml(item.value)}</span>
+                                <span class="sfq-common-stats">${item.count} (${item.percentage}%)</span>
+                                ${hasCountriesData ? `
+                                    <button class="sfq-countries-toggle" data-target="${itemId}" title="Ver desglose por países">
+                                        <span class="dashicons dashicons-admin-site-alt3"></span>
+                                    </button>
+                                ` : ''}
+                            </div>
                             <div class="sfq-common-bar">
                                 <div class="sfq-common-bar-fill" style="width: ${item.percentage}%"></div>
                             </div>
+                            ${hasCountriesData ? `
+                                <div class="sfq-countries-breakdown" id="${itemId}" style="display: none;">
+                                    <div class="sfq-countries-header">
+                                        <h6>Desglose por países</h6>
+                                        <span class="sfq-countries-total">${item.count} respuestas</span>
+                                    </div>
+                                    <div class="sfq-countries-list">
+                                        ${this.renderCountriesBreakdown(item.countries_data)}
+                                    </div>
+                                </div>
+                            ` : ''}
                         </div>
                     `;
                 });
@@ -1645,6 +1683,84 @@
                     allToggleIcons.removeClass('dashicons-arrow-down-alt2').addClass('dashicons-arrow-up-alt2');
                     buttonIcon.removeClass('dashicons-arrow-down-alt2').addClass('dashicons-arrow-up-alt2');
                     buttonText.text('Colapsar Todo');
+                }
+            });
+
+            // Expand/collapse all countries in a freestyle question
+            $(document).off('click', '.sfq-expand-all-countries-freestyle').on('click', '.sfq-expand-all-countries-freestyle', (e) => {
+                e.preventDefault();
+                const button = $(e.currentTarget);
+                const questionIndex = button.data('question');
+                const questionCard = button.closest('.sfq-freestyle-question-card');
+                const allCountriesBreakdowns = questionCard.find('.sfq-countries-breakdown');
+                const allCountriesToggleButtons = questionCard.find('.sfq-countries-toggle');
+                const buttonIcon = button.find('.dashicons');
+                const buttonText = button.find('.sfq-expand-countries-text');
+                
+                // Check if any countries breakdown is visible
+                const anyCountriesVisible = allCountriesBreakdowns.filter(':visible').length > 0;
+                
+                if (anyCountriesVisible) {
+                    // Collapse all countries
+                    allCountriesBreakdowns.slideUp(200);
+                    allCountriesToggleButtons.each(function() {
+                        const icon = $(this).find('.dashicons');
+                        icon.removeClass('dashicons-dismiss').addClass('dashicons-admin-site-alt3');
+                        $(this).attr('title', 'Ver desglose por países');
+                    });
+                    buttonIcon.removeClass('dashicons-dismiss').addClass('dashicons-admin-site-alt3');
+                    buttonText.text('Mostrar países');
+                    button.attr('title', 'Expandir todos los países');
+                } else {
+                    // Expand all countries
+                    allCountriesBreakdowns.slideDown(200);
+                    allCountriesToggleButtons.each(function() {
+                        const icon = $(this).find('.dashicons');
+                        icon.removeClass('dashicons-admin-site-alt3').addClass('dashicons-dismiss');
+                        $(this).attr('title', 'Ocultar desglose por países');
+                    });
+                    buttonIcon.removeClass('dashicons-admin-site-alt3').addClass('dashicons-dismiss');
+                    buttonText.text('Ocultar países');
+                    button.attr('title', 'Colapsar todos los países');
+                }
+            });
+
+            // Expand/collapse all countries in freestyle text elements
+            $(document).off('click', '.sfq-expand-all-countries-text').on('click', '.sfq-expand-all-countries-text', (e) => {
+                e.preventDefault();
+                const button = $(e.currentTarget);
+                const elementId = button.data('element');
+                const elementContainer = button.closest('.sfq-element-content');
+                const allCountriesBreakdowns = elementContainer.find('.sfq-countries-breakdown');
+                const allCountriesToggleButtons = elementContainer.find('.sfq-countries-toggle');
+                const buttonIcon = button.find('.dashicons');
+                const buttonText = button.find('.sfq-expand-countries-text');
+                
+                // Check if any countries breakdown is visible
+                const anyCountriesVisible = allCountriesBreakdowns.filter(':visible').length > 0;
+                
+                if (anyCountriesVisible) {
+                    // Collapse all countries
+                    allCountriesBreakdowns.slideUp(200);
+                    allCountriesToggleButtons.each(function() {
+                        const icon = $(this).find('.dashicons');
+                        icon.removeClass('dashicons-dismiss').addClass('dashicons-admin-site-alt3');
+                        $(this).attr('title', 'Ver desglose por países');
+                    });
+                    buttonIcon.removeClass('dashicons-dismiss').addClass('dashicons-admin-site-alt3');
+                    buttonText.text('Mostrar países');
+                    button.attr('title', 'Expandir todos los países');
+                } else {
+                    // Expand all countries
+                    allCountriesBreakdowns.slideDown(200);
+                    allCountriesToggleButtons.each(function() {
+                        const icon = $(this).find('.dashicons');
+                        icon.removeClass('dashicons-admin-site-alt3').addClass('dashicons-dismiss');
+                        $(this).attr('title', 'Ocultar desglose por países');
+                    });
+                    buttonIcon.removeClass('dashicons-admin-site-alt3').addClass('dashicons-dismiss');
+                    buttonText.text('Ocultar países');
+                    button.attr('title', 'Colapsar todos los países');
                 }
             });
         }

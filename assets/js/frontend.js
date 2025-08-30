@@ -20,7 +20,30 @@
             this.startTime = Date.now();
             this.questionStartTime = Date.now();
             
+            // ✅ CRÍTICO: Inicializar variables globales desde el campo oculto
+            this.initializeGlobalVariables();
+            
             this.init();
+        }
+
+        /**
+         * Inicializar variables globales desde la configuración del formulario
+         */
+        initializeGlobalVariables() {
+            const variablesInput = document.getElementById(`sfq-variables-${this.formId}`);
+            if (variablesInput && variablesInput.value) {
+                try {
+                    const globalVariables = JSON.parse(variablesInput.value);
+                    this.variables = { ...globalVariables };
+                    console.log('SFQ Frontend Debug: Initialized global variables:', this.variables);
+                } catch (e) {
+                    console.error('SFQ Frontend Error: Failed to parse global variables:', e);
+                    this.variables = {};
+                }
+            } else {
+                console.log('SFQ Frontend Debug: No global variables found, using empty object');
+                this.variables = {};
+            }
         }
 
         init() {
@@ -158,9 +181,11 @@
                     this.skipToQuestion = redirectResult.skipToQuestion;
                 }
 
-                // Actualizar variables si las hay
+                // ✅ CRÍTICO: Actualizar variables si las hay
                 if (redirectResult && redirectResult.variables) {
-                    this.variables = { ...this.variables, ...redirectResult.variables };
+                    console.log('SFQ Frontend Debug: Updating variables from:', this.variables, 'to:', redirectResult.variables);
+                    this.variables = { ...redirectResult.variables };
+                    console.log('SFQ Frontend Debug: Variables updated to:', this.variables);
                 }
 
             } catch (error) {
@@ -288,6 +313,12 @@
                     const conditionsList = JSON.parse(conditions);
                     const localResult = this.evaluateConditionsForRedirect(conditionsList, questionId);
                     
+                    // ✅ CRÍTICO: Aplicar variables actualizadas al estado global
+                    if (localResult.variables) {
+                        console.log('SFQ Frontend Debug: Applying local variables to global state:', localResult.variables);
+                        this.variables = { ...localResult.variables };
+                    }
+                    
                     if (localResult.shouldRedirect) {
                         return localResult;
                     }
@@ -299,6 +330,13 @@
             // Siempre hacer petición AJAX para obtener condiciones del servidor
             try {
                 const ajaxResult = await this.checkConditionsViaAjax(questionId, element.dataset.value);
+                
+                // ✅ CRÍTICO: Aplicar variables del servidor al estado global
+                if (ajaxResult && ajaxResult.variables) {
+                    console.log('SFQ Frontend Debug: Applying AJAX variables to global state:', ajaxResult.variables);
+                    this.variables = { ...ajaxResult.variables };
+                }
+                
                 return ajaxResult;
             } catch (error) {
                 console.error('Error en petición AJAX de condiciones:', error);
@@ -312,31 +350,67 @@
                 shouldRedirect: false,
                 redirectUrl: null,
                 skipToQuestion: null,
-                variables: {}
+                variables: { ...this.variables } // Empezar con variables actuales
             };
             
+            console.log('SFQ Frontend Debug: Evaluating conditions for question', questionId);
+            console.log('SFQ Frontend Debug: Current answer:', answer);
+            console.log('SFQ Frontend Debug: Current variables:', this.variables);
+            console.log('SFQ Frontend Debug: Conditions to evaluate:', conditions);
+            
             for (const condition of conditions) {
+                console.log('SFQ Frontend Debug: Evaluating condition:', condition);
+                
                 if (this.evaluateConditionImmediate(condition, answer, questionId)) {
-                    // Aplicar acción de la condición
+                    console.log('SFQ Frontend Debug: Condition matched! Executing action:', condition.action_type);
+                    
+                    // ✅ CRÍTICO: Ejecutar acciones de variables correctamente
                     switch (condition.action_type) {
                         case 'redirect_url':
                             result.shouldRedirect = true;
                             result.redirectUrl = condition.action_value;
+                            console.log('SFQ Frontend Debug: Setting redirect to:', condition.action_value);
                             return result; // Retornar inmediatamente para redirección
                             
                         case 'add_variable':
                             const varName = condition.action_value;
-                            const varAmount = parseInt(condition.variable_amount) || 1;
-                            result.variables[varName] = (this.variables[varName] || 0) + varAmount;
+                            const varAmount = parseInt(condition.variable_amount) || 0;
+                            const currentValue = result.variables[varName] || 0;
+                            const newValue = currentValue + varAmount;
+                            result.variables[varName] = newValue;
+                            
+                            console.log(`SFQ Frontend Debug: ADD_VARIABLE - Variable: ${varName}, Current: ${currentValue}, Adding: ${varAmount}, New: ${newValue}`);
+                            break;
+                            
+                        case 'set_variable':
+                            const setVarName = condition.action_value;
+                            const setValue = condition.variable_amount;
+                            result.variables[setVarName] = setValue;
+                            
+                            console.log(`SFQ Frontend Debug: SET_VARIABLE - Variable: ${setVarName}, Set to: ${setValue}`);
                             break;
                             
                         case 'goto_question':
                             result.skipToQuestion = condition.action_value;
+                            console.log('SFQ Frontend Debug: Setting skip to question:', condition.action_value);
+                            break;
+                            
+                        case 'skip_to_end':
+                            result.skipToQuestion = 'end';
+                            console.log('SFQ Frontend Debug: Skipping to end');
+                            break;
+                            
+                        case 'show_message':
+                            console.log('SFQ Frontend Debug: Show message:', condition.action_value);
+                            // Los mensajes se pueden manejar aquí en el futuro
                             break;
                     }
+                } else {
+                    console.log('SFQ Frontend Debug: Condition did not match');
                 }
             }
             
+            console.log('SFQ Frontend Debug: Final result variables:', result.variables);
             return result;
         }
 
@@ -348,21 +422,77 @@
                 case 'answer_contains':
                     return answer && answer.toString().includes(condition.condition_value);
                     
+                case 'answer_not_equals':
+                    return answer !== condition.condition_value;
+                    
                 case 'variable_greater':
                     const varName = condition.condition_value;
-                    const threshold = parseInt(condition.variable_amount) || 0;
-                    return (this.variables[varName] || 0) > threshold;
+                    const comparisonValue = this.getComparisonValue(condition);
+                    const varValue = this.variables[varName] || 0;
+                    return this.smartCompare(varValue, comparisonValue, '>');
                     
                 case 'variable_less':
                     const varName2 = condition.condition_value;
-                    const threshold2 = parseInt(condition.variable_amount) || 0;
-                    return (this.variables[varName2] || 0) < threshold2;
+                    const comparisonValue2 = this.getComparisonValue(condition);
+                    const varValue2 = this.variables[varName2] || 0;
+                    return this.smartCompare(varValue2, comparisonValue2, '<');
                     
                 case 'variable_equals':
                     const varName3 = condition.condition_value;
-                    const value = parseInt(condition.variable_amount) || 0;
-                    return (this.variables[varName3] || 0) === value;
+                    const comparisonValue3 = this.getComparisonValue(condition);
+                    const varValue3 = this.variables[varName3] || 0;
+                    return this.smartCompare(varValue3, comparisonValue3, '==');
                     
+                default:
+                    return false;
+            }
+        }
+
+        /**
+         * Obtener valor de comparación con fallback para compatibilidad
+         */
+        getComparisonValue(condition) {
+            // Priorizar comparison_value si existe y no está vacío
+            if (condition.comparison_value !== undefined && condition.comparison_value !== '') {
+                return condition.comparison_value;
+            }
+            
+            // Fallback a variable_amount para compatibilidad con datos existentes
+            return condition.variable_amount || 0;
+        }
+
+        /**
+         * Comparación inteligente que maneja números y texto automáticamente
+         */
+        smartCompare(value1, value2, operator) {
+            // Si ambos valores parecen números, comparar como números
+            if (!isNaN(value1) && !isNaN(value2)) {
+                const num1 = parseFloat(value1);
+                const num2 = parseFloat(value2);
+                
+                switch (operator) {
+                    case '>':
+                        return num1 > num2;
+                    case '<':
+                        return num1 < num2;
+                    case '==':
+                        return num1 === num2;
+                    default:
+                        return false;
+                }
+            }
+            
+            // Si alguno no es numérico, comparar como strings
+            const str1 = String(value1);
+            const str2 = String(value2);
+            
+            switch (operator) {
+                case '>':
+                    return str1.localeCompare(str2) > 0;
+                case '<':
+                    return str1.localeCompare(str2) < 0;
+                case '==':
+                    return str1 === str2;
                 default:
                     return false;
             }
