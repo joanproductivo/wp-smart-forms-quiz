@@ -2516,10 +2516,42 @@
         }
 
         /**
-         * Configurar event delegation básico (sin eliminación de condiciones)
+         * Configurar event delegation para eliminación de condiciones - CORREGIDO
          */
         setupGlobalEventDelegation() {
-            console.log('SFQ: Condition removal disabled - no event delegation needed');
+            const self = this;
+            
+            // Event delegation para botones de eliminar condición
+            $(document).off('click.sfq-condition-delete').on('click.sfq-condition-delete', '.sfq-condition-delete', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (!confirm('¿Estás seguro de eliminar esta condición?')) {
+                    return;
+                }
+                
+                const $condition = $(this).closest('.sfq-condition-item');
+                const conditionId = $condition.attr('id');
+                
+                if (!conditionId) {
+                    console.error('SFQ: No condition ID found for deletion');
+                    return;
+                }
+                
+                // Encontrar la pregunta que contiene esta condición
+                const $questionContainer = $condition.closest('.sfq-question-item');
+                const questionId = $questionContainer.attr('id');
+                
+                if (!questionId) {
+                    console.error('SFQ: No question ID found for condition deletion');
+                    return;
+                }
+                
+                console.log('SFQ: Deleting condition', conditionId, 'from question', questionId);
+                self.deleteCondition(conditionId, questionId);
+            });
+            
+            console.log('SFQ: Event delegation for condition deletion set up');
         }
 
         loadConditions(questionId, conditionsData) {
@@ -2578,7 +2610,10 @@
         }
 
         addCondition(questionId) {
-            const conditionId = 'c_' + Date.now();
+            // ✅ CRÍTICO: Usar el mismo formato que loadConditions para consistencia
+            const conditionIndex = (this.conditions[questionId] || []).length;
+            const conditionId = 'c_' + questionId + '_' + conditionIndex;
+            
             const condition = {
                 id: conditionId,
                 type: 'answer_equals',
@@ -2590,7 +2625,7 @@
                 comparisonValue: 0  // ✅ CRÍTICO: Inicializar comparisonValue
             };
             
-            console.log('SFQ: Creating new condition with initialized comparisonValue:', condition);
+            console.log('SFQ: Creating new condition with unified ID format:', condition);
             
             if (!this.conditions[questionId]) {
                 this.conditions[questionId] = [];
@@ -2669,12 +2704,8 @@
             // Bind initial action value events
             this.bindActionValueEvents($condition, condition);
             
-            // Delete condition button
-            $condition.find('.sfq-condition-delete').off('click').on('click', function() {
-                if (confirm('¿Estás seguro de eliminar esta condición?')) {
-                    self.deleteCondition(conditionId, questionId);
-                }
-            });
+            // Delete condition button - REMOVIDO: Ahora se maneja por event delegation
+            // El event delegation global se encarga de todos los botones de eliminar
         }
 
         /**
@@ -2776,36 +2807,88 @@
         }
 
         /**
-         * Eliminar una condición específica
+         * Eliminar una condición específica - MEJORADO CON LOGGING DETALLADO
          */
         deleteCondition(conditionId, questionId) {
-            const conditions = this.conditions[questionId] || [];
+            console.log('🗑️ SFQ: === STARTING CONDITION DELETION ===');
+            console.log('🗑️ SFQ: Condition ID to delete:', conditionId);
+            console.log('🗑️ SFQ: Question ID:', questionId);
+            
+            // Verificar que existe el array de condiciones para esta pregunta
+            if (!this.conditions[questionId]) {
+                console.error('❌ SFQ: No conditions array found for question', questionId);
+                console.log('🔍 SFQ: Available question IDs:', Object.keys(this.conditions));
+                return;
+            }
+            
+            const conditions = this.conditions[questionId];
+            console.log('📋 SFQ: Current conditions array before deletion:');
+            console.table(conditions.map((c, index) => ({
+                index: index,
+                id: c.id,
+                type: c.type,
+                action: c.action
+            })));
             
             // Encontrar el índice de la condición a eliminar
             const conditionIndex = conditions.findIndex(c => c.id === conditionId);
             
             if (conditionIndex === -1) {
-                console.warn('SFQ: Condition not found for deletion:', conditionId);
+                console.error('❌ SFQ: Condition not found for deletion:', conditionId);
+                console.log('🔍 SFQ: Available condition IDs:', conditions.map(c => c.id));
+                console.log('🔍 SFQ: Searching for exact matches...');
+                conditions.forEach((c, index) => {
+                    console.log(`   Index ${index}: "${c.id}" === "${conditionId}" ? ${c.id === conditionId}`);
+                });
                 return;
             }
             
+            console.log('✅ SFQ: Found condition at index', conditionIndex);
+            
+            // Mostrar el estado antes de la eliminación
+            console.log('📊 SFQ: Array state before splice:');
+            console.log('   - Array length:', conditions.length);
+            console.log('   - Condition to remove:', conditions[conditionIndex]);
+            
             // Eliminar la condición del array
-            conditions.splice(conditionIndex, 1);
+            const removedCondition = conditions.splice(conditionIndex, 1)[0];
+            console.log('✂️ SFQ: Spliced condition:', removedCondition);
+            
+            // Mostrar el estado después de la eliminación
+            console.log('📊 SFQ: Array state after splice:');
+            console.log('   - New array length:', conditions.length);
+            console.log('   - Remaining conditions:', conditions.map(c => c.id));
             
             // Actualizar el array de condiciones
             this.conditions[questionId] = conditions;
+            console.log('💾 SFQ: Updated conditions array in this.conditions[' + questionId + ']');
             
-            // Eliminar el elemento del DOM con animación
+            // Verificar que la actualización fue exitosa
+            const verifyArray = this.conditions[questionId];
+            console.log('🔍 SFQ: Verification - conditions array now contains:', verifyArray.map(c => c.id));
+            
+            // Eliminar el elemento del DOM
             const $condition = $(`#${conditionId}`);
-            $condition.fadeOut(300, function() {
-                $(this).remove();
-            });
+            if ($condition.length === 0) {
+                console.error('❌ SFQ: DOM element not found for condition', conditionId);
+            } else {
+                console.log('🎭 SFQ: Removing DOM element for condition', conditionId);
+                $condition.fadeOut(300, function() {
+                    $(this).remove();
+                    console.log('✅ SFQ: DOM element removed for condition', conditionId);
+                });
+            }
             
             // Marcar el formulario como modificado
             this.formBuilder.isDirty = true;
+            console.log('💾 SFQ: Marked form as dirty');
             
-            console.log('SFQ: Deleted condition', conditionId, 'from question', questionId);
-            console.log('SFQ: Remaining conditions for question', questionId, ':', this.conditions[questionId]);
+            console.log('🎉 SFQ: === CONDITION DELETION COMPLETED ===');
+            console.log('📈 SFQ: Final summary:');
+            console.log('   - Deleted condition ID:', conditionId);
+            console.log('   - From question:', questionId);
+            console.log('   - Remaining conditions:', this.conditions[questionId].length);
+            console.log('   - Remaining IDs:', this.conditions[questionId].map(c => c.id));
         }
 
         getConditionsData(questionId) {

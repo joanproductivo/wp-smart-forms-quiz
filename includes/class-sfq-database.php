@@ -631,10 +631,8 @@ class SFQ_Database {
                 // CRÍTICO: Aplicar mapeo de IDs a las condiciones antes de guardar
                 $mapped_conditions = $this->apply_id_mapping_to_conditions($update_data['conditions'], $id_mapping);
                 
-                // Save conditions with mapped IDs
-                if (!empty($mapped_conditions)) {
-                    $this->save_conditions($update_data['id'], $mapped_conditions);
-                }
+                // CRÍTICO: Siempre llamar a save_conditions, incluso con array vacío (para eliminar condiciones existentes)
+                $this->save_conditions($update_data['id'], $mapped_conditions);
             }
 
             // Batch insert new questions
@@ -660,10 +658,8 @@ class SFQ_Database {
                 // CRÍTICO: Aplicar mapeo de IDs a las condiciones antes de guardar
                 $mapped_conditions = $this->apply_id_mapping_to_conditions($insert_data['conditions'], $id_mapping);
                 
-                // Save conditions with mapped IDs
-                if (!empty($mapped_conditions)) {
-                    $this->save_conditions($question_id, $mapped_conditions);
-                }
+                // CRÍTICO: Siempre llamar a save_conditions, incluso con array vacío (para eliminar condiciones existentes)
+                $this->save_conditions($question_id, $mapped_conditions);
             }
 
             // Delete orphaned questions
@@ -704,7 +700,7 @@ class SFQ_Database {
     }
     
     /**
-     * Guardar condiciones
+     * Guardar condiciones - CORREGIDO para manejar arrays vacíos correctamente
      */
     private function save_conditions($question_id, $conditions) {
         global $wpdb;
@@ -718,24 +714,27 @@ class SFQ_Database {
         // CRÍTICO: Verificar que question_id es válido
         if (!$question_id || !is_numeric($question_id) || intval($question_id) <= 0) {
             error_log("SFQ: ERROR - Invalid question_id: " . $question_id);
-            return;
+            return false;
         }
         
         $question_id = intval($question_id);
         
-        // PASO 1: Eliminar TODAS las condiciones existentes para esta pregunta
-        // Usar una consulta más robusta
-        $delete_query = $wpdb->prepare(
-            "DELETE FROM {$this->conditions_table} WHERE question_id = %d",
-            $question_id
-        );
+        // CRÍTICO: Normalizar el array de condiciones
+        if (!is_array($conditions)) {
+            $conditions = array();
+        }
         
-        error_log("SFQ: Delete query: " . $delete_query);
-        $deleted_count = $wpdb->query($delete_query);
+        // PASO 1: Eliminar TODAS las condiciones existentes para esta pregunta
+        // Usar DELETE directo sin preparar la consulta dos veces
+        $deleted_count = $wpdb->delete(
+            $this->conditions_table,
+            array('question_id' => $question_id),
+            array('%d')
+        );
         
         if ($deleted_count === false) {
             error_log("SFQ: ERROR - Failed to delete existing conditions: " . $wpdb->last_error);
-            return;
+            return false;
         }
         
         error_log("SFQ: Successfully deleted " . $deleted_count . " existing conditions");
@@ -748,20 +747,36 @@ class SFQ_Database {
         
         if ($remaining_check > 0) {
             error_log("SFQ: WARNING - Still " . $remaining_check . " conditions remaining after delete!");
-            // Intentar eliminación forzada
-            $force_delete = $wpdb->query($wpdb->prepare(
-                "DELETE FROM {$this->conditions_table} WHERE question_id = %d",
+            // Intentar eliminación forzada con TRUNCATE si es necesario
+            $force_delete = $wpdb->delete(
+                $this->conditions_table,
+                array('question_id' => $question_id),
+                array('%d')
+            );
+            error_log("SFQ: Force delete result: " . $force_delete);
+            
+            // Verificar nuevamente
+            $remaining_check = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$this->conditions_table} WHERE question_id = %d",
                 $question_id
             ));
-            error_log("SFQ: Force delete result: " . $force_delete);
-        } else {
-            error_log("SFQ: ✅ All existing conditions successfully deleted");
+            
+            if ($remaining_check > 0) {
+                error_log("SFQ: CRITICAL ERROR - Cannot delete existing conditions!");
+                return false;
+            }
         }
+        
+        error_log("SFQ: ✅ All existing conditions successfully deleted");
         
         // PASO 3: Insertar las nuevas condiciones (solo si hay alguna)
         $inserted_count = 0;
+        $expected_count = count($conditions);
         
-        if (!empty($conditions) && is_array($conditions)) {
+        // CRÍTICO: Si no hay condiciones, esto es válido (eliminación completa)
+        if (empty($conditions)) {
+            error_log("SFQ: No conditions to insert - this is valid (complete deletion)");
+        } else {
             foreach ($conditions as $index => $condition) {
                 // Validar que la condición tiene los campos requeridos
                 if (empty($condition['condition_type']) || empty($condition['action_type'])) {
@@ -794,32 +809,40 @@ class SFQ_Database {
                     error_log("SFQ: ✅ Successfully inserted condition with ID: " . $wpdb->insert_id);
                 } else {
                     error_log("SFQ: ❌ Failed to insert condition: " . $wpdb->last_error);
+                    // Si falla la inserción, esto es un error crítico
+                    return false;
                 }
             }
-        } else {
-            error_log("SFQ: No conditions to insert (empty or invalid array)");
         }
         
         error_log("SFQ: Total conditions inserted: " . $inserted_count);
         
-        // PASO 4: Verificación final
+        // PASO 4: Verificación final MEJORADA
         $final_conditions = $wpdb->get_results($wpdb->prepare(
             "SELECT * FROM {$this->conditions_table} WHERE question_id = %d ORDER BY order_position",
             $question_id
         ));
         
         $final_count = count($final_conditions);
-        $expected_count = count($conditions);
         
         error_log("SFQ: === FINAL VERIFICATION ===");
         error_log("SFQ: Expected conditions: " . $expected_count);
         error_log("SFQ: Final conditions in DB: " . $final_count);
         
+        // CRÍTICO: La verificación debe ser exacta
         if ($final_count === $expected_count) {
             error_log("SFQ: ✅ SUCCESS - Condition count matches expected");
+            
+            // Limpiar caché relacionado para forzar recarga
+            wp_cache_delete("sfq_conditions_{$question_id}", 'sfq_conditions');
+            
+            return true;
         } else {
             error_log("SFQ: ❌ MISMATCH - Expected " . $expected_count . " but found " . $final_count);
             error_log("SFQ: Final conditions data: " . json_encode($final_conditions));
+            
+            // Esto es un error crítico que debe ser reportado
+            return false;
         }
         
         error_log("SFQ: === END SAVE CONDITIONS DEBUG ===");
