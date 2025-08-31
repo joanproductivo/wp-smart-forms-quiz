@@ -237,6 +237,8 @@ class SFQ_Ajax {
             // Enviar notificaciones si está configurado (en background)
             wp_schedule_single_event(time(), 'sfq_send_notifications', array($form_id, $submission_id));
             
+            // Disparar hook para limpiar cache después del envío
+            do_action('sfq_form_submitted', $form_id, $submission_id);
             
             wp_send_json_success(array(
                 'submission_id' => $submission_id,
@@ -758,6 +760,9 @@ class SFQ_Ajax {
             if ($form_id) {
                 // Clear related caches
                 $this->clear_form_cache($form_id);
+                
+                // Disparar hook para limpiar cache después de actualizar formulario
+                do_action('sfq_form_updated', $form_id);
                 
                 wp_send_json_success(array(
                     'form_id' => $form_id,

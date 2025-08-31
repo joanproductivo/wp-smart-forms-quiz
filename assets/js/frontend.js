@@ -13,6 +13,15 @@
             this.sessionId = container.dataset.sessionId;
             this.settings = JSON.parse(container.dataset.settings || '{}');
             
+            // Configuración para compatibilidad con cache
+            this.config = {
+                ajaxUrl: sfq_ajax.ajax_url,
+                nonce: sfq_ajax.nonce,
+                formId: parseInt(this.formId),
+                sessionId: this.sessionId,
+                settings: this.settings
+            };
+            
             this.currentScreen = null;
             this.currentQuestionIndex = 0;
             this.responses = {};
@@ -578,29 +587,44 @@
             };
             
             try {
+                console.log('SFQ Cache Debug: Starting AJAX conditions check');
+                console.log('SFQ Cache Debug: Current nonce:', this.getCurrentNonce());
+                console.log('SFQ Cache Debug: Cache compat available:', !!window.sfqCacheCompat);
+                
                 const formData = new FormData();
                 formData.append('action', 'sfq_get_next_question');
-                formData.append('nonce', sfq_ajax.nonce);
+                formData.append('nonce', this.getCurrentNonce());
                 formData.append('form_id', this.formId);
                 formData.append('current_question_id', questionId);
                 formData.append('answer', answer);
                 formData.append('variables', JSON.stringify(this.variables));
 
-                const response = await fetch(sfq_ajax.ajax_url, {
+                // Añadir headers anti-cache específicos para esta petición crítica
+                const response = await fetch(this.config.ajaxUrl, {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
+                    }
                 });
+
+                console.log('SFQ Cache Debug: Response status:', response.status);
+                console.log('SFQ Cache Debug: Response headers:', response.headers);
 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
                 const ajaxResult = await response.json();
+                console.log('SFQ Cache Debug: AJAX result:', ajaxResult);
                 
                 if (ajaxResult.success && ajaxResult.data) {
                     // Actualizar variables si las hay
                     if (ajaxResult.data.variables) {
                         result.variables = ajaxResult.data.variables;
+                        console.log('SFQ Cache Debug: Variables updated from server:', ajaxResult.data.variables);
                     }
                     
                     // Verificar redirección
@@ -620,11 +644,49 @@
                         console.log('SFQ Frontend Debug: Server returned next_question_id but no conditional navigation - ignoring for sequential flow');
                     }
                 } else {
-                    // AJAX request failed or returned no data
+                    console.log('SFQ Cache Debug: AJAX request failed or returned no data:', ajaxResult);
+                    
+                    // Verificar si es un error de nonce
+                    if (ajaxResult && !ajaxResult.success && ajaxResult.data && 
+                        (ajaxResult.data.includes && ajaxResult.data.includes('nonce') || 
+                         ajaxResult.data.code === 'INVALID_NONCE')) {
+                        console.log('SFQ Cache Debug: Nonce error detected, attempting refresh...');
+                        
+                        // Intentar refrescar nonce y reintentar
+                        if (window.sfqCacheCompat && window.sfqCacheCompat.instance) {
+                            try {
+                                await window.sfqCacheCompat.instance.refreshNonce();
+                                console.log('SFQ Cache Debug: Nonce refreshed, retrying AJAX call...');
+                                
+                                // Reintentar con nuevo nonce
+                                return await this.checkConditionsViaAjax(questionId, answer);
+                            } catch (nonceError) {
+                                console.error('SFQ Cache Debug: Failed to refresh nonce:', nonceError);
+                            }
+                        }
+                    }
                 }
                 
             } catch (error) {
-                console.error('Error in AJAX conditions check:', error);
+                console.error('SFQ Cache Debug: Error in AJAX conditions check:', error);
+                
+                // Verificar si es un error de red o nonce
+                if (error.message.includes('nonce') || error.message.includes('403') || error.message.includes('401')) {
+                    console.log('SFQ Cache Debug: Possible nonce/auth error, attempting recovery...');
+                    
+                    if (window.sfqCacheCompat && window.sfqCacheCompat.instance) {
+                        try {
+                            await window.sfqCacheCompat.instance.refreshNonce();
+                            console.log('SFQ Cache Debug: Nonce refreshed after error, retrying...');
+                            
+                            // Reintentar una vez más
+                            return await this.checkConditionsViaAjax(questionId, answer);
+                        } catch (recoveryError) {
+                            console.error('SFQ Cache Debug: Recovery failed:', recoveryError);
+                        }
+                    }
+                }
+                
                 // No lanzar el error, solo loggearlo y continuar
             }
             
@@ -2690,6 +2752,20 @@
             if (saveIndicator) {
                 saveIndicator.remove();
             }
+        }
+
+        /**
+         * ✅ NUEVO: Obtener nonce actual (compatible con sistema de cache)
+         */
+        getCurrentNonce() {
+            // Si hay sistema de compatibilidad con cache disponible, usar su nonce
+            if (window.sfqCacheCompat && window.sfqCacheCompat.instance && 
+                typeof window.sfqCacheCompat.instance.nonce !== 'undefined') {
+                return window.sfqCacheCompat.instance.nonce;
+            }
+            
+            // Fallback al nonce original
+            return this.config.nonce || sfq_ajax.nonce;
         }
     }
 

@@ -33,6 +33,7 @@ require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-frontend.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-ajax.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-shortcode.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-analytics.php';
+require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-wp-rocket-compat.php';
 
 // Cargar clases de administración avanzadas
 if (is_admin()) {
@@ -63,6 +64,9 @@ function sfq_init() {
     
     // Añadir headers de seguridad
     add_action('init', array('SFQ_Security', 'add_security_headers'));
+    
+    // Inicializar compatibilidad con plugins de cache
+    SFQ_WP_Rocket_Compat::get_instance();
     
     // Inicializar componentes
     $loader = new SFQ_Loader();
