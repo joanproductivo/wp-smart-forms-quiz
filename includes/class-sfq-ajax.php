@@ -63,6 +63,10 @@ class SFQ_Ajax {
         add_action('wp_ajax_sfq_cleanup_partial_for_session', array($this, 'cleanup_partial_for_session'));
         add_action('wp_ajax_nopriv_sfq_cleanup_partial_for_session', array($this, 'cleanup_partial_for_session'));
         
+        // ✅ NUEVO: AJAX handler para subida de archivos
+        add_action('wp_ajax_sfq_upload_file', array($this, 'upload_file'));
+        add_action('wp_ajax_nopriv_sfq_upload_file', array($this, 'upload_file'));
+        
     }
     
     /**
@@ -186,12 +190,7 @@ class SFQ_Ajax {
                 }
                 
                 // Procesar la respuesta según su tipo
-                $processed_answer = $answer;
-                if (is_array($answer)) {
-                    $processed_answer = json_encode($answer, JSON_UNESCAPED_UNICODE);
-                } else {
-                    $processed_answer = sanitize_textarea_field($answer);
-                }
+                $processed_answer = $this->process_answer_for_storage($answer, $submission_id, $question_id);
                 
                 $response_data = array(
                     'submission_id' => $submission_id,
@@ -2774,6 +2773,492 @@ class SFQ_Ajax {
                 'debug' => WP_DEBUG ? $e->getMessage() : null
             ));
         }
+    }
+    
+    /**
+     * ✅ NUEVO: Subir archivos de forma segura
+     */
+    public function upload_file() {
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(array(
+                'message' => __('Error de seguridad', 'smart-forms-quiz'),
+                'code' => 'INVALID_NONCE'
+            ));
+            return;
+        }
+        
+        // Rate limiting para subida de archivos (más restrictivo)
+        if (!$this->check_rate_limit('upload_file', 5, 300)) {
+            wp_send_json_error(array(
+                'message' => __('Demasiadas subidas de archivos. Intenta de nuevo en unos minutos.', 'smart-forms-quiz'),
+                'code' => 'RATE_LIMIT_EXCEEDED'
+            ));
+            return;
+        }
+        
+        // Validar datos requeridos
+        $form_id = intval($_POST['form_id'] ?? 0);
+        $element_id = sanitize_text_field($_POST['element_id'] ?? '');
+        
+        if (!$form_id || !$element_id) {
+            wp_send_json_error(array(
+                'message' => __('Datos del formulario incompletos', 'smart-forms-quiz'),
+                'code' => 'MISSING_DATA'
+            ));
+            return;
+        }
+        
+        // Verificar que se subió un archivo
+        if (empty($_FILES['file'])) {
+            wp_send_json_error(array(
+                'message' => __('No se seleccionó ningún archivo', 'smart-forms-quiz'),
+                'code' => 'NO_FILE'
+            ));
+            return;
+        }
+        
+        $file = $_FILES['file'];
+        
+        // Verificar errores de subida
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            $error_messages = array(
+                UPLOAD_ERR_INI_SIZE => __('El archivo es demasiado grande (límite del servidor)', 'smart-forms-quiz'),
+                UPLOAD_ERR_FORM_SIZE => __('El archivo es demasiado grande', 'smart-forms-quiz'),
+                UPLOAD_ERR_PARTIAL => __('El archivo se subió parcialmente', 'smart-forms-quiz'),
+                UPLOAD_ERR_NO_FILE => __('No se seleccionó ningún archivo', 'smart-forms-quiz'),
+                UPLOAD_ERR_NO_TMP_DIR => __('Error del servidor: directorio temporal no disponible', 'smart-forms-quiz'),
+                UPLOAD_ERR_CANT_WRITE => __('Error del servidor: no se puede escribir el archivo', 'smart-forms-quiz'),
+                UPLOAD_ERR_EXTENSION => __('Subida bloqueada por extensión de PHP', 'smart-forms-quiz')
+            );
+            
+            wp_send_json_error(array(
+                'message' => $error_messages[$file['error']] ?? __('Error desconocido al subir archivo', 'smart-forms-quiz'),
+                'code' => 'UPLOAD_ERROR'
+            ));
+            return;
+        }
+        
+        // Validaciones de seguridad del archivo
+        $validation_result = $this->validate_uploaded_file($file);
+        if (!$validation_result['valid']) {
+            wp_send_json_error(array(
+                'message' => $validation_result['message'],
+                'code' => 'VALIDATION_FAILED'
+            ));
+            return;
+        }
+        
+        try {
+            // Usar la API de medios de WordPress para subir el archivo
+            if (!function_exists('wp_handle_upload')) {
+                require_once(ABSPATH . 'wp-admin/includes/file.php');
+            }
+            
+            // Configurar opciones de subida
+            $upload_overrides = array(
+                'test_form' => false, // No verificar nonce aquí, ya lo hicimos arriba
+                'unique_filename_callback' => array($this, 'generate_unique_filename')
+            );
+            
+            // Subir archivo usando WordPress
+            $uploaded_file = wp_handle_upload($file, $upload_overrides);
+            
+            if (isset($uploaded_file['error'])) {
+                throw new Exception($uploaded_file['error']);
+            }
+            
+            // Crear entrada en la librería de medios
+            $attachment_data = array(
+                'post_mime_type' => $uploaded_file['type'],
+                'post_title' => sanitize_file_name(pathinfo($file['name'], PATHINFO_FILENAME)),
+                'post_content' => '',
+                'post_status' => 'inherit'
+            );
+            
+            $attachment_id = wp_insert_attachment($attachment_data, $uploaded_file['file']);
+            
+            if (is_wp_error($attachment_id)) {
+                throw new Exception($attachment_id->get_error_message());
+            }
+            
+            // Generar metadatos del archivo
+            if (!function_exists('wp_generate_attachment_metadata')) {
+                require_once(ABSPATH . 'wp-admin/includes/image.php');
+            }
+            
+            $attachment_metadata = wp_generate_attachment_metadata($attachment_id, $uploaded_file['file']);
+            wp_update_attachment_metadata($attachment_id, $attachment_metadata);
+            
+            // Obtener información del archivo para la respuesta
+            $file_info = array(
+                'attachment_id' => $attachment_id,
+                'url' => $uploaded_file['url'],
+                'filename' => basename($uploaded_file['file']),
+                'original_name' => $file['name'],
+                'size' => $file['size'],
+                'type' => $uploaded_file['type'],
+                'form_id' => $form_id,
+                'element_id' => $element_id
+            );
+            
+            // Si es una imagen, añadir información adicional
+            if (strpos($uploaded_file['type'], 'image/') === 0) {
+                $image_info = getimagesize($uploaded_file['file']);
+                if ($image_info) {
+                    $file_info['width'] = $image_info[0];
+                    $file_info['height'] = $image_info[1];
+                    $file_info['is_image'] = true;
+                    
+                    // Obtener URL de thumbnail si existe
+                    $thumbnail_url = wp_get_attachment_image_url($attachment_id, 'thumbnail');
+                    if ($thumbnail_url) {
+                        $file_info['thumbnail_url'] = $thumbnail_url;
+                    }
+                }
+            }
+            
+            wp_send_json_success(array(
+                'message' => __('Archivo subido correctamente', 'smart-forms-quiz'),
+                'file' => $file_info
+            ));
+            
+        } catch (Exception $e) {
+            error_log('SFQ Error in upload_file: ' . $e->getMessage());
+            
+            wp_send_json_error(array(
+                'message' => __('Error al subir el archivo: ', 'smart-forms-quiz') . $e->getMessage(),
+                'code' => 'UPLOAD_FAILED'
+            ));
+        }
+    }
+    
+    /**
+     * Validar archivo subido
+     */
+    private function validate_uploaded_file($file) {
+        // Tamaño máximo: 10MB
+        $max_size = 10 * 1024 * 1024;
+        if ($file['size'] > $max_size) {
+            return array(
+                'valid' => false,
+                'message' => sprintf(__('El archivo es demasiado grande. Tamaño máximo: %s', 'smart-forms-quiz'), size_format($max_size))
+            );
+        }
+        
+        // Verificar tipo MIME
+        $allowed_types = array(
+            'image/jpeg',
+            'image/jpg', 
+            'image/png',
+            'image/gif',
+            'image/webp',
+            'application/pdf',
+            'text/plain',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+        
+        $file_type = wp_check_filetype($file['name']);
+        if (!in_array($file_type['type'], $allowed_types)) {
+            return array(
+                'valid' => false,
+                'message' => __('Tipo de archivo no permitido. Solo se permiten imágenes, PDF y documentos de Office.', 'smart-forms-quiz')
+            );
+        }
+        
+        // Verificar que el tipo MIME coincida con la extensión
+        if ($file_type['type'] !== $file['type']) {
+            return array(
+                'valid' => false,
+                'message' => __('El tipo de archivo no coincide con su extensión', 'smart-forms-quiz')
+            );
+        }
+        
+        // Verificar contenido del archivo (anti-malware básico)
+        $file_content = file_get_contents($file['tmp_name'], false, null, 0, 1024);
+        if ($file_content === false) {
+            return array(
+                'valid' => false,
+                'message' => __('No se pudo leer el archivo', 'smart-forms-quiz')
+            );
+        }
+        
+        // Buscar patrones sospechosos
+        $suspicious_patterns = array(
+            '/<\?php/i',
+            '/<script/i',
+            '/eval\s*\(/i',
+            '/base64_decode/i',
+            '/exec\s*\(/i',
+            '/system\s*\(/i'
+        );
+        
+        foreach ($suspicious_patterns as $pattern) {
+            if (preg_match($pattern, $file_content)) {
+                return array(
+                    'valid' => false,
+                    'message' => __('El archivo contiene contenido potencialmente peligroso', 'smart-forms-quiz')
+                );
+            }
+        }
+        
+        return array('valid' => true);
+    }
+    
+    /**
+     * Generar nombre único para archivo
+     */
+    public function generate_unique_filename($dir, $name, $ext) {
+        // Sanitizar nombre base
+        $name = sanitize_file_name($name);
+        
+        // Añadir timestamp para unicidad
+        $timestamp = time();
+        $random = wp_generate_password(8, false);
+        
+        return "sfq_{$timestamp}_{$random}_{$name}{$ext}";
+    }
+    
+    /**
+     * ✅ CORREGIDO: Procesar respuesta para almacenamiento, incluyendo archivos subidos
+     */
+    private function process_answer_for_storage($answer, $submission_id, $question_id) {
+        // Si la respuesta es un array, puede contener archivos subidos
+        if (is_array($answer)) {
+            $processed_answer = array();
+            
+            foreach ($answer as $element_id => $element_value) {
+                // Verificar si el elemento contiene archivos subidos
+                if (is_array($element_value) && $this->is_uploaded_files_array($element_value)) {
+                    // Procesar archivos subidos y crear registro de relación
+                    $processed_files = $this->process_uploaded_files($element_value, $submission_id, $question_id, $element_id);
+                    
+                    // ✅ CRÍTICO: Asegurar que los archivos procesados sean arrays simples para JSON
+                    $clean_files = array();
+                    foreach ($processed_files as $file) {
+                        $clean_files[] = $this->sanitize_file_data_for_json($file);
+                    }
+                    $processed_answer[$element_id] = $clean_files;
+                } else {
+                    // Para otros tipos de respuestas, sanitizar normalmente
+                    if (is_array($element_value)) {
+                        // ✅ MEJORADO: Limpiar arrays anidados recursivamente
+                        $processed_answer[$element_id] = $this->sanitize_array_for_json($element_value);
+                    } else {
+                        $processed_answer[$element_id] = sanitize_textarea_field($element_value);
+                    }
+                }
+            }
+            
+            // ✅ CRÍTICO: Validar que el JSON se puede generar correctamente
+            $json_result = json_encode($processed_answer, JSON_UNESCAPED_UNICODE);
+            if ($json_result === false) {
+                error_log('SFQ JSON Error: Failed to encode answer data - ' . json_last_error_msg());
+                error_log('SFQ JSON Error: Data was - ' . print_r($processed_answer, true));
+                
+                // Fallback: guardar como string simple si el JSON falla
+                return 'Error: Datos no serializables - ' . date('Y-m-d H:i:s');
+            }
+            
+            return $json_result;
+        } else {
+            // Para respuestas simples, sanitizar normalmente
+            return sanitize_textarea_field($answer);
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Verificar si un array contiene archivos subidos
+     */
+    private function is_uploaded_files_array($array) {
+        if (!is_array($array)) {
+            return false;
+        }
+        
+        // Verificar si el primer elemento tiene las propiedades típicas de un archivo subido
+        $first_item = reset($array);
+        if (is_array($first_item) || is_object($first_item)) {
+            $first_item = (array) $first_item;
+            return isset($first_item['attachment_id']) && 
+                   isset($first_item['url']) && 
+                   isset($first_item['filename']);
+        }
+        
+        return false;
+    }
+    
+    /**
+     * ✅ NUEVO: Procesar archivos subidos y crear registros de relación
+     */
+    private function process_uploaded_files($files, $submission_id, $question_id, $element_id) {
+        global $wpdb;
+        
+        $processed_files = array();
+        
+        foreach ($files as $file_data) {
+            if (is_array($file_data) || is_object($file_data)) {
+                $file_data = (array) $file_data;
+                
+                // Validar que tenga los datos mínimos requeridos
+                if (!isset($file_data['attachment_id']) || !isset($file_data['url'])) {
+                    continue;
+                }
+                
+                $attachment_id = intval($file_data['attachment_id']);
+                $file_url = esc_url_raw($file_data['url']);
+                $filename = sanitize_file_name($file_data['filename'] ?? '');
+                $original_name = sanitize_text_field($file_data['original_name'] ?? '');
+                $file_size = intval($file_data['size'] ?? 0);
+                $file_type = sanitize_text_field($file_data['type'] ?? '');
+                
+                // Crear registro en tabla de archivos subidos (si existe)
+                $file_record_data = array(
+                    'submission_id' => $submission_id,
+                    'question_id' => $question_id,
+                    'element_id' => sanitize_text_field($element_id),
+                    'attachment_id' => $attachment_id,
+                    'file_url' => $file_url,
+                    'filename' => $filename,
+                    'original_name' => $original_name,
+                    'file_size' => $file_size,
+                    'file_type' => $file_type,
+                    'uploaded_at' => current_time('mysql')
+                );
+                
+                // Verificar si existe la tabla de archivos subidos
+                $table_name = $wpdb->prefix . 'sfq_uploaded_files';
+                if ($this->table_exists($table_name)) {
+                    $wpdb->insert(
+                        $table_name,
+                        $file_record_data,
+                        array('%d', '%d', '%s', '%d', '%s', '%s', '%s', '%d', '%s', '%s')
+                    );
+                    
+                    $file_record_id = $wpdb->insert_id;
+                    $file_data['file_record_id'] = $file_record_id;
+                } else {
+                    // Si no existe la tabla, crear una entrada en los metadatos del attachment
+                    update_post_meta($attachment_id, '_sfq_submission_id', $submission_id);
+                    update_post_meta($attachment_id, '_sfq_question_id', $question_id);
+                    update_post_meta($attachment_id, '_sfq_element_id', $element_id);
+                    update_post_meta($attachment_id, '_sfq_uploaded_at', current_time('mysql'));
+                }
+                
+                // Mantener información del archivo para la respuesta
+                $processed_files[] = array(
+                    'attachment_id' => $attachment_id,
+                    'url' => $file_url,
+                    'filename' => $filename,
+                    'original_name' => $original_name,
+                    'size' => $file_size,
+                    'type' => $file_type,
+                    'is_image' => $file_data['is_image'] ?? false,
+                    'thumbnail_url' => $file_data['thumbnail_url'] ?? '',
+                    'width' => $file_data['width'] ?? null,
+                    'height' => $file_data['height'] ?? null
+                );
+            }
+        }
+        
+        return $processed_files;
+    }
+    
+    /**
+     * ✅ NUEVO: Verificar si una tabla existe
+     */
+    private function table_exists($table_name) {
+        global $wpdb;
+        
+        $table_exists = $wpdb->get_var($wpdb->prepare(
+            "SHOW TABLES LIKE %s",
+            $table_name
+        ));
+        
+        return $table_exists === $table_name;
+    }
+    
+    /**
+     * ✅ NUEVO: Limpiar datos de archivo para serialización JSON segura
+     */
+    private function sanitize_file_data_for_json($file_data) {
+        // Convertir cualquier objeto a array
+        if (is_object($file_data)) {
+            $file_data = (array) $file_data;
+        }
+        
+        if (!is_array($file_data)) {
+            return array();
+        }
+        
+        // Crear array limpio con solo datos serializables
+        $clean_data = array();
+        
+        // Lista de campos permitidos y seguros para JSON
+        $allowed_fields = array(
+            'attachment_id', 'url', 'filename', 'original_name', 'size', 'type',
+            'is_image', 'thumbnail_url', 'width', 'height', 'file_record_id'
+        );
+        
+        foreach ($allowed_fields as $field) {
+            if (isset($file_data[$field])) {
+                $value = $file_data[$field];
+                
+                // Sanitizar según el tipo de campo
+                switch ($field) {
+                    case 'attachment_id':
+                    case 'size':
+                    case 'width':
+                    case 'height':
+                    case 'file_record_id':
+                        $clean_data[$field] = intval($value);
+                        break;
+                        
+                    case 'url':
+                    case 'thumbnail_url':
+                        $clean_data[$field] = esc_url_raw($value);
+                        break;
+                        
+                    case 'is_image':
+                        $clean_data[$field] = (bool) $value;
+                        break;
+                        
+                    default:
+                        $clean_data[$field] = sanitize_text_field($value);
+                        break;
+                }
+            }
+        }
+        
+        return $clean_data;
+    }
+    
+    /**
+     * ✅ NUEVO: Limpiar arrays anidados recursivamente para JSON
+     */
+    private function sanitize_array_for_json($array) {
+        if (!is_array($array)) {
+            return sanitize_text_field($array);
+        }
+        
+        $clean_array = array();
+        
+        foreach ($array as $key => $value) {
+            $clean_key = sanitize_text_field($key);
+            
+            if (is_array($value)) {
+                $clean_array[$clean_key] = $this->sanitize_array_for_json($value);
+            } elseif (is_object($value)) {
+                // Convertir objeto a array y limpiar
+                $clean_array[$clean_key] = $this->sanitize_array_for_json((array) $value);
+            } else {
+                $clean_array[$clean_key] = sanitize_text_field($value);
+            }
+        }
+        
+        return $clean_array;
     }
     
 }

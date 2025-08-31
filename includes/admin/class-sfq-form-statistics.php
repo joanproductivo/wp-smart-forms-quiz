@@ -1795,7 +1795,7 @@ class SFQ_Form_Statistics {
     }
     
     /**
-     * Procesar elementos de archivo
+     * ✅ CORREGIDO: Procesar elementos de archivo con manejo mejorado de JSON
      */
     private function process_file_element($element, $element_responses) {
         $total_responses = count($element_responses);
@@ -1804,24 +1804,87 @@ class SFQ_Form_Statistics {
         $files_uploaded = 0;
         $file_types = [];
         $total_files = 0;
+        $file_sizes = [];
         
         foreach ($values as $value) {
-            if (!empty($value)) {
-                $files = is_array($value) ? $value : json_decode($value, true);
-                if (is_array($files) && !empty($files)) {
-                    $files_uploaded++;
-                    $total_files += count($files);
+            if (empty($value)) {
+                continue;
+            }
+            
+            // ✅ CRÍTICO: Manejo robusto de JSON malformado
+            $files = null;
+            
+            if (is_array($value)) {
+                $files = $value;
+            } else {
+                // Intentar decodificar JSON
+                $decoded = json_decode($value, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    $files = $decoded;
+                } else {
+                    // Si el JSON falla, intentar como string simple
+                    error_log('SFQ Statistics: Failed to decode file JSON: ' . json_last_error_msg() . ' - Value: ' . substr($value, 0, 100));
                     
-                    // Analizar tipos de archivo
-                    foreach ($files as $filename) {
-                        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-                        $file_types[$extension] = ($file_types[$extension] ?? 0) + 1;
+                    // Intentar extraer información básica si es un string
+                    if (is_string($value) && !empty(trim($value))) {
+                        // Si contiene "attachment_id" probablemente sea un archivo
+                        if (strpos($value, 'attachment_id') !== false || strpos($value, 'filename') !== false) {
+                            $files_uploaded++;
+                            $total_files++;
+                            
+                            // Intentar extraer tipo de archivo del string
+                            if (preg_match('/\.([a-zA-Z0-9]+)/', $value, $matches)) {
+                                $extension = strtolower($matches[1]);
+                                $file_types[$extension] = ($file_types[$extension] ?? 0) + 1;
+                            }
+                        }
+                    }
+                    continue;
+                }
+            }
+            
+            // Procesar archivos válidos
+            if (is_array($files) && !empty($files)) {
+                $files_uploaded++;
+                $total_files += count($files);
+                
+                // Analizar cada archivo
+                foreach ($files as $file_data) {
+                    if (is_array($file_data) || is_object($file_data)) {
+                        $file_data = (array) $file_data;
+                        
+                        // Obtener extensión del archivo
+                        $filename = $file_data['filename'] ?? $file_data['original_name'] ?? '';
+                        if (!empty($filename)) {
+                            $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                            if (!empty($extension)) {
+                                $file_types[$extension] = ($file_types[$extension] ?? 0) + 1;
+                            }
+                        }
+                        
+                        // Obtener tamaño del archivo
+                        $size = intval($file_data['size'] ?? 0);
+                        if ($size > 0) {
+                            $file_sizes[] = $size;
+                        }
+                    } elseif (is_string($file_data)) {
+                        // Archivo como string (nombre de archivo)
+                        $extension = strtolower(pathinfo($file_data, PATHINFO_EXTENSION));
+                        if (!empty($extension)) {
+                            $file_types[$extension] = ($file_types[$extension] ?? 0) + 1;
+                        }
                     }
                 }
             }
         }
         
         $upload_rate = $total_responses > 0 ? round(($files_uploaded / $total_responses) * 100, 1) : 0;
+        
+        // Calcular tamaño promedio
+        $avg_file_size = 0;
+        if (!empty($file_sizes)) {
+            $avg_file_size = array_sum($file_sizes) / count($file_sizes);
+        }
         
         // Ordenar tipos de archivo por frecuencia
         arsort($file_types);
@@ -1834,6 +1897,8 @@ class SFQ_Form_Statistics {
             'files_uploaded' => $files_uploaded,
             'upload_rate' => $upload_rate,
             'total_files' => $total_files,
+            'avg_file_size' => round($avg_file_size),
+            'avg_file_size_formatted' => $avg_file_size > 0 ? size_format($avg_file_size) : '0 B',
             'file_types' => array_slice($file_types, 0, 5, true)
         ];
     }

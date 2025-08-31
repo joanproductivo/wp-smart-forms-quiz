@@ -954,6 +954,45 @@
                 input.addEventListener('change', (e) => this.handleFreestyleFileUpload(e));
             });
 
+            // Hacer clickeable el área de subida de archivos
+            this.container.querySelectorAll('.sfq-file-upload-area').forEach(uploadArea => {
+                const fileInput = uploadArea.querySelector('.sfq-file-input');
+                if (fileInput) {
+                    // Click en el área para abrir selector de archivos
+                    uploadArea.addEventListener('click', (e) => {
+                        // Solo si no se hizo click en el input directamente
+                        if (e.target !== fileInput) {
+                            e.preventDefault();
+                            fileInput.click();
+                        }
+                    });
+
+                    // Drag & Drop functionality
+                    uploadArea.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        uploadArea.classList.add('drag-over');
+                    });
+
+                    uploadArea.addEventListener('dragleave', (e) => {
+                        e.preventDefault();
+                        uploadArea.classList.remove('drag-over');
+                    });
+
+                    uploadArea.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        uploadArea.classList.remove('drag-over');
+                        
+                        const files = e.dataTransfer.files;
+                        if (files.length > 0) {
+                            // Asignar archivos al input y disparar evento change
+                            fileInput.files = files;
+                            const changeEvent = new Event('change', { bubbles: true });
+                            fileInput.dispatchEvent(changeEvent);
+                        }
+                    });
+                }
+            });
+
             // Inicializar countdowns freestyle
             this.initializeFreestyleCountdowns();
         }
@@ -1119,31 +1158,40 @@
             const uploadArea = input.closest('.sfq-file-upload-area');
             const preview = uploadArea.querySelector('.sfq-file-preview');
 
+            console.log('SFQ File Upload: Starting file upload process');
+            console.log('SFQ File Upload: Element ID:', elementId);
+            console.log('SFQ File Upload: Question ID:', questionId);
+            console.log('SFQ File Upload: Files selected:', input.files ? input.files.length : 0);
+
             // Inicializar respuesta freestyle si no existe
             if (!this.responses[questionId]) {
                 this.responses[questionId] = {};
             }
 
+            // Limpiar errores previos
+            this.hideFileErrors(uploadArea);
+
             if (input.files && input.files.length > 0) {
-                const fileNames = Array.from(input.files).map(file => file.name);
-                this.responses[questionId][elementId] = fileNames;
-
-                // Mostrar preview
-                if (preview) {
-                    preview.innerHTML = '';
-                    preview.style.display = 'block';
-
-                    Array.from(input.files).forEach(file => {
-                        const fileItem = document.createElement('div');
-                        fileItem.className = 'sfq-file-item';
-                        fileItem.innerHTML = `
-                            <span class="sfq-file-name">📎 ${file.name}</span>
-                            <span class="sfq-file-size">(${this.formatFileSize(file.size)})</span>
-                        `;
-                        preview.appendChild(fileItem);
-                    });
+                console.log('SFQ File Upload: Processing', input.files.length, 'files');
+                
+                // Validar archivos antes de procesarlos
+                const validFiles = this.validateFiles(input.files, uploadArea);
+                
+                if (validFiles.length > 0) {
+                    console.log('SFQ File Upload: Valid files found:', validFiles.length);
+                    // Subir archivos al servidor
+                    this.uploadFiles(validFiles, elementId, questionId, uploadArea, preview);
+                } else {
+                    console.log('SFQ File Upload: No valid files found');
+                    // Limpiar input si no hay archivos válidos
+                    input.value = '';
+                    this.responses[questionId][elementId] = [];
+                    if (preview) {
+                        preview.style.display = 'none';
+                    }
                 }
             } else {
+                console.log('SFQ File Upload: No files selected');
                 this.responses[questionId][elementId] = [];
                 if (preview) {
                     preview.style.display = 'none';
@@ -1244,6 +1292,279 @@
             }
 
             return true;
+        }
+
+        /**
+         * Validar archivos según configuración del elemento
+         */
+        validateFiles(files, uploadArea) {
+            const elementConfig = this.getElementConfig(uploadArea);
+            const validFiles = [];
+            const errors = [];
+
+            Array.from(files).forEach(file => {
+                // Validar tipo de archivo
+                if (!this.isValidFileType(file, elementConfig.accept)) {
+                    errors.push(`${file.name}: Tipo de archivo no permitido`);
+                    return;
+                }
+
+                // Validar tamaño
+                if (!this.isValidFileSize(file, elementConfig.max_size)) {
+                    errors.push(`${file.name}: Archivo demasiado grande (máximo ${elementConfig.max_size})`);
+                    return;
+                }
+
+                validFiles.push(file);
+            });
+
+            // Mostrar errores si los hay
+            if (errors.length > 0) {
+                this.showFileErrors(uploadArea, errors);
+            } else {
+                this.hideFileErrors(uploadArea);
+            }
+
+            return validFiles;
+        }
+
+        /**
+         * Obtener configuración del elemento de subida
+         */
+        getElementConfig(uploadArea) {
+            const input = uploadArea.querySelector('.sfq-file-input');
+            return {
+                accept: input.getAttribute('accept') || 'image/*',
+                max_size: uploadArea.dataset.maxSize || '5MB',
+                multiple: input.hasAttribute('multiple')
+            };
+        }
+
+        /**
+         * Validar tipo de archivo
+         */
+        isValidFileType(file, acceptAttribute) {
+            if (acceptAttribute === '*') return true;
+
+            const acceptedTypes = acceptAttribute.split(',').map(type => type.trim());
+            
+            for (const acceptedType of acceptedTypes) {
+                if (acceptedType.startsWith('.')) {
+                    // Extensión específica
+                    const extension = '.' + file.name.split('.').pop().toLowerCase();
+                    if (extension === acceptedType.toLowerCase()) {
+                        return true;
+                    }
+                } else if (acceptedType.includes('/*')) {
+                    // Tipo MIME genérico (ej: image/*)
+                    const baseType = acceptedType.split('/')[0];
+                    if (file.type.startsWith(baseType + '/')) {
+                        return true;
+                    }
+                } else if (file.type === acceptedType) {
+                    // Tipo MIME específico
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /**
+         * Validar tamaño de archivo
+         */
+        isValidFileSize(file, maxSizeStr) {
+            const maxBytes = this.parseFileSize(maxSizeStr);
+            return file.size <= maxBytes;
+        }
+
+        /**
+         * Convertir string de tamaño a bytes
+         */
+        parseFileSize(sizeStr) {
+            const units = {
+                'B': 1,
+                'KB': 1024,
+                'MB': 1024 * 1024,
+                'GB': 1024 * 1024 * 1024
+            };
+
+            const match = sizeStr.match(/^(\d+(?:\.\d+)?)\s*(B|KB|MB|GB)$/i);
+            if (!match) return 5 * 1024 * 1024; // Default 5MB
+
+            const size = parseFloat(match[1]);
+            const unit = match[2].toUpperCase();
+            return size * (units[unit] || 1);
+        }
+
+        /**
+         * Subir archivos al servidor
+         */
+        async uploadFiles(files, elementId, questionId, uploadArea, preview) {
+            console.log('SFQ File Upload: Starting upload process for', files.length, 'files');
+            
+            // Mostrar indicador de carga
+            this.showUploadProgress(uploadArea, true);
+            
+            const uploadedFiles = [];
+            
+            try {
+                // Subir archivos uno por uno (el servidor espera un archivo por petición)
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    console.log('SFQ File Upload: Uploading file', i + 1, 'of', files.length, ':', file.name);
+                    
+                    const formData = new FormData();
+                    formData.append('action', 'sfq_upload_file');
+                    formData.append('nonce', sfq_ajax.nonce);
+                    formData.append('form_id', this.formId);
+                    formData.append('element_id', elementId);
+                    formData.append('file', file); // El servidor espera 'file', no 'files[0]'
+
+                    const response = await fetch(sfq_ajax.ajax_url, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    console.log('SFQ File Upload: Server response for', file.name, ':', result);
+
+                    if (result.success && result.data && result.data.file) {
+                        uploadedFiles.push(result.data.file);
+                        console.log('SFQ File Upload: File uploaded successfully:', result.data.file);
+                    } else {
+                        const errorMessage = result.data?.message || 'Error al subir archivo';
+                        console.error('SFQ File Upload: Upload failed for', file.name, ':', errorMessage);
+                        throw new Error(`${file.name}: ${errorMessage}`);
+                    }
+                }
+
+                // Guardar información de archivos subidos
+                this.responses[questionId][elementId] = uploadedFiles;
+                
+                // Mostrar preview de archivos subidos
+                this.showUploadedFiles(preview, uploadedFiles);
+                
+                console.log('SFQ File Upload: All files uploaded successfully:', uploadedFiles);
+                
+            } catch (error) {
+                console.error('SFQ File Upload: Upload error:', error);
+                this.showFileErrors(uploadArea, [error.message]);
+                
+                // Limpiar respuestas en caso de error
+                this.responses[questionId][elementId] = [];
+            } finally {
+                this.showUploadProgress(uploadArea, false);
+            }
+        }
+
+        /**
+         * Mostrar archivos subidos en el preview
+         */
+        showUploadedFiles(preview, files) {
+            if (!preview) return;
+
+            preview.innerHTML = '';
+            preview.style.display = 'block';
+
+            files.forEach(file => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'sfq-file-item';
+                
+                // Usar el nombre correcto del archivo (filename o original_name)
+                const fileName = file.filename || file.original_name || file.name || 'Archivo';
+                const fileSize = file.size || 0;
+                const fileUrl = file.url || '';
+                const fileType = file.type || '';
+                
+                // Mostrar preview de imagen si es una imagen
+                if (file.is_image || (fileType && fileType.startsWith('image/'))) {
+                    // Usar thumbnail_url si está disponible, sino usar url principal
+                    const imageUrl = file.thumbnail_url || fileUrl;
+                    
+                    fileItem.innerHTML = `
+                        <div class="sfq-file-image-preview">
+                            <img src="${imageUrl}" alt="${fileName}" loading="lazy">
+                        </div>
+                        <div class="sfq-file-info">
+                            <span class="sfq-file-name">${fileName}</span>
+                            <span class="sfq-file-size">(${this.formatFileSize(fileSize)})</span>
+                        </div>
+                    `;
+                } else {
+                    // Para archivos no imagen, mostrar icono genérico
+                    fileItem.innerHTML = `
+                        <span class="sfq-file-name">📎 ${fileName}</span>
+                        <span class="sfq-file-size">(${this.formatFileSize(fileSize)})</span>
+                    `;
+                }
+                
+                preview.appendChild(fileItem);
+            });
+        }
+
+        /**
+         * Mostrar/ocultar indicador de progreso de subida
+         */
+        showUploadProgress(uploadArea, show) {
+            let progressIndicator = uploadArea.querySelector('.sfq-upload-progress');
+            
+            if (show) {
+                if (!progressIndicator) {
+                    progressIndicator = document.createElement('div');
+                    progressIndicator.className = 'sfq-upload-progress';
+                    progressIndicator.innerHTML = `
+                        <div class="sfq-upload-spinner"></div>
+                        <span>Subiendo archivos...</span>
+                    `;
+                    uploadArea.appendChild(progressIndicator);
+                }
+                progressIndicator.style.display = 'flex';
+                uploadArea.classList.add('uploading');
+            } else {
+                if (progressIndicator) {
+                    progressIndicator.style.display = 'none';
+                }
+                uploadArea.classList.remove('uploading');
+            }
+        }
+
+        /**
+         * Mostrar errores de archivo
+         */
+        showFileErrors(uploadArea, errors) {
+            let errorContainer = uploadArea.querySelector('.sfq-file-errors');
+            
+            if (!errorContainer) {
+                errorContainer = document.createElement('div');
+                errorContainer.className = 'sfq-file-errors';
+                uploadArea.appendChild(errorContainer);
+            }
+
+            errorContainer.innerHTML = errors.map(error => 
+                `<div class="sfq-file-error">⚠️ ${error}</div>`
+            ).join('');
+            
+            errorContainer.style.display = 'block';
+
+            // Auto-ocultar después de 5 segundos
+            setTimeout(() => {
+                this.hideFileErrors(uploadArea);
+            }, 5000);
+        }
+
+        /**
+         * Ocultar errores de archivo
+         */
+        hideFileErrors(uploadArea) {
+            const errorContainer = uploadArea.querySelector('.sfq-file-errors');
+            if (errorContainer) {
+                errorContainer.style.display = 'none';
+            }
         }
 
         /**
