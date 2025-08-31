@@ -475,6 +475,24 @@
             $('#show-intro-screen').prop('checked', settings.show_intro_screen !== false);
             $('#enable-floating-preview').prop('checked', settings.enable_floating_preview === true);
             $('#auto-scroll-to-form').prop('checked', settings.auto_scroll_to_form === true);
+            $('#show-processing-indicator').prop('checked', settings.show_processing_indicator === true);
+            $('#show-submit-loading').prop('checked', settings.show_submit_loading !== false);
+            
+            // Cargar configuraciones de indicadores de carga
+            $('#processing-indicator-text').val(settings.processing_indicator_text || '...');
+            $('#processing-indicator-opacity').val(settings.processing_indicator_opacity || '0.7');
+            $('.sfq-processing-opacity-value').text(settings.processing_indicator_opacity || '0.7');
+            $('#processing-indicator-bg-color').val(settings.processing_indicator_bg_color || '#ffffff').trigger('change');
+            $('#processing-indicator-text-color').val(settings.processing_indicator_text_color || '#666666').trigger('change');
+            $('#processing-indicator-spinner-color').val(settings.processing_indicator_spinner_color || '#007cba').trigger('change');
+            $('#processing-indicator-delay').val(settings.processing_indicator_delay || '100');
+            
+            // Mostrar/ocultar configuraciones según el estado del checkbox
+            if (settings.show_processing_indicator === true) {
+                $('#processing-indicator-settings').show();
+            } else {
+                $('#processing-indicator-settings').hide();
+            }
             
             // Bloqueo de formulario
             $('#block-form').prop('checked', settings.block_form === true).trigger('change');
@@ -730,6 +748,14 @@
                 show_intro_screen: $('#show-intro-screen').is(':checked'),
                 enable_floating_preview: $('#enable-floating-preview').is(':checked'),
                 auto_scroll_to_form: $('#auto-scroll-to-form').is(':checked'),
+                show_processing_indicator: $('#show-processing-indicator').is(':checked'),
+                show_submit_loading: $('#show-submit-loading').is(':checked'),
+                processing_indicator_text: $('#processing-indicator-text').val() || '...',
+                processing_indicator_opacity: $('#processing-indicator-opacity').val() || '0.7',
+                processing_indicator_bg_color: $('#processing-indicator-bg-color').val() || '#ffffff',
+                processing_indicator_text_color: $('#processing-indicator-text-color').val() || '#666666',
+                processing_indicator_spinner_color: $('#processing-indicator-spinner-color').val() || '#007cba',
+                processing_indicator_delay: $('#processing-indicator-delay').val() || '100',
                 // Bloqueo de formulario
                 block_form: $('#block-form').is(':checked'),
                 // Límites de envío - nueva estructura flexible
@@ -1643,12 +1669,19 @@
                 
                 const $button = $(e.currentTarget);
                 const type = $button.data('type');
+                const isFinalScreen = $button.data('final-screen') === true;
+                
+                console.log('SFQ: Add question button clicked:', {
+                    type: type,
+                    isFinalScreen: isFinalScreen,
+                    buttonData: $button.data()
+                });
                 
                 if (type && !$button.prop('disabled')) {
                     // Disable button temporarily
                     $button.prop('disabled', true);
                     
-                    this.addQuestion(type);
+                    this.addQuestion(type, isFinalScreen);
                     
                     // Re-enable button after a short delay
                     setTimeout(() => {
@@ -1671,8 +1704,9 @@
         }
 
         loadQuestions(questionsData) {
-            // Clear container
+            // Clear containers
             this.container.empty();
+            $('#sfq-final-screens-container').empty();
             this.questions = [];
             this.idMapping.clear(); // Limpiar mapeo anterior
             
@@ -1683,6 +1717,10 @@
             
             // Sort by position
             questionsData.sort((a, b) => (a.order_position || 0) - (b.order_position || 0));
+            
+            // Separar preguntas normales de pantallas finales
+            const normalQuestions = [];
+            const finalScreenQuestions = [];
             
             // Process each question
             questionsData.forEach((questionData, index) => {
@@ -1696,15 +1734,68 @@
                         console.log('SFQ: Created ID mapping:', question.id, '->', question.originalId);
                     }
                     
+                    // Separar según si es pantalla final o no
+                    if (question.type === 'freestyle' && question.pantallaFinal) {
+                        finalScreenQuestions.push(question);
+                        console.log('SFQ: Question marked as final screen:', question.id, question.text);
+                    } else {
+                        normalQuestions.push(question);
+                    }
+                }
+            });
+            
+            // Renderizar preguntas normales
+            if (normalQuestions.length > 0) {
+                normalQuestions.forEach(question => {
                     const element = this.formBuilder.uiRenderer.renderQuestion(question);
                     this.container.append(element);
                     this.bindQuestionEvents(question.id);
                     
                     // Load conditions if any
-                    if (questionData.conditions && questionData.conditions.length > 0) {
+                    const questionData = questionsData.find(q => q.id === question.originalId);
+                    if (questionData && questionData.conditions && questionData.conditions.length > 0) {
                         this.formBuilder.conditionEngine.loadConditions(question.id, questionData.conditions);
                     }
-                }
+                });
+            } else {
+                // Mostrar estado vacío para preguntas normales
+                this.formBuilder.uiRenderer.showEmptyState();
+            }
+            
+            // Renderizar pantallas finales
+            const $finalScreensContainer = $('#sfq-final-screens-container');
+            if (finalScreenQuestions.length > 0) {
+                // Remover estado vacío si existe
+                $finalScreensContainer.find('.sfq-empty-final-screens').remove();
+                
+                finalScreenQuestions.forEach(question => {
+                    const element = this.formBuilder.uiRenderer.renderQuestion(question);
+                    $finalScreensContainer.append(element);
+                    this.bindQuestionEvents(question.id);
+                    
+                    // Load conditions if any
+                    const questionData = questionsData.find(q => q.id === question.originalId);
+                    if (questionData && questionData.conditions && questionData.conditions.length > 0) {
+                        this.formBuilder.conditionEngine.loadConditions(question.id, questionData.conditions);
+                    }
+                });
+                
+                console.log('SFQ: Loaded', finalScreenQuestions.length, 'final screen questions');
+            } else {
+                // Mostrar estado vacío para pantallas finales
+                $finalScreensContainer.html(`
+                    <div class="sfq-empty-final-screens">
+                        <div class="sfq-empty-final-icon">🏁</div>
+                        <p>Añade más pantallas finales de estilo libre</p>
+                        <p>Marca preguntas como "pantalla final" o crea preguntas tipo "Pantalla Final" para que aparezcan aquí</p>
+                    </div>
+                `);
+            }
+            
+            console.log('SFQ: Loaded questions summary:', {
+                total: this.questions.length,
+                normal: normalQuestions.length,
+                finalScreens: finalScreenQuestions.length
             });
         }
 
@@ -1713,6 +1804,22 @@
             
             // Handle freestyle questions
             if (data.question_type === 'freestyle') {
+                // CRÍTICO: Extraer pantallaFinal de las configuraciones si no está en el nivel superior
+                let pantallaFinal = false;
+                
+                // Verificar en múltiples ubicaciones posibles
+                if (data.pantallaFinal !== undefined) {
+                    pantallaFinal = this.formBuilder.dataValidator.normalizeBoolean(data.pantallaFinal);
+                } else if (data.pantalla_final !== undefined) {
+                    pantallaFinal = this.formBuilder.dataValidator.normalizeBoolean(data.pantalla_final);
+                } else if (data.settings && data.settings.pantallaFinal !== undefined) {
+                    pantallaFinal = this.formBuilder.dataValidator.normalizeBoolean(data.settings.pantallaFinal);
+                }
+                
+                console.log('SFQ: Processing freestyle question:', data.question_text);
+                console.log('SFQ: pantallaFinal value found:', pantallaFinal);
+                console.log('SFQ: Original data.settings:', data.settings);
+                
                 return {
                     id: questionId,
                     originalId: data.id || null,
@@ -1727,7 +1834,8 @@
                         layout: 'vertical',
                         spacing: 'normal',
                         show_element_numbers: false
-                    }
+                    },
+                    pantallaFinal: pantallaFinal
                 };
             }
             
@@ -1783,7 +1891,7 @@
             }));
         }
 
-        addQuestion(type) {
+        addQuestion(type, isFinalScreen = false) {
             // Prevent duplicate additions
             if (this.isAddingQuestion) {
                 return;
@@ -1806,14 +1914,49 @@
                     conditions: []
                 };
                 
+                // Si es una pregunta de estilo libre
+                if (type === 'freestyle') {
+                    question.freestyle_elements = [];
+                    question.global_settings = {
+                        layout: 'vertical',
+                        spacing: 'normal',
+                        show_element_numbers: false
+                    };
+                    
+                    // Marcar como pantalla final si se especifica
+                    if (isFinalScreen) {
+                        question.pantallaFinal = true;
+                        console.log('SFQ: Creating freestyle question as final screen:', questionId);
+                    } else {
+                        question.pantallaFinal = false;
+                    }
+                }
+                
                 this.questions.push(question);
                 
                 // Remove empty state if exists
                 $('.sfq-empty-questions').remove();
+                $('.sfq-empty-final-screens').remove();
                 
                 // Render and append
                 const element = this.formBuilder.uiRenderer.renderQuestion(question);
-                this.container.append(element);
+                
+                // Determinar dónde añadir la pregunta
+                if (type === 'freestyle' && isFinalScreen) {
+                    // Añadir a la sección de pantallas finales
+                    const $finalScreensContainer = $('#sfq-final-screens-container');
+                    if ($finalScreensContainer.length > 0) {
+                        $finalScreensContainer.append(element);
+                        console.log('SFQ: Added final screen question to final screens section:', questionId);
+                    } else {
+                        // Fallback: añadir al contenedor normal
+                        this.container.append(element);
+                    }
+                } else {
+                    // Añadir al contenedor normal de preguntas
+                    this.container.append(element);
+                }
+                
                 this.bindQuestionEvents(questionId);
                 
                 // Mark as dirty
@@ -1858,6 +2001,9 @@
                 question.required = $(e.target).is(':checked');
                 this.formBuilder.isDirty = true;
             });
+            
+            // ELIMINADO: Lógica del checkbox para convertir a pantalla final
+            // Solo se usará el botón "Pantalla Final" para crear pantallas finales
             
             // Update show next button setting
             $question.find('.sfq-show-next-button-checkbox').off('change').on('change', (e) => {
@@ -2781,9 +2927,92 @@
             this.questions = newOrder;
             this.formBuilder.isDirty = true;
         }
+        
+        moveFinalScreenQuestion(questionId, isFinaleScreen) {
+            const $question = $(`#${questionId}`);
+            const $finalScreensContainer = $('#sfq-final-screens-container');
+            const $questionsContainer = $('#sfq-questions-container');
+            
+            console.log('SFQ: === MOVING FINAL SCREEN QUESTION ===');
+            console.log('SFQ: Question ID:', questionId);
+            console.log('SFQ: Is final screen:', isFinaleScreen);
+            console.log('SFQ: Questions array before move:', this.questions.map(q => ({ id: q.id, text: q.text, pantallaFinal: q.pantallaFinal })));
+            
+            // CRÍTICO: Actualizar la referencia en el array ANTES de mover el DOM
+            const question = this.questions.find(q => q.id === questionId);
+            if (question) {
+                question.pantallaFinal = isFinaleScreen;
+                console.log('SFQ: Updated question pantallaFinal property:', question.pantallaFinal);
+            } else {
+                console.error('SFQ: Question not found in array:', questionId);
+                return;
+            }
+            
+            if (isFinaleScreen) {
+                // Mover a la sección de pantallas finales
+                if ($finalScreensContainer.length > 0) {
+                    // Remover el estado vacío si existe
+                    $finalScreensContainer.find('.sfq-empty-final-screens').remove();
+                    
+                    // Mover la pregunta
+                    $question.appendTo($finalScreensContainer);
+                    
+                    console.log('SFQ: Moved question to final screens section:', questionId);
+                }
+            } else {
+                // Mover de vuelta a la sección de preguntas normales
+                if ($questionsContainer.length > 0) {
+                    // Remover el estado vacío si existe
+                    $questionsContainer.find('.sfq-empty-questions').remove();
+                    
+                    // Mover la pregunta
+                    $question.appendTo($questionsContainer);
+                    
+                    console.log('SFQ: Moved question back to normal questions section:', questionId);
+                }
+                
+                // Si no quedan pantallas finales, mostrar estado vacío
+                if ($finalScreensContainer.find('.sfq-question-item').length === 0) {
+                    $finalScreensContainer.append(`
+                        <div class="sfq-empty-final-screens">
+                            <div class="sfq-empty-final-icon">🏁</div>
+                            <p>Añade más pantallas finales de estilo libre</p>
+                            <p>Marca preguntas como "pantalla final" o crea preguntas tipo "Pantalla Final" para que aparezcan aquí</p>
+                        </div>
+                    `);
+                }
+            }
+            
+            // CRÍTICO: Re-bind events después del movimiento DOM
+            this.bindQuestionEvents(questionId);
+            
+            // Actualizar el orden de las preguntas
+            this.updateQuestionsOrder();
+            
+            console.log('SFQ: Questions array after move:', this.questions.map(q => ({ id: q.id, text: q.text, pantallaFinal: q.pantallaFinal })));
+            console.log('SFQ: === END MOVING FINAL SCREEN QUESTION ===');
+        }
 
         getQuestionsData() {
             console.log('SFQ: === GETTING QUESTIONS DATA FOR SAVE ===');
+            console.log('SFQ: Questions array state:', this.questions.map(q => ({ 
+                id: q.id, 
+                text: q.text, 
+                pantallaFinal: q.pantallaFinal,
+                type: q.type 
+            })));
+            
+            // CRÍTICO: Verificar que todas las preguntas del DOM estén en el array
+            const $allQuestions = $('.sfq-question-item');
+            console.log('SFQ: DOM questions found:', $allQuestions.length);
+            
+            $allQuestions.each((index, element) => {
+                const questionId = $(element).attr('id');
+                const questionInArray = this.questions.find(q => q.id === questionId);
+                if (!questionInArray) {
+                    console.error('SFQ: Question found in DOM but not in array:', questionId);
+                }
+            });
             
             return this.questions.map((question, index) => {
                 // CRÍTICO: Obtener condiciones del ConditionEngine
@@ -2793,7 +3022,8 @@
                     text: question.text,
                     conditions: conditionsData,
                     originalId: question.originalId,
-                    temporalId: question.id
+                    temporalId: question.id,
+                    pantallaFinal: question.pantallaFinal
                 });
                 
                 const baseData = {
@@ -2820,6 +3050,7 @@
                     baseData.freestyle_elements = question.freestyle_elements || [];
                     baseData.global_settings = question.global_settings || {};
                     baseData.options = []; // Freestyle questions don't have traditional options
+                    baseData.pantallaFinal = question.pantallaFinal || false; // Incluir campo pantalla final
                 } else {
                     // Regular questions with options
                     baseData.options = question.options ? question.options.filter(opt => opt.text) : [];
@@ -3383,11 +3614,12 @@
         renderFreestyleQuestion(question) {
             const elementsHtml = this.renderFreestyleElements(question.freestyle_elements || []);
             const controlsHtml = this.renderFreestyleControls(question.id);
+            const isFinaleScreen = question.pantallaFinal || false;
 
             const html = `
-                <div class="sfq-question-item sfq-freestyle-question" id="${question.id}" data-type="freestyle">
+                <div class="sfq-question-item sfq-freestyle-question ${isFinaleScreen ? 'sfq-final-screen' : ''}" id="${question.id}" data-type="freestyle" data-final-screen="${isFinaleScreen}">
                     <div class="sfq-question-header">
-                        <span class="sfq-question-type-label">Estilo Libre</span>
+                        <span class="sfq-question-type-label">${isFinaleScreen ? '🏁 Pantalla Final' : 'Estilo Libre'}</span>
                         <div class="sfq-question-actions">
                             <button class="sfq-question-action sfq-move-handle" type="button" title="Mover">
                                 <span class="dashicons dashicons-move"></span>

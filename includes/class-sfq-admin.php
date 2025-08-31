@@ -321,6 +321,7 @@ class SFQ_Admin {
                             // Actualizar los valores en la tarjeta
                             card.find('#views-' + formId).text(response.data.views);
                             card.find('#completed-' + formId).text(response.data.completed);
+                            card.find('#partial-' + formId).text(response.data.partial_responses);
                             card.find('#rate-' + formId).text(response.data.rate + '%');
                         }
                     },
@@ -374,6 +375,7 @@ class SFQ_Admin {
                             const card = button.closest('.sfq-form-card');
                             card.find('#views-' + formId).text('0');
                             card.find('#completed-' + formId).text('0');
+                            card.find('#partial-' + formId).text('0');
                             card.find('#rate-' + formId).text('0%');
                             
                             // Mostrar mensaje de éxito
@@ -757,14 +759,6 @@ class SFQ_Admin {
                         </div>
                         
                         <div class="sfq-field-group">
-                            <label><?php _e('Mensaje de Agradecimiento', 'smart-forms-quiz'); ?></label>
-                            <textarea id="thank-you-message" class="sfq-textarea" rows="3"
-                                      placeholder="<?php _e('Mensaje al completar el formulario', 'smart-forms-quiz'); ?>"><?php 
-                                echo $form ? esc_textarea($form->thank_you_message) : ''; 
-                            ?></textarea>
-                        </div>
-                        
-                        <div class="sfq-field-group">
                             <label><?php _e('URL de Redirección (opcional)', 'smart-forms-quiz'); ?></label>
                             <input type="url" id="redirect-url" class="sfq-input" 
                                    value="<?php echo $form ? esc_attr($form->redirect_url) : ''; ?>" 
@@ -804,6 +798,11 @@ class SFQ_Admin {
                                 <button class="sfq-add-question" data-type="freestyle">
                                     <span class="dashicons dashicons-admin-tools"></span>
                                     <?php _e('Estilo Libre', 'smart-forms-quiz'); ?>
+                                </button>
+                                
+                                <button class="sfq-add-question" data-type="freestyle" data-final-screen="true">
+                                    <span class="dashicons dashicons-flag"></span>
+                                    <?php _e('Pantalla Final', 'smart-forms-quiz'); ?>
                                 </button>
                             </div>
                         </div>
@@ -1328,6 +1327,116 @@ class SFQ_Admin {
                                 <?php _e('Hace scroll automáticamente hacia el formulario cuando se carga la página', 'smart-forms-quiz'); ?>
                             </p>
                         </div>
+                        
+                        <div class="sfq-field-group">
+                            <h3><?php _e('⏳ Indicadores de Carga', 'smart-forms-quiz'); ?></h3>
+                            
+                            <div class="sfq-field-group">
+                                <label>
+                                    <input type="checkbox" id="show-processing-indicator">
+                                    <?php _e('Mostrar indicador de procesamiento', 'smart-forms-quiz'); ?>
+                                </label>
+                                <p class="description" style="margin-left: 24px; margin-top: 5px; font-size: 12px; color: #666;">
+                                    <?php _e('Muestra "..." cuando se evalúan condiciones al hacer clic en opciones', 'smart-forms-quiz'); ?>
+                                </p>
+                            </div>
+                            
+                            <div class="sfq-field-group" id="processing-indicator-settings" style="display: none; margin-left: 24px; padding: 15px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e9ecef;">
+                                <div class="sfq-field-row" style="margin-bottom: 15px;">
+                                    <label><?php _e('Texto del indicador', 'smart-forms-quiz'); ?></label>
+                                    <input type="text" id="processing-indicator-text" class="sfq-input" 
+                                           placeholder="<?php _e('...', 'smart-forms-quiz'); ?>" 
+                                           value="<?php _e('...', 'smart-forms-quiz'); ?>">
+                                    <small style="display: block; margin-top: 5px; color: #666; font-size: 11px;">
+                                        <?php _e('Texto que aparece junto al spinner de carga', 'smart-forms-quiz'); ?>
+                                    </small>
+                                </div>
+                                
+                                <div class="sfq-field-row" style="margin-bottom: 15px;">
+                                    <label><?php _e('Opacidad del fondo', 'smart-forms-quiz'); ?></label>
+                                    <input type="range" id="processing-indicator-opacity" min="0.1" max="1" step="0.1" value="0.7" class="sfq-range">
+                                    <span class="sfq-processing-opacity-value">0.7</span>
+                                    <small style="display: block; margin-top: 5px; color: #666; font-size: 11px;">
+                                        <?php _e('Opacidad del formulario mientras se procesa (0.1 = muy transparente, 1.0 = opaco)', 'smart-forms-quiz'); ?>
+                                    </small>
+                                </div>
+                                
+                                <div class="sfq-field-row" style="margin-bottom: 15px;">
+                                    <label><?php _e('Color de fondo del indicador', 'smart-forms-quiz'); ?></label>
+                                    <input type="text" id="processing-indicator-bg-color" class="sfq-color-picker" value="#ffffff">
+                                </div>
+                                
+                                <div class="sfq-field-row" style="margin-bottom: 15px;">
+                                    <label><?php _e('Color del texto', 'smart-forms-quiz'); ?></label>
+                                    <input type="text" id="processing-indicator-text-color" class="sfq-color-picker" value="#666666">
+                                </div>
+                                
+                                <div class="sfq-field-row" style="margin-bottom: 15px;">
+                                    <label><?php _e('Color del spinner', 'smart-forms-quiz'); ?></label>
+                                    <input type="text" id="processing-indicator-spinner-color" class="sfq-color-picker" value="#007cba">
+                                </div>
+                                
+                                <div class="sfq-field-row">
+                                    <label><?php _e('Retraso antes de mostrar (ms)', 'smart-forms-quiz'); ?></label>
+                                    <input type="number" id="processing-indicator-delay" class="sfq-input" 
+                                           min="0" max="2000" value="100" style="width: 100px;">
+                                    <small style="display: block; margin-top: 5px; color: #666; font-size: 11px;">
+                                        <?php _e('Milisegundos de espera antes de mostrar el indicador (0 = inmediato)', 'smart-forms-quiz'); ?>
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <div class="sfq-field-group">
+                                <label>
+                                    <input type="checkbox" id="show-submit-loading" checked>
+                                    <?php _e('Mostrar indicador de envío', 'smart-forms-quiz'); ?>
+                                </label>
+                                <p class="description" style="margin-left: 24px; margin-top: 5px; font-size: 12px; color: #666;">
+                                    <?php _e('Muestra spinner de carga al enviar el formulario completo (recomendado)', 'smart-forms-quiz'); ?>
+                                </p>
+                            </div>
+                            
+                            <div class="sfq-field-group">
+                                <h4><?php _e('🔄 Indicador de Redirección', 'smart-forms-quiz'); ?></h4>
+                                <p class="description" style="margin-bottom: 15px; font-size: 12px; color: #666;">
+                                    <?php _e('Configuración del indicador elegante que aparece cuando se redirige a una URL externa tras completar el formulario', 'smart-forms-quiz'); ?>
+                                </p>
+                                
+                                <div class="sfq-field-row" style="margin-bottom: 15px;">
+                                    <label><?php _e('Texto del indicador de redirección', 'smart-forms-quiz'); ?></label>
+                                    <input type="text" id="redirect-indicator-text" class="sfq-input" 
+                                           placeholder="<?php _e('Completando formulario...', 'smart-forms-quiz'); ?>" 
+                                           value="<?php _e('Completando formulario...', 'smart-forms-quiz'); ?>">
+                                    <small style="display: block; margin-top: 5px; color: #666; font-size: 11px;">
+                                        <?php _e('Texto que aparece durante la redirección. Déjalo vacío para mostrar solo el spinner', 'smart-forms-quiz'); ?>
+                                    </small>
+                                </div>
+                                
+                                <div class="sfq-field-row" style="margin-bottom: 15px;">
+                                    <label><?php _e('Opacidad del fondo de redirección', 'smart-forms-quiz'); ?></label>
+                                    <input type="range" id="redirect-indicator-opacity" min="0.1" max="1" step="0.1" value="0.8" class="sfq-range">
+                                    <span class="sfq-redirect-opacity-value">0.8</span>
+                                    <small style="display: block; margin-top: 5px; color: #666; font-size: 11px;">
+                                        <?php _e('Opacidad del overlay durante la redirección (0.1 = muy transparente, 1.0 = opaco)', 'smart-forms-quiz'); ?>
+                                    </small>
+                                </div>
+                                
+                                <div class="sfq-field-row" style="margin-bottom: 15px;">
+                                    <label><?php _e('Color de fondo del indicador de redirección', 'smart-forms-quiz'); ?></label>
+                                    <input type="text" id="redirect-indicator-bg-color" class="sfq-color-picker" value="#ffffff">
+                                </div>
+                                
+                                <div class="sfq-field-row" style="margin-bottom: 15px;">
+                                    <label><?php _e('Color del texto de redirección', 'smart-forms-quiz'); ?></label>
+                                    <input type="text" id="redirect-indicator-text-color" class="sfq-color-picker" value="#666666">
+                                </div>
+                                
+                                <div class="sfq-field-row">
+                                    <label><?php _e('Color del spinner de redirección', 'smart-forms-quiz'); ?></label>
+                                    <input type="text" id="redirect-indicator-spinner-color" class="sfq-color-picker" value="#007cba">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
                     <!-- Tab Variables Globales -->
@@ -1414,6 +1523,39 @@ class SFQ_Admin {
                                     <p><?php _e('Añade preguntas desde el panel lateral', 'smart-forms-quiz'); ?></p>
                                 </div>
                             <?php endif; ?>
+                        </div>
+                        
+                        <!-- Nueva sección para pantallas finales -->
+                        <div class="sfq-final-screens-section">
+                            <div class="sfq-final-screens-header">
+                                <h3>
+                                    <span class="dashicons dashicons-flag"></span>
+                                    <?php _e('Pantallas Finales', 'smart-forms-quiz'); ?>
+                                </h3>
+                                <p class="description">
+                                    <?php _e('Todas las preguntas marcadas como pantallas finales aparecerán aquí. Al llegar a cualquiera de estas preguntas, el formulario se dará por completado.', 'smart-forms-quiz'); ?>
+                                </p>
+                            </div>
+                            <div class="sfq-final-screens-actions">
+                                <button class="sfq-add-question" data-type="freestyle" data-final-screen="true">
+                                    <span class="dashicons dashicons-flag"></span>
+                                    <?php _e('Añadir Pantalla Final', 'smart-forms-quiz'); ?>
+                                </button>
+                            </div>
+                            <div id="sfq-final-screens-container" class="sfq-final-screens-list">
+                                <div class="sfq-empty-final-screens">
+                                    <div class="sfq-empty-final-icon">🏁</div>
+                                    <p><?php _e('Añade más pantallas finales de estilo libre', 'smart-forms-quiz'); ?></p>
+                                    <p><?php _e('Marca preguntas como "pantalla final" o crea preguntas tipo "Pantalla Final" para que aparezcan aquí', 'smart-forms-quiz'); ?></p>
+                                </div>
+                            </div>
+                             <div class="sfq-field-group">
+                                <label><?php _e('Mensaje de Agradecimiento', 'smart-forms-quiz'); ?></label>
+                                <textarea id="thank-you-message" class="sfq-textarea" rows="3"
+                                          placeholder="<?php _e('Mensaje al completar el formulario', 'smart-forms-quiz'); ?>"><?php 
+                                    echo $form ? esc_textarea($form->thank_you_message) : ''; 
+                                ?></textarea>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1644,6 +1786,32 @@ class SFQ_Admin {
                     container.slideUp(300);
                 }
             });
+            
+            // Manejar configuración de indicadores de carga
+            $('#show-processing-indicator').on('change', function() {
+                const container = $('#processing-indicator-settings');
+                if ($(this).is(':checked')) {
+                    container.slideDown(300);
+                } else {
+                    container.slideUp(300);
+                }
+            });
+            
+            // Actualizar valor de opacidad en tiempo real
+            $('#processing-indicator-opacity').on('input', function() {
+                $('.sfq-processing-opacity-value').text($(this).val());
+            });
+            
+            // Actualizar valor de opacidad de redirección en tiempo real
+            $('#redirect-indicator-opacity').on('input', function() {
+                $('.sfq-redirect-opacity-value').text($(this).val());
+            });
+            
+            // Inicializar color pickers para indicadores de carga
+            $('#processing-indicator-bg-color, #processing-indicator-text-color, #processing-indicator-spinner-color').wpColorPicker();
+            
+            // Inicializar color pickers para indicador de redirección
+            $('#redirect-indicator-bg-color, #redirect-indicator-text-color, #redirect-indicator-spinner-color').wpColorPicker();
         });
         </script>
         <?php
@@ -2567,7 +2735,7 @@ class SFQ_Admin {
                 
                 // Deshabilitar botón y mostrar loading
                 $button.prop('disabled', true).addClass('sfq-loading');
-                $button.html('<span class="dashicons dashicons-update-alt"></span> Procesando...');
+                $button.html('<span class="dashicons dashicons-update-alt"></span>...');
                 
                 // Mostrar área de resultados
                 $('#sfq-maintenance-results').show();

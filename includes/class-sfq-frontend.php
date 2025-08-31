@@ -177,7 +177,23 @@ class SFQ_Frontend {
             
             <!-- Preguntas -->
             <?php if (!empty($form->questions)) : ?>
-                <?php foreach ($form->questions as $index => $question) : ?>
+                <?php 
+                // ✅ CRÍTICO: Separar preguntas normales de pantallas finales
+                $normal_questions = array();
+                $final_screen_questions = array();
+                
+                foreach ($form->questions as $question) {
+                    $is_final_screen = (isset($question->pantallaFinal) && $question->pantallaFinal);
+                    if ($is_final_screen) {
+                        $final_screen_questions[] = $question;
+                    } else {
+                        $normal_questions[] = $question;
+                    }
+                }
+                ?>
+                
+                <?php // Renderizar SOLO preguntas normales en el flujo principal ?>
+                <?php foreach ($normal_questions as $index => $question) : ?>
                     <?php 
                     // Determinar si esta pregunta debe estar activa inicialmente
                     $is_first_screen = false;
@@ -196,7 +212,8 @@ class SFQ_Frontend {
                          data-question-index="<?php echo $index; ?>"
                          data-question-type="<?php echo esc_attr($question->question_type); ?>"
                          data-show-next-button="<?php echo $show_next_button ? 'true' : 'false'; ?>"
-                         data-next-button-text="<?php echo esc_attr($next_button_text); ?>">
+                         data-next-button-text="<?php echo esc_attr($next_button_text); ?>"
+                         data-pantalla-final="false">
                         
                         <div class="sfq-question-content">
                             <!-- Número de pregunta -->
@@ -228,11 +245,17 @@ class SFQ_Frontend {
                                 <?php endif; ?>
                                 
                                 <?php 
+                                // ✅ NUEVO: Verificar si es una pantalla final PRIMERO
+                                $is_pantalla_final = (isset($question->pantallaFinal) && $question->pantallaFinal);
+                                
                                 // Determinar si mostrar el botón "Siguiente" basado en la configuración de la pregunta
                                 $should_show_next = true;
                                 
-                                // Si la pregunta tiene configuración específica, respetarla
-                                if (isset($question_settings['show_next_button'])) {
+                                // ✅ CRÍTICO: Si es una pantalla final, NUNCA mostrar botón siguiente
+                                if ($is_pantalla_final) {
+                                    $should_show_next = false;
+                                } elseif (isset($question_settings['show_next_button'])) {
+                                    // Si la pregunta tiene configuración específica, respetarla
                                     $should_show_next = $question_settings['show_next_button'];
                                 } else {
                                     // Lógica por defecto: mostrar siempre para opciones múltiples, texto y email
@@ -255,6 +278,41 @@ class SFQ_Frontend {
                                     </button>
                                 <?php endif; ?>
                             </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+                
+                <?php // ✅ CRÍTICO: Renderizar pantallas finales por separado (OCULTAS por defecto) ?>
+                <?php foreach ($final_screen_questions as $question) : ?>
+                    <?php 
+                    // Obtener configuración de mostrar botón siguiente (siempre false para pantallas finales)
+                    $question_settings = $question->settings ?? array();
+                    $show_next_button = false; // Las pantallas finales NUNCA muestran botón siguiente
+                    $next_button_text = isset($question_settings['next_button_text']) ? $question_settings['next_button_text'] : '';
+                    ?>
+                    <div class="sfq-screen sfq-question-screen sfq-final-screen-hidden" 
+                         data-question-id="<?php echo $question->id; ?>"
+                         data-question-index="<?php echo count($normal_questions) + array_search($question, $final_screen_questions); ?>"
+                         data-question-type="<?php echo esc_attr($question->question_type); ?>"
+                         data-show-next-button="false"
+                         data-next-button-text="<?php echo esc_attr($next_button_text); ?>"
+                         data-pantalla-final="true">
+                        
+                        <div class="sfq-question-content">
+                            <!-- Texto de la pregunta -->
+                            <h3 class="sfq-question-text">
+                                <?php echo esc_html($question->question_text); ?>
+                                <?php if ($question->required) : ?>
+                                    <span class="sfq-required">*</span>
+                                <?php endif; ?>
+                            </h3>
+                            
+                            <!-- Renderizar según el tipo de pregunta -->
+                            <div class="sfq-answer-container">
+                                <?php $this->render_question_type($question); ?>
+                            </div>
+                            
+                            <!-- Las pantallas finales NO tienen botones de navegación -->
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -398,6 +456,37 @@ class SFQ_Frontend {
                     margin: 0 auto !important;
                 }
                 <?php endif; ?>
+                
+                /* ✅ MEJORADO: Ocultar pantallas finales con múltiples técnicas para máxima compatibilidad */
+                #sfq-form-<?php echo $form_id; ?> .sfq-question-screen[data-pantalla-final="true"]:not(.sfq-conditional-access),
+                #sfq-form-<?php echo $form_id; ?> .sfq-final-screen-hidden:not(.sfq-conditional-access) {
+                    display: none !important;
+                    visibility: hidden !important;
+                    position: absolute !important;
+                    left: -9999px !important;
+                    top: -9999px !important;
+                    opacity: 0 !important;
+                    pointer-events: none !important;
+                    z-index: -1 !important;
+                }
+                
+                /* ✅ MEJORADO: Mostrar pantallas finales solo cuando se accede por lógica condicional */
+                #sfq-form-<?php echo $form_id; ?> .sfq-question-screen[data-pantalla-final="true"].sfq-conditional-access,
+                #sfq-form-<?php echo $form_id; ?> .sfq-final-screen-hidden.sfq-conditional-access {
+                    display: block !important;
+                    visibility: visible !important;
+                    position: relative !important;
+                    left: auto !important;
+                    top: auto !important;
+                    opacity: 1 !important;
+                    pointer-events: auto !important;
+                    z-index: auto !important;
+                }
+                
+                /* ✅ NUEVO: Asegurar que las pantallas finales nunca aparezcan en navegación secuencial */
+                #sfq-form-<?php echo $form_id; ?> .sfq-question-screen.active[data-pantalla-final="true"]:not(.sfq-conditional-access) {
+                    display: none !important;
+                }
             </style>
         <?php endif; ?>
         
@@ -1680,7 +1769,8 @@ class SFQ_Frontend {
         <div class="sfq-freestyle-container" 
              data-question-id="<?php echo $question->id; ?>"
              data-layout="<?php echo esc_attr($layout); ?>"
-             data-spacing="<?php echo esc_attr($spacing); ?>">
+             data-spacing="<?php echo esc_attr($spacing); ?>"
+             data-pantalla-final="<?php echo (isset($question->pantallaFinal) && $question->pantallaFinal) ? 'true' : 'false'; ?>">
             
             <?php foreach ($question->freestyle_elements as $index => $element) : ?>
                 <div class="sfq-freestyle-element sfq-element-<?php echo esc_attr($element['type']); ?>" 

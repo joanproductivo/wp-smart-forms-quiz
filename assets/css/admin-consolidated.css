@@ -2067,3 +2067,188 @@
         padding: 12px;
     }
 }
+/* ==========================================================================
+   SECCIÓN DE PANTALLAS FINALES
+   ========================================================================== */
+
+.sfq-final-screens-section {
+    margin-top: 30px;
+    background: white;
+    border: 1px solid var(--sfq-border);
+    border-radius: var(--sfq-radius);
+    box-shadow: var(--sfq-shadow);
+    overflow: hidden;
+}
+
+.sfq-final-screens-header {
+    padding: 20px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #f0f0f1 100%);
+    border-bottom: 1px solid var(--sfq-border);
+}
+
+.sfq-final-screens-header h3 {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sfq-final-screens-header h3 .dashicons {
+    color: #ff6b35;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+}
+
+.sfq-final-screens-header .description {
+    margin: 0;
+    color: #666;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.sfq-final-screens-list {
+    min-height: 200px;
+    padding: 20px;
+    background: #fafafa;
+}
+
+.sfq-empty-final-screens {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+}
+
+.sfq-empty-final-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+    opacity: 0.7;
+}
+
+.sfq-empty-final-screens p:first-of-type {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.sfq-empty-final-screens p:last-of-type {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 0;
+}
+
+.sfq-final-screens-actions {
+    padding: 15px 20px;
+    background: #f8f9fa;
+    border-top: 1px solid var(--sfq-border);
+    text-align: center;
+}
+
+.sfq-final-screens-actions .sfq-add-question {
+    background: linear-gradient(135deg, #ff6b35 0%, #e55a2b 100%);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(255, 107, 53, 0.2);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sfq-final-screens-actions .sfq-add-question:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(255, 107, 53, 0.3);
+}
+
+.sfq-final-screens-actions .sfq-add-question .dashicons {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+}
+
+/* Estilos para preguntas finales dentro de la sección */
+.sfq-final-screens-list .sfq-question-item {
+    border-left: 4px solid #ff6b35;
+    background: white;
+}
+
+.sfq-final-screens-list .sfq-question-item .sfq-question-type-label {
+    background: rgba(255, 107, 53, 0.1);
+    color: #ff6b35;
+}
+
+/* Estilos para preguntas marcadas como pantalla final */
+.sfq-question-item.sfq-final-screen {
+    border-left: 4px solid #ff6b35;
+    background: linear-gradient(135deg, #fff8f5 0%, #ffffff 100%);
+}
+
+.sfq-question-item.sfq-final-screen .sfq-question-type-label {
+    background: rgba(255, 107, 53, 0.1);
+    color: #ff6b35;
+    border: 1px solid rgba(255, 107, 53, 0.2);
+}
+
+.sfq-question-item.sfq-final-screen .sfq-question-header {
+    background: linear-gradient(135deg, #fff0eb 0%, #f8f9fa 100%);
+}
+
+
+/* Animación para cuando se convierte a pantalla final */
+.sfq-question-item.sfq-final-screen {
+    animation: sfq-final-screen-highlight 0.5s ease;
+}
+
+@keyframes sfq-final-screen-highlight {
+    0% {
+        background: white;
+        border-left-color: var(--sfq-border);
+    }
+    50% {
+        background: #fff8f5;
+        border-left-color: #ff6b35;
+        transform: scale(1.02);
+    }
+    100% {
+        background: linear-gradient(135deg, #fff8f5 0%, #ffffff 100%);
+        border-left-color: #ff6b35;
+        transform: scale(1);
+    }
+}
+
+/* Responsive para pantallas finales */
+@media (max-width: 768px) {
+    .sfq-final-screens-header {
+        padding: 15px;
+    }
+    
+    .sfq-final-screens-header h3 {
+        font-size: 16px;
+    }
+    
+    .sfq-final-screens-list {
+        padding: 15px;
+    }
+    
+    .sfq-empty-final-screens {
+        padding: 30px 15px;
+    }
+    
+    .sfq-final-screens-actions {
+        padding: 15px;
+    }
+    
+    .sfq-final-screens-actions .sfq-add-question {
+        width: 100%;
+        justify-content: center;
+    }
+}

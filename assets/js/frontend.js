@@ -57,9 +57,12 @@
             this.bindEvents();
             this.initializeForm();
             
-            // ✅ NUEVO: Inicializar guardado parcial si está habilitado
+            // ✅ CORREGIDO: Retrasar inicialización del guardado parcial
             if (this.savePartialEnabled) {
-                this.initializePartialSave();
+                // Retrasar la inicialización para permitir que se ejecute la lógica condicional inicial
+                setTimeout(() => {
+                    this.initializePartialSaveDelayed();
+                }, 1000); // 1 segundo de retraso
             }
             
             // Registrar vista del formulario
@@ -147,13 +150,16 @@
                 introScreen.classList.remove('active');
             }
 
-            // Mostrar primera pregunta
-            const firstQuestion = this.container.querySelector('.sfq-question-screen');
+            // ✅ CORREGIDO: Buscar primera pregunta que NO sea pantalla final
+            const firstQuestion = this.getFirstNonFinalQuestion();
             if (firstQuestion) {
                 this.showScreen(firstQuestion);
                 this.updateProgress();
                 // Asegurar que el botón siguiente se actualice correctamente
                 this.updateNextButtonVisibility(firstQuestion);
+            } else {
+                // Si no hay preguntas normales, ir directamente al final
+                this.submitForm();
             }
         }
 
@@ -183,8 +189,30 @@
                 const redirectResult = await this.processConditionsImmediate(card, questionId);
                 
                 if (redirectResult && redirectResult.shouldRedirect) {
-                    // Redirección inmediata
-                    window.location.href = redirectResult.redirectUrl;
+                    // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
+                    if (redirectResult.markAsCompleted) {
+                        console.log('SFQ: Marking form as completed before redirect to:', redirectResult.redirectUrl);
+                        
+                        // Mostrar indicador de procesamiento elegante
+                        this.showRedirectProcessingIndicator();
+                        
+                        try {
+                            // Marcar como completado silenciosamente
+                            await this.markFormAsCompleted();
+                            
+                            // Pequeña pausa para que el usuario vea el indicador
+                            setTimeout(() => {
+                                window.location.href = redirectResult.redirectUrl;
+                            }, 1500);
+                        } catch (error) {
+                            console.error('SFQ: Error marking form as completed before redirect:', error);
+                            // Redirigir de todos modos
+                            window.location.href = redirectResult.redirectUrl;
+                        }
+                    } else {
+                        // Redirección inmediata sin marcar como completado
+                        window.location.href = redirectResult.redirectUrl;
+                    }
                     return;
                 }
 
@@ -317,42 +345,72 @@
         }
 
         async processConditionsImmediate(element, questionId) {
-            // Obtener condiciones del elemento primero
+            // ✅ CORREGIDO: Verificar si hay atributo conditions (aunque esté vacío)
             const conditions = element.dataset.conditions;
+            let hasLocalConditions = false;
+            let hasConditionsAttribute = false;
             
-            if (conditions) {
+            if (conditions !== undefined) {
+                hasConditionsAttribute = true;
+                console.log('SFQ Frontend Debug: Found conditions attribute:', conditions);
+                
                 try {
                     const conditionsList = JSON.parse(conditions);
-                    const localResult = this.evaluateConditionsForRedirect(conditionsList, questionId);
+                    hasLocalConditions = Array.isArray(conditionsList) && conditionsList.length > 0;
                     
-                    // ✅ CRÍTICO: Aplicar variables actualizadas al estado global
-                    if (localResult.variables) {
-                        console.log('SFQ Frontend Debug: Applying local variables to global state:', localResult.variables);
-                        this.variables = { ...localResult.variables };
-                    }
-                    
-                    if (localResult.shouldRedirect) {
-                        return localResult;
+                    if (hasLocalConditions) {
+                        console.log('SFQ Frontend Debug: Processing local conditions:', conditionsList);
+                        const localResult = this.evaluateConditionsForRedirect(conditionsList, questionId);
+                        
+                        // ✅ CRÍTICO: Aplicar variables actualizadas al estado global
+                        if (localResult.variables) {
+                            console.log('SFQ Frontend Debug: Applying local variables to global state:', localResult.variables);
+                            this.variables = { ...localResult.variables };
+                        }
+                        
+                        if (localResult.shouldRedirect || localResult.skipToQuestion) {
+                            return localResult;
+                        }
+                    } else {
+                        console.log('SFQ Frontend Debug: Local conditions array is empty, checking server conditions');
                     }
                 } catch (e) {
                     console.error('Error procesando condiciones locales:', e);
                 }
+            } else {
+                console.log('SFQ Frontend Debug: No conditions attribute found on element');
             }
             
-            // Siempre hacer petición AJAX para obtener condiciones del servidor
-            try {
-                const ajaxResult = await this.checkConditionsViaAjax(questionId, element.dataset.value);
-                
-                // ✅ CRÍTICO: Aplicar variables del servidor al estado global
-                if (ajaxResult && ajaxResult.variables) {
-                    console.log('SFQ Frontend Debug: Applying AJAX variables to global state:', ajaxResult.variables);
-                    this.variables = { ...ajaxResult.variables };
+            // ✅ CORREGIDO: Hacer petición AJAX si hay atributo conditions (aunque esté vacío)
+            // El servidor puede tener condiciones adicionales no presentes en el frontend
+            if (hasConditionsAttribute) {
+                console.log('SFQ Frontend Debug: Making AJAX call to check server conditions');
+                try {
+                    const ajaxResult = await this.checkConditionsViaAjax(questionId, element.dataset.value);
+                    
+                    // ✅ CRÍTICO: Aplicar variables del servidor al estado global
+                    if (ajaxResult && ajaxResult.variables) {
+                        console.log('SFQ Frontend Debug: Applying AJAX variables to global state:', ajaxResult.variables);
+                        this.variables = { ...ajaxResult.variables };
+                    }
+                    
+                    return ajaxResult;
+                } catch (error) {
+                    console.error('Error en petición AJAX de condiciones:', error);
+                    return { 
+                        shouldRedirect: false, 
+                        skipToQuestion: null,
+                        variables: this.variables 
+                    };
                 }
-                
-                return ajaxResult;
-            } catch (error) {
-                console.error('Error en petición AJAX de condiciones:', error);
-                return { shouldRedirect: false };
+            } else {
+                // ✅ CORREGIDO: Solo si NO hay atributo conditions, no hacer AJAX
+                console.log('SFQ Frontend Debug: No conditions attribute, skipping AJAX call');
+                return { 
+                    shouldRedirect: false, 
+                    skipToQuestion: null,
+                    variables: this.variables 
+                };
             }
         }
 
@@ -381,6 +439,7 @@
                         case 'redirect_url':
                             result.shouldRedirect = true;
                             result.redirectUrl = condition.action_value;
+                            result.markAsCompleted = true; // ✅ NUEVO: Marcar para completar antes de redirigir
                             console.log('SFQ Frontend Debug: Setting redirect to:', condition.action_value);
                             return result; // Retornar inmediatamente para redirección
                             
@@ -548,12 +607,17 @@
                     if (ajaxResult.data.redirect_url) {
                         result.shouldRedirect = true;
                         result.redirectUrl = ajaxResult.data.redirect_url;
+                        result.markAsCompleted = true; // ✅ CRÍTICO: Marcar para completar antes de redirigir
+                        console.log('SFQ Frontend Debug: Server redirect detected, marking for completion:', ajaxResult.data.redirect_url);
                         return result;
                     }
                     
-                    // Verificar salto de pregunta
-                    if (ajaxResult.data.next_question_id) {
+                    // ✅ CORREGIDO: Solo establecer skipToQuestion si hay navegación condicional real
+                    if (ajaxResult.data.next_question_id && ajaxResult.data.has_conditional_navigation) {
                         result.skipToQuestion = ajaxResult.data.next_question_id;
+                        console.log('SFQ Frontend Debug: Server confirmed conditional navigation to:', ajaxResult.data.next_question_id);
+                    } else if (ajaxResult.data.next_question_id && !ajaxResult.data.has_conditional_navigation) {
+                        console.log('SFQ Frontend Debug: Server returned next_question_id but no conditional navigation - ignoring for sequential flow');
                     }
                 } else {
                     // AJAX request failed or returned no data
@@ -640,18 +704,36 @@
                 return;
             }
 
-            // Buscar siguiente pregunta
-            let nextQuestion = this.skipToQuestion ? 
-                this.container.querySelector(`[data-question-id="${this.skipToQuestion}"]`) :
-                currentQuestion.nextElementSibling;
+            let nextQuestion = null;
 
-            // Resetear skip
-            this.skipToQuestion = null;
+            // ✅ CORREGIDO: Lógica de navegación mejorada con debug adicional
+            console.log('SFQ: Navigation check - skipToQuestion:', this.skipToQuestion);
+            
+            if (this.skipToQuestion) {
+                // Navegación condicional - puede ir a cualquier pregunta, incluyendo pantallas finales
+                nextQuestion = this.container.querySelector(`[data-question-id="${this.skipToQuestion}"]`);
+                console.log('SFQ: Conditional navigation to question:', this.skipToQuestion);
+                
+                // Resetear skip después de usarlo
+                this.skipToQuestion = null;
+            } else {
+                // Navegación secuencial - DEBE saltar pantallas finales
+                nextQuestion = this.getNextNonFinalQuestion(currentQuestion);
+                console.log('SFQ: Sequential navigation - looking for next non-final question');
+            }
 
-            // Si no hay más preguntas, mostrar pantalla final
+            // Si no hay más preguntas normales, ir al final
             if (!nextQuestion || !nextQuestion.classList.contains('sfq-question-screen')) {
+                console.log('SFQ: No more questions found, submitting form');
                 this.submitForm();
                 return;
+            }
+
+            // Verificar si la pregunta encontrada es una pantalla final (solo para debug)
+            if (this.isQuestionPantallaFinal(nextQuestion)) {
+                console.log('SFQ: Next question is a final screen:', nextQuestion.dataset.questionId);
+            } else {
+                console.log('SFQ: Next question is normal:', nextQuestion.dataset.questionId);
             }
 
             // Cambiar a siguiente pregunta
@@ -686,7 +768,30 @@
                 this.currentScreen.classList.remove('active', 'slide-left', 'slide-right');
             }
 
-            // Mostrar nueva pantalla con animación
+            // ✅ MEJORADO: Verificación preventiva para pantallas finales
+            if (screen.classList.contains('sfq-question-screen')) {
+                const isPantallaFinal = this.isQuestionPantallaFinal(screen);
+                
+                if (isPantallaFinal) {
+                    console.log('SFQ: Accessing final screen via conditional logic:', screen.dataset.questionId);
+                    
+                    // ✅ CRÍTICO: Añadir clase para mostrar la pantalla final (override del CSS)
+                    screen.classList.add('sfq-conditional-access');
+                    
+                    // Mostrar nueva pantalla con animación
+                    screen.classList.add('active', `slide-${direction}`);
+                    this.currentScreen = screen;
+                    
+                    // Manejar llegada a pantalla final
+                    this.handlePantallaFinalReached(screen);
+                    return;
+                } else {
+                    // ✅ NUEVO: Para preguntas normales, asegurar que NO tengan clase de acceso condicional
+                    screen.classList.remove('sfq-conditional-access');
+                }
+            }
+
+            // Mostrar nueva pantalla con animación (para preguntas normales)
             screen.classList.add('active', `slide-${direction}`);
             this.currentScreen = screen;
 
@@ -746,6 +851,28 @@
         updateProgress() {
             const progressBar = this.container.querySelector('.sfq-progress-fill');
             if (!progressBar) return;
+
+            // ✅ CORREGIDO: Si estamos en una pantalla final, completar la barra al 100%
+            if (this.currentScreen && this.isQuestionPantallaFinal(this.currentScreen)) {
+                console.log('SFQ: Final screen detected - setting progress to 100%');
+                progressBar.style.width = '100%';
+                
+                // ✅ ELEGANTE: Hacer desaparecer la barra después de completarse
+                const progressContainer = this.container.querySelector('.sfq-progress-bar');
+                if (progressContainer) {
+                    setTimeout(() => {
+                        progressContainer.style.transition = 'opacity 0.8s ease-out, transform 0.8s ease-out';
+                        progressContainer.style.opacity = '0';
+                        progressContainer.style.transform = 'translateY(-10px)';
+                        
+                        // Ocultar completamente después de la animación
+                        setTimeout(() => {
+                            progressContainer.style.display = 'none';
+                        }, 800);
+                    }, 1000); // Esperar 1 segundo después de completar al 100%
+                }
+                return;
+            }
 
             const totalQuestions = this.container.querySelectorAll('.sfq-question-screen').length;
             const progress = ((this.currentQuestionIndex + 1) / totalQuestions) * 100;
@@ -1149,6 +1276,11 @@
         }
 
         async submitForm() {
+            console.log('SFQ: Starting form submission (normal flow)');
+            
+            // ✅ CRÍTICO: Desactivar sistema de guardado parcial ANTES de procesar
+            this.disablePartialSave();
+            
             // Calcular tiempo total
             const totalTime = Math.floor((Date.now() - this.startTime) / 1000);
 
@@ -1178,6 +1310,8 @@
                 const result = await response.json();
 
                 if (result.success) {
+                    console.log('SFQ: Form submitted successfully (normal flow)');
+                    
                     // PRIORITY 1: Verificar si hay redirección condicional desde el resultado del servidor
                     if (result.data && result.data.redirect_url) {
                         window.location.href = result.data.redirect_url;
@@ -1307,7 +1441,7 @@
             indicator.className = 'sfq-processing-indicator';
             indicator.innerHTML = `
                 <div class="sfq-processing-spinner"></div>
-                <span class="sfq-processing-text">Procesando...</span>
+                <span class="sfq-processing-text">...</span>
             `;
             
             // Añadir al contenedor de la pregunta
@@ -1329,12 +1463,147 @@
         }
 
         /**
-         * ✅ NUEVO: Inicializar sistema de guardado parcial
+         * ✅ NUEVO: Mostrar mensaje de procesamiento personalizado
+         */
+        showProcessingMessage(message) {
+            // Remover mensaje existente si lo hay
+            this.hideProcessingMessage();
+            
+            const indicator = document.createElement('div');
+            indicator.className = 'sfq-processing-message';
+            indicator.innerHTML = `
+                <div class="sfq-processing-spinner"></div>
+                <span class="sfq-processing-text">${message}</span>
+            `;
+            
+            // Añadir al contenedor principal del formulario
+            this.container.appendChild(indicator);
+            
+            // Añadir clase para efectos visuales
+            this.container.classList.add('sfq-processing-form');
+        }
+
+        /**
+         * ✅ NUEVO: Ocultar mensaje de procesamiento personalizado
+         */
+        hideProcessingMessage() {
+            const indicator = this.container.querySelector('.sfq-processing-message');
+            if (indicator) {
+                indicator.remove();
+            }
+            this.container.classList.remove('sfq-processing-form');
+        }
+
+        /**
+         * ✅ NUEVO: Mostrar indicador elegante de procesamiento para redirección
+         */
+        showRedirectProcessingIndicator() {
+            // Remover indicador existente si lo hay
+            this.hideRedirectProcessingIndicator();
+            
+            // Obtener configuraciones del formulario (por ahora usar valores por defecto)
+            const settings = this.settings || {};
+            const indicatorText = settings.processing_indicator_text || '';
+            const indicatorOpacity = settings.processing_indicator_opacity || '0.8';
+            const indicatorBgColor = settings.processing_indicator_bg_color || '#ffffff';
+            const indicatorTextColor = settings.processing_indicator_text_color || '#666666';
+            const indicatorSpinnerColor = settings.processing_indicator_spinner_color || '#007cba';
+            
+            const indicator = document.createElement('div');
+            indicator.className = 'sfq-redirect-processing-overlay';
+            
+            // Crear contenido del indicador
+            let content = `<div class="sfq-redirect-processing-spinner"></div>`;
+            
+            // Solo añadir texto si está configurado
+            if (indicatorText && indicatorText.trim() !== '') {
+                content += `<span class="sfq-redirect-processing-text">${indicatorText}</span>`;
+            }
+            
+            indicator.innerHTML = `<div class="sfq-redirect-processing-content">${content}</div>`;
+            
+            // Aplicar estilos personalizados
+            indicator.style.backgroundColor = `rgba(${this.hexToRgb(indicatorBgColor)}, ${indicatorOpacity})`;
+            indicator.style.color = indicatorTextColor;
+            
+            // Aplicar color del spinner
+            const spinnerElement = indicator.querySelector('.sfq-redirect-processing-spinner');
+            if (spinnerElement) {
+                spinnerElement.style.borderTopColor = indicatorSpinnerColor;
+            }
+            
+            // Añadir al contenedor principal del formulario
+            this.container.appendChild(indicator);
+            
+            // Añadir clase para efectos visuales
+            this.container.classList.add('sfq-redirect-processing');
+            
+            // Animar la aparición
+            setTimeout(() => {
+                indicator.classList.add('show');
+            }, 10);
+        }
+
+        /**
+         * ✅ NUEVO: Ocultar indicador de procesamiento para redirección
+         */
+        hideRedirectProcessingIndicator() {
+            const indicator = this.container.querySelector('.sfq-redirect-processing-overlay');
+            if (indicator) {
+                indicator.remove();
+            }
+            this.container.classList.remove('sfq-redirect-processing');
+        }
+
+        /**
+         * ✅ NUEVO: Convertir hex a RGB para transparencias
+         */
+        hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? 
+                `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : 
+                '255, 255, 255';
+        }
+
+        /**
+         * ✅ NUEVO: Inicializar sistema de guardado parcial con retraso (después de lógica condicional)
+         */
+        async initializePartialSaveDelayed() {
+            console.log('SFQ Partial Save: Initializing partial save system (delayed)');
+            
+            // ✅ CRÍTICO: Verificar PRIMERO si el formulario ya está completado
+            const isCompleted = await this.checkIfFormCompleted();
+            
+            if (isCompleted) {
+                console.log('SFQ Partial Save: Form already completed, skipping partial save initialization');
+                return;
+            }
+            
+            // Solo si NO está completado, proceder con parciales
+            await this.loadPartialResponse();
+            
+            // Configurar auto-guardado
+            this.setupAutoSave();
+            
+            // Configurar guardado antes de salir de la página
+            this.setupBeforeUnloadSave();
+        }
+
+        /**
+         * ✅ CORREGIDO: Inicializar sistema de guardado parcial con verificación previa
          */
         async initializePartialSave() {
             console.log('SFQ Partial Save: Initializing partial save system');
             
-            // Intentar recuperar respuesta parcial existente
+            // ✅ CRÍTICO: Verificar PRIMERO si el formulario ya está completado
+            const isCompleted = await this.checkIfFormCompleted();
+            
+            if (isCompleted) {
+                console.log('SFQ Partial Save: Form already completed, skipping partial save initialization');
+                return;
+            }
+            
+            // Solo si NO está completado, proceder con parciales
             await this.loadPartialResponse();
             
             // Configurar auto-guardado
@@ -1722,7 +1991,7 @@
             notification.className = 'sfq-restore-notification';
             notification.innerHTML = `
                 <div class="sfq-restore-content">
-                    <span class="sfq-restore-icon">🔄</span>
+                    <span class="sfq-restore-icon">✦</span>
                     <div class="sfq-restore-text">
                         <strong>Respuestas recuperadas</strong>
                         <small>Se han restaurado tus respuestas anteriores (expiran en ${hoursLeft}h)</small>
@@ -1768,6 +2037,337 @@
             if (this.savePartialTimer) {
                 clearTimeout(this.savePartialTimer);
                 this.savePartialTimer = null;
+            }
+        }
+
+        /**
+         * ✅ MEJORADO: Verificar si una pregunta es una pantalla final con detección robusta
+         */
+        isQuestionPantallaFinal(questionScreen) {
+            if (!questionScreen || !questionScreen.classList.contains('sfq-question-screen')) {
+                return false;
+            }
+            
+            // 1. Verificar atributo data-pantalla-final
+            const pantallaFinalAttr = questionScreen.dataset.pantallaFinal;
+            if (pantallaFinalAttr === 'true') {
+                console.log('SFQ: Question detected as final screen via data-pantalla-final:', questionScreen.dataset.questionId);
+                return true;
+            }
+            
+            // 2. Verificar clase CSS específica
+            if (questionScreen.classList.contains('sfq-final-screen-hidden')) {
+                console.log('SFQ: Question detected as final screen via CSS class:', questionScreen.dataset.questionId);
+                return true;
+            }
+            
+            // 3. Verificar si es una pregunta freestyle con pantallaFinal en el DOM
+            const questionType = questionScreen.dataset.questionType;
+            if (questionType === 'freestyle') {
+                const freestyleContainer = questionScreen.querySelector('.sfq-freestyle-container');
+                if (freestyleContainer && freestyleContainer.dataset.pantallaFinal === 'true') {
+                    console.log('SFQ: Question detected as final screen via freestyle container:', questionScreen.dataset.questionId);
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
+        /**
+         * ✅ CORREGIDO: Manejar llegada a pantalla final
+         */
+        async handlePantallaFinalReached(questionScreen) {
+            const questionId = questionScreen.dataset.questionId;
+            
+            console.log('SFQ: Reached final screen:', questionId);
+            
+            // Ocultar botón siguiente si existe
+            const nextButton = questionScreen.querySelector('.sfq-next-button');
+            if (nextButton) {
+                nextButton.style.display = 'none';
+            }
+            
+            // Registrar tiempo en la pregunta final
+            const timeSpent = Date.now() - this.questionStartTime;
+            this.trackEvent('question_answered', {
+                question_id: questionId,
+                time_spent: timeSpent
+            });
+            
+            // ✅ CORREGIDO: NO ejecutar submitForm() automáticamente
+            // La pantalla final personalizada ES la pantalla final definitiva
+            // El usuario debe permanecer en esta pantalla sin más navegación
+            console.log('SFQ: Final screen reached - form will be completed when user manually submits or through other means');
+            
+            // Opcional: Marcar el formulario como completado en el backend sin mostrar la pantalla de agradecimiento
+            this.markFormAsCompleted();
+        }
+
+        /**
+         * ✅ CORREGIDO: Obtener siguiente pregunta que NO sea pantalla final
+         */
+        getNextNonFinalQuestion(currentQuestion) {
+            let next = currentQuestion.nextElementSibling;
+            
+            console.log('SFQ: Starting search for next non-final question from:', currentQuestion.dataset.questionId);
+            
+            // Buscar la siguiente pregunta que no sea pantalla final
+            while (next) {
+                // Solo considerar elementos que sean pantallas de pregunta
+                if (next.classList.contains('sfq-question-screen')) {
+                    console.log('SFQ: Checking question:', next.dataset.questionId);
+                    
+                    // Verificar si es una pantalla final
+                    if (this.isQuestionPantallaFinal(next)) {
+                        console.log('SFQ: Skipping final screen in sequential navigation:', next.dataset.questionId);
+                        next = next.nextElementSibling;
+                        continue;
+                    }
+                    
+                    // Es una pregunta normal, la devolvemos
+                    console.log('SFQ: Found next non-final question:', next.dataset.questionId);
+                    return next;
+                }
+                
+                // Si no es una pantalla de pregunta, continuar buscando
+                next = next.nextElementSibling;
+            }
+            
+            // No hay más preguntas normales
+            console.log('SFQ: No more non-final questions found');
+            return null;
+        }
+
+        /**
+         * ✅ NUEVO: Obtener primera pregunta que NO sea pantalla final
+         */
+        getFirstNonFinalQuestion() {
+            const allQuestions = this.container.querySelectorAll('.sfq-question-screen');
+            
+            for (const question of allQuestions) {
+                if (!this.isQuestionPantallaFinal(question)) {
+                    return question;
+                }
+                console.log('SFQ: Skipping final screen in initial navigation:', question.dataset.questionId);
+            }
+            
+            // No hay preguntas normales
+            return null;
+        }
+
+        /**
+         * ✅ MEJORADO: Verificar si el formulario ya está completado con logging detallado
+         */
+        async checkIfFormCompleted() {
+            console.log('SFQ Partial Save: Starting completion check...');
+            console.log('SFQ Partial Save: Form ID:', this.formId, 'Session ID:', this.sessionId);
+            
+            if (!this.formId || !this.sessionId) {
+                console.log('SFQ Partial Save: Missing form ID or session ID for completion check');
+                return false;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('action', 'sfq_get_partial_response');
+                formData.append('nonce', sfq_ajax.nonce);
+                formData.append('form_id', this.formId);
+                formData.append('session_id', this.sessionId);
+
+                console.log('SFQ Partial Save: Sending AJAX request to check completion...');
+
+                const response = await fetch(sfq_ajax.ajax_url, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('SFQ Partial Save: Server response:', result);
+
+                // Si la respuesta indica que el formulario ya está completado
+                if (result.success && result.data) {
+                    console.log('SFQ Partial Save: Checking completion indicators...');
+                    console.log('SFQ Partial Save: has_partial:', result.data.has_partial);
+                    console.log('SFQ Partial Save: message:', result.data.message);
+                    console.log('SFQ Partial Save: completed_at:', result.data.completed_at);
+                    console.log('SFQ Partial Save: submission_id:', result.data.submission_id);
+                    
+                    if (!result.data.has_partial) {
+                        // Verificar si el mensaje indica que está completado
+                        if (result.data.message && result.data.message.includes('ya está completado')) {
+                            console.log('SFQ Partial Save: ✅ Form completion detected via server message');
+                            return true;
+                        }
+                        
+                        // Verificar si hay datos de submission completado
+                        if (result.data.completed_at && result.data.submission_id) {
+                            console.log('SFQ Partial Save: ✅ Form completion detected via submission data');
+                            return true;
+                        }
+                        
+                        // ✅ NUEVO: Verificar si el mensaje indica que no hay respuesta parcial por estar completado
+                        if (result.data.message && result.data.message.includes('No hay respuesta parcial')) {
+                            console.log('SFQ Partial Save: ⚠️ No partial response found - checking if form is completed...');
+                            // Hacer una verificación adicional más directa
+                            const isCompleted = await this.checkCompletionDirectly();
+                            if (isCompleted) {
+                                console.log('SFQ Partial Save: ✅ Form completion confirmed via direct check');
+                                return true;
+                            }
+                        }
+                    }
+                }
+
+                console.log('SFQ Partial Save: ❌ Form not detected as completed');
+                return false;
+            } catch (error) {
+                console.error('SFQ Partial Save: Error checking form completion:', error);
+                return false; // En caso de error, asumir que no está completado
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Verificación directa de completado usando endpoint específico
+         */
+        async checkCompletionDirectly() {
+            console.log('SFQ Partial Save: Performing direct completion check...');
+            
+            try {
+                const formData = new FormData();
+                formData.append('action', 'sfq_check_form_completion');
+                formData.append('nonce', sfq_ajax.nonce);
+                formData.append('form_id', this.formId);
+                formData.append('session_id', this.sessionId);
+
+                const response = await fetch(sfq_ajax.ajax_url, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('SFQ Partial Save: Direct completion check result:', result);
+
+                if (result.success && result.data) {
+                    const isCompleted = result.data.is_completed || false;
+                    console.log('SFQ Partial Save: Direct check - Form completed:', isCompleted);
+                    return isCompleted;
+                }
+
+                return false;
+            } catch (error) {
+                console.error('SFQ Partial Save: Error in direct completion check:', error);
+                return false;
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Marcar formulario como completado sin mostrar pantalla de agradecimiento
+         */
+        async markFormAsCompleted() {
+            console.log('SFQ: Marking form as completed silently');
+            
+            // ✅ NUEVO: Desactivar sistema de guardado parcial inmediatamente
+            this.disablePartialSave();
+            
+            // ✅ CRÍTICO: Limpiar respuestas parciales ANTES de marcar como completado
+            await this.cleanupPartialResponsesExplicitly();
+            
+            try {
+                const formData = new FormData();
+                formData.append('action', 'sfq_submit_response');
+                formData.append('nonce', sfq_ajax.nonce);
+                formData.append('form_id', this.formId);
+                formData.append('session_id', this.sessionId);
+                formData.append('responses', JSON.stringify(this.responses));
+                formData.append('variables', JSON.stringify(this.variables));
+                formData.append('time_spent', Math.floor((Date.now() - this.startTime) / 1000));
+                formData.append('silent_completion', 'true'); // Indicar que es completado silencioso
+
+                const response = await fetch(sfq_ajax.ajax_url, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        console.log('SFQ: Form marked as completed successfully');
+                        
+                        // Verificar si hay redirección condicional
+                        if (result.data && result.data.redirect_url) {
+                            setTimeout(() => {
+                                window.location.href = result.data.redirect_url;
+                            }, 2000);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('SFQ: Error marking form as completed:', error);
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Limpiar respuestas parciales explícitamente
+         */
+        async cleanupPartialResponsesExplicitly() {
+            if (!this.formId || !this.sessionId) {
+                return;
+            }
+
+            console.log('SFQ Partial Save: Cleaning up partial responses explicitly');
+
+            try {
+                const formData = new FormData();
+                formData.append('action', 'sfq_cleanup_partial_for_session');
+                formData.append('nonce', sfq_ajax.nonce);
+                formData.append('form_id', this.formId);
+                formData.append('session_id', this.sessionId);
+
+                const response = await fetch(sfq_ajax.ajax_url, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        console.log('SFQ Partial Save: Partial responses cleaned up successfully');
+                    }
+                }
+            } catch (error) {
+                console.error('SFQ Partial Save: Error cleaning up partial responses:', error);
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Desactivar sistema de guardado parcial
+         */
+        disablePartialSave() {
+            console.log('SFQ Partial Save: Disabling partial save system - form completed');
+            
+            // Limpiar intervalos y timers
+            this.cleanupPartialSave();
+            
+            // Marcar como deshabilitado
+            this.savePartialEnabled = false;
+            
+            // Remover event listeners
+            this.container.removeEventListener('input', this.debouncedSave);
+            this.container.removeEventListener('change', this.debouncedSave);
+            
+            // Ocultar indicadores si están visibles
+            const saveIndicator = this.container.querySelector('.sfq-save-indicator');
+            if (saveIndicator) {
+                saveIndicator.remove();
             }
         }
     }
@@ -1991,6 +2591,58 @@ style.textContent = `
         }
     }
     
+    /* ✅ NUEVOS: Estilos para indicador elegante de redirección */
+    .sfq-redirect-processing-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .sfq-redirect-processing-overlay.show {
+        opacity: 1;
+    }
+    
+    .sfq-redirect-processing-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        padding: 2rem;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        text-align: center;
+        min-width: 200px;
+    }
+    
+    .sfq-redirect-processing-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(0, 124, 186, 0.2);
+        border-top: 3px solid #007cba;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    
+    .sfq-redirect-processing-text {
+        font-size: 1rem;
+        font-weight: 500;
+        color: #666;
+        margin: 0;
+        white-space: nowrap;
+    }
+    
     /* Responsive para móviles */
     @media (max-width: 768px) {
         .sfq-save-indicator {
@@ -2020,6 +2672,21 @@ style.textContent = `
         
         .sfq-restore-text small {
             font-size: 0.8rem;
+        }
+        
+        .sfq-redirect-processing-content {
+            padding: 1.5rem;
+            min-width: 160px;
+        }
+        
+        .sfq-redirect-processing-spinner {
+            width: 32px;
+            height: 32px;
+            border-width: 2px;
+        }
+        
+        .sfq-redirect-processing-text {
+            font-size: 0.9rem;
         }
     }
 `;

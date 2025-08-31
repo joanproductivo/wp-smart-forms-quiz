@@ -365,6 +365,10 @@ class SFQ_Database {
      * Procesar datos de una pregunta individual
      */
     private function process_question_data($question) {
+        // Procesar configuraciones primero para tener acceso a todos los datos
+        $settings = $this->process_question_settings($question->settings);
+        $question->settings = $settings;
+        
         // Procesar según el tipo de pregunta
         if ($question->question_type === 'freestyle') {
             // Para preguntas freestyle, los elementos están en el campo options
@@ -372,17 +376,17 @@ class SFQ_Database {
             $question->options = []; // Las preguntas freestyle no tienen opciones tradicionales
             
             // Procesar configuraciones globales de freestyle
-            $settings = $this->process_question_settings($question->settings);
             $question->global_settings = $settings['global_settings'] ?? [];
-            $question->settings = $settings;
+            
+            // CRÍTICO: Extraer el campo pantallaFinal de las configuraciones procesadas
+            $question->pantallaFinal = isset($settings['pantallaFinal']) ? (bool) $settings['pantallaFinal'] : false;
+            
+            // Debug logging para verificar el procesamiento
+            error_log('SFQ: Processing freestyle question - pantallaFinal: ' . ($question->pantallaFinal ? 'true' : 'false'));
+            error_log('SFQ: Settings data: ' . json_encode($settings));
         } else {
             // Para preguntas regulares, procesar opciones normalmente
             $question->options = $this->process_question_options($question->options);
-        }
-        
-        // Procesar configuraciones
-        if (!isset($question->settings)) {
-            $question->settings = $this->process_question_settings($question->settings);
         }
         
         // Procesar campo required
@@ -591,6 +595,16 @@ class SFQ_Database {
                     'variable_name' => sanitize_text_field($question['variable_name'] ?? ''),
                     'variable_value' => intval($question['variable_value'] ?? 0)
                 );
+                
+                // CRÍTICO: Para preguntas freestyle, incluir el campo pantallaFinal en settings
+                if ($question['question_type'] === 'freestyle' && isset($question['pantallaFinal'])) {
+                    $settings = json_decode($question_data['settings'], true) ?: array();
+                    $settings['pantallaFinal'] = (bool) $question['pantallaFinal'];
+                    $question_data['settings'] = wp_json_encode($settings);
+                    
+                    error_log('SFQ: Saving freestyle question with pantallaFinal: ' . ($question['pantallaFinal'] ? 'true' : 'false'));
+                    error_log('SFQ: Settings after adding pantallaFinal: ' . $question_data['settings']);
+                }
 
                 $existing_question_id = null;
                 $temporal_id = null;

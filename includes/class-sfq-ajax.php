@@ -57,7 +57,11 @@ class SFQ_Ajax {
         add_action('wp_ajax_nopriv_sfq_save_partial_response', array($this, 'save_partial_response'));
         add_action('wp_ajax_sfq_get_partial_response', array($this, 'get_partial_response'));
         add_action('wp_ajax_nopriv_sfq_get_partial_response', array($this, 'get_partial_response'));
+        add_action('wp_ajax_sfq_check_form_completion', array($this, 'check_form_completion'));
+        add_action('wp_ajax_nopriv_sfq_check_form_completion', array($this, 'check_form_completion'));
         add_action('wp_ajax_sfq_cleanup_partial_responses', array($this, 'cleanup_partial_responses'));
+        add_action('wp_ajax_sfq_cleanup_partial_for_session', array($this, 'cleanup_partial_for_session'));
+        add_action('wp_ajax_nopriv_sfq_cleanup_partial_for_session', array($this, 'cleanup_partial_for_session'));
         
     }
     
@@ -215,6 +219,16 @@ class SFQ_Ajax {
             // Registrar evento de completado usando el método específico
             $this->database->register_completed($form_id, $session_id, $submission_id);
             
+            // ✅ NUEVO: Limpiar respuesta parcial si existe (ya que el formulario está completado)
+            $wpdb->delete(
+                $wpdb->prefix . 'sfq_partial_responses',
+                array(
+                    'form_id' => $form_id,
+                    'session_id' => $session_id
+                ),
+                array('%d', '%s')
+            );
+            
             // Confirmar transacción
             $wpdb->query('COMMIT');
             
@@ -339,6 +353,7 @@ class SFQ_Ajax {
         $next_question_id = null;
         $redirect_url = null;
         $updated_variables = $variables; // Trabajar con una copia
+        $has_conditional_navigation = false; // ✅ NUEVO: Flag para detectar navegación condicional real
         
         foreach ($conditions as $condition) {
             error_log('SFQ Debug: Evaluating condition: ' . json_encode($condition));
@@ -350,16 +365,19 @@ class SFQ_Ajax {
                 switch ($condition->action_type) {
                     case 'goto_question':
                         $next_question_id = intval($condition->action_value);
+                        $has_conditional_navigation = true; // ✅ NUEVO: Marcar como navegación condicional
                         error_log('SFQ Debug: Setting next question to: ' . $next_question_id);
                         break;
                         
                     case 'skip_to_end':
                         $next_question_id = null; // Indica fin del formulario
+                        $has_conditional_navigation = true; // ✅ NUEVO: Marcar como navegación condicional
                         error_log('SFQ Debug: Skipping to end');
                         break;
                         
                     case 'redirect_url':
                         $redirect_url = esc_url_raw($condition->action_value);
+                        $has_conditional_navigation = true; // ✅ NUEVO: Marcar como navegación condicional
                         error_log('SFQ Debug: Setting redirect URL to: ' . $redirect_url);
                         break;
                         
@@ -391,18 +409,21 @@ class SFQ_Ajax {
             }
         }
         
-        // Si no hay condición específica, obtener siguiente pregunta en orden
-        if (!$next_question_id && !$redirect_url) {
-            $next_question_id = $this->get_next_question_in_order($form_id, $current_question_id);
-            error_log('SFQ Debug: No specific next question, using order-based: ' . $next_question_id);
+        // ✅ CORREGIDO: Solo devolver next_question_id si hay navegación condicional real
+        // Si no hay condiciones que se cumplan, dejar que el frontend maneje la navegación secuencial
+        if (!$has_conditional_navigation) {
+            $next_question_id = null; // ✅ CRÍTICO: No devolver ID para navegación secuencial
+            error_log('SFQ Debug: No conditional navigation triggered, letting frontend handle sequential navigation');
         }
         
         error_log('SFQ Debug: Final variables state: ' . json_encode($updated_variables));
+        error_log('SFQ Debug: Has conditional navigation: ' . ($has_conditional_navigation ? 'true' : 'false'));
         
         wp_send_json_success(array(
             'next_question_id' => $next_question_id,
             'redirect_url' => $redirect_url,
-            'variables' => $updated_variables
+            'variables' => $updated_variables,
+            'has_conditional_navigation' => $has_conditional_navigation // ✅ NUEVO: Información adicional para debug
         ));
     }
     
@@ -1739,6 +1760,13 @@ class SFQ_Ajax {
                 array('%d')
             );
             
+            // ✅ NUEVO: Eliminar respuestas parciales
+            $partial_deleted = $wpdb->delete(
+                $wpdb->prefix . 'sfq_partial_responses',
+                array('form_id' => $form_id),
+                array('%d')
+            );
+            
             // Confirmar transacción
             $wpdb->query('COMMIT');
             
@@ -1751,6 +1779,7 @@ class SFQ_Ajax {
                 'message' => __('Estadísticas borradas correctamente', 'smart-forms-quiz'),
                 'submissions_deleted' => intval($submissions_deleted),
                 'analytics_deleted' => intval($analytics_deleted),
+                'partial_deleted' => intval($partial_deleted),
                 'form_title' => $form->title
             ));
             
@@ -2348,6 +2377,38 @@ class SFQ_Ajax {
             return;
         }
         
+        global $wpdb;
+        
+        // ✅ CRÍTICO: Verificar si ya existe un submission completado para esta sesión
+        $completed_submission = $wpdb->get_row($wpdb->prepare(
+            "SELECT id, completed_at FROM {$wpdb->prefix}sfq_submissions 
+            WHERE form_id = %d AND session_id = %s AND status = 'completed'
+            ORDER BY completed_at DESC
+            LIMIT 1",
+            $form_id,
+            $session_id
+        ));
+        
+        if ($completed_submission) {
+            // ✅ NUEVO: Si ya hay un submission completado, no guardar parcial y limpiar existente
+            $wpdb->delete(
+                $wpdb->prefix . 'sfq_partial_responses',
+                array(
+                    'form_id' => $form_id,
+                    'session_id' => $session_id
+                ),
+                array('%d', '%s')
+            );
+            
+            wp_send_json_success(array(
+                'message' => __('El formulario ya está completado, no se guarda respuesta parcial', 'smart-forms-quiz'),
+                'completed_at' => $completed_submission->completed_at,
+                'submission_id' => $completed_submission->id,
+                'partial_cleaned' => true
+            ));
+            return;
+        }
+        
         // Decodificar datos JSON
         $responses = json_decode(stripslashes($_POST['responses'] ?? '{}'), true);
         $variables = json_decode(stripslashes($_POST['variables'] ?? '{}'), true);
@@ -2459,6 +2520,44 @@ class SFQ_Ajax {
         global $wpdb;
         
         try {
+            // ✅ CRÍTICO: Primero verificar si ya existe un submission completado para esta sesión
+            error_log("SFQ Backend Debug: Checking completion for form_id={$form_id}, session_id={$session_id}");
+            
+            $completed_submission = $wpdb->get_row($wpdb->prepare(
+                "SELECT id, completed_at, session_id FROM {$wpdb->prefix}sfq_submissions 
+                WHERE form_id = %d AND session_id = %s AND status = 'completed'
+                ORDER BY completed_at DESC
+                LIMIT 1",
+                $form_id,
+                $session_id
+            ));
+            
+            error_log("SFQ Backend Debug: Completed submission query result: " . ($completed_submission ? json_encode($completed_submission) : 'NULL'));
+            
+            if ($completed_submission) {
+                error_log("SFQ Backend Debug: Found completed submission, cleaning partial responses");
+                
+                // ✅ NUEVO: Si ya hay un submission completado, limpiar respuesta parcial y retornar false
+                $deleted_count = $wpdb->delete(
+                    $wpdb->prefix . 'sfq_partial_responses',
+                    array(
+                        'form_id' => $form_id,
+                        'session_id' => $session_id
+                    ),
+                    array('%d', '%s')
+                );
+                
+                error_log("SFQ Backend Debug: Deleted {$deleted_count} partial responses");
+                
+                wp_send_json_success(array(
+                    'has_partial' => false,
+                    'message' => __('El formulario ya está completado', 'smart-forms-quiz'),
+                    'completed_at' => $completed_submission->completed_at,
+                    'submission_id' => $completed_submission->id
+                ));
+                return;
+            }
+            
             // Buscar respuesta parcial válida (no expirada)
             $partial_response = $wpdb->get_row($wpdb->prepare(
                 "SELECT * FROM {$wpdb->prefix}sfq_partial_responses 
@@ -2509,6 +2608,114 @@ class SFQ_Ajax {
             
             wp_send_json_error(array(
                 'message' => __('Error al recuperar respuesta parcial', 'smart-forms-quiz'),
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Verificar directamente si un formulario está completado
+     */
+    public function check_form_completion() {
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Validar datos requeridos
+        $form_id = intval($_POST['form_id'] ?? 0);
+        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
+        
+        if (!$form_id || !$session_id) {
+            wp_send_json_error(__('Datos del formulario incompletos', 'smart-forms-quiz'));
+            return;
+        }
+        
+        global $wpdb;
+        
+        try {
+            error_log("SFQ Backend Debug: Direct completion check for form_id={$form_id}, session_id={$session_id}");
+            
+            // Verificar si existe un submission completado para esta sesión
+            $completed_submission = $wpdb->get_row($wpdb->prepare(
+                "SELECT id, completed_at, status FROM {$wpdb->prefix}sfq_submissions 
+                WHERE form_id = %d AND session_id = %s AND status = 'completed'
+                ORDER BY completed_at DESC
+                LIMIT 1",
+                $form_id,
+                $session_id
+            ));
+            
+            error_log("SFQ Backend Debug: Direct completion check result: " . ($completed_submission ? json_encode($completed_submission) : 'NULL'));
+            
+            $is_completed = !empty($completed_submission);
+            
+            error_log("SFQ Backend Debug: is_completed = " . ($is_completed ? 'true' : 'false'));
+            
+            wp_send_json_success(array(
+                'is_completed' => $is_completed,
+                'submission_id' => $is_completed ? $completed_submission->id : null,
+                'completed_at' => $is_completed ? $completed_submission->completed_at : null,
+                'message' => $is_completed 
+                    ? __('El formulario está completado', 'smart-forms-quiz')
+                    : __('El formulario no está completado', 'smart-forms-quiz')
+            ));
+            
+        } catch (Exception $e) {
+            error_log('SFQ Error in check_form_completion: ' . $e->getMessage());
+            
+            wp_send_json_error(array(
+                'message' => __('Error al verificar completado del formulario', 'smart-forms-quiz'),
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Limpiar respuestas parciales para una sesión específica
+     */
+    public function cleanup_partial_for_session() {
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Validar datos requeridos
+        $form_id = intval($_POST['form_id'] ?? 0);
+        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
+        
+        if (!$form_id || !$session_id) {
+            wp_send_json_error(__('Datos del formulario incompletos', 'smart-forms-quiz'));
+            return;
+        }
+        
+        global $wpdb;
+        
+        try {
+            // Eliminar respuestas parciales para esta sesión específica
+            $deleted_count = $wpdb->delete(
+                $wpdb->prefix . 'sfq_partial_responses',
+                array(
+                    'form_id' => $form_id,
+                    'session_id' => $session_id
+                ),
+                array('%d', '%s')
+            );
+            
+            wp_send_json_success(array(
+                'deleted_count' => intval($deleted_count),
+                'form_id' => $form_id,
+                'session_id' => $session_id,
+                'message' => sprintf(__('Se eliminaron %d respuestas parciales para esta sesión', 'smart-forms-quiz'), $deleted_count)
+            ));
+            
+        } catch (Exception $e) {
+            error_log('SFQ Error in cleanup_partial_for_session: ' . $e->getMessage());
+            
+            wp_send_json_error(array(
+                'message' => __('Error al limpiar respuestas parciales de la sesión', 'smart-forms-quiz'),
                 'debug' => WP_DEBUG ? $e->getMessage() : null
             ));
         }
