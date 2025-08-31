@@ -66,6 +66,9 @@
             this.bindEvents();
             this.initializeForm();
             
+            // ✅ NUEVO: Aplicar estilos de imagen de fondo
+            this.applyBackgroundImageStyles();
+            
             // ✅ CORREGIDO: Retrasar inicialización del guardado parcial
             if (this.savePartialEnabled) {
                 // Retrasar la inicialización para permitir que se ejecute la lógica condicional inicial
@@ -743,7 +746,7 @@
             }
         }
 
-        nextQuestion() {
+        async nextQuestion() {
             const currentQuestion = this.currentScreen;
             if (!currentQuestion) return;
 
@@ -766,6 +769,10 @@
                 return;
             }
 
+            // ✅ NUEVO: Verificar si estamos en modo seguro
+            const secureLoading = this.container.dataset.secureLoading === 'true';
+            console.log('SFQ: Secure loading mode:', secureLoading);
+
             let nextQuestion = null;
 
             // ✅ CORREGIDO: Lógica de navegación mejorada con debug adicional
@@ -773,36 +780,53 @@
             
             if (this.skipToQuestion) {
                 // Navegación condicional - puede ir a cualquier pregunta, incluyendo pantallas finales
-                nextQuestion = this.container.querySelector(`[data-question-id="${this.skipToQuestion}"]`);
-                console.log('SFQ: Conditional navigation to question:', this.skipToQuestion);
-                
-                // Resetear skip después de usarlo
-                this.skipToQuestion = null;
+                if (secureLoading) {
+                    // En modo seguro, cargar pregunta dinámicamente
+                    console.log('SFQ: Conditional navigation in secure mode to question:', this.skipToQuestion);
+                    await this.loadQuestionSecurely(this.skipToQuestion);
+                    this.skipToQuestion = null;
+                    return;
+                } else {
+                    // En modo normal, buscar en DOM
+                    nextQuestion = this.container.querySelector(`[data-question-id="${this.skipToQuestion}"]`);
+                    console.log('SFQ: Conditional navigation to question:', this.skipToQuestion);
+                    this.skipToQuestion = null;
+                }
             } else {
-                // Navegación secuencial - DEBE saltar pantallas finales
-                nextQuestion = this.getNextNonFinalQuestion(currentQuestion);
-                console.log('SFQ: Sequential navigation - looking for next non-final question');
+                // Navegación secuencial
+                if (secureLoading) {
+                    // En modo seguro, cargar siguiente pregunta vía AJAX
+                    console.log('SFQ: Sequential navigation in secure mode');
+                    await this.loadNextQuestionSecurely();
+                    return;
+                } else {
+                    // En modo normal, buscar siguiente pregunta en DOM
+                    nextQuestion = this.getNextNonFinalQuestion(currentQuestion);
+                    console.log('SFQ: Sequential navigation - looking for next non-final question');
+                }
             }
 
-            // Si no hay más preguntas normales, ir al final
-            if (!nextQuestion || !nextQuestion.classList.contains('sfq-question-screen')) {
-                console.log('SFQ: No more questions found, submitting form');
-                this.submitForm();
-                return;
-            }
+            // Solo para modo normal: verificar si hay más preguntas
+            if (!secureLoading) {
+                if (!nextQuestion || !nextQuestion.classList.contains('sfq-question-screen')) {
+                    console.log('SFQ: No more questions found, submitting form');
+                    this.submitForm();
+                    return;
+                }
 
-            // Verificar si la pregunta encontrada es una pantalla final (solo para debug)
-            if (this.isQuestionPantallaFinal(nextQuestion)) {
-                console.log('SFQ: Next question is a final screen:', nextQuestion.dataset.questionId);
-            } else {
-                console.log('SFQ: Next question is normal:', nextQuestion.dataset.questionId);
-            }
+                // Verificar si la pregunta encontrada es una pantalla final (solo para debug)
+                if (this.isQuestionPantallaFinal(nextQuestion)) {
+                    console.log('SFQ: Next question is a final screen:', nextQuestion.dataset.questionId);
+                } else {
+                    console.log('SFQ: Next question is normal:', nextQuestion.dataset.questionId);
+                }
 
-            // Cambiar a siguiente pregunta
-            this.showScreen(nextQuestion);
-            this.currentQuestionIndex++;
-            this.updateProgress();
-            this.questionStartTime = Date.now();
+                // Cambiar a siguiente pregunta
+                this.showScreen(nextQuestion);
+                this.currentQuestionIndex++;
+                this.updateProgress();
+                this.questionStartTime = Date.now();
+            }
         }
 
         previousQuestion() {
@@ -1845,65 +1869,31 @@
             container.classList.remove('sfq-processing');
         }
 
-        /**
-         * ✅ NUEVO: Mostrar mensaje de procesamiento personalizado
-         */
-        showProcessingMessage(message) {
-            // Remover mensaje existente si lo hay
-            this.hideProcessingMessage();
-            
-            const indicator = document.createElement('div');
-            indicator.className = 'sfq-processing-message';
-            indicator.innerHTML = `
-                <div class="sfq-processing-spinner"></div>
-                <span class="sfq-processing-text">${message}</span>
-            `;
-            
-            // Añadir al contenedor principal del formulario
-            this.container.appendChild(indicator);
-            
-            // Añadir clase para efectos visuales
-            this.container.classList.add('sfq-processing-form');
-        }
-
-        /**
-         * ✅ NUEVO: Ocultar mensaje de procesamiento personalizado
-         */
-        hideProcessingMessage() {
-            const indicator = this.container.querySelector('.sfq-processing-message');
-            if (indicator) {
-                indicator.remove();
-            }
-            this.container.classList.remove('sfq-processing-form');
-        }
-
-        /**
-         * ✅ NUEVO: Mostrar indicador elegante de procesamiento para redirección
-         */
-        showRedirectProcessingIndicator() {
-            // Remover indicador existente si lo hay
-            this.hideRedirectProcessingIndicator();
-            
-            // Obtener configuraciones del formulario (por ahora usar valores por defecto)
-            const settings = this.settings || {};
-            const indicatorText = settings.processing_indicator_text || '';
-            const indicatorOpacity = settings.processing_indicator_opacity || '0.8';
-            const indicatorBgColor = settings.processing_indicator_bg_color || '#ffffff';
-            const indicatorTextColor = settings.processing_indicator_text_color || '#666666';
-            const indicatorSpinnerColor = settings.processing_indicator_spinner_color || '#007cba';
-            
-            const indicator = document.createElement('div');
-            indicator.className = 'sfq-redirect-processing-overlay';
-            
-            // Crear contenido del indicador
-            let content = `<div class="sfq-redirect-processing-spinner"></div>`;
-            
-            // Solo añadir texto si está configurado
-            if (indicatorText && indicatorText.trim() !== '') {
-                content += `<span class="sfq-redirect-processing-text">${indicatorText}</span>`;
-            }
-            
-            indicator.innerHTML = `<div class="sfq-redirect-processing-content">${content}</div>`;
+    /**
+     * ✅ NUEVO: Mostrar indicador de procesamiento elegante para redirección
+     */
+    showRedirectProcessingIndicator() {
+        // Remover indicador existente si lo hay
+        this.hideRedirectProcessingIndicator();
+        
+        // Obtener configuración de colores del formulario
+        const indicatorBgColor = this.settings.redirect_indicator_bg_color || '#ffffff';
+        const indicatorTextColor = this.settings.redirect_indicator_text_color || '#666666';
+        const indicatorSpinnerColor = this.settings.redirect_indicator_spinner_color || '#007cba';
+        const indicatorOpacity = this.settings.redirect_indicator_opacity || '0.95';
+        const indicatorText = this.settings.redirect_indicator_text || 'Procesando...';
+        
+        // Crear overlay elegante
+        const indicator = document.createElement('div');
+        indicator.className = 'sfq-redirect-processing-overlay';
+        
+        // Contenido del indicador
+        const content = `
+            <div class="sfq-redirect-processing-spinner"></div>
+            <p class="sfq-redirect-processing-text">${indicatorText}</p>
+        `;
+        
+        indicator.innerHTML = `<div class="sfq-redirect-processing-content">${content}</div>`;
             
             // Aplicar estilos personalizados
             indicator.style.backgroundColor = `rgba(${this.hexToRgb(indicatorBgColor)}, ${indicatorOpacity})`;
@@ -2751,6 +2741,454 @@
             const saveIndicator = this.container.querySelector('.sfq-save-indicator');
             if (saveIndicator) {
                 saveIndicator.remove();
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Cargar siguiente pregunta de forma segura vía AJAX
+         */
+        async loadNextQuestionSecurely() {
+            console.log('SFQ Secure: Loading next question via AJAX');
+            
+            try {
+                const formData = new FormData();
+                formData.append('action', 'sfq_get_secure_question');
+                formData.append('nonce', this.getCurrentNonce());
+                formData.append('form_id', this.formId);
+                formData.append('session_id', this.sessionId);
+                formData.append('question_index', this.currentQuestionIndex + 1);
+
+                const response = await fetch(this.config.ajaxUrl, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('SFQ Secure: AJAX result:', result);
+
+                if (result.success && result.data) {
+                    if (result.data.html) {
+                        // Insertar nueva pregunta en el contenedor dinámico
+                        this.insertDynamicQuestion(result.data.html, result.data.question_index);
+                        
+                        // Actualizar índice de pregunta actual
+                        this.currentQuestionIndex = result.data.question_index;
+                        this.questionStartTime = Date.now();
+                        
+                        // Actualizar progreso
+                        this.updateProgress();
+                        
+                        console.log('SFQ Secure: Question loaded successfully, index:', result.data.question_index);
+                    } else if (result.data.is_last_question || result.data.question_index === -1) {
+                        // No hay más preguntas, finalizar formulario
+                        console.log('SFQ Secure: No more questions, submitting form');
+                        this.submitForm();
+                    }
+                } else {
+                    console.error('SFQ Secure: Failed to load question:', result);
+                    this.showError('Error al cargar la siguiente pregunta.');
+                }
+            } catch (error) {
+                console.error('SFQ Secure: Error loading next question:', error);
+                this.showError('Error de conexión al cargar la siguiente pregunta.');
+            }
+        }
+
+        /**
+         * ✅ CORREGIDO: Cargar pregunta específica de forma segura (para navegación condicional)
+         */
+        async loadQuestionSecurely(questionId) {
+            console.log('SFQ Secure: Loading specific question via AJAX:', questionId);
+            
+            try {
+                const formData = new FormData();
+                formData.append('action', 'sfq_get_secure_question');
+                formData.append('nonce', this.getCurrentNonce());
+                formData.append('form_id', this.formId);
+                formData.append('session_id', this.sessionId);
+                formData.append('question_id', questionId);
+
+                const response = await fetch(this.config.ajaxUrl, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('SFQ Secure: AJAX result for specific question:', result);
+
+                if (result.success && result.data && result.data.html) {
+                    // ✅ CORREGIDO: Manejar pantallas finales correctamente
+                    if (result.data.is_final_screen) {
+                        console.log('SFQ Secure: Loading final screen dynamically:', questionId);
+                        
+                        // Para pantallas finales, usar método específico
+                        this.insertDynamicFinalScreen(result.data.html, questionId);
+                        
+                        // Marcar como completado silenciosamente
+                        await this.markFormAsCompleted();
+                        
+                        console.log('SFQ Secure: Final screen loaded and form marked as completed');
+                    } else {
+                        // Para preguntas normales, usar método estándar
+                        this.insertDynamicQuestion(result.data.html, result.data.question_index, questionId);
+                        
+                        // Actualizar índice si es una pregunta normal
+                        if (result.data.question_index !== undefined) {
+                            this.currentQuestionIndex = result.data.question_index;
+                        }
+                        
+                        this.questionStartTime = Date.now();
+                        this.updateProgress();
+                        
+                        console.log('SFQ Secure: Normal question loaded successfully:', questionId);
+                    }
+                } else {
+                    console.error('SFQ Secure: Failed to load specific question:', result);
+                    this.showError('Error al cargar la pregunta solicitada.');
+                }
+            } catch (error) {
+                console.error('SFQ Secure: Error loading specific question:', error);
+                this.showError('Error de conexión al cargar la pregunta.');
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Insertar pregunta dinámica en el DOM
+         */
+        insertDynamicQuestion(questionHtml, questionIndex, specificQuestionId = null) {
+            console.log('SFQ Secure: Inserting dynamic question, index:', questionIndex);
+            
+            // Ocultar pregunta actual
+            if (this.currentScreen) {
+                this.currentScreen.classList.remove('active');
+            }
+
+            // Obtener contenedor dinámico
+            const dynamicContainer = this.container.querySelector('#sfq-dynamic-questions-container');
+            if (!dynamicContainer) {
+                console.error('SFQ Secure: Dynamic container not found');
+                return;
+            }
+
+            // Limpiar contenedor dinámico
+            dynamicContainer.innerHTML = '';
+
+            // Crear elemento temporal para parsear HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = questionHtml;
+            
+            // Obtener la pregunta parseada
+            const questionElement = tempDiv.querySelector('.sfq-question-screen');
+            if (!questionElement) {
+                console.error('SFQ Secure: No question screen found in HTML');
+                return;
+            }
+
+            // Añadir al contenedor dinámico
+            dynamicContainer.appendChild(questionElement);
+
+            // Activar la nueva pregunta
+            questionElement.classList.add('active');
+            this.currentScreen = questionElement;
+
+            // Reinicializar eventos para la nueva pregunta
+            this.bindEventsForNewQuestion(questionElement);
+
+            // Actualizar visibilidad del botón siguiente
+            this.updateNextButtonVisibility(questionElement);
+
+            // Hacer scroll si está habilitado
+            if (this.settings.auto_scroll_to_form !== false) {
+                this.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+
+            console.log('SFQ Secure: Dynamic question inserted and activated');
+        }
+
+        /**
+         * ✅ CORREGIDO: Insertar pantalla final dinámica en el DOM
+         */
+        insertDynamicFinalScreen(finalScreenHtml, questionId) {
+            console.log('SFQ Secure: Inserting dynamic final screen:', questionId);
+            console.log('SFQ Secure: Final screen HTML received:', finalScreenHtml);
+            
+            // Ocultar pregunta actual
+            if (this.currentScreen) {
+                this.currentScreen.classList.remove('active');
+            }
+
+            // Obtener contenedor dinámico
+            const dynamicContainer = this.container.querySelector('#sfq-dynamic-questions-container');
+            if (!dynamicContainer) {
+                console.error('SFQ Secure: Dynamic container not found');
+                return;
+            }
+
+            // Limpiar contenedor dinámico
+            dynamicContainer.innerHTML = '';
+
+            // ✅ CORREGIDO: Insertar HTML directamente y buscar elementos
+            dynamicContainer.innerHTML = finalScreenHtml;
+            
+            // ✅ NUEVO: Buscar el elemento de pantalla final insertado
+            let finalScreenElement = dynamicContainer.querySelector('.sfq-final-screen');
+            
+            if (!finalScreenElement) {
+                // Si no encuentra .sfq-final-screen, buscar .sfq-screen
+                finalScreenElement = dynamicContainer.querySelector('.sfq-screen');
+                
+                if (finalScreenElement) {
+                    console.log('SFQ Secure: Found .sfq-screen, adding final screen class');
+                    finalScreenElement.classList.add('sfq-final-screen');
+                } else {
+                    console.error('SFQ Secure: No screen element found in HTML');
+                    console.error('SFQ Secure: Available elements:', dynamicContainer.innerHTML);
+                    return;
+                }
+            }
+
+            // Activar la nueva pantalla final
+            finalScreenElement.classList.add('active');
+            this.currentScreen = finalScreenElement;
+
+            // ✅ CRÍTICO: Marcar como pantalla final para el progreso
+            finalScreenElement.dataset.pantallaFinal = 'true';
+            finalScreenElement.dataset.questionId = questionId;
+
+            // Reinicializar eventos para la pantalla final (si tiene elementos interactivos)
+            this.bindEventsForNewQuestion(finalScreenElement);
+
+            // Actualizar progreso al 100% para pantallas finales
+            this.updateProgress();
+
+            // Hacer scroll si está habilitado
+            if (this.settings.auto_scroll_to_form !== false) {
+                this.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+
+            console.log('SFQ Secure: Dynamic final screen inserted and activated');
+            console.log('SFQ Secure: Final screen element:', finalScreenElement);
+        }
+
+        /**
+         * ✅ NUEVO: Vincular eventos para pregunta recién cargada
+         */
+        bindEventsForNewQuestion(questionElement) {
+            console.log('SFQ Secure: Binding events for new question');
+
+            // Opciones de respuesta única
+            questionElement.querySelectorAll('.sfq-single-choice .sfq-option-card').forEach(card => {
+                card.addEventListener('click', (e) => this.handleSingleChoice(e));
+            });
+
+            // Opciones múltiples
+            questionElement.querySelectorAll('.sfq-checkbox-input').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => this.handleMultipleChoice(e));
+            });
+
+            // Campos de texto
+            questionElement.querySelectorAll('.sfq-text-input').forEach(input => {
+                input.addEventListener('input', (e) => this.handleTextInput(e));
+            });
+
+            // Rating
+            questionElement.querySelectorAll('.sfq-star, .sfq-emoji').forEach(button => {
+                button.addEventListener('click', (e) => this.handleRating(e));
+            });
+
+            // Selección de imagen
+            questionElement.querySelectorAll('.sfq-image-option').forEach(option => {
+                option.addEventListener('click', (e) => this.handleImageChoice(e));
+            });
+
+            // Botones de navegación
+            questionElement.querySelectorAll('.sfq-next-button').forEach(button => {
+                button.addEventListener('click', () => this.nextQuestion());
+            });
+
+            questionElement.querySelectorAll('.sfq-prev-button').forEach(button => {
+                button.addEventListener('click', () => this.previousQuestion());
+            });
+
+            // Elementos freestyle si existen
+            this.bindFreestyleEventsForElement(questionElement);
+
+            console.log('SFQ Secure: Events bound for new question');
+        }
+
+        /**
+         * ✅ NUEVO: Vincular eventos freestyle para elemento específico
+         */
+        bindFreestyleEventsForElement(element) {
+            // Inputs de texto freestyle
+            element.querySelectorAll('.sfq-freestyle-input, .sfq-freestyle-textarea').forEach(input => {
+                input.addEventListener('input', (e) => this.handleFreestyleInput(e));
+            });
+
+            // Selects freestyle
+            element.querySelectorAll('.sfq-freestyle-select').forEach(select => {
+                select.addEventListener('change', (e) => this.handleFreestyleSelect(e));
+            });
+
+            // Checkboxes freestyle
+            element.querySelectorAll('.sfq-freestyle-checkbox, .sfq-legal-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => this.handleFreestyleCheckbox(e));
+            });
+
+            // Rating freestyle
+            element.querySelectorAll('.sfq-freestyle-star, .sfq-freestyle-heart, .sfq-freestyle-emoji').forEach(button => {
+                button.addEventListener('click', (e) => this.handleFreestyleRating(e));
+            });
+
+            // Botones freestyle
+            element.querySelectorAll('.sfq-freestyle-button').forEach(button => {
+                button.addEventListener('click', (e) => this.handleFreestyleButton(e));
+            });
+
+            // Imágenes clickeables freestyle
+            element.querySelectorAll('.sfq-clickable-image').forEach(image => {
+                image.addEventListener('click', (e) => this.handleFreestyleImageClick(e));
+            });
+
+            // File uploads freestyle
+            element.querySelectorAll('.sfq-file-input').forEach(input => {
+                input.addEventListener('change', (e) => this.handleFreestyleFileUpload(e));
+            });
+
+            // Hacer clickeable el área de subida de archivos
+            element.querySelectorAll('.sfq-file-upload-area').forEach(uploadArea => {
+                const fileInput = uploadArea.querySelector('.sfq-file-input');
+                if (fileInput) {
+                    uploadArea.addEventListener('click', (e) => {
+                        if (e.target !== fileInput) {
+                            e.preventDefault();
+                            fileInput.click();
+                        }
+                    });
+
+                    // Drag & Drop functionality
+                    uploadArea.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        uploadArea.classList.add('drag-over');
+                    });
+
+                    uploadArea.addEventListener('dragleave', (e) => {
+                        e.preventDefault();
+                        uploadArea.classList.remove('drag-over');
+                    });
+
+                    uploadArea.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        uploadArea.classList.remove('drag-over');
+                        
+                        const files = e.dataTransfer.files;
+                        if (files.length > 0) {
+                            fileInput.files = files;
+                            const changeEvent = new Event('change', { bubbles: true });
+                            fileInput.dispatchEvent(changeEvent);
+                        }
+                    });
+                }
+            });
+
+            // Inicializar countdowns freestyle para este elemento
+            this.initializeFreestyleCountdownsForElement(element);
+        }
+
+        /**
+         * ✅ NUEVO: Inicializar countdowns freestyle para elemento específico
+         */
+        initializeFreestyleCountdownsForElement(element) {
+            element.querySelectorAll('.sfq-freestyle-countdown').forEach(countdown => {
+                const targetDate = countdown.dataset.targetDate;
+                const finishedText = countdown.dataset.finishedText;
+                const elementId = countdown.closest('.sfq-freestyle-countdown-wrapper').dataset.elementId;
+
+                if (!targetDate) return;
+
+                const targetTime = new Date(targetDate).getTime();
+
+                const updateCountdown = () => {
+                    const now = new Date().getTime();
+                    const distance = targetTime - now;
+
+                    if (distance < 0) {
+                        countdown.innerHTML = `<div class="sfq-countdown-finished">${finishedText}</div>`;
+                        return;
+                    }
+
+                    const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+                    const daysEl = countdown.querySelector('[data-unit="days"]');
+                    const hoursEl = countdown.querySelector('[data-unit="hours"]');
+                    const minutesEl = countdown.querySelector('[data-unit="minutes"]');
+                    const secondsEl = countdown.querySelector('[data-unit="seconds"]');
+
+                    if (daysEl) daysEl.textContent = days.toString().padStart(2, '0');
+                    if (hoursEl) hoursEl.textContent = hours.toString().padStart(2, '0');
+                    if (minutesEl) minutesEl.textContent = minutes.toString().padStart(2, '0');
+                    if (secondsEl) secondsEl.textContent = seconds.toString().padStart(2, '0');
+                };
+
+                updateCountdown();
+                setInterval(updateCountdown, 1000);
+            });
+        }
+
+        /**
+         * ✅ NUEVO: Aplicar estilos de imagen de fondo desde la configuración
+         */
+        applyBackgroundImageStyles() {
+            // Obtener configuración de imagen de fondo desde los settings
+            const backgroundImageUrl = this.settings.background_image_url;
+            const backgroundImageSize = this.settings.background_image_size || 'cover';
+            const backgroundImageRepeat = this.settings.background_image_repeat || 'no-repeat';
+            const backgroundImagePosition = this.settings.background_image_position || 'center center';
+            const backgroundImageAttachment = this.settings.background_image_attachment || 'scroll';
+            const backgroundOverlayOpacity = this.settings.background_overlay_opacity || 0;
+
+            console.log('SFQ Background: Applying background image styles');
+            console.log('SFQ Background: URL:', backgroundImageUrl);
+            console.log('SFQ Background: Size:', backgroundImageSize);
+            console.log('SFQ Background: Repeat:', backgroundImageRepeat);
+            console.log('SFQ Background: Position:', backgroundImagePosition);
+            console.log('SFQ Background: Attachment:', backgroundImageAttachment);
+            console.log('SFQ Background: Overlay Opacity:', backgroundOverlayOpacity);
+
+            // Solo aplicar si hay una imagen configurada
+            if (backgroundImageUrl && backgroundImageUrl.trim() !== '') {
+                // Aplicar variables CSS al contenedor del formulario
+                this.container.style.setProperty('--sfq-background-image-url', `url("${backgroundImageUrl}")`);
+                this.container.style.setProperty('--sfq-background-image-size', backgroundImageSize);
+                this.container.style.setProperty('--sfq-background-image-repeat', backgroundImageRepeat);
+                this.container.style.setProperty('--sfq-background-image-position', backgroundImagePosition);
+                this.container.style.setProperty('--sfq-background-image-attachment', backgroundImageAttachment);
+                this.container.style.setProperty('--sfq-background-overlay-opacity', backgroundOverlayOpacity);
+
+                console.log('SFQ Background: Background image styles applied successfully');
+            } else {
+                console.log('SFQ Background: No background image URL configured, skipping');
             }
         }
 

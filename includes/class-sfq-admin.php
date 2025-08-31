@@ -813,6 +813,105 @@ class SFQ_Admin {
                     
                     <!-- Tab Estilo -->
                     <div class="sfq-tab-content" id="tab-style">
+                        <h3><?php _e('🖼️ Imagen de Fondo', 'smart-forms-quiz'); ?></h3>
+                        
+                        <div class="sfq-field-group">
+                            <label><?php _e('Imagen de Fondo del Formulario', 'smart-forms-quiz'); ?></label>
+                            <div class="sfq-background-image-container">
+                                <div class="sfq-background-image-preview" id="background-image-preview" style="display: none;">
+                                    <!-- La imagen se mostrará aquí -->
+                                </div>
+                                <div class="sfq-background-image-controls">
+                                    <button type="button" class="button button-secondary" id="select-background-image">
+                                        <span class="dashicons dashicons-format-image"></span>
+                                        <?php _e('Seleccionar Imagen', 'smart-forms-quiz'); ?>
+                                    </button>
+                                    <button type="button" class="button button-secondary" id="remove-background-image" style="display: none;">
+                                        <span class="dashicons dashicons-no-alt"></span>
+                                        <?php _e('Quitar Imagen', 'smart-forms-quiz'); ?>
+                                    </button>
+                                </div>
+                                <div class="sfq-background-url-input" style="margin-top: 10px;">
+                                    <label><?php _e('O introduce URL de imagen:', 'smart-forms-quiz'); ?></label>
+                                    <input type="url" id="background-image-url" class="sfq-input" placeholder="https://ejemplo.com/imagen.jpg">
+                                </div>
+                                <!-- Inputs ocultos para datos de imagen -->
+                                <input type="hidden" id="background-image-id" value="">
+                                <input type="hidden" id="background-image-data" value="">
+                            </div>
+                        </div>
+                        
+                        <div class="sfq-field-group" id="background-image-options" style="display: none;">
+                            <h4><?php _e('Opciones de Imagen de Fondo', 'smart-forms-quiz'); ?></h4>
+                            
+                            <div class="sfq-background-options-grid">
+                                <div class="sfq-field-group">
+                                    <label><?php _e('Tamaño de Imagen', 'smart-forms-quiz'); ?></label>
+                                    <select id="background-size" class="sfq-select">
+                                        <option value="cover"><?php _e('Cubrir (cover)', 'smart-forms-quiz'); ?></option>
+                                        <option value="contain"><?php _e('Contener (contain)', 'smart-forms-quiz'); ?></option>
+                                        <option value="auto"><?php _e('Tamaño original (auto)', 'smart-forms-quiz'); ?></option>
+                                        <option value="100% 100%"><?php _e('Estirar (100% 100%)', 'smart-forms-quiz'); ?></option>
+                                    </select>
+                                </div>
+                                
+                                <div class="sfq-field-group">
+                                    <label><?php _e('Repetición', 'smart-forms-quiz'); ?></label>
+                                    <select id="background-repeat" class="sfq-select">
+                                        <option value="no-repeat"><?php _e('No repetir', 'smart-forms-quiz'); ?></option>
+                                        <option value="repeat"><?php _e('Repetir', 'smart-forms-quiz'); ?></option>
+                                        <option value="repeat-x"><?php _e('Repetir horizontal', 'smart-forms-quiz'); ?></option>
+                                        <option value="repeat-y"><?php _e('Repetir vertical', 'smart-forms-quiz'); ?></option>
+                                    </select>
+                                </div>
+                                
+                                <div class="sfq-field-group">
+                                    <label><?php _e('Posición', 'smart-forms-quiz'); ?></label>
+                                    <select id="background-position" class="sfq-select">
+                                        <option value="center center"><?php _e('Centro', 'smart-forms-quiz'); ?></option>
+                                        <option value="top left"><?php _e('Superior izquierda', 'smart-forms-quiz'); ?></option>
+                                        <option value="top center"><?php _e('Superior centro', 'smart-forms-quiz'); ?></option>
+                                        <option value="top right"><?php _e('Superior derecha', 'smart-forms-quiz'); ?></option>
+                                        <option value="center left"><?php _e('Centro izquierda', 'smart-forms-quiz'); ?></option>
+                                        <option value="center right"><?php _e('Centro derecha', 'smart-forms-quiz'); ?></option>
+                                        <option value="bottom left"><?php _e('Inferior izquierda', 'smart-forms-quiz'); ?></option>
+                                        <option value="bottom center"><?php _e('Inferior centro', 'smart-forms-quiz'); ?></option>
+                                        <option value="bottom right"><?php _e('Inferior derecha', 'smart-forms-quiz'); ?></option>
+                                    </select>
+                                </div>
+                                
+                                <div class="sfq-field-group">
+                                    <label><?php _e('Fijación', 'smart-forms-quiz'); ?></label>
+                                    <select id="background-attachment" class="sfq-select">
+                                        <option value="scroll"><?php _e('Normal (scroll)', 'smart-forms-quiz'); ?></option>
+                                        <option value="fixed"><?php _e('Fija (fixed)', 'smart-forms-quiz'); ?></option>
+                                        <option value="local"><?php _e('Local', 'smart-forms-quiz'); ?></option>
+                                    </select>
+                                </div>
+                                
+                                <div class="sfq-field-group">
+                                    <label><?php _e('Opacidad', 'smart-forms-quiz'); ?></label>
+                                    <input type="range" id="background-opacity" min="0" max="1" step="0.1" value="1" class="sfq-range">
+                                    <span class="sfq-background-opacity-value">1.0</span>
+                                </div>
+                                
+                                <div class="sfq-field-group">
+                                    <label>
+                                        <input type="checkbox" id="background-overlay">
+                                        <?php _e('Añadir overlay de color', 'smart-forms-quiz'); ?>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="sfq-field-group" id="background-overlay-options" style="display: none;">
+                                <label><?php _e('Color del Overlay', 'smart-forms-quiz'); ?></label>
+                                <input type="text" id="background-overlay-color" class="sfq-color-picker" value="#000000">
+                                <label><?php _e('Opacidad del Overlay', 'smart-forms-quiz'); ?></label>
+                                <input type="range" id="background-overlay-opacity" min="0" max="1" step="0.1" value="0.3" class="sfq-range">
+                                <span class="sfq-background-overlay-opacity-value">0.3</span>
+                            </div>
+                        </div>
+                        
                         <h3><?php _e('🎨 Colores Principales', 'smart-forms-quiz'); ?></h3>
                         
                         <div class="sfq-field-group">
@@ -1389,15 +1488,37 @@ class SFQ_Admin {
                                 </div>
                             </div>
                             
+                        <div class="sfq-field-group">
+                            <label>
+                                <input type="checkbox" id="show-submit-loading" checked>
+                                <?php _e('Mostrar indicador de envío', 'smart-forms-quiz'); ?>
+                            </label>
+                            <p class="description" style="margin-left: 24px; margin-top: 5px; font-size: 12px; color: #666;">
+                                <?php _e('Muestra spinner de carga al enviar el formulario completo (recomendado)', 'smart-forms-quiz'); ?>
+                            </p>
+                        </div>
+                        
+                        <div class="sfq-field-group">
+                            <h3><?php _e('🔒 Seguridad de Preguntas', 'smart-forms-quiz'); ?></h3>
+                            
                             <div class="sfq-field-group">
                                 <label>
-                                    <input type="checkbox" id="show-submit-loading" checked>
-                                    <?php _e('Mostrar indicador de envío', 'smart-forms-quiz'); ?>
+                                    <input type="checkbox" id="secure-loading">
+                                    <?php _e('🔒 Modo de carga segura', 'smart-forms-quiz'); ?>
                                 </label>
                                 <p class="description" style="margin-left: 24px; margin-top: 5px; font-size: 12px; color: #666;">
-                                    <?php _e('Muestra spinner de carga al enviar el formulario completo (recomendado)', 'smart-forms-quiz'); ?>
+                                    <?php _e('Las preguntas se cargan dinámicamente desde el servidor en lugar de estar todas en el código fuente', 'smart-forms-quiz'); ?>
                                 </p>
+                                <div class="notice notice-info inline" style="margin: 10px 0 0 24px; padding: 8px 12px;">
+                                    <p style="margin: 0; font-size: 12px;">
+                                        <strong><?php _e('Modo Normal:', 'smart-forms-quiz'); ?></strong> 
+                                        <?php _e('Todas las preguntas están visibles en el código fuente HTML (más rápido)', 'smart-forms-quiz'); ?><br>
+                                        <strong><?php _e('Modo Seguro:', 'smart-forms-quiz'); ?></strong> 
+                                        <?php _e('Las preguntas se cargan una por una desde el servidor (más seguro)', 'smart-forms-quiz'); ?>
+                                    </p>
+                                </div>
                             </div>
+                        </div>
                             
                             <div class="sfq-field-group">
                                 <h4><?php _e('🔄 Indicador de Redirección', 'smart-forms-quiz'); ?></h4>
@@ -1577,8 +1698,129 @@ class SFQ_Admin {
         
         <input type="hidden" id="sfq-form-id" value="<?php echo $form_id; ?>">
         
-        <!-- Estilos para personalización de mensajes de límite -->
+        <!-- Estilos para personalización de mensajes de límite y selector de imagen de fondo -->
         <style>
+            /* Estilos para el selector de imagen de fondo */
+            .sfq-background-image-container {
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                padding: 20px;
+                background: #f9f9f9;
+                margin-bottom: 15px;
+            }
+            
+            .sfq-background-image-preview {
+                text-align: center;
+                margin-bottom: 15px;
+                padding: 10px;
+                border: 2px dashed #ddd;
+                border-radius: 6px;
+                background: #fff;
+                min-height: 120px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .sfq-background-image-preview img {
+                max-width: 100%;
+                max-height: 200px;
+                border-radius: 4px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+            
+            .sfq-background-image-controls {
+                display: flex;
+                gap: 10px;
+                justify-content: center;
+                margin-bottom: 15px;
+            }
+            
+            .sfq-background-image-controls .button {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 8px 16px;
+            }
+            
+            .sfq-background-url-input {
+                margin-top: 15px;
+            }
+            
+            .sfq-background-url-input label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: 500;
+                color: #555;
+            }
+            
+            .sfq-background-options-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 15px;
+                margin-top: 15px;
+            }
+            
+            .sfq-background-options-grid .sfq-field-group {
+                background: #fff;
+                padding: 15px;
+                border-radius: 6px;
+                border: 1px solid #e1e1e1;
+            }
+            
+            .sfq-background-options-grid .sfq-field-group label {
+                display: block;
+                margin-bottom: 8px;
+                font-weight: 500;
+                font-size: 13px;
+                color: #555;
+            }
+            
+            .sfq-background-options-grid .sfq-select,
+            .sfq-background-options-grid .sfq-range {
+                width: 100%;
+            }
+            
+            .sfq-background-opacity-value,
+            .sfq-background-overlay-opacity-value {
+                display: inline-block;
+                margin-left: 10px;
+                font-weight: 500;
+                color: #007cba;
+                min-width: 30px;
+            }
+            
+            #background-overlay-options {
+                margin-top: 15px;
+                padding: 15px;
+                background: #fff;
+                border: 1px solid #e1e1e1;
+                border-radius: 6px;
+            }
+            
+            #background-overlay-options label {
+                display: block;
+                margin-bottom: 8px;
+                font-weight: 500;
+                color: #555;
+            }
+            
+            /* Responsive para selector de imagen de fondo */
+            @media (max-width: 768px) {
+                .sfq-background-options-grid {
+                    grid-template-columns: 1fr;
+                }
+                
+                .sfq-background-image-controls {
+                    flex-direction: column;
+                }
+                
+                .sfq-background-image-controls .button {
+                    width: 100%;
+                    justify-content: center;
+                }
+            }
+            
             .sfq-message-config-section {
                 background: #fff;
                 border: 1px solid #e1e1e1;
@@ -1815,6 +2057,126 @@ class SFQ_Admin {
             
             // Inicializar color pickers para indicador de redirección
             $('#redirect-indicator-bg-color, #redirect-indicator-text-color, #redirect-indicator-spinner-color').wpColorPicker();
+            
+            // ===== FUNCIONALIDAD DE IMAGEN DE FONDO =====
+            
+            // Manejar selección de imagen de fondo
+            $('#select-background-image').on('click', function(e) {
+                e.preventDefault();
+                
+                // Crear frame de medios de WordPress
+                const frame = wp.media({
+                    title: 'Seleccionar Imagen de Fondo',
+                    button: { text: 'Usar esta imagen' },
+                    multiple: false,
+                    library: { type: 'image' }
+                });
+                
+                // Cuando se selecciona una imagen
+                frame.on('select', function() {
+                    const attachment = frame.state().get('selection').first().toJSON();
+                    
+                    // Actualizar preview
+                    $('#background-image-preview').html(
+                        '<img src="' + attachment.url + '" alt="' + (attachment.alt || 'Imagen de fondo') + '">'
+                    ).show();
+                    
+                    // Actualizar inputs ocultos
+                    $('#background-image-id').val(attachment.id);
+                    $('#background-image-data').val(JSON.stringify({
+                        id: attachment.id,
+                        url: attachment.url,
+                        alt: attachment.alt || '',
+                        title: attachment.title || '',
+                        width: attachment.width || 0,
+                        height: attachment.height || 0
+                    }));
+                    
+                    // Limpiar URL manual si había una
+                    $('#background-image-url').val('');
+                    
+                    // Actualizar botones
+                    $('#select-background-image').text('Cambiar Imagen');
+                    $('#remove-background-image').show();
+                    
+                    // Mostrar opciones de imagen de fondo
+                    $('#background-image-options').slideDown(300);
+                });
+                
+                // Abrir el frame
+                frame.open();
+            });
+            
+            // Manejar URL manual de imagen
+            $('#background-image-url').on('blur', function() {
+                const url = $(this).val().trim();
+                if (url) {
+                    // Actualizar preview
+                    $('#background-image-preview').html(
+                        '<img src="' + url + '" alt="Imagen de fondo">'
+                    ).show();
+                    
+                    // Limpiar datos de WordPress Media
+                    $('#background-image-id').val('');
+                    $('#background-image-data').val(JSON.stringify({
+                        id: 0,
+                        url: url,
+                        alt: 'Imagen de fondo',
+                        title: '',
+                        width: 0,
+                        height: 0
+                    }));
+                    
+                    // Actualizar botones
+                    $('#select-background-image').text('Cambiar Imagen');
+                    $('#remove-background-image').show();
+                    
+                    // Mostrar opciones de imagen de fondo
+                    $('#background-image-options').slideDown(300);
+                }
+            });
+            
+            // Manejar eliminación de imagen de fondo
+            $('#remove-background-image').on('click', function(e) {
+                e.preventDefault();
+                
+                // Limpiar preview
+                $('#background-image-preview').hide().empty();
+                
+                // Limpiar inputs
+                $('#background-image-id').val('');
+                $('#background-image-data').val('');
+                $('#background-image-url').val('');
+                
+                // Actualizar botones
+                $('#select-background-image').text('Seleccionar Imagen');
+                $('#remove-background-image').hide();
+                
+                // Ocultar opciones de imagen de fondo
+                $('#background-image-options').slideUp(300);
+            });
+            
+            // Manejar cambios en las opciones de imagen de fondo
+            $('#background-overlay').on('change', function() {
+                const overlayOptions = $('#background-overlay-options');
+                if ($(this).is(':checked')) {
+                    overlayOptions.slideDown(300);
+                } else {
+                    overlayOptions.slideUp(300);
+                }
+            });
+            
+            // Actualizar valores de opacidad en tiempo real
+            $('#background-opacity').on('input', function() {
+                $('.sfq-background-opacity-value').text($(this).val());
+            });
+            
+            $('#background-overlay-opacity').on('input', function() {
+                $('.sfq-background-overlay-opacity-value').text($(this).val());
+            });
+            
+            // Inicializar color pickers para imagen de fondo
+            $('#background-overlay-color').wpColorPicker();
         });
         </script>
         <?php

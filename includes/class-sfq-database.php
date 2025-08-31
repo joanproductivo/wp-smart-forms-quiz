@@ -505,13 +505,16 @@ class SFQ_Database {
     public function save_form($data) {
         global $wpdb;
         
+        // ✅ NUEVO: Procesar configuraciones de estilo incluyendo imagen de fondo
+        $style_settings = $this->process_style_settings($data['style_settings'] ?? array());
+        
         // Preparar datos
         $form_data = array(
             'title' => sanitize_text_field($data['title']),
             'description' => sanitize_textarea_field($data['description'] ?? ''),
             'type' => in_array($data['type'], array('form', 'quiz')) ? $data['type'] : 'form',
             'settings' => json_encode($data['settings'] ?? array()),
-            'style_settings' => json_encode($data['style_settings'] ?? array()),
+            'style_settings' => json_encode($style_settings),
             'intro_title' => sanitize_text_field($data['intro_title'] ?? ''),
             'intro_description' => sanitize_textarea_field($data['intro_description'] ?? ''),
             'intro_button_text' => sanitize_text_field($data['intro_button_text'] ?? 'Comenzar'),
@@ -551,6 +554,244 @@ class SFQ_Database {
         $this->clear_form_cache($form_id);
         
         return $form_id;
+    }
+    
+    /**
+     * ✅ NUEVO: Procesar y validar configuraciones de estilo incluyendo imagen de fondo
+     */
+    private function process_style_settings($style_settings) {
+        if (!is_array($style_settings)) {
+            return array();
+        }
+        
+        $processed_settings = array();
+        
+        // Procesar cada configuración de estilo con validación
+        foreach ($style_settings as $key => $value) {
+            switch ($key) {
+                // Colores - validar formato hexadecimal
+                case 'primary_color':
+                case 'secondary_color':
+                case 'background_color':
+                case 'options_background_color':
+                case 'options_border_color':
+                case 'input_border_color':
+                case 'text_color':
+                case 'background_overlay_color':
+                case 'limit_background_color':
+                case 'limit_border_color':
+                case 'limit_icon_color':
+                case 'limit_title_color':
+                case 'limit_text_color':
+                case 'limit_button_bg_color':
+                case 'limit_button_text_color':
+                case 'block_form_bg_color':
+                case 'block_form_border_color':
+                case 'block_form_icon_color':
+                case 'block_form_title_color':
+                case 'block_form_text_color':
+                case 'block_form_button_bg_color':
+                case 'block_form_button_text_color':
+                case 'block_form_timer_unit_bg_color':
+                case 'block_form_timer_container_bg_color':
+                case 'block_form_timer_container_border_color':
+                case 'block_form_timer_unit_border_color':
+                case 'block_form_timer_available_bg_color':
+                case 'block_form_timer_available_border_color':
+                case 'block_form_timer_available_icon_color':
+                case 'block_form_timer_available_title_color':
+                case 'block_form_timer_available_text_color':
+                case 'block_form_timer_available_button_bg_color':
+                case 'block_form_timer_available_button_text_color':
+                    $processed_settings[$key] = $this->validate_color($value);
+                    break;
+                
+                // ✅ NUEVO: Configuraciones de imagen de fondo
+                case 'background_image_url':
+                    $processed_settings[$key] = $this->validate_image_url($value);
+                    break;
+                
+                case 'background_image_id':
+                    $processed_settings[$key] = intval($value);
+                    break;
+                
+                case 'background_image_data':
+                    $processed_settings[$key] = $this->validate_image_data($value);
+                    break;
+                
+                case 'background_size':
+                    $valid_sizes = array('cover', 'contain', 'auto', '100% 100%');
+                    $processed_settings[$key] = in_array($value, $valid_sizes) ? $value : 'cover';
+                    break;
+                
+                case 'background_repeat':
+                    $valid_repeats = array('no-repeat', 'repeat', 'repeat-x', 'repeat-y');
+                    $processed_settings[$key] = in_array($value, $valid_repeats) ? $value : 'no-repeat';
+                    break;
+                
+                case 'background_position':
+                    $valid_positions = array(
+                        'center center', 'top left', 'top center', 'top right',
+                        'center left', 'center right', 'bottom left', 'bottom center', 'bottom right'
+                    );
+                    $processed_settings[$key] = in_array($value, $valid_positions) ? $value : 'center center';
+                    break;
+                
+                case 'background_attachment':
+                    $valid_attachments = array('scroll', 'fixed', 'local');
+                    $processed_settings[$key] = in_array($value, $valid_attachments) ? $value : 'scroll';
+                    break;
+                
+                case 'background_opacity':
+                case 'background_overlay_opacity':
+                    $processed_settings[$key] = $this->validate_opacity($value);
+                    break;
+                
+                // Valores booleanos
+                case 'background_overlay':
+                case 'form_container_shadow':
+                case 'block_form_disable_shadow':
+                    $processed_settings[$key] = (bool) $value;
+                    break;
+                
+                // Valores numéricos
+                case 'border_radius':
+                case 'form_container_border_radius':
+                case 'question_text_size':
+                case 'option_text_size':
+                case 'form_container_custom_width':
+                case 'question_content_custom_width':
+                    $processed_settings[$key] = max(0, intval($value));
+                    break;
+                
+                // Valores de texto con sanitización
+                case 'font_family':
+                case 'form_container_width':
+                case 'question_content_width':
+                case 'question_text_align':
+                case 'general_text_align':
+                    $processed_settings[$key] = sanitize_text_field($value);
+                    break;
+                
+                // Campos de texto largo (para iconos SVG, etc.)
+                case 'limit_submission_icon':
+                case 'limit_participants_icon':
+                case 'limit_login_icon':
+                case 'limit_schedule_icon':
+                case 'block_form_icon':
+                    $processed_settings[$key] = wp_kses_post($value);
+                    break;
+                
+                // URLs
+                case 'block_form_video_url':
+                case 'limit_submission_button_url':
+                case 'limit_participants_button_url':
+                case 'limit_schedule_button_url':
+                case 'block_form_button_url':
+                case 'block_form_timer_available_button_url':
+                    $processed_settings[$key] = esc_url_raw($value);
+                    break;
+                
+                // Texto simple
+                default:
+                    $processed_settings[$key] = sanitize_text_field($value);
+                    break;
+            }
+        }
+        
+        return $processed_settings;
+    }
+    
+    /**
+     * ✅ NUEVO: Validar color hexadecimal
+     */
+    private function validate_color($color) {
+        if (empty($color)) {
+            return '';
+        }
+        
+        // Asegurar que empiece con #
+        if (strpos($color, '#') !== 0) {
+            $color = '#' . $color;
+        }
+        
+        // Validar formato hexadecimal
+        if (preg_match('/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/', $color)) {
+            return $color;
+        }
+        
+        return '';
+    }
+    
+    /**
+     * ✅ NUEVO: Validar URL de imagen
+     */
+    private function validate_image_url($url) {
+        if (empty($url)) {
+            return '';
+        }
+        
+        // Validar que sea una URL válida
+        $validated_url = esc_url_raw($url);
+        if (!$validated_url) {
+            return '';
+        }
+        
+        // Verificar que tenga extensión de imagen válida
+        $valid_extensions = array('jpg', 'jpeg', 'png', 'gif', 'webp', 'svg');
+        $path_info = pathinfo(parse_url($validated_url, PHP_URL_PATH));
+        $extension = strtolower($path_info['extension'] ?? '');
+        
+        if (in_array($extension, $valid_extensions)) {
+            return $validated_url;
+        }
+        
+        return '';
+    }
+    
+    /**
+     * ✅ NUEVO: Validar datos de imagen JSON
+     */
+    private function validate_image_data($data) {
+        if (empty($data)) {
+            return '';
+        }
+        
+        // Si ya es un array, convertir a JSON
+        if (is_array($data)) {
+            return wp_json_encode($data);
+        }
+        
+        // Si es string, validar que sea JSON válido
+        if (is_string($data)) {
+            $decoded = json_decode($data, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                // Validar que tenga las claves esperadas
+                $required_keys = array('id', 'url', 'alt', 'title', 'width', 'height');
+                $has_required = false;
+                
+                foreach ($required_keys as $key) {
+                    if (isset($decoded[$key])) {
+                        $has_required = true;
+                        break;
+                    }
+                }
+                
+                if ($has_required) {
+                    return $data;
+                }
+            }
+        }
+        
+        return '';
+    }
+    
+    /**
+     * ✅ NUEVO: Validar valor de opacidad
+     */
+    private function validate_opacity($opacity) {
+        $opacity = floatval($opacity);
+        return max(0, min(1, $opacity));
     }
     
     /**

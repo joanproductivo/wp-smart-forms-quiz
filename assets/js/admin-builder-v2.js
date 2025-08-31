@@ -382,6 +382,9 @@
                 }
             });
             
+            // ✅ NUEVO: Event listeners para imagen de fondo
+            this.bindBackgroundImageEvents(ns);
+            
             // Variables globales
             $('#sfq-add-variable').off('click' + ns).on('click' + ns, () => {
                 this.showVariableModal();
@@ -497,6 +500,9 @@
             // Bloqueo de formulario
             $('#block-form').prop('checked', settings.block_form === true).trigger('change');
             
+            // ✅ NUEVO: Modo de carga segura
+            $('#secure-loading').prop('checked', settings.secure_loading === true);
+            
             // Show/hide intro settings
             $('#intro-screen-settings').toggle(settings.show_intro_screen !== false);
             
@@ -530,6 +536,34 @@
             
             // Color del borde de inputs y estrellas
             $('#input-border-color').val(styles.input_border_color || '#ddd').trigger('change');
+            
+            // ✅ NUEVO: Cargar configuración de imagen de fondo con IDs correctos
+            $('#background-image-url').val(styles.background_image_url || '');
+            $('#background-image-id').val(styles.background_image_id || '');
+            $('#background-image-data').val(styles.background_image_data || '');
+            $('#background-size').val(styles.background_size || 'cover');
+            $('#background-repeat').val(styles.background_repeat || 'no-repeat');
+            $('#background-position').val(styles.background_position || 'center center');
+            $('#background-attachment').val(styles.background_attachment || 'scroll');
+            $('#background-opacity').val(styles.background_opacity || '1');
+            $('.sfq-background-opacity-value').text(styles.background_opacity || '1');
+            $('#background-overlay').prop('checked', styles.background_overlay === true);
+            $('#background-overlay-color').val(styles.background_overlay_color || '#000000').trigger('change');
+            $('#background-overlay-opacity').val(styles.background_overlay_opacity || '0.3');
+            $('.sfq-background-overlay-opacity-value').text(styles.background_overlay_opacity || '0.3');
+            
+            // Mostrar preview si hay imagen de fondo
+            if (styles.background_image_url && styles.background_image_url.trim() !== '') {
+                this.updateBackgroundImagePreview(styles.background_image_url);
+                $('#background-image-options').show();
+                $('#select-background-image').text('Cambiar Imagen');
+                $('#remove-background-image').show();
+            }
+            
+            // Mostrar opciones de overlay si está activado
+            if (styles.background_overlay === true) {
+                $('#background-overlay-options').show();
+            }
             
             // Cargar configuraciones de personalización de mensajes de límite
             $('#limit-submission-icon').val(styles.limit_submission_icon || '');
@@ -758,6 +792,8 @@
                 processing_indicator_delay: $('#processing-indicator-delay').val() || '100',
                 // Bloqueo de formulario
                 block_form: $('#block-form').is(':checked'),
+                // ✅ NUEVO: Modo de carga segura
+                secure_loading: $('#secure-loading').is(':checked'),
                 // Límites de envío - nueva estructura flexible
                 submission_limit_count: $('#submission-limit-count').val() || '',
                 submission_limit_period: $('#submission-limit-period').val() || 'no_limit',
@@ -796,6 +832,18 @@
                 general_text_align: $('#general-text-align').val() || 'left',
                 options_border_color: $('#options-border-color').val() || '#e0e0e0',
                 input_border_color: $('#input-border-color').val() || '#ddd',
+                // ✅ NUEVO: Configuración de imagen de fondo
+                background_image_url: $('#background-image-url').val() || '',
+                background_image_id: $('#background-image-id').val() || '',
+                background_image_data: $('#background-image-data').val() || '',
+                background_size: $('#background-size').val() || 'cover',
+                background_repeat: $('#background-repeat').val() || 'no-repeat',
+                background_position: $('#background-position').val() || 'center center',
+                background_attachment: $('#background-attachment').val() || 'scroll',
+                background_opacity: $('#background-opacity').val() || '1',
+                background_overlay: $('#background-overlay').is(':checked'),
+                background_overlay_color: $('#background-overlay-color').val() || '#000000',
+                background_overlay_opacity: $('#background-overlay-opacity').val() || '0.3',
                 // Personalización de mensajes de límite
                 limit_submission_icon: $('#limit-submission-icon').val() || '',
                 limit_submission_title: $('#limit-submission-title').val() || '',
@@ -1410,6 +1458,191 @@
             return text.replace(/[&<>"']/g, m => map[m]);
         }
         
+        // ✅ CORREGIDO: Bind events para imagen de fondo con IDs correctos
+        bindBackgroundImageEvents(ns) {
+            const self = this;
+            
+            // Botón para seleccionar imagen de fondo - CORREGIDO ID
+            $('#select-background-image').off('click' + ns).on('click' + ns, function(e) {
+                e.preventDefault();
+                self.openBackgroundImageSelector();
+            });
+            
+            // Input URL manual para imagen de fondo
+            $('#background-image-url').off('input' + ns).on('input' + ns, function() {
+                const url = $(this).val().trim();
+                if (url && self.isValidImageUrl(url)) {
+                    self.updateBackgroundImagePreview(url);
+                    $(this).removeClass('invalid').addClass('valid');
+                    // Mostrar opciones de imagen de fondo
+                    $('#background-image-options').slideDown(300);
+                } else if (url) {
+                    $(this).removeClass('valid').addClass('invalid');
+                    self.hideBackgroundImagePreview();
+                } else {
+                    $(this).removeClass('valid invalid');
+                    self.hideBackgroundImagePreview();
+                }
+                
+                if (!self.isDestroyed) {
+                    self.isDirty = true;
+                    self.updatePreviewStyles();
+                }
+            });
+            
+            // Botón para eliminar imagen de fondo - CORREGIDO ID
+            $('#remove-background-image').off('click' + ns).on('click' + ns, function(e) {
+                e.preventDefault();
+                self.removeBackgroundImage();
+            });
+            
+            // Event listeners para opciones de imagen de fondo - CORREGIDOS IDs
+            $('#background-size, #background-repeat, #background-position, #background-attachment').off('change' + ns).on('change' + ns, function() {
+                if (!self.isDestroyed) {
+                    self.isDirty = true;
+                    self.updatePreviewStyles();
+                }
+            });
+            
+            // Event listener para opacidad de imagen de fondo
+            $('#background-opacity').off('input' + ns).on('input' + ns, function() {
+                $('.sfq-background-opacity-value').text($(this).val());
+                if (!self.isDestroyed) {
+                    self.isDirty = true;
+                    self.updatePreviewStyles();
+                }
+            });
+            
+            // Event listener para checkbox de overlay
+            $('#background-overlay').off('change' + ns).on('change' + ns, function() {
+                const overlayOptions = $('#background-overlay-options');
+                if ($(this).is(':checked')) {
+                    overlayOptions.slideDown(300);
+                } else {
+                    overlayOptions.slideUp(300);
+                }
+                if (!self.isDestroyed) {
+                    self.isDirty = true;
+                    self.updatePreviewStyles();
+                }
+            });
+            
+            // Event listener para opacidad de overlay
+            $('#background-overlay-opacity').off('input' + ns).on('input' + ns, function() {
+                $('.sfq-background-overlay-opacity-value').text($(this).val());
+                if (!self.isDestroyed) {
+                    self.isDirty = true;
+                    self.updatePreviewStyles();
+                }
+            });
+            
+            // Event listener para color de overlay
+            $('#background-overlay-color').off('change' + ns).on('change' + ns, function() {
+                if (!self.isDestroyed) {
+                    self.isDirty = true;
+                    self.updatePreviewStyles();
+                }
+            });
+        }
+        
+        // ✅ NUEVO: Abrir selector de imagen de fondo
+        openBackgroundImageSelector() {
+            // Verificar que wp.media esté disponible
+            if (typeof wp === 'undefined' || !wp.media) {
+                alert('Error: WordPress Media Library no está disponible.');
+                return;
+            }
+            
+            const self = this;
+            
+            // Crear instancia del media uploader
+            const mediaUploader = wp.media({
+                title: 'Seleccionar Imagen de Fondo',
+                button: {
+                    text: 'Usar esta imagen'
+                },
+                multiple: false,
+                library: {
+                    type: 'image'
+                }
+            });
+            
+            // Evento cuando se selecciona una imagen
+            mediaUploader.on('select', function() {
+                const attachment = mediaUploader.state().get('selection').first().toJSON();
+                
+                if (self.isValidImageAttachment(attachment)) {
+                    self.setBackgroundImage(attachment);
+                } else {
+                    alert('Error: El archivo seleccionado no es una imagen válida');
+                }
+            });
+            
+            // Abrir el uploader
+            mediaUploader.open();
+        }
+        
+        // ✅ NUEVO: Validar attachment de imagen
+        isValidImageAttachment(attachment) {
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+            return validTypes.includes(attachment.mime) && attachment.url;
+        }
+        
+        // ✅ NUEVO: Validar URL de imagen
+        isValidImageUrl(url) {
+            try {
+                new URL(url);
+                const validExtensions = /\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i;
+                return validExtensions.test(url);
+            } catch {
+                return false;
+            }
+        }
+        
+        // ✅ NUEVO: Establecer imagen de fondo
+        setBackgroundImage(attachment) {
+            const url = attachment.url;
+            
+            // Actualizar input de URL
+            $('#background-image-url').val(url).removeClass('invalid').addClass('valid');
+            
+            // Mostrar preview
+            this.updateBackgroundImagePreview(url);
+            
+            // Marcar como modificado
+            this.isDirty = true;
+            this.updatePreviewStyles();
+        }
+        
+        // ✅ NUEVO: Actualizar preview de imagen de fondo
+        updateBackgroundImagePreview(url) {
+            const $preview = $('#background-image-preview');
+            const $previewImg = $preview.find('img');
+            
+            if ($previewImg.length === 0) {
+                $preview.html(`<img src="${url}" alt="Vista previa" style="max-width: 100%; height: auto; border-radius: 4px;">`);
+            } else {
+                $previewImg.attr('src', url);
+            }
+            
+            $preview.show();
+            $('#background-image-remove').show();
+        }
+        
+        // ✅ NUEVO: Ocultar preview de imagen de fondo
+        hideBackgroundImagePreview() {
+            $('#background-image-preview').hide().empty();
+            $('#background-image-remove').hide();
+        }
+        
+        // ✅ NUEVO: Eliminar imagen de fondo
+        removeBackgroundImage() {
+            $('#background-image-url').val('').removeClass('valid invalid');
+            this.hideBackgroundImagePreview();
+            this.isDirty = true;
+            this.updatePreviewStyles();
+        }
+
         // Función para actualizar estilos en tiempo real
         updatePreviewStyles() {
             // Crear o actualizar el elemento de estilo dinámico
@@ -1439,8 +1672,39 @@
                 questionTextSize: $('#question-text-size').val() || '24',
                 optionTextSize: $('#option-text-size').val() || '16',
                 questionTextAlign: $('#question-text-align').val() || 'left',
-                generalTextAlign: $('#general-text-align').val() || 'left'
+                generalTextAlign: $('#general-text-align').val() || 'left',
+                // ✅ NUEVO: Configuraciones de imagen de fondo
+                backgroundImageUrl: $('#background-image-url').val() || '',
+                backgroundSize: $('#background-size').val() || 'cover',
+                backgroundRepeat: $('#background-repeat').val() || 'no-repeat',
+                backgroundPosition: $('#background-position').val() || 'center center',
+                backgroundAttachment: $('#background-attachment').val() || 'scroll',
+                backgroundOpacity: $('#background-opacity').val() || '1',
+                backgroundOverlay: $('#background-overlay').is(':checked'),
+                backgroundOverlayColor: $('#background-overlay-color').val() || '#000000',
+                backgroundOverlayOpacity: $('#background-overlay-opacity').val() || '0.3'
             };
+            
+            // ✅ NUEVO: Generar estilos de imagen de fondo
+            let backgroundStyles = '';
+            if (styles.backgroundImageUrl && styles.backgroundImageUrl.trim() !== '') {
+                // Crear el estilo de imagen de fondo
+                backgroundStyles = `
+                    background-image: url('${styles.backgroundImageUrl}') !important;
+                    background-size: ${styles.backgroundSize} !important;
+                    background-repeat: ${styles.backgroundRepeat} !important;
+                    background-position: ${styles.backgroundPosition} !important;
+                    background-attachment: ${styles.backgroundAttachment} !important;
+                    opacity: ${styles.backgroundOpacity} !important;
+                `;
+                
+                // Si hay overlay activado, añadir pseudo-elemento
+                if (styles.backgroundOverlay) {
+                    backgroundStyles += `
+                        position: relative !important;
+                    `;
+                }
+            }
             
             // Generar CSS dinámico mejorado
             let css = `
@@ -1468,7 +1732,32 @@
                     border-radius: ${styles.formContainerBorderRadius}px !important;
                     font-family: ${styles.fontFamily} !important;
                     box-shadow: var(--sfq-form-container-shadow) !important;
+                    
+                    /* ✅ NUEVO: Aplicar imagen de fondo */
+                    ${backgroundStyles}
                 }
+                
+                /* ✅ NUEVO: Overlay para imagen de fondo */
+                ${styles.backgroundImageUrl && styles.backgroundOverlay ? `
+                .sfq-form-container::before {
+                    content: '' !important;
+                    position: absolute !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    right: 0 !important;
+                    bottom: 0 !important;
+                    background-color: ${styles.backgroundOverlayColor} !important;
+                    opacity: ${styles.backgroundOverlayOpacity} !important;
+                    pointer-events: none !important;
+                    border-radius: inherit !important;
+                    z-index: 1 !important;
+                }
+                
+                .sfq-form-container > * {
+                    position: relative !important;
+                    z-index: 2 !important;
+                }
+                ` : ''}
                 
                 /* Ancho del contenedor según configuración */
                 .sfq-form-container[data-width="full"] {

@@ -27,6 +27,14 @@
     --sfq-option-text-size: 16px;
     --sfq-question-text-align: left;
     --sfq-general-text-align: left;
+    
+    /* ✅ NUEVO: Variables CSS para imagen de fondo */
+    --sfq-background-image-url: none;
+    --sfq-background-image-size: cover;
+    --sfq-background-image-repeat: no-repeat;
+    --sfq-background-image-position: center center;
+    --sfq-background-image-attachment: scroll;
+    --sfq-background-overlay-opacity: 0;
 }
 
 /* Contenedor principal */
@@ -40,8 +48,36 @@
     position: relative;
     
     /* Aplicar nuevas opciones de estilo */
-   /* border-radius: var(--sfq-form-container-border-radius);
-   /* box-shadow: var(--sfq-form-container-shadow);
+    border-radius: var(--sfq-form-container-border-radius);
+    box-shadow: var(--sfq-form-container-shadow);
+    
+    /* ✅ NUEVO: Aplicar imagen de fondo */
+    background-image: var(--sfq-background-image-url);
+    background-size: var(--sfq-background-image-size);
+    background-repeat: var(--sfq-background-image-repeat);
+    background-position: var(--sfq-background-image-position);
+    background-attachment: var(--sfq-background-image-attachment);
+}
+
+/* ✅ NUEVO: Overlay para imagen de fondo */
+.sfq-form-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--sfq-background-color);
+    opacity: var(--sfq-background-overlay-opacity);
+    border-radius: var(--sfq-form-container-border-radius);
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* ✅ NUEVO: Asegurar que el contenido esté por encima del overlay */
+.sfq-form-container > * {
+    position: relative;
+    z-index: 2;
 }
 
 /* Ancho del contenedor según configuración */

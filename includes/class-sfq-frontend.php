@@ -139,13 +139,17 @@ class SFQ_Frontend {
         $styles = $form->style_settings ?: array();
         $settings = $form->settings ?: array();
         
+        // ✅ NUEVO: Verificar modo de carga segura
+        $secure_loading = isset($settings['secure_loading']) && $settings['secure_loading'];
+        
         ob_start();
         ?>
         <div class="sfq-form-container" 
              id="sfq-form-<?php echo $form_id; ?>" 
              data-form-id="<?php echo $form_id; ?>"
              data-session-id="<?php echo $session_id; ?>"
-             data-settings='<?php echo json_encode($settings); ?>'>
+             data-settings='<?php echo json_encode($settings); ?>'
+             data-secure-loading="<?php echo $secure_loading ? 'true' : 'false'; ?>">
             
             <!-- Barra de progreso -->
             <?php if (!empty($settings['show_progress_bar'])) : ?>
@@ -192,21 +196,93 @@ class SFQ_Frontend {
                 }
                 ?>
                 
-                <?php // Renderizar SOLO preguntas normales en el flujo principal ?>
-                <?php foreach ($normal_questions as $index => $question) : ?>
-                    <?php 
-                    // Determinar si esta pregunta debe estar activa inicialmente
-                    $is_first_screen = false;
-                    if (!$show_intro || (empty($form->intro_title) && empty($form->intro_description))) {
-                        $is_first_screen = ($index === 0);
-                    }
-                    ?>
-                    <?php 
-                    // Obtener configuración de mostrar botón siguiente
-                    $question_settings = $question->settings ?? array();
-                    $show_next_button = isset($question_settings['show_next_button']) ? $question_settings['show_next_button'] : true;
-                    $next_button_text = isset($question_settings['next_button_text']) ? $question_settings['next_button_text'] : '';
-                    ?>
+                <?php if ($secure_loading) : ?>
+                    <!-- ✅ MODO SEGURO: Solo renderizar la primera pregunta -->
+                    <?php if (!empty($normal_questions)) : ?>
+                        <?php 
+                        $first_question = $normal_questions[0];
+                        $is_first_screen = !$show_intro || (empty($form->intro_title) && empty($form->intro_description));
+                        $question_settings = $first_question->settings ?? array();
+                        $show_next_button = isset($question_settings['show_next_button']) ? $question_settings['show_next_button'] : true;
+                        $next_button_text = isset($question_settings['next_button_text']) ? $question_settings['next_button_text'] : '';
+                        ?>
+                        <div class="sfq-screen sfq-question-screen <?php echo $is_first_screen ? 'active' : ''; ?>" 
+                             data-question-id="<?php echo $first_question->id; ?>"
+                             data-question-index="0"
+                             data-question-type="<?php echo esc_attr($first_question->question_type); ?>"
+                             data-show-next-button="<?php echo $show_next_button ? 'true' : 'false'; ?>"
+                             data-next-button-text="<?php echo esc_attr($next_button_text); ?>"
+                             data-pantalla-final="false">
+                            
+                            <div class="sfq-question-content">
+                                <!-- Número de pregunta -->
+                                <?php if (!empty($settings['show_question_numbers'])) : ?>
+                                    <div class="sfq-question-number">
+                                        <?php echo sprintf(__('Pregunta %d de %d', 'smart-forms-quiz'), 1, count($normal_questions)); ?>
+                                    </div>
+                                <?php endif; ?>
+                                
+                                <!-- Texto de la pregunta -->
+                                <h3 class="sfq-question-text">
+                                    <?php echo esc_html($first_question->question_text); ?>
+                                    <?php if ($first_question->required) : ?>
+                                        <span class="sfq-required">*</span>
+                                    <?php endif; ?>
+                                </h3>
+                                
+                                <!-- Renderizar según el tipo de pregunta -->
+                                <div class="sfq-answer-container">
+                                    <?php $this->render_question_type($first_question); ?>
+                                </div>
+                                
+                                <!-- Botones de navegación -->
+                                <div class="sfq-navigation">
+                                    <?php 
+                                    // Determinar si mostrar el botón "Siguiente" basado en la configuración de la pregunta
+                                    $should_show_next = true;
+                                    
+                                    if (isset($question_settings['show_next_button'])) {
+                                        $should_show_next = $question_settings['show_next_button'];
+                                    } else {
+                                        // Lógica por defecto
+                                        $auto_advance_types = array('single_choice', 'rating', 'image_choice');
+                                        $should_show_next = !($settings['auto_advance'] && in_array($first_question->question_type, $auto_advance_types));
+                                    }
+                                    
+                                    if ($should_show_next) : 
+                                        $button_text = !empty($next_button_text) ? $next_button_text : __('Siguiente', 'smart-forms-quiz');
+                                    ?>
+                                        <button class="sfq-button sfq-button-primary sfq-next-button">
+                                            <?php echo esc_html($button_text); ?>
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Contenedor para preguntas cargadas dinámicamente -->
+                        <div id="sfq-dynamic-questions-container"></div>
+                    <?php endif; ?>
+                    
+                    <!-- ✅ MODO SEGURO: Pantallas finales ocultas (se cargarán dinámicamente si es necesario) -->
+                    <div id="sfq-dynamic-final-screens-container" style="display: none;"></div>
+                    
+                <?php else : ?>
+                    <!-- ✅ MODO NORMAL: Renderizar todas las preguntas como antes -->
+                    <?php foreach ($normal_questions as $index => $question) : ?>
+                        <?php 
+                        // Determinar si esta pregunta debe estar activa inicialmente
+                        $is_first_screen = false;
+                        if (!$show_intro || (empty($form->intro_title) && empty($form->intro_description))) {
+                            $is_first_screen = ($index === 0);
+                        }
+                        ?>
+                        <?php 
+                        // Obtener configuración de mostrar botón siguiente
+                        $question_settings = $question->settings ?? array();
+                        $show_next_button = isset($question_settings['show_next_button']) ? $question_settings['show_next_button'] : true;
+                        $next_button_text = isset($question_settings['next_button_text']) ? $question_settings['next_button_text'] : '';
+                        ?>
                     <div class="sfq-screen sfq-question-screen <?php echo $is_first_screen ? 'active' : ''; ?>" 
                          data-question-id="<?php echo $question->id; ?>"
                          data-question-index="<?php echo $index; ?>"
@@ -280,7 +356,9 @@ class SFQ_Frontend {
                             </div>
                         </div>
                     </div>
-                <?php endforeach; ?>
+                    <?php endforeach; ?>
+                
+                <?php endif; ?>
                 
                 <?php // ✅ CRÍTICO: Renderizar pantallas finales por separado (OCULTAS por defecto) ?>
                 <?php foreach ($final_screen_questions as $question) : ?>
@@ -390,7 +468,59 @@ class SFQ_Frontend {
                     --sfq-option-text-size: <?php echo esc_attr($styles['option_text_size'] ?? '16'); ?>px;
                     --sfq-question-text-align: <?php echo esc_attr($styles['question_text_align'] ?? 'left'); ?>;
                     --sfq-general-text-align: <?php echo esc_attr($styles['general_text_align'] ?? 'left'); ?>;
+                    
+                    /* ✅ NUEVO: Variables CSS para imagen de fondo */
+                    <?php if (!empty($styles['background_image_url'])) : ?>
+                    --sfq-background-image-url: url('<?php echo esc_url($styles['background_image_url']); ?>');
+                    --sfq-background-size: <?php echo esc_attr($styles['background_size'] ?? 'cover'); ?>;
+                    --sfq-background-repeat: <?php echo esc_attr($styles['background_repeat'] ?? 'no-repeat'); ?>;
+                    --sfq-background-position: <?php echo esc_attr($styles['background_position'] ?? 'center center'); ?>;
+                    --sfq-background-attachment: <?php echo esc_attr($styles['background_attachment'] ?? 'scroll'); ?>;
+                    --sfq-background-opacity: <?php echo esc_attr($styles['background_opacity'] ?? '1'); ?>;
+                    <?php if (!empty($styles['background_overlay']) && $styles['background_overlay']) : ?>
+                    --sfq-background-overlay-color: <?php echo esc_attr($styles['background_overlay_color'] ?? '#000000'); ?>;
+                    --sfq-background-overlay-opacity: <?php echo esc_attr($styles['background_overlay_opacity'] ?? '0.3'); ?>;
+                    <?php endif; ?>
+                    <?php endif; ?>
                 }
+                
+                /* ✅ NUEVO: Aplicar imagen de fondo al contenedor principal */
+                <?php if (!empty($styles['background_image_url'])) : ?>
+                #sfq-form-<?php echo $form_id; ?> {
+                    background-image: var(--sfq-background-image-url) !important;
+                    background-size: var(--sfq-background-size) !important;
+                    background-repeat: var(--sfq-background-repeat) !important;
+                    background-position: var(--sfq-background-position) !important;
+                    background-attachment: var(--sfq-background-attachment) !important;
+                    opacity: var(--sfq-background-opacity) !important;
+                    <?php if (!empty($styles['background_overlay']) && $styles['background_overlay']) : ?>
+                    position: relative !important;
+                    <?php endif; ?>
+                }
+                
+                <?php if (!empty($styles['background_overlay']) && $styles['background_overlay']) : ?>
+                /* Overlay de color sobre la imagen de fondo */
+                #sfq-form-<?php echo $form_id; ?>::before {
+                    content: '' !important;
+                    position: absolute !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    right: 0 !important;
+                    bottom: 0 !important;
+                    background-color: var(--sfq-background-overlay-color) !important;
+                    opacity: var(--sfq-background-overlay-opacity) !important;
+                    pointer-events: none !important;
+                    border-radius: inherit !important;
+                    z-index: 1 !important;
+                }
+                
+                /* Asegurar que el contenido esté por encima del overlay */
+                #sfq-form-<?php echo $form_id; ?> > * {
+                    position: relative !important;
+                    z-index: 2 !important;
+                }
+                <?php endif; ?>
+                <?php endif; ?>
                 
                 /* Aplicar estilos específicos con las variables CSS */
                 #sfq-form-<?php echo $form_id; ?> .sfq-form-container {

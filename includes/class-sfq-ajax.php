@@ -26,6 +26,10 @@ class SFQ_Ajax {
         add_action('wp_ajax_sfq_get_next_question', array($this, 'get_next_question'));
         add_action('wp_ajax_nopriv_sfq_get_next_question', array($this, 'get_next_question'));
         
+        // ✅ NUEVO: AJAX handler para modo de carga segura
+        add_action('wp_ajax_sfq_get_secure_question', array($this, 'get_secure_question'));
+        add_action('wp_ajax_nopriv_sfq_get_secure_question', array($this, 'get_secure_question'));
+        
         // AJAX handlers para admin
         add_action('wp_ajax_sfq_save_form', array($this, 'save_form'));
         add_action('wp_ajax_sfq_get_form_data', array($this, 'get_form_data'));
@@ -426,6 +430,452 @@ class SFQ_Ajax {
             'variables' => $updated_variables,
             'has_conditional_navigation' => $has_conditional_navigation // ✅ NUEVO: Información adicional para debug
         ));
+    }
+    
+    /**
+     * ✅ CORREGIDO: Obtener pregunta específica para modo de carga segura
+     */
+    public function get_secure_question() {
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Rate limiting para carga de preguntas
+        if (!$this->check_rate_limit('get_secure_question', 20, 60)) {
+            wp_send_json_error(array(
+                'message' => __('Demasiadas peticiones. Intenta de nuevo en un momento.', 'smart-forms-quiz'),
+                'code' => 'RATE_LIMIT_EXCEEDED'
+            ));
+            return;
+        }
+        
+        // ✅ CORREGIDO: Validar datos - aceptar question_id O question_index
+        $form_id = intval($_POST['form_id'] ?? 0);
+        $question_index = isset($_POST['question_index']) ? intval($_POST['question_index']) : null;
+        $question_id = isset($_POST['question_id']) ? intval($_POST['question_id']) : null;
+        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
+        
+        if (!$form_id || !$session_id) {
+            wp_send_json_error(__('Datos incompletos', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // ✅ NUEVO: Validar que se proporcione al menos uno de los parámetros de búsqueda
+        if ($question_index === null && $question_id === null) {
+            wp_send_json_error(array(
+                'message' => __('Debe proporcionar question_index o question_id', 'smart-forms-quiz'),
+                'code' => 'MISSING_SEARCH_PARAM'
+            ));
+            return;
+        }
+        
+        // Verificar que el formulario tenga habilitado el modo seguro
+        $form = $this->database->get_form($form_id);
+        if (!$form || empty($form->settings['secure_loading'])) {
+            wp_send_json_error(array(
+                'message' => __('El modo de carga segura no está habilitado para este formulario', 'smart-forms-quiz'),
+                'code' => 'SECURE_MODE_DISABLED'
+            ));
+            return;
+        }
+        
+        // Separar preguntas normales de pantallas finales
+        $normal_questions = array();
+        $final_screen_questions = array();
+        $all_questions_by_id = array();
+        
+        if (!empty($form->questions)) {
+            foreach ($form->questions as $question) {
+                $all_questions_by_id[$question->id] = $question;
+                
+                $is_final_screen = (isset($question->pantallaFinal) && $question->pantallaFinal);
+                if ($is_final_screen) {
+                    $final_screen_questions[] = $question;
+                } else {
+                    $normal_questions[] = $question;
+                }
+            }
+        }
+        
+        $settings = $form->settings ?: array();
+        $target_question = null;
+        $target_question_index = null;
+        $is_final_screen = false;
+        
+        try {
+            // ✅ NUEVO: Lógica de búsqueda mejorada
+            if ($question_id !== null) {
+                // Búsqueda por ID (navegación condicional)
+                if (!isset($all_questions_by_id[$question_id])) {
+                    wp_send_json_error(array(
+                        'message' => __('Pregunta no encontrada', 'smart-forms-quiz'),
+                        'code' => 'QUESTION_NOT_FOUND'
+                    ));
+                    return;
+                }
+                
+                $target_question = $all_questions_by_id[$question_id];
+                $is_final_screen = (isset($target_question->pantallaFinal) && $target_question->pantallaFinal);
+                
+                // Determinar índice si es pregunta normal
+                if (!$is_final_screen) {
+                    foreach ($normal_questions as $index => $normal_question) {
+                        if ($normal_question->id == $question_id) {
+                            $target_question_index = $index;
+                            break;
+                        }
+                    }
+                } else {
+                    // Para pantallas finales, usar índice especial
+                    $target_question_index = -1;
+                }
+                
+            } else {
+                // Búsqueda por índice (navegación secuencial)
+                if ($question_index < 0) {
+                    wp_send_json_error(array(
+                        'message' => __('Índice de pregunta inválido', 'smart-forms-quiz'),
+                        'code' => 'INVALID_QUESTION_INDEX'
+                    ));
+                    return;
+                }
+                
+                // ✅ CORREGIDO: Manejar final de formulario correctamente
+                if ($question_index >= count($normal_questions)) {
+                    // No hay más preguntas normales - finalizar formulario
+                    wp_send_json_success(array(
+                        'html' => null,
+                        'question_id' => null,
+                        'question_index' => -1,
+                        'is_last_question' => true,
+                        'form_completed' => true,
+                        'total_questions' => count($normal_questions),
+                        'message' => __('Formulario completado - no hay más preguntas', 'smart-forms-quiz')
+                    ));
+                    return;
+                }
+                
+                $target_question = $normal_questions[$question_index];
+                $target_question_index = $question_index;
+                $is_final_screen = false;
+            }
+            
+            // ✅ NUEVO: Renderizar según el tipo de pregunta
+            if ($is_final_screen) {
+                // Renderizar pantalla final
+                $question_html = $this->render_secure_final_screen($target_question, $final_screen_questions, $settings);
+            } else {
+                // Renderizar pregunta normal
+                $question_html = $this->render_secure_question($target_question, $target_question_index, $normal_questions, $settings);
+            }
+            
+            if (empty($question_html)) {
+                wp_send_json_error(array(
+                    'message' => __('No se pudo renderizar la pregunta', 'smart-forms-quiz'),
+                    'code' => 'RENDER_ERROR'
+                ));
+                return;
+            }
+            
+            wp_send_json_success(array(
+                'html' => $question_html,
+                'question_id' => $target_question->id,
+                'question_index' => $target_question_index,
+                'question_type' => $target_question->question_type,
+                'is_final_screen' => $is_final_screen,
+                'is_last_question' => (!$is_final_screen && $target_question_index === count($normal_questions) - 1),
+                'total_questions' => count($normal_questions),
+                'message' => __('Pregunta cargada correctamente', 'smart-forms-quiz')
+            ));
+            
+        } catch (Exception $e) {
+            error_log('SFQ Error in get_secure_question: ' . $e->getMessage());
+            
+            wp_send_json_error(array(
+                'message' => __('Error al cargar la pregunta', 'smart-forms-quiz'),
+                'code' => 'INTERNAL_ERROR',
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Renderizar pregunta específica para modo seguro
+     */
+    private function render_secure_question($question, $question_index, $normal_questions, $settings) {
+        $question_settings = $question->settings ?? array();
+        $show_next_button = isset($question_settings['show_next_button']) ? $question_settings['show_next_button'] : true;
+        $next_button_text = isset($question_settings['next_button_text']) ? $question_settings['next_button_text'] : '';
+        
+        ob_start();
+        ?>
+        <div class="sfq-screen sfq-question-screen" 
+             data-question-id="<?php echo $question->id; ?>"
+             data-question-index="<?php echo $question_index; ?>"
+             data-question-type="<?php echo esc_attr($question->question_type); ?>"
+             data-show-next-button="<?php echo $show_next_button ? 'true' : 'false'; ?>"
+             data-next-button-text="<?php echo esc_attr($next_button_text); ?>"
+             data-pantalla-final="false">
+            
+            <div class="sfq-question-content">
+                <!-- Número de pregunta -->
+                <?php if (!empty($settings['show_question_numbers'])) : ?>
+                    <div class="sfq-question-number">
+                        <?php echo sprintf(__('Pregunta %d de %d', 'smart-forms-quiz'), $question_index + 1, count($normal_questions)); ?>
+                    </div>
+                <?php endif; ?>
+                
+                <!-- Texto de la pregunta -->
+                <h3 class="sfq-question-text">
+                    <?php echo esc_html($question->question_text); ?>
+                    <?php if ($question->required) : ?>
+                        <span class="sfq-required">*</span>
+                    <?php endif; ?>
+                </h3>
+                
+                <!-- Renderizar según el tipo de pregunta -->
+                <div class="sfq-answer-container">
+                    <?php $this->render_question_type_secure($question); ?>
+                </div>
+                
+                <!-- Botones de navegación -->
+                <div class="sfq-navigation">
+                    <?php if ($question_index > 0 && !empty($settings['allow_back'])) : ?>
+                        <button class="sfq-button sfq-button-secondary sfq-prev-button">
+                            <?php _e('Anterior', 'smart-forms-quiz'); ?>
+                        </button>
+                    <?php endif; ?>
+                    
+                    <?php 
+                    // Determinar si mostrar el botón "Siguiente"
+                    $should_show_next = true;
+                    
+                    if (isset($question_settings['show_next_button'])) {
+                        $should_show_next = $question_settings['show_next_button'];
+                    } else {
+                        // Lógica por defecto
+                        $auto_advance_types = array('single_choice', 'rating', 'image_choice');
+                        $should_show_next = !($settings['auto_advance'] && in_array($question->question_type, $auto_advance_types));
+                    }
+                    
+                    if ($should_show_next) : 
+                        $button_text = !empty($next_button_text) ? $next_button_text : 
+                            (($question_index === count($normal_questions) - 1) ? __('Finalizar', 'smart-forms-quiz') : __('Siguiente', 'smart-forms-quiz'));
+                    ?>
+                        <button class="sfq-button sfq-button-primary sfq-next-button">
+                            <?php echo esc_html($button_text); ?>
+                        </button>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+    
+    /**
+     * ✅ NUEVO: Renderizar pantalla final para modo seguro
+     */
+    private function render_secure_final_screen($final_screen, $all_final_screens, $settings) {
+        $screen_settings = $final_screen->settings ?? array();
+        
+        ob_start();
+        ?>
+        <div class="sfq-screen sfq-final-screen" 
+             data-question-id="<?php echo $final_screen->id; ?>"
+             data-question-index="-1"
+             data-question-type="<?php echo esc_attr($final_screen->question_type); ?>"
+             data-pantalla-final="true">
+            
+            <div class="sfq-final-screen-content">
+                <!-- Título de la pantalla final -->
+                <?php if (!empty($final_screen->question_text)) : ?>
+                    <h2 class="sfq-final-screen-title">
+                        <?php echo esc_html($final_screen->question_text); ?>
+                    </h2>
+                <?php endif; ?>
+                
+                <!-- Contenido según el tipo de pantalla final -->
+                <div class="sfq-final-screen-body">
+                    <?php $this->render_final_screen_type_secure($final_screen); ?>
+                </div>
+                
+                <!-- Botones de acción si los hay -->
+                <?php if (isset($screen_settings['show_buttons']) && $screen_settings['show_buttons']) : ?>
+                    <div class="sfq-final-screen-actions">
+                        <?php if (!empty($screen_settings['button_text'])) : ?>
+                            <button class="sfq-button sfq-button-primary sfq-final-action-button"
+                                    data-action="<?php echo esc_attr($screen_settings['button_action'] ?? 'close'); ?>">
+                                <?php echo esc_html($screen_settings['button_text']); ?>
+                            </button>
+                        <?php endif; ?>
+                        
+                        <?php if (!empty($screen_settings['secondary_button_text'])) : ?>
+                            <button class="sfq-button sfq-button-secondary sfq-final-secondary-button"
+                                    data-action="<?php echo esc_attr($screen_settings['secondary_button_action'] ?? 'restart'); ?>">
+                                <?php echo esc_html($screen_settings['secondary_button_text']); ?>
+                            </button>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+    
+    /**
+     * ✅ CORREGIDO: Renderizar tipo de pantalla final para modo seguro usando lógica del frontend
+     */
+    private function render_final_screen_type_secure($final_screen) {
+        // ✅ CRÍTICO: Las pantallas finales son preguntas freestyle, usar la lógica del frontend existente
+        if ($final_screen->question_type === 'freestyle') {
+            // Crear instancia temporal del frontend para acceder a sus métodos de renderizado
+            $frontend = new SFQ_Frontend();
+            
+            // Usar reflexión para acceder al método privado render_question_type
+            $reflection = new ReflectionClass($frontend);
+            $method = $reflection->getMethod('render_question_type');
+            $method->setAccessible(true);
+            
+            // Ejecutar el método de renderizado del frontend (que ya maneja freestyle correctamente)
+            $method->invoke($frontend, $final_screen);
+        } else {
+            // Para otros tipos de pantallas finales (si los hay), mostrar contenido básico
+            if (!empty($final_screen->description)) {
+                echo '<div class="sfq-final-screen-description">';
+                echo wp_kses_post($final_screen->description);
+                echo '</div>';
+            }
+            
+            // Si hay opciones, mostrarlas como información adicional
+            if (!empty($final_screen->options)) {
+                echo '<div class="sfq-final-screen-options">';
+                foreach ($final_screen->options as $option) {
+                    if (is_array($option)) {
+                        echo '<div class="sfq-final-option">' . esc_html($option['text'] ?? $option['value'] ?? '') . '</div>';
+                    } else {
+                        echo '<div class="sfq-final-option">' . esc_html($option) . '</div>';
+                    }
+                }
+                echo '</div>';
+            }
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Renderizar elemento freestyle para modo seguro (versión simplificada)
+     */
+    private function render_freestyle_element_secure($element) {
+        $element_type = $element['type'] ?? 'text';
+        $element_settings = $element['settings'] ?? array();
+        $element_value = $element['value'] ?? '';
+        
+        switch ($element_type) {
+            case 'text':
+                echo '<div class="sfq-freestyle-text">';
+                echo wp_kses_post($element_value);
+                echo '</div>';
+                break;
+                
+            case 'image':
+                if (!empty($element_value)) {
+                    $alt_text = $element_settings['alt_text'] ?? '';
+                    echo '<div class="sfq-freestyle-image">';
+                    echo '<img src="' . esc_url($element_value) . '" alt="' . esc_attr($alt_text) . '" />';
+                    echo '</div>';
+                }
+                break;
+                
+            case 'video':
+                if (!empty($element_value)) {
+                    echo '<div class="sfq-freestyle-video">';
+                    // Detectar si es URL de YouTube/Vimeo o archivo directo
+                    if (strpos($element_value, 'youtube.com') !== false || strpos($element_value, 'youtu.be') !== false) {
+                        // YouTube embed
+                        $video_id = $this->extract_youtube_id($element_value);
+                        if ($video_id) {
+                            echo '<iframe src="https://www.youtube.com/embed/' . esc_attr($video_id) . '" frameborder="0" allowfullscreen></iframe>';
+                        }
+                    } elseif (strpos($element_value, 'vimeo.com') !== false) {
+                        // Vimeo embed
+                        $video_id = $this->extract_vimeo_id($element_value);
+                        if ($video_id) {
+                            echo '<iframe src="https://player.vimeo.com/video/' . esc_attr($video_id) . '" frameborder="0" allowfullscreen></iframe>';
+                        }
+                    } else {
+                        // Video directo
+                        echo '<video controls>';
+                        echo '<source src="' . esc_url($element_value) . '" type="video/mp4">';
+                        echo __('Tu navegador no soporta el elemento video.', 'smart-forms-quiz');
+                        echo '</video>';
+                    }
+                    echo '</div>';
+                }
+                break;
+                
+            case 'button':
+                if (!empty($element_value)) {
+                    $button_action = $element_settings['action'] ?? 'close';
+                    $button_url = $element_settings['url'] ?? '';
+                    
+                    echo '<div class="sfq-freestyle-button">';
+                    if ($button_action === 'url' && !empty($button_url)) {
+                        echo '<a href="' . esc_url($button_url) . '" class="sfq-button sfq-button-primary" target="_blank">';
+                        echo esc_html($element_value);
+                        echo '</a>';
+                    } else {
+                        echo '<button class="sfq-button sfq-button-primary" data-action="' . esc_attr($button_action) . '">';
+                        echo esc_html($element_value);
+                        echo '</button>';
+                    }
+                    echo '</div>';
+                }
+                break;
+                
+            default:
+                // Para otros tipos, mostrar como texto simple
+                if (!empty($element_value)) {
+                    echo '<div class="sfq-freestyle-element sfq-freestyle-' . esc_attr($element_type) . '">';
+                    echo esc_html($element_value);
+                    echo '</div>';
+                }
+                break;
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Extraer ID de video de YouTube
+     */
+    private function extract_youtube_id($url) {
+        preg_match('/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/', $url, $matches);
+        return isset($matches[1]) ? $matches[1] : false;
+    }
+    
+    /**
+     * ✅ NUEVO: Extraer ID de video de Vimeo
+     */
+    private function extract_vimeo_id($url) {
+        preg_match('/vimeo\.com\/(?:channels\/(?:\w+\/)?|groups\/([^\/]*)\/videos\/|album\/(\d+)\/video\/|)(\d+)(?:$|\/|\?)/', $url, $matches);
+        return isset($matches[3]) ? $matches[3] : false;
+    }
+    
+    /**
+     * ✅ NUEVO: Renderizar tipo de pregunta para modo seguro (reutiliza lógica del frontend)
+     */
+    private function render_question_type_secure($question) {
+        // Crear instancia temporal del frontend para acceder a sus métodos de renderizado
+        $frontend = new SFQ_Frontend();
+        
+        // Usar reflexión para acceder al método privado render_question_type
+        $reflection = new ReflectionClass($frontend);
+        $method = $reflection->getMethod('render_question_type');
+        $method->setAccessible(true);
+        
+        // Ejecutar el método de renderizado
+        $method->invoke($frontend, $question);
     }
     
     /**
