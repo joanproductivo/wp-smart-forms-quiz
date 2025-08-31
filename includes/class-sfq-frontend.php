@@ -542,19 +542,27 @@ class SFQ_Frontend {
         ?>
         <div class="sfq-options-grid sfq-single-choice" data-question-id="<?php echo $question->id; ?>">
             <?php foreach ($question->options as $index => $option) : ?>
+                <?php 
+                // ✅ CRÍTICO: Normalizar opción a array para acceso consistente
+                $option_data = is_object($option) ? (array) $option : $option;
+                $option_text = $option_data['text'] ?? '';
+                $option_value = $option_data['value'] ?? $option_text;
+                $option_icon = $option_data['icon'] ?? '';
+                $option_conditions = $option_data['conditions'] ?? array();
+                ?>
                 <div class="sfq-option-card" 
-                     data-value="<?php echo esc_attr($option['value'] ?? $option['text']); ?>"
-                     data-conditions='<?php echo json_encode($option['conditions'] ?? array()); ?>'>
+                     data-value="<?php echo esc_attr($option_value); ?>"
+                     data-conditions='<?php echo json_encode($option_conditions); ?>'>
                     
-                    <?php if (!empty($option['icon'])) : ?>
-                        <span class="sfq-option-icon"><?php echo esc_html($option['icon']); ?></span>
+                    <?php if (!empty($option_icon)) : ?>
+                        <span class="sfq-option-icon"><?php echo esc_html($option_icon); ?></span>
                     <?php endif; ?>
                     
-                    <span class="sfq-option-text"><?php echo esc_html($option['text']); ?></span>
+                    <span class="sfq-option-text"><?php echo esc_html($option_text); ?></span>
                     
                     <input type="radio" 
                            name="question_<?php echo $question->id; ?>" 
-                           value="<?php echo esc_attr($option['value'] ?? $option['text']); ?>"
+                           value="<?php echo esc_attr($option_value); ?>"
                            class="sfq-hidden-input">
                 </div>
             <?php endforeach; ?>
@@ -572,13 +580,19 @@ class SFQ_Frontend {
         ?>
         <div class="sfq-options-grid sfq-multiple-choice" data-question-id="<?php echo $question->id; ?>">
             <?php foreach ($question->options as $index => $option) : ?>
+                <?php 
+                // ✅ CRÍTICO: Normalizar opción a array para acceso consistente
+                $option_data = is_object($option) ? (array) $option : $option;
+                $option_text = $option_data['text'] ?? '';
+                $option_value = $option_data['value'] ?? $option_text;
+                ?>
                 <div class="sfq-option-card sfq-checkbox-card" 
-                     data-value="<?php echo esc_attr($option['value'] ?? $option['text']); ?>">
+                     data-value="<?php echo esc_attr($option_value); ?>">
                     
                     <div class="sfq-checkbox-wrapper">
                         <input type="checkbox" 
                                name="question_<?php echo $question->id; ?>[]" 
-                               value="<?php echo esc_attr($option['value'] ?? $option['text']); ?>"
+                               value="<?php echo esc_attr($option_value); ?>"
                                id="option_<?php echo $question->id; ?>_<?php echo $index; ?>"
                                class="sfq-checkbox-input">
                         
@@ -588,7 +602,7 @@ class SFQ_Frontend {
                                     <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
                                 </svg>
                             </span>
-                            <span class="sfq-option-text"><?php echo esc_html($option['text']); ?></span>
+                            <span class="sfq-option-text"><?php echo esc_html($option_text); ?></span>
                         </label>
                     </div>
                 </div>
@@ -676,25 +690,34 @@ class SFQ_Frontend {
         ?>
         <div class="sfq-image-grid" data-question-id="<?php echo $question->id; ?>">
             <?php foreach ($question->options as $index => $option) : ?>
+                <?php 
+                // ✅ CRÍTICO: Normalizar opción a array para acceso consistente
+                $option_data = is_object($option) ? (array) $option : $option;
+                $option_image = $option_data['image'] ?? '';
+                $option_text = $option_data['text'] ?? '';
+                $option_value = $option_data['value'] ?? $option_text;
+                $option_alt = $option_data['image_alt'] ?? $option_text;
+                ?>
                 <div class="sfq-image-option" 
-                     data-value="<?php echo esc_attr($option['value'] ?? $option['text']); ?>">
+                     data-value="<?php echo esc_attr($option_value); ?>">
                     
-                    <?php if (!empty($option['image'])) : ?>
-                        <img src="<?php echo esc_url($option['image']); ?>" 
-                             alt="<?php echo esc_attr($option['text']); ?>">
+                    <?php if (!empty($option_image)) : ?>
+                        <img src="<?php echo esc_url($option_image); ?>" 
+                             alt="<?php echo esc_attr($option_alt); ?>"
+                             loading="lazy">
                     <?php else : ?>
                         <div class="sfq-image-placeholder">
                             <span class="dashicons dashicons-format-image"></span>
                         </div>
                     <?php endif; ?>
                     
-                    <?php if (!empty($option['text'])) : ?>
-                        <span class="sfq-image-label"><?php echo esc_html($option['text']); ?></span>
+                    <?php if (!empty($option_text)) : ?>
+                        <span class="sfq-image-label"><?php echo esc_html($option_text); ?></span>
                     <?php endif; ?>
                     
                     <input type="radio" 
                            name="question_<?php echo $question->id; ?>" 
-                           value="<?php echo esc_attr($option['value'] ?? $option['text']); ?>"
+                           value="<?php echo esc_attr($option_value); ?>"
                            class="sfq-hidden-input">
                     
                     <div class="sfq-image-overlay">

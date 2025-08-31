@@ -32,6 +32,9 @@ class SFQ_Admin {
             return;
         }
         
+        // ✅ CRÍTICO: Enqueue WordPress Media Library para subida de imágenes
+        wp_enqueue_media();
+        
         // Cargar scripts y estilos existentes
         wp_enqueue_script('jquery');
         wp_enqueue_script('jquery-ui-sortable');

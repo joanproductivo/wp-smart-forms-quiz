@@ -233,10 +233,33 @@ class SFQ_Utils {
                 );
             } elseif (is_array($option) || is_object($option)) {
                 $option = (array) $option;
-                $processed_options[] = array(
+                
+                // ✅ CRÍTICO: Preservar TODOS los campos, especialmente para image_choice
+                $processed_option = array(
                     'text' => $option['text'] ?? $option['value'] ?? '',
                     'value' => $option['value'] ?? $option['text'] ?? ''
                 );
+                
+                // ✅ NUEVO: Preservar campos específicos de imagen
+                if (isset($option['image'])) {
+                    $processed_option['image'] = $option['image'];
+                }
+                if (isset($option['image_id'])) {
+                    $processed_option['image_id'] = $option['image_id'];
+                }
+                if (isset($option['image_alt'])) {
+                    $processed_option['image_alt'] = $option['image_alt'];
+                }
+                
+                // ✅ NUEVO: Preservar otros campos adicionales (icon, conditions, etc.)
+                if (isset($option['icon'])) {
+                    $processed_option['icon'] = $option['icon'];
+                }
+                if (isset($option['conditions'])) {
+                    $processed_option['conditions'] = $option['conditions'];
+                }
+                
+                $processed_options[] = $processed_option;
             }
         }
         

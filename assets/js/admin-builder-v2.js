@@ -1751,6 +1751,11 @@
                     this.container.append(element);
                     this.bindQuestionEvents(question.id);
                     
+                    // ✅ CRÍTICO: Repoblar previews de imagen para preguntas image_choice
+                    if (question.type === 'image_choice') {
+                        this.repopulateImagePreviews(question.id, question);
+                    }
+                    
                     // Load conditions if any
                     const questionData = questionsData.find(q => q.id === question.originalId);
                     if (questionData && questionData.conditions && questionData.conditions.length > 0) {
@@ -1772,6 +1777,11 @@
                     const element = this.formBuilder.uiRenderer.renderQuestion(question);
                     $finalScreensContainer.append(element);
                     this.bindQuestionEvents(question.id);
+                    
+                    // ✅ CRÍTICO: Repoblar previews de imagen para preguntas image_choice en pantallas finales
+                    if (question.type === 'image_choice') {
+                        this.repopulateImagePreviews(question.id, question);
+                    }
                     
                     // Load conditions if any
                     const questionData = questionsData.find(q => q.id === question.originalId);
@@ -1853,14 +1863,23 @@
                 }
             }
             
-            // Ensure options have correct structure
+            // ✅ CORREGIDO: Ensure options have correct structure including image data
             options = options.map(opt => {
                 if (typeof opt === 'string') {
-                    return { text: opt, value: opt };
+                    return { 
+                        text: opt, 
+                        value: opt,
+                        image: '',
+                        image_id: '',
+                        image_alt: ''
+                    };
                 }
                 return {
                     text: opt.text || opt.value || '',
-                    value: opt.value || opt.text || ''
+                    value: opt.value || opt.text || '',
+                    image: opt.image || '',
+                    image_id: opt.image_id || '',
+                    image_alt: opt.image_alt || ''
                 };
             }).filter(opt => opt.text);
             
@@ -2854,25 +2873,298 @@
                 const value = $(this).val();
                 
                 if (question.options[optionIndex]) {
-                    question.options[optionIndex] = { text: value, value: value };
+                    question.options[optionIndex] = { 
+                        text: value, 
+                        value: value,
+                        image: question.options[optionIndex].image || '',
+                        image_id: question.options[optionIndex].image_id || '',
+                        image_alt: question.options[optionIndex].image_alt || ''
+                    };
                 } else {
-                    question.options.push({ text: value, value: value });
+                    question.options.push({ text: value, value: value, image: '', image_id: '', image_alt: '' });
                 }
                 self.formBuilder.isDirty = true; // Usar self en lugar de this
             });
+            
+            // ✅ NUEVO: Eventos específicos para image_choice
+            if (question.type === 'image_choice') {
+                this.bindImageChoiceEvents($question, question);
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Bind events específicos para preguntas de tipo image_choice
+         */
+        bindImageChoiceEvents($question, question) {
+            const self = this;
+            
+            // Evento para abrir WordPress Media Library
+            $question.find('.sfq-upload-image-btn').off('click').on('click', function(e) {
+                e.preventDefault();
+                
+                const $button = $(this);
+                const $optionItem = $button.closest('.sfq-option-item');
+                const optionIndex = $optionItem.index();
+                
+                self.openMediaLibrary($button, $optionItem, question, optionIndex);
+            });
+            
+            // Evento para URL manual
+            $question.find('.sfq-image-url-input').off('input').on('input', function() {
+                const $input = $(this);
+                const url = $input.val().trim();
+                const $optionItem = $input.closest('.sfq-option-item');
+                const optionIndex = $optionItem.index();
+                
+                if (url && self.isValidImageUrl(url)) {
+                    // Actualizar datos de la opción
+                    if (question.options[optionIndex]) {
+                        question.options[optionIndex].image = url;
+                        question.options[optionIndex].image_id = '';
+                        question.options[optionIndex].image_alt = '';
+                    }
+                    
+                    // Mostrar preview
+                    self.updateImagePreview($optionItem, {
+                        url: url,
+                        alt: 'Imagen desde URL'
+                    });
+                    
+                    // Marcar input como válido
+                    $input.removeClass('invalid').addClass('valid');
+                } else if (url) {
+                    // URL inválida
+                    $input.removeClass('valid').addClass('invalid');
+                    self.hideImagePreview($optionItem);
+                } else {
+                    // Campo vacío
+                    $input.removeClass('valid invalid');
+                    self.hideImagePreview($optionItem);
+                    
+                    // Limpiar datos de imagen
+                    if (question.options[optionIndex]) {
+                        question.options[optionIndex].image = '';
+                        question.options[optionIndex].image_id = '';
+                        question.options[optionIndex].image_alt = '';
+                    }
+                }
+                
+                self.formBuilder.isDirty = true;
+            });
+            
+            // Evento para eliminar imagen
+            $question.find('.sfq-remove-image').off('click').on('click', function(e) {
+                e.preventDefault();
+                
+                const $optionItem = $(this).closest('.sfq-option-item');
+                const optionIndex = $optionItem.index();
+                
+                self.removeImage($optionItem, question, optionIndex);
+            });
+        }
+
+        /**
+         * ✅ NUEVO: Abrir WordPress Media Library
+         */
+        openMediaLibrary($button, $optionItem, question, optionIndex) {
+            // Verificar que wp.media esté disponible
+            if (typeof wp === 'undefined' || !wp.media) {
+                alert('Error: WordPress Media Library no está disponible. Asegúrate de que wp_enqueue_media() esté cargado.');
+                console.error('SFQ: wp.media is not available. Make sure wp_enqueue_media() is called.');
+                return;
+            }
+            
+            console.log('SFQ: Opening Media Library for option', optionIndex);
+            
+            // Crear instancia del media uploader
+            const mediaUploader = wp.media({
+                title: 'Seleccionar Imagen para Opción',
+                button: {
+                    text: 'Usar esta imagen'
+                },
+                multiple: false,
+                library: {
+                    type: 'image' // ✅ SEGURIDAD: Solo imágenes
+                }
+            });
+            
+            // Evento cuando se selecciona una imagen
+            mediaUploader.on('select', () => {
+                const attachment = mediaUploader.state().get('selection').first().toJSON();
+                
+                console.log('SFQ: Selected attachment:', attachment);
+                
+                // ✅ VALIDACIÓN: Verificar que sea una imagen válida
+                if (!this.isValidAttachment(attachment)) {
+                    alert('Error: El archivo seleccionado no es una imagen válida');
+                    return;
+                }
+                
+                // Actualizar la opción con los datos de la imagen
+                this.updateImageOption($optionItem, attachment, question, optionIndex);
+            });
+            
+            // Abrir el uploader
+            mediaUploader.open();
+        }
+
+        /**
+         * ✅ NUEVO: Validar attachment de WordPress Media Library
+         */
+        isValidAttachment(attachment) {
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+            const validExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+            
+            // Verificar tipo MIME
+            if (!validTypes.includes(attachment.mime)) {
+                console.error('SFQ: Invalid MIME type:', attachment.mime);
+                return false;
+            }
+            
+            // Verificar extensión
+            if (attachment.filename) {
+                const extension = attachment.filename.split('.').pop().toLowerCase();
+                if (!validExtensions.includes(extension)) {
+                    console.error('SFQ: Invalid file extension:', extension);
+                    return false;
+                }
+            }
+            
+            // Verificar que tenga URL
+            if (!attachment.url) {
+                console.error('SFQ: No URL found in attachment');
+                return false;
+            }
+            
+            return true;
+        }
+
+        /**
+         * ✅ NUEVO: Validar URL de imagen manual
+         */
+        isValidImageUrl(url) {
+            // Verificar que sea una URL válida
+            try {
+                new URL(url);
+            } catch {
+                return false;
+            }
+            
+            // Verificar extensión de imagen
+            const validExtensions = /\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i;
+            return validExtensions.test(url);
+        }
+
+        /**
+         * ✅ NUEVO: Actualizar opción con imagen seleccionada
+         */
+        updateImageOption($optionItem, attachment, question, optionIndex) {
+            console.log('SFQ: Updating image option', optionIndex, 'with attachment:', attachment);
+            
+            // Actualizar input de URL
+            $optionItem.find('.sfq-image-url-input').val(attachment.url).removeClass('invalid').addClass('valid');
+            
+            // Actualizar datos de la opción
+            if (!question.options[optionIndex]) {
+                question.options[optionIndex] = { text: '', value: '' };
+            }
+            
+            question.options[optionIndex].image = attachment.url;
+            question.options[optionIndex].image_id = attachment.id || '';
+            question.options[optionIndex].image_alt = attachment.alt || attachment.title || '';
+            
+            console.log('SFQ: Updated option data:', question.options[optionIndex]);
+            
+            // Mostrar preview
+            this.updateImagePreview($optionItem, {
+                url: attachment.url,
+                alt: attachment.alt || attachment.title || 'Imagen seleccionada'
+            });
+            
+            // Marcar formulario como modificado
+            this.formBuilder.isDirty = true;
+        }
+
+        /**
+         * ✅ NUEVO: Mostrar preview de imagen
+         */
+        updateImagePreview($optionItem, imageData) {
+            const $previewContainer = $optionItem.find('.sfq-image-preview-container');
+            const $previewImage = $previewContainer.find('.sfq-preview-image');
+            
+            if ($previewContainer.length === 0) {
+                console.error('SFQ: Preview container not found');
+                return;
+            }
+            
+            $previewImage.attr('src', imageData.url);
+            $previewImage.attr('alt', imageData.alt || 'Vista previa');
+            
+            $previewContainer.show();
+            
+            console.log('SFQ: Updated image preview for URL:', imageData.url);
+        }
+
+        /**
+         * ✅ NUEVO: Ocultar preview de imagen
+         */
+        hideImagePreview($optionItem) {
+            $optionItem.find('.sfq-image-preview-container').hide();
+        }
+
+        /**
+         * ✅ NUEVO: Eliminar imagen de opción
+         */
+        removeImage($optionItem, question, optionIndex) {
+            console.log('SFQ: Removing image from option', optionIndex);
+            
+            // Limpiar input de URL
+            $optionItem.find('.sfq-image-url-input').val('').removeClass('valid invalid');
+            
+            // Limpiar datos de la opción
+            if (question.options[optionIndex]) {
+                question.options[optionIndex].image = '';
+                question.options[optionIndex].image_id = '';
+                question.options[optionIndex].image_alt = '';
+            }
+            
+            // Ocultar preview
+            this.hideImagePreview($optionItem);
+            
+            // Marcar formulario como modificado
+            this.formBuilder.isDirty = true;
+            
+            console.log('SFQ: Image removed from option', optionIndex);
         }
 
         addOption(questionId) {
             const question = this.questions.find(q => q.id === questionId);
             if (!question) return;
             
-            const newOption = { text: '', value: '' };
+            // ✅ CORREGIDO: Crear opción con estructura completa para image_choice
+            const newOption = { 
+                text: '', 
+                value: '',
+                image: '',
+                image_id: '',
+                image_alt: ''
+            };
             question.options.push(newOption);
             
-            const optionHtml = this.formBuilder.uiRenderer.renderOption(newOption, question.options.length);
+            // ✅ CRÍTICO: Pasar el tipo de pregunta al renderizar la opción
+            const optionHtml = this.formBuilder.uiRenderer.renderOption(newOption, question.options.length, question.type);
             $(`#options-${questionId}`).append(optionHtml);
             
+            // ✅ CRÍTICO: Re-bind events incluyendo eventos específicos de image_choice
             this.bindOptionEvents(questionId);
+            
+            // ✅ NUEVO: Si es image_choice, bind eventos específicos de imagen
+            if (question.type === 'image_choice') {
+                const $question = $(`#${questionId}`);
+                this.bindImageChoiceEvents($question, question);
+                console.log('SFQ: Bound image choice events for new option in question:', questionId);
+            }
+            
             this.formBuilder.isDirty = true;
         }
 
@@ -3052,12 +3344,67 @@
                     baseData.options = []; // Freestyle questions don't have traditional options
                     baseData.pantallaFinal = question.pantallaFinal || false; // Incluir campo pantalla final
                 } else {
-                    // Regular questions with options
-                    baseData.options = question.options ? question.options.filter(opt => opt.text) : [];
+                    // Regular questions with options - CORREGIDO: Preservar todos los datos de imagen
+                    baseData.options = question.options ? question.options.filter(opt => opt.text).map(opt => {
+                        // Asegurar que se preserven todos los datos de la opción, incluyendo imagen
+                        return {
+                            text: opt.text || '',
+                            value: opt.value || opt.text || '',
+                            image: opt.image || '',
+                            image_id: opt.image_id || '',
+                            image_alt: opt.image_alt || ''
+                        };
+                    }) : [];
                 }
 
                 return baseData;
             });
+        }
+
+        /**
+         * ✅ NUEVO: Repoblar previews de imagen después de cargar datos
+         */
+        repopulateImagePreviews(questionId, question) {
+            console.log('SFQ: Repopulating image previews for question:', questionId);
+            
+            const $question = $(`#${questionId}`);
+            if ($question.length === 0) {
+                console.error('SFQ: Question element not found for repopulation:', questionId);
+                return;
+            }
+            
+            // Verificar que tenga opciones con imágenes
+            if (!question.options || question.options.length === 0) {
+                console.log('SFQ: No options found for question:', questionId);
+                return;
+            }
+            
+            // Procesar cada opción que tenga imagen
+            question.options.forEach((option, index) => {
+                if (option.image && option.image.trim() !== '') {
+                    const $optionItem = $question.find('.sfq-option-item').eq(index);
+                    
+                    if ($optionItem.length > 0) {
+                        console.log('SFQ: Repopulating image for option', index, 'with URL:', option.image);
+                        
+                        // Actualizar el input de URL
+                        const $urlInput = $optionItem.find('.sfq-image-url-input');
+                        $urlInput.val(option.image).removeClass('invalid').addClass('valid');
+                        
+                        // Mostrar el preview de la imagen
+                        this.updateImagePreview($optionItem, {
+                            url: option.image,
+                            alt: option.image_alt || 'Imagen cargada'
+                        });
+                        
+                        console.log('SFQ: Successfully repopulated image preview for option', index);
+                    } else {
+                        console.warn('SFQ: Option element not found for index:', index);
+                    }
+                }
+            });
+            
+            console.log('SFQ: Finished repopulating image previews for question:', questionId);
         }
 
         destroy() {
@@ -3530,7 +3877,7 @@
             let optionsHtml = '';
             if (['single_choice', 'multiple_choice', 'image_choice'].includes(question.type)) {
                 const optionsList = question.options.map((option, index) => 
-                    this.renderOption(option, index + 1)
+                    this.renderOption(option, index + 1, question.type)
                 ).join('');
 
                 optionsHtml = `
@@ -3795,17 +4142,64 @@
             }
         }
 
-        renderOption(option, index) {
-            return `
+        renderOption(option, index, questionType = null) {
+            // Determinar si es una pregunta de tipo image_choice
+            const isImageChoice = questionType === 'image_choice';
+            
+            // HTML base para todas las opciones
+            let optionHtml = `
                 <div class="sfq-option-item">
                     <input type="text" class="sfq-option-input" 
                            placeholder="Opción ${index}" 
                            value="${this.escapeHtml(option.text || '')}">
+            `;
+            
+            // ✅ NUEVO: Añadir interfaz de subida de imágenes para image_choice
+            if (isImageChoice) {
+                const hasImage = option.image && option.image.trim() !== '';
+                
+                optionHtml += `
+                    <div class="sfq-image-upload-section">
+                        <div class="sfq-image-controls">
+                            <button type="button" class="button sfq-upload-image-btn" 
+                                    data-option-index="${index - 1}">
+                                <span class="dashicons dashicons-upload"></span>
+                                Subir Imagen
+                            </button>
+                            <input type="url" class="sfq-image-url-input ${hasImage ? 'valid' : ''}" 
+                                   name="options[${index - 1}][image]"
+                                   placeholder="O pega URL de imagen..." 
+                                   value="${this.escapeHtml(option.image || '')}">
+                        </div>
+                        <div class="sfq-image-preview-container" style="display: ${hasImage ? 'block' : 'none'};">
+                            <div class="sfq-image-preview">
+                                <img src="${this.escapeHtml(option.image || '')}" 
+                                     alt="${this.escapeHtml(option.image_alt || 'Vista previa')}" 
+                                     class="sfq-preview-image">
+                                <button type="button" class="sfq-remove-image" title="Eliminar imagen">
+                                    <span class="dashicons dashicons-no-alt"></span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Campos ocultos para datos adicionales de la imagen -->
+                        <input type="hidden" name="options[${index - 1}][image_id]" 
+                               value="${this.escapeHtml(option.image_id || '')}">
+                        <input type="hidden" name="options[${index - 1}][image_alt]" 
+                               value="${this.escapeHtml(option.image_alt || '')}">
+                    </div>
+                `;
+            }
+            
+            // Botón de eliminar opción
+            optionHtml += `
                     <button class="sfq-option-remove" type="button">
                         <span class="dashicons dashicons-trash"></span>
                     </button>
                 </div>
             `;
+            
+            return optionHtml;
         }
 
         renderCondition(condition) {
