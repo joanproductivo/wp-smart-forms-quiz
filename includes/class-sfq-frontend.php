@@ -151,6 +151,45 @@ class SFQ_Frontend {
              data-settings='<?php echo json_encode($settings); ?>'
              data-secure-loading="<?php echo $secure_loading ? 'true' : 'false'; ?>">
             
+            <?php // ✅ NUEVO: Imagen de fondo separada con opacidad independiente ?>
+            <?php if (!empty($styles['background_image_url'])) : ?>
+                <div class="sfq-background-image" style="
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background-image: url('<?php echo esc_url($styles['background_image_url']); ?>');
+                    background-size: <?php echo esc_attr($styles['background_size'] ?? 'cover'); ?>;
+                    background-repeat: <?php echo esc_attr($styles['background_repeat'] ?? 'no-repeat'); ?>;
+                    background-position: <?php echo esc_attr($styles['background_position'] ?? 'center center'); ?>;
+                    background-attachment: <?php echo esc_attr($styles['background_attachment'] ?? 'scroll'); ?>;
+                    opacity: <?php echo esc_attr($styles['background_opacity'] ?? '1'); ?>;
+                    pointer-events: none;
+                    border-radius: inherit;
+                    z-index: 0;
+                "></div>
+            <?php endif; ?>
+            
+            <?php // ✅ NUEVO: Overlay separado si está activado ?>
+            <?php if (!empty($styles['background_image_url']) && !empty($styles['background_overlay']) && $styles['background_overlay']) : ?>
+                <div class="sfq-overlay" style="
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background-color: <?php echo esc_attr($styles['background_overlay_color'] ?? '#000000'); ?>;
+                    opacity: <?php echo esc_attr($styles['background_overlay_opacity'] ?? '0.3'); ?>;
+                    pointer-events: none;
+                    border-radius: inherit;
+                    z-index: 1;
+                "></div>
+            <?php endif; ?>
+            
+            <?php // ✅ NUEVO: Contenedor con z-index para estar sobre el overlay ?>
+            <div class="sfq-content-wrapper" style="position: relative; z-index: 2;">
+            
             <!-- Barra de progreso -->
             <?php if (!empty($settings['show_progress_bar'])) : ?>
                 <div class="sfq-progress-bar">
@@ -447,6 +486,9 @@ class SFQ_Frontend {
             ?>
             <input type="hidden" id="sfq-variables-<?php echo $form_id; ?>" value='<?php echo json_encode($global_variables); ?>'>
             <input type="hidden" id="sfq-redirect-url-<?php echo $form_id; ?>" value="<?php echo esc_attr($form->redirect_url); ?>">
+            
+            <?php // ✅ NUEVO: Cerrar contenedor de contenido ?>
+            </div>
         </div>
         
         <!-- Estilos personalizados -->
@@ -484,42 +526,51 @@ class SFQ_Frontend {
                     <?php endif; ?>
                 }
                 
-                /* ✅ NUEVO: Aplicar imagen de fondo al contenedor principal */
+                /* ✅ NUEVO: Estilos para la nueva estructura separada de imagen de fondo y overlay */
                 <?php if (!empty($styles['background_image_url'])) : ?>
+                /* Asegurar que el contenedor principal tenga posición relativa para los elementos absolutos */
                 #sfq-form-<?php echo $form_id; ?> {
-                    background-image: var(--sfq-background-image-url) !important;
-                    background-size: var(--sfq-background-size) !important;
-                    background-repeat: var(--sfq-background-repeat) !important;
-                    background-position: var(--sfq-background-position) !important;
-                    background-attachment: var(--sfq-background-attachment) !important;
-                    opacity: var(--sfq-background-opacity) !important;
-                    <?php if (!empty($styles['background_overlay']) && $styles['background_overlay']) : ?>
                     position: relative !important;
-                    <?php endif; ?>
+                }
+                
+                /* Estilos para el elemento de imagen de fondo separado */
+                #sfq-form-<?php echo $form_id; ?> .sfq-background-image {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background-size: <?php echo esc_attr($styles['background_size'] ?? 'cover'); ?>;
+                    background-repeat: <?php echo esc_attr($styles['background_repeat'] ?? 'no-repeat'); ?>;
+                    background-position: <?php echo esc_attr($styles['background_position'] ?? 'center center'); ?>;
+                    background-attachment: <?php echo esc_attr($styles['background_attachment'] ?? 'scroll'); ?>;
+                    opacity: <?php echo esc_attr($styles['background_opacity'] ?? '1'); ?>;
+                    pointer-events: none;
+                    border-radius: inherit;
+                    z-index: 0;
                 }
                 
                 <?php if (!empty($styles['background_overlay']) && $styles['background_overlay']) : ?>
-                /* Overlay de color sobre la imagen de fondo */
-                #sfq-form-<?php echo $form_id; ?>::before {
-                    content: '' !important;
-                    position: absolute !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    right: 0 !important;
-                    bottom: 0 !important;
-                    background-color: var(--sfq-background-overlay-color) !important;
-                    opacity: var(--sfq-background-overlay-opacity) !important;
-                    pointer-events: none !important;
-                    border-radius: inherit !important;
-                    z-index: 1 !important;
-                }
-                
-                /* Asegurar que el contenido esté por encima del overlay */
-                #sfq-form-<?php echo $form_id; ?> > * {
-
-                    z-index: 2 !important;
+                /* Estilos para el overlay separado */
+                #sfq-form-<?php echo $form_id; ?> .sfq-overlay {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background-color: <?php echo esc_attr($styles['background_overlay_color'] ?? '#000000'); ?>;
+                    opacity: <?php echo esc_attr($styles['background_overlay_opacity'] ?? '0.3'); ?>;
+                    pointer-events: none;
+                    border-radius: inherit;
+                    z-index: 1;
                 }
                 <?php endif; ?>
+                
+                /* Asegurar que el contenedor de contenido esté por encima */
+                #sfq-form-<?php echo $form_id; ?> .sfq-content-wrapper {
+                    position: relative;
+                    z-index: 2;
+                }
                 <?php endif; ?>
                 
                 /* Aplicar estilos específicos con las variables CSS */
