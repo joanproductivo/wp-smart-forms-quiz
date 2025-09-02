@@ -250,6 +250,95 @@
                 }
             });
             
+            // ✅ NUEVO: Eventos específicos para campos de imagen de fondo
+            $(document).on('focus' + ns, '#background-image-url, #background-size, #background-repeat, #background-position, #background-attachment', (e) => {
+                if (this.isEnabled) {
+                    this.handleStyleFocus(e);
+                }
+            });
+            
+            $(document).on('input change' + ns, '#background-image-url, #background-size, #background-repeat, #background-position, #background-attachment', (e) => {
+                if (this.isEnabled && this.currentContext === 'style') {
+                    this.debounceUpdate('style-background-image', () => {
+                        this.updateStylePreview();
+                    });
+                }
+            });
+            
+            // ✅ NUEVO: Eventos para sliders de opacidad
+            $(document).on('focus' + ns, '.sfq-opacity-control', (e) => {
+                if (this.isEnabled) {
+                    this.handleStyleFocus(e);
+                }
+            });
+            
+            $(document).on('input' + ns, '.sfq-opacity-control', (e) => {
+                if (this.isEnabled && this.currentContext === 'style') {
+                    this.debounceUpdate('style-opacity', () => {
+                        this.updateStylePreview();
+                    });
+                }
+            });
+            
+            // ✅ NUEVO: Eventos para opacidad de imagen de fondo
+            $(document).on('input' + ns, '#background-opacity', (e) => {
+                if (this.isEnabled && this.currentContext === 'style') {
+                    this.debounceUpdate('style-background-opacity', () => {
+                        this.updateStylePreview();
+                    });
+                }
+            });
+            
+            // ✅ NUEVO: Eventos para overlay de imagen de fondo
+            $(document).on('change' + ns, '#background-overlay', (e) => {
+                if (this.isEnabled && this.currentContext === 'style') {
+                    this.debounceUpdate('style-background-overlay', () => {
+                        this.updateStylePreview();
+                    });
+                }
+            });
+            
+            $(document).on('input' + ns, '#background-overlay-opacity', (e) => {
+                if (this.isEnabled && this.currentContext === 'style') {
+                    this.debounceUpdate('style-background-overlay-opacity', () => {
+                        this.updateStylePreview();
+                    });
+                }
+            });
+            
+            $(document).on('change' + ns, '#background-overlay-color', (e) => {
+                if (this.isEnabled && this.currentContext === 'style') {
+                    this.debounceUpdate('style-background-overlay-color', () => {
+                        this.updateStylePreview();
+                    });
+                }
+            });
+            
+            // ✅ NUEVO: Eventos para botones de imagen de fondo
+            $(document).on('click' + ns, '#select-background-image, #remove-background-image', (e) => {
+                if (this.isEnabled) {
+                    this.currentContext = 'style';
+                    
+                    // Cancelar timer de ocultación
+                    if (this.hideTimer) {
+                        clearTimeout(this.hideTimer);
+                        this.hideTimer = null;
+                    }
+                    
+                    // Mostrar previsualización si no está visible
+                    if (!this.currentPreview) {
+                        this.showStylePreview($(e.target));
+                    }
+                    
+                    // Actualizar después de un pequeño delay para que los cambios se apliquen
+                    setTimeout(() => {
+                        if (this.currentContext === 'style') {
+                            this.updateStylePreview();
+                        }
+                    }, 100);
+                }
+            });
+            
             $(document).on('blur' + ns, '#tab-style input, #tab-style select', (e) => {
                 // Solo ocultar si no se está interactuando con el color picker
                 if (this.isEnabled && !$(e.relatedTarget).closest('.wp-picker-container, .wp-picker-holder').length) {
@@ -656,8 +745,50 @@
         renderQuestionPreview(questionData) {
             const styles = this.getFormStyles();
             
-            // Estructura exacta del frontend con fondo aplicado
-            let html = `<div class="sfq-preview-question-content" style="background: ${styles.backgroundColor}; padding: 20px; border-radius: ${styles.borderRadius};">`;
+            // ✅ CORREGIDO: Separar estilos de fondo de la opacidad
+            let containerStyles = `background: ${styles.backgroundColor}; padding: 20px; border-radius: ${styles.borderRadius}; position: relative;`;
+            
+            // ✅ NUEVO: Estructura con soporte para imagen de fondo como pseudo-elemento
+            let html = `<div class="sfq-preview-question-content" style="${containerStyles}">`;
+            
+            // ✅ CORREGIDO: Imagen de fondo como pseudo-elemento con opacidad independiente
+            if (styles.backgroundImageUrl && styles.backgroundImageUrl.trim() !== '') {
+                html += `<div class="sfq-preview-background-image" style="
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background-image: url('${styles.backgroundImageUrl}');
+                    background-size: ${styles.backgroundSize};
+                    background-repeat: ${styles.backgroundRepeat};
+                    background-position: ${styles.backgroundPosition};
+                    background-attachment: ${styles.backgroundAttachment};
+                    opacity: ${styles.backgroundOpacity};
+                    pointer-events: none;
+                    border-radius: inherit;
+                    z-index: 0;
+                "></div>`;
+            }
+            
+            // ✅ NUEVO: Añadir overlay si está activado
+            if (styles.backgroundImageUrl && styles.backgroundOverlay) {
+                html += `<div class="sfq-preview-overlay" style="
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background-color: ${styles.backgroundOverlayColor};
+                    opacity: ${styles.backgroundOverlayOpacity};
+                    pointer-events: none;
+                    border-radius: inherit;
+                    z-index: 1;
+                "></div>`;
+            }
+            
+            // ✅ NUEVO: Contenedor con z-index para estar sobre el overlay
+            html += `<div class="sfq-preview-content-wrapper" style="position: relative; z-index: 2;">`;
             
             // Número de pregunta (opcional)
             html += `<div class="sfq-preview-question-number" style="color: ${styles.secondaryColor};">Pregunta 1</div>`;
@@ -691,6 +822,7 @@
             }
             
             html += `</div>`; // Cerrar answer-container
+            html += `</div>`; // Cerrar content-wrapper
             html += `</div>`; // Cerrar question-content
             return html;
         }
@@ -700,8 +832,8 @@
             options.forEach((option, index) => {
                 html += `
                     <div class="sfq-option-card" style="
-                        background: ${styles.optionsBackgroundColor};
-                        border: 2px solid #e0e0e0;
+                        background: ${styles.optionsBackgroundColor} !important;
+                        border: 2px solid ${styles.optionsBorderColor} !important;
                         border-radius: ${styles.borderRadius};
                         padding: 1.25rem 1.5rem;
                         cursor: pointer;
@@ -713,10 +845,10 @@
                         box-shadow: ${styles.shadow};
                         font-size: 1.1rem;
                         font-weight: 500;
-                        color: ${styles.textColor};
+                        color: ${styles.textColor} !important;
                     ">
                         <input type="radio" class="sfq-hidden-input" style="position: absolute; opacity: 0; pointer-events: none;">
-                        <span class="sfq-option-text" style="font-size: 1.1rem; font-weight: 500; flex: 1;">
+                        <span class="sfq-option-text" style="font-size: 1.1rem; font-weight: 500; flex: 1; color: ${styles.textColor} !important;">
                             ${this.escapeHtml(option)}
                         </span>
                     </div>
@@ -731,8 +863,8 @@
             options.forEach((option, index) => {
                 html += `
                     <div class="sfq-option-card sfq-checkbox-card" style="
-                        background: ${styles.optionsBackgroundColor};
-                        border: 2px solid #e0e0e0;
+                        background: ${styles.optionsBackgroundColor} !important;
+                        border: 2px solid ${styles.optionsBorderColor} !important;
                         border-radius: ${styles.borderRadius};
                         padding: 1rem 1.25rem;
                         cursor: pointer;
@@ -749,7 +881,7 @@
                                 <div class="sfq-checkbox-box" style="
                                     width: 24px;
                                     height: 24px;
-                                    border: 2px solid #d0d0d0;
+                                    border: 2px solid ${styles.optionsBorderColor} !important;
                                     border-radius: 6px;
                                     display: flex;
                                     align-items: center;
@@ -768,7 +900,7 @@
                                         <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
                                     </svg>
                                 </div>
-                                <span style="font-size: 1.1rem; font-weight: 500; color: ${styles.textColor};">
+                                <span style="font-size: 1.1rem; font-weight: 500; color: ${styles.textColor} !important;">
                                     ${this.escapeHtml(option)}
                                 </span>
                             </label>
@@ -966,22 +1098,78 @@
             const secondaryColor = $('#secondary-color').val() || '#6c757d';
             const backgroundColor = $('#background-color').val() || '#ffffff';
             const optionsBackgroundColor = $('#options-background-color').val() || '#ffffff';
+            const optionsBorderColor = $('#options-border-color').val() || '#e0e0e0';
             const textColor = $('#text-color').val() || '#333333';
             const borderRadius = $('#border-radius').val() || '12';
             const fontFamily = $('#font-family').val() || 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
             
+            // ✅ NUEVO: Obtener valores de opacidad
+            const primaryColorOpacity = $('#primary-color-opacity').val() || '1';
+            const secondaryColorOpacity = $('#secondary-color-opacity').val() || '1';
+            const backgroundColorOpacity = $('#background-color-opacity').val() || '1';
+            const optionsBackgroundColorOpacity = $('#options-background-color-opacity').val() || '1';
+            const optionsBorderColorOpacity = $('#options-border-color-opacity').val() || '1';
+            const textColorOpacity = $('#text-color-opacity').val() || '1';
+            
+            // ✅ NUEVO: Obtener configuración de imagen de fondo
+            const backgroundImageUrl = $('#background-image-url').val() || '';
+            const backgroundSize = $('#background-size').val() || 'cover';
+            const backgroundRepeat = $('#background-repeat').val() || 'no-repeat';
+            const backgroundPosition = $('#background-position').val() || 'center center';
+            const backgroundAttachment = $('#background-attachment').val() || 'scroll';
+            const backgroundOpacity = $('#background-opacity').val() || '1';
+            
+            // ✅ NUEVO: Obtener configuración de overlay
+            const backgroundOverlay = $('#background-overlay').is(':checked');
+            const backgroundOverlayColor = $('#background-overlay-color').val() || '#000000';
+            const backgroundOverlayOpacity = $('#background-overlay-opacity').val() || '0.3';
+            
+            // ✅ NUEVO: Función helper para aplicar opacidad a colores
+            const applyOpacity = (color, opacity) => {
+                if (opacity === '1' || opacity === 1) return color;
+                
+                // Convertir hex a rgba
+                if (color.startsWith('#')) {
+                    const hex = color.replace('#', '');
+                    const r = parseInt(hex.substr(0, 2), 16);
+                    const g = parseInt(hex.substr(2, 2), 16);
+                    const b = parseInt(hex.substr(4, 2), 16);
+                    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+                }
+                
+                // Si ya es rgba/rgb, intentar modificar la opacidad
+                if (color.startsWith('rgba(')) {
+                    return color.replace(/,\s*[\d.]+\)$/, `, ${opacity})`);
+                } else if (color.startsWith('rgb(')) {
+                    return color.replace('rgb(', 'rgba(').replace(')', `, ${opacity})`);
+                }
+                
+                return color; // Fallback
+            };
+            
             return {
-                primaryColor: primaryColor,
-                secondaryColor: secondaryColor,
-                backgroundColor: backgroundColor,
-                optionsBackgroundColor: optionsBackgroundColor,
-                textColor: textColor,
+                primaryColor: applyOpacity(primaryColor, primaryColorOpacity),
+                secondaryColor: applyOpacity(secondaryColor, secondaryColorOpacity),
+                backgroundColor: applyOpacity(backgroundColor, backgroundColorOpacity),
+                optionsBackgroundColor: applyOpacity(optionsBackgroundColor, optionsBackgroundColorOpacity),
+                optionsBorderColor: applyOpacity(optionsBorderColor, optionsBorderColorOpacity),
+                textColor: applyOpacity(textColor, textColorOpacity),
                 borderColor: '#e0e0e0',
                 borderRadius: borderRadius + 'px',
                 fontFamily: fontFamily,
                 shadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                 shadowHover: '0 4px 16px rgba(0, 0, 0, 0.15)',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                // ✅ NUEVO: Propiedades de imagen de fondo
+                backgroundImageUrl: backgroundImageUrl,
+                backgroundSize: backgroundSize,
+                backgroundRepeat: backgroundRepeat,
+                backgroundPosition: backgroundPosition,
+                backgroundAttachment: backgroundAttachment,
+                backgroundOpacity: backgroundOpacity,
+                backgroundOverlay: backgroundOverlay,
+                backgroundOverlayColor: backgroundOverlayColor,
+                backgroundOverlayOpacity: backgroundOverlayOpacity
             };
         }
 

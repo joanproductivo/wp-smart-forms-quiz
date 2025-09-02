@@ -1749,6 +1749,29 @@
                 $('head').append($styleElement);
             }
             
+            // ✅ NUEVO: Función helper para aplicar opacidad a colores
+            const applyOpacity = (color, opacity) => {
+                if (opacity === '1' || opacity === 1) return color;
+                
+                // Convertir hex a rgba
+                if (color.startsWith('#')) {
+                    const hex = color.replace('#', '');
+                    const r = parseInt(hex.substr(0, 2), 16);
+                    const g = parseInt(hex.substr(2, 2), 16);
+                    const b = parseInt(hex.substr(4, 2), 16);
+                    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+                }
+                
+                // Si ya es rgba/rgb, intentar modificar la opacidad
+                if (color.startsWith('rgba(')) {
+                    return color.replace(/,\s*[\d.]+\)$/, `, ${opacity})`);
+                } else if (color.startsWith('rgb(')) {
+                    return color.replace('rgb(', 'rgba(').replace(')', `, ${opacity})`);
+                }
+                
+                return color; // Fallback
+            };
+            
             // Recopilar valores actuales
             const styles = {
                 primaryColor: $('#primary-color').val() || '#007cba',
@@ -1779,28 +1802,36 @@
                 backgroundOpacity: $('#background-opacity').val() || '1',
                 backgroundOverlay: $('#background-overlay').is(':checked'),
                 backgroundOverlayColor: $('#background-overlay-color').val() || '#000000',
-                backgroundOverlayOpacity: $('#background-overlay-opacity').val() || '0.3'
+                backgroundOverlayOpacity: $('#background-overlay-opacity').val() || '0.3',
+                // ✅ NUEVO: Valores de opacidad
+                primaryColorOpacity: $('#primary-color-opacity').val() || '1',
+                secondaryColorOpacity: $('#secondary-color-opacity').val() || '1',
+                backgroundColorOpacity: $('#background-color-opacity').val() || '1',
+                optionsBackgroundColorOpacity: $('#options-background-color-opacity').val() || '1',
+                optionsBorderColorOpacity: $('#options-border-color-opacity').val() || '1',
+                textColorOpacity: $('#text-color-opacity').val() || '1',
+                inputBorderColorOpacity: $('#input-border-color-opacity').val() || '1'
             };
             
-            // ✅ NUEVO: Generar estilos de imagen de fondo
-            let backgroundStyles = '';
+            // ✅ NUEVO: Aplicar opacidades a los colores
+            const processedStyles = {
+                ...styles,
+                primaryColor: applyOpacity(styles.primaryColor, styles.primaryColorOpacity),
+                secondaryColor: applyOpacity(styles.secondaryColor, styles.secondaryColorOpacity),
+                backgroundColor: applyOpacity(styles.backgroundColor, styles.backgroundColorOpacity),
+                optionsBackgroundColor: applyOpacity(styles.optionsBackgroundColor, styles.optionsBackgroundColorOpacity),
+                optionsBorderColor: applyOpacity(styles.optionsBorderColor, styles.optionsBorderColorOpacity),
+                textColor: applyOpacity(styles.textColor, styles.textColorOpacity),
+                inputBorderColor: applyOpacity(styles.inputBorderColor, styles.inputBorderColorOpacity)
+            };
+            
+            // ✅ CORREGIDO: Generar estilos de imagen de fondo sin afectar la opacidad del contenedor
+            let backgroundImageStyles = '';
             if (styles.backgroundImageUrl && styles.backgroundImageUrl.trim() !== '') {
-                // Crear el estilo de imagen de fondo
-                backgroundStyles = `
-                    background-image: url('${styles.backgroundImageUrl}') !important;
-                    background-size: ${styles.backgroundSize} !important;
-                    background-repeat: ${styles.backgroundRepeat} !important;
-                    background-position: ${styles.backgroundPosition} !important;
-                    background-attachment: ${styles.backgroundAttachment} !important;
-                    opacity: ${styles.backgroundOpacity} !important;
+                // La imagen de fondo se aplicará como pseudo-elemento para controlar la opacidad independientemente
+                backgroundImageStyles = `
+                    position: relative !important;
                 `;
-                
-                // Si hay overlay activado, añadir pseudo-elemento
-                if (styles.backgroundOverlay) {
-                    backgroundStyles += `
-                        position: relative !important;
-                    `;
-                }
             }
             
             // Generar CSS dinámico mejorado
@@ -1830,9 +1861,35 @@
                     font-family: ${styles.fontFamily} !important;
                     box-shadow: var(--sfq-form-container-shadow) !important;
                     
-                    /* ✅ NUEVO: Aplicar imagen de fondo */
-                    ${backgroundStyles}
+                    /* ✅ CORREGIDO: Aplicar imagen de fondo como pseudo-elemento */
+                    ${backgroundImageStyles}
                 }
+                
+                /* ✅ CORREGIDO: Imagen de fondo como pseudo-elemento con opacidad independiente */
+                ${styles.backgroundImageUrl && styles.backgroundImageUrl.trim() !== '' ? `
+                .sfq-form-container::before {
+                    content: '' !important;
+                    position: absolute !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    right: 0 !important;
+                    bottom: 0 !important;
+                    background-image: url('${styles.backgroundImageUrl}') !important;
+                    background-size: ${styles.backgroundSize} !important;
+                    background-repeat: ${styles.backgroundRepeat} !important;
+                    background-position: ${styles.backgroundPosition} !important;
+                    background-attachment: ${styles.backgroundAttachment} !important;
+                    opacity: ${styles.backgroundOpacity} !important;
+                    pointer-events: none !important;
+                    border-radius: inherit !important;
+                    z-index: 0 !important;
+                }
+                
+                .sfq-form-container > * {
+                    position: relative !important;
+                    z-index: 2 !important;
+                }
+                ` : ''}
                 
                 /* ✅ NUEVO: Overlay para imagen de fondo */
                 ${styles.backgroundImageUrl && styles.backgroundOverlay ? `
