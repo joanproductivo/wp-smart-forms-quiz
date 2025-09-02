@@ -1642,42 +1642,45 @@
             });
         }
         
-        // ✅ NUEVO: Abrir selector de imagen de fondo
-        openBackgroundImageSelector() {
-            // Verificar que wp.media esté disponible
-            if (typeof wp === 'undefined' || !wp.media) {
-                alert('Error: WordPress Media Library no está disponible.');
+         // ✅ NUEVO: Abrir selector de imagen de fondo
+       openBackgroundImageSelector() {
+    if (typeof wp === 'undefined' || !wp.media) {
+        alert('Error: WordPress Media Library no está disponible.');
+        return;
+    }
+
+    // Crear la instancia una sola vez y guardarla en la clase
+    if (!this.mediaUploader) {
+        this.mediaUploader = wp.media({
+            title: 'Seleccionar Imagen de Fondo',
+            button: { text: 'Usar esta imagen' },
+            multiple: false,
+            library: { type: 'image' }
+        });
+
+        this.mediaUploader.on('select', () => {
+            const attachment = this.mediaUploader.state().get('selection').first().toJSON();
+            console.log('Selected background:', attachment);
+
+            if (!this.isValidImageAttachment(attachment)) {
+                alert('Error: El archivo seleccionado no es una imagen válida');
                 return;
             }
-            
-            const self = this;
-            
-            // Crear instancia del media uploader
-            const mediaUploader = wp.media({
-                title: 'Seleccionar Imagen de Fondo',
-                button: {
-                    text: 'Usar esta imagen'
-                },
-                multiple: false,
-                library: {
-                    type: 'image'
-                }
-            });
-            
-            // Evento cuando se selecciona una imagen
-            mediaUploader.on('select', function() {
-                const attachment = mediaUploader.state().get('selection').first().toJSON();
-                
-                if (self.isValidImageAttachment(attachment)) {
-                    self.setBackgroundImage(attachment);
-                } else {
-                    alert('Error: El archivo seleccionado no es una imagen válida');
-                }
-            });
-            
-            // Abrir el uploader
-            mediaUploader.open();
-        }
+
+            this.setBackgroundImage(attachment);
+
+            this.mediaUploader.close();
+           
+        });
+    }
+ // limpiar selección para la próxima vez
+           
+    this.mediaUploader.open();
+}
+        
+
+
+
         
         // ✅ NUEVO: Validar attachment de imagen
         isValidImageAttachment(attachment) {
