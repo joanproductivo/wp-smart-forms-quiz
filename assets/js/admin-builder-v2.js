@@ -92,8 +92,8 @@
             });
             
             // Block form toggle
-            $('#block-form').on('change' + ns, function() {
-                if ($(this).is(':checked')) {
+            $('#block-form').on('change' + ns, (e) => {
+                if ($(e.target).is(':checked')) {
                     $('#block-form-container').slideDown();
                 } else {
                     $('#block-form-container').slideUp();
@@ -105,40 +105,52 @@
             });
             
             // Intro screen toggle
-            $('#show-intro-screen').on('change' + ns, function() {
-                $('#intro-screen-settings').toggle($(this).is(':checked'));
+            $('#show-intro-screen').on('change' + ns, (e) => {
+                $('#intro-screen-settings').toggle($(e.target).is(':checked'));
             });
             
             // Color pickers
             this.initColorPickers();
             
+            // ✅ CORREGIDO: Event listeners para controles de opacidad con contexto correcto
+            $('.sfq-opacity-control').off('input' + ns).on('input' + ns, (e) => {
+                const value = $(e.target).val();
+                const colorFor = $(e.target).data('for');
+                $(`.sfq-opacity-value[data-for="${colorFor}"]`).text(value);
+                
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                    this.updatePreviewStyles();
+                }
+            });
+            
             // Range slider
-            $('#border-radius').on('input' + ns, function() {
-                $('.sfq-range-value').text($(this).val() + 'px');
+            $('#border-radius').on('input' + ns, (e) => {
+                $('.sfq-range-value').text($(e.target).val() + 'px');
                 if (!this.isDestroyed) {
                     this.isDirty = true;
                 }
             });
             
             // Nuevos range sliders para las opciones de estilo
-            $('#form-container-border-radius').on('input' + ns, function() {
-                $('.sfq-form-container-radius-value').text($(this).val() + 'px');
+            $('#form-container-border-radius').on('input' + ns, (e) => {
+                $('.sfq-form-container-radius-value').text($(e.target).val() + 'px');
                 if (!this.isDestroyed) {
                     this.isDirty = true;
                     this.updatePreviewStyles();
                 }
             });
             
-            $('#question-text-size').on('input' + ns, function() {
-                $('.sfq-question-text-size-value').text($(this).val() + 'px');
+            $('#question-text-size').on('input' + ns, (e) => {
+                $('.sfq-question-text-size-value').text($(e.target).val() + 'px');
                 if (!this.isDestroyed) {
                     this.isDirty = true;
                     this.updatePreviewStyles();
                 }
             });
             
-            $('#option-text-size').on('input' + ns, function() {
-                $('.sfq-option-text-size-value').text($(this).val() + 'px');
+            $('#option-text-size').on('input' + ns, (e) => {
+                $('.sfq-option-text-size-value').text($(e.target).val() + 'px');
                 if (!this.isDestroyed) {
                     this.isDirty = true;
                     this.updatePreviewStyles();
@@ -188,8 +200,8 @@
             });
             
             // Límites - Mostrar/ocultar campos dinámicamente
-            $('#submission-limit-count').on('input' + ns, function() {
-                const count = $(this).val();
+            $('#submission-limit-count').on('input' + ns, (e) => {
+                const count = $(e.target).val();
                 const $period = $('#submission-limit-period');
                 
                 if (count && count > 0) {
@@ -209,8 +221,8 @@
                 }
             });
             
-            $('#submission-limit-period').on('change' + ns, function() {
-                const period = $(this).val();
+            $('#submission-limit-period').on('change' + ns, (e) => {
+                const period = $(e.target).val();
                 const $count = $('#submission-limit-count');
                 
                 if (period === 'no_limit') {
@@ -232,8 +244,8 @@
             });
             
             // Requerir login
-            $('#require-login').on('change' + ns, function() {
-                if ($(this).is(':checked')) {
+            $('#require-login').on('change' + ns, (e) => {
+                if ($(e.target).is(':checked')) {
                     $('#login-message-container').slideDown();
                 } else {
                     $('#login-message-container').slideUp();
@@ -245,8 +257,8 @@
             });
             
             // Programar disponibilidad
-            $('#enable-schedule').on('change' + ns, function() {
-                if ($(this).is(':checked')) {
+            $('#enable-schedule').on('change' + ns, (e) => {
+                if ($(e.target).is(':checked')) {
                     $('#schedule-container').slideDown();
                 } else {
                     $('#schedule-container').slideUp();
@@ -254,8 +266,8 @@
             });
             
             // Límite total de participantes
-            $('#enable-max-submissions').on('change' + ns, function() {
-                if ($(this).is(':checked')) {
+            $('#enable-max-submissions').on('change' + ns, (e) => {
+                if ($(e.target).is(':checked')) {
                     $('#max-submissions-container').slideDown();
                 } else {
                     $('#max-submissions-container').slideUp();
@@ -316,8 +328,8 @@
             });
             
             // Event listeners para timer de bloqueo
-            $('#block-form-enable-timer').on('change' + ns, function() {
-                if ($(this).is(':checked')) {
+            $('#block-form-enable-timer').on('change' + ns, (e) => {
+                if ($(e.target).is(':checked')) {
                     $('#block-form-timer-settings').slideDown();
                     $('#block-form-timer-available-section').slideDown();
                     // Mostrar la sección de colores del mensaje de disponibilidad (la última sección)
@@ -349,8 +361,8 @@
             });
             
             // Event listener para mostrar/ocultar la opción de desaparecer completamente
-            $('#block-form-timer-show-form').on('change' + ns, function() {
-                if ($(this).is(':checked')) {
+            $('#block-form-timer-show-form').on('change' + ns, (e) => {
+                if ($(e.target).is(':checked')) {
                     $('#block-form-timer-hide-all-container').slideDown();
                 } else {
                     $('#block-form-timer-hide-all-container').slideUp();
@@ -382,8 +394,56 @@
                 }
             });
             
-            // ✅ NUEVO: Event listeners para imagen de fondo
-            this.bindBackgroundImageEvents(ns);
+        // ✅ NUEVO: Event listeners para imagen de fondo
+        this.bindBackgroundImageEvents(ns);
+        
+        // ✅ NUEVO: Event listeners para opciones de imagen de fondo
+        $('#background-size, #background-repeat, #background-position, #background-attachment').off('change' + ns).on('change' + ns, () => {
+            if (!this.isDestroyed) {
+                this.isDirty = true;
+                this.updatePreviewStyles();
+            }
+        });
+        
+        // Event listener para opacidad de imagen de fondo
+        $('#background-opacity').off('input' + ns).on('input' + ns, (e) => {
+            $('.sfq-background-opacity-value').text($(e.target).val());
+            if (!this.isDestroyed) {
+                this.isDirty = true;
+                this.updatePreviewStyles();
+            }
+        });
+        
+        // Event listener para checkbox de overlay
+        $('#background-overlay').off('change' + ns).on('change' + ns, (e) => {
+            const overlayOptions = $('#background-overlay-options');
+            if ($(e.target).is(':checked')) {
+                overlayOptions.slideDown(300);
+            } else {
+                overlayOptions.slideUp(300);
+            }
+            if (!this.isDestroyed) {
+                this.isDirty = true;
+                this.updatePreviewStyles();
+            }
+        });
+        
+        // Event listener para opacidad de overlay
+        $('#background-overlay-opacity').off('input' + ns).on('input' + ns, (e) => {
+            $('.sfq-background-overlay-opacity-value').text($(e.target).val());
+            if (!this.isDestroyed) {
+                this.isDirty = true;
+                this.updatePreviewStyles();
+            }
+        });
+        
+        // Event listener para color de overlay
+        $('#background-overlay-color').off('change' + ns).on('change' + ns, () => {
+            if (!this.isDestroyed) {
+                this.isDirty = true;
+                this.updatePreviewStyles();
+            }
+        });
             
             // Variables globales
             $('#sfq-add-variable').off('click' + ns).on('click' + ns, () => {
@@ -509,10 +569,26 @@
             // Style settings
             const styles = formData.style_settings || {};
             $('#primary-color').val(styles.primary_color || '#007cba').trigger('change');
+            $('#primary-color-opacity').val(styles.primary_color_opacity || '1');
+            $('.sfq-opacity-value[data-for="primary-color"]').text(styles.primary_color_opacity || '1');
             $('#secondary-color').val(styles.secondary_color || '#6c757d').trigger('change');
+            $('#secondary-color-opacity').val(styles.secondary_color_opacity || '1');
+            $('.sfq-opacity-value[data-for="secondary-color"]').text(styles.secondary_color_opacity || '1');
             $('#background-color').val(styles.background_color || '#ffffff').trigger('change');
+            $('#background-color-opacity').val(styles.background_color_opacity || '1');
+            $('.sfq-opacity-value[data-for="background-color"]').text(styles.background_color_opacity || '1');
             $('#options-background-color').val(styles.options_background_color || '#ffffff').trigger('change');
+            $('#options-background-color-opacity').val(styles.options_background_color_opacity || '1');
+            $('.sfq-opacity-value[data-for="options-background-color"]').text(styles.options_background_color_opacity || '1');
+            $('#options-border-color').val(styles.options_border_color || '#e0e0e0').trigger('change');
+            $('#options-border-color-opacity').val(styles.options_border_color_opacity || '1');
+            $('.sfq-opacity-value[data-for="options-border-color"]').text(styles.options_border_color_opacity || '1');
             $('#text-color').val(styles.text_color || '#333333').trigger('change');
+            $('#text-color-opacity').val(styles.text_color_opacity || '1');
+            $('.sfq-opacity-value[data-for="text-color"]').text(styles.text_color_opacity || '1');
+            $('#input-border-color').val(styles.input_border_color || '#ddd').trigger('change');
+            $('#input-border-color-opacity').val(styles.input_border_color_opacity || '1');
+            $('.sfq-opacity-value[data-for="input-border-color"]').text(styles.input_border_color_opacity || '1');
             $('#border-radius').val(styles.border_radius || '8');
             $('.sfq-range-value').text((styles.border_radius || '8') + 'px');
             $('#font-family').val(styles.font_family || 'inherit');
@@ -520,7 +596,7 @@
             // Nuevas opciones de estilo
             $('#form-container-border-radius').val(styles.form_container_border_radius || '20');
             $('.sfq-form-container-radius-value').text((styles.form_container_border_radius || '20') + 'px');
-            $('#form-container-shadow').prop('checked', styles.form_container_shadow === true);
+            $('#form-container-shadow').prop('checked', styles.form_container_shadow === false);
             $('#form-container-width').val(styles.form_container_width || 'responsive');
             $('#question-content-width').val(styles.question_content_width || 'responsive');
             $('#question-content-custom-width').val(styles.question_content_custom_width || '600');
@@ -813,10 +889,19 @@
             },
             style_settings: {
                 primary_color: $('#primary-color').val() || '#007cba',
+                primary_color_opacity: $('#primary-color-opacity').val() || '1',
                 secondary_color: $('#secondary-color').val() || '#6c757d',
+                secondary_color_opacity: $('#secondary-color-opacity').val() || '1',
                 background_color: $('#background-color').val() || '#ffffff',
+                background_color_opacity: $('#background-color-opacity').val() || '1',
                 options_background_color: $('#options-background-color').val() || '#ffffff',
+                options_background_color_opacity: $('#options-background-color-opacity').val() || '1',
+                options_border_color: $('#options-border-color').val() || '#e0e0e0',
+                options_border_color_opacity: $('#options-border-color-opacity').val() || '1',
                 text_color: $('#text-color').val() || '#333333',
+                text_color_opacity: $('#text-color-opacity').val() || '1',
+                input_border_color: $('#input-border-color').val() || '#ddd',
+                input_border_color_opacity: $('#input-border-color-opacity').val() || '1',
                 border_radius: $('#border-radius').val() || '8',
                 font_family: $('#font-family').val() || 'inherit',
                 // Nuevas opciones de estilo
@@ -832,10 +917,22 @@
                 general_text_align: $('#general-text-align').val() || 'left',
                 options_border_color: $('#options-border-color').val() || '#e0e0e0',
                 input_border_color: $('#input-border-color').val() || '#ddd',
-                // ✅ NUEVO: Configuración de imagen de fondo
-                background_image_url: $('#background-image-url').val() || '',
-                background_image_id: $('#background-image-id').val() || '',
-                background_image_data: $('#background-image-data').val() || '',
+                // ✅ NUEVO: Configuración de imagen de fondo con logging detallado
+                background_image_url: (() => {
+                    const value = $('#background-image-url').val() || '';
+                    console.log('SFQ: Collecting background_image_url:', value);
+                    return value;
+                })(),
+                background_image_id: (() => {
+                    const value = $('#background-image-id').val() || '';
+                    console.log('SFQ: Collecting background_image_id:', value);
+                    return value;
+                })(),
+                background_image_data: (() => {
+                    const value = $('#background-image-data').val() || '';
+                    console.log('SFQ: Collecting background_image_data:', value);
+                    return value;
+                })(),
                 background_size: $('#background-size').val() || 'cover',
                 background_repeat: $('#background-repeat').val() || 'no-repeat',
                 background_position: $('#background-position').val() || 'center center',
@@ -1497,7 +1594,7 @@
             });
             
             // Event listeners para opciones de imagen de fondo - CORREGIDOS IDs
-            $('#background-size, #background-repeat, #background-position, #background-attachment').off('change' + ns).on('change' + ns, function() {
+            $('#background-size, #background-repeat, #background-position, #background-attachment').off('change' + ns).on('change' + ns, () => {
                 if (!self.isDestroyed) {
                     self.isDirty = true;
                     self.updatePreviewStyles();
@@ -1505,8 +1602,8 @@
             });
             
             // Event listener para opacidad de imagen de fondo
-            $('#background-opacity').off('input' + ns).on('input' + ns, function() {
-                $('.sfq-background-opacity-value').text($(this).val());
+            $('#background-opacity').off('input' + ns).on('input' + ns, (e) => {
+                $('.sfq-background-opacity-value').text($(e.target).val());
                 if (!self.isDestroyed) {
                     self.isDirty = true;
                     self.updatePreviewStyles();
@@ -1514,9 +1611,9 @@
             });
             
             // Event listener para checkbox de overlay
-            $('#background-overlay').off('change' + ns).on('change' + ns, function() {
+            $('#background-overlay').off('change' + ns).on('change' + ns, (e) => {
                 const overlayOptions = $('#background-overlay-options');
-                if ($(this).is(':checked')) {
+                if ($(e.target).is(':checked')) {
                     overlayOptions.slideDown(300);
                 } else {
                     overlayOptions.slideUp(300);
@@ -1528,8 +1625,8 @@
             });
             
             // Event listener para opacidad de overlay
-            $('#background-overlay-opacity').off('input' + ns).on('input' + ns, function() {
-                $('.sfq-background-overlay-opacity-value').text($(this).val());
+            $('#background-overlay-opacity').off('input' + ns).on('input' + ns, (e) => {
+                $('.sfq-background-overlay-opacity-value').text($(e.target).val());
                 if (!self.isDestroyed) {
                     self.isDirty = true;
                     self.updatePreviewStyles();
@@ -1537,7 +1634,7 @@
             });
             
             // Event listener para color de overlay
-            $('#background-overlay-color').off('change' + ns).on('change' + ns, function() {
+            $('#background-overlay-color').off('change' + ns).on('change' + ns, () => {
                 if (!self.isDestroyed) {
                     self.isDirty = true;
                     self.updatePreviewStyles();

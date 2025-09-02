@@ -1182,7 +1182,7 @@ class SFQ_Ajax {
         }
         
         // Rate limiting check
-        if (!$this->check_rate_limit('save_form', 10, 60)) {
+        if (!$this->check_rate_limit('save_form', 50, 60)) {
             wp_send_json_error(__('Demasiadas peticiones. Intenta de nuevo en un momento.', 'smart-forms-quiz'));
             return;
         }

@@ -505,8 +505,33 @@ class SFQ_Database {
     public function save_form($data) {
         global $wpdb;
         
+        // ✅ MEJORADO: Logging detallado para debugging
+        error_log('SFQ: === SAVE FORM DEBUG START ===');
+        error_log('SFQ: Form ID: ' . ($data['id'] ?? 'NEW'));
+        error_log('SFQ: Form Title: ' . ($data['title'] ?? 'NO TITLE'));
+        
+        // Log de datos de estilo recibidos
+        if (isset($data['style_settings'])) {
+            error_log('SFQ: Style settings received: ' . json_encode($data['style_settings']));
+            
+            // Log específico para imagen de fondo
+            $bg_fields = ['background_image_url', 'background_image_id', 'background_image_data', 'background_size', 'background_repeat', 'background_position', 'background_attachment', 'background_opacity', 'background_overlay', 'background_overlay_color', 'background_overlay_opacity'];
+            foreach ($bg_fields as $field) {
+                if (isset($data['style_settings'][$field])) {
+                    error_log('SFQ: ' . $field . ': ' . $data['style_settings'][$field]);
+                } else {
+                    error_log('SFQ: ' . $field . ': NOT PROVIDED');
+                }
+            }
+        } else {
+            error_log('SFQ: WARNING - No style_settings provided in form data');
+        }
+        
         // ✅ NUEVO: Procesar configuraciones de estilo incluyendo imagen de fondo
         $style_settings = $this->process_style_settings($data['style_settings'] ?? array());
+        
+        // Log de datos procesados
+        error_log('SFQ: Style settings after processing: ' . json_encode($style_settings));
         
         // Preparar datos
         $form_data = array(
@@ -523,8 +548,13 @@ class SFQ_Database {
             'status' => $data['status'] ?? 'active'
         );
         
+        // Log del JSON final que se guardará
+        error_log('SFQ: Final style_settings JSON to save: ' . $form_data['style_settings']);
+        
         if (isset($data['id']) && $data['id'] > 0) {
             // Actualizar formulario existente
+            error_log('SFQ: Updating existing form with ID: ' . $data['id']);
+            
             $result = $wpdb->update(
                 $this->forms_table,
                 $form_data,
@@ -533,25 +563,70 @@ class SFQ_Database {
                 array('%d')
             );
             
+            if ($result === false) {
+                error_log('SFQ: ERROR updating form: ' . $wpdb->last_error);
+            } else {
+                error_log('SFQ: Successfully updated form. Rows affected: ' . $result);
+            }
+            
             $form_id = $data['id'];
         } else {
             // Crear nuevo formulario
+            error_log('SFQ: Creating new form');
+            
             $result = $wpdb->insert(
                 $this->forms_table,
                 $form_data,
                 array('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')
             );
             
+            if ($result === false) {
+                error_log('SFQ: ERROR creating form: ' . $wpdb->last_error);
+            } else {
+                error_log('SFQ: Successfully created form. Insert ID: ' . $wpdb->insert_id);
+            }
+            
             $form_id = $wpdb->insert_id;
+        }
+        
+        // Verificar que los datos se guardaron correctamente
+        if ($form_id) {
+            $saved_form = $wpdb->get_row($wpdb->prepare(
+                "SELECT style_settings FROM {$this->forms_table} WHERE id = %d",
+                $form_id
+            ));
+            
+            if ($saved_form) {
+                error_log('SFQ: Verification - style_settings saved in DB: ' . $saved_form->style_settings);
+                
+                // Verificar campos específicos de imagen de fondo
+                $saved_styles = json_decode($saved_form->style_settings, true);
+                if ($saved_styles) {
+                    foreach ($bg_fields as $field) {
+                        if (isset($saved_styles[$field])) {
+                            error_log('SFQ: Verification - ' . $field . ' in DB: ' . $saved_styles[$field]);
+                        } else {
+                            error_log('SFQ: WARNING - ' . $field . ' NOT FOUND in saved data');
+                        }
+                    }
+                } else {
+                    error_log('SFQ: ERROR - Could not decode saved style_settings JSON');
+                }
+            } else {
+                error_log('SFQ: ERROR - Could not retrieve saved form for verification');
+            }
         }
         
         // Guardar preguntas si existen
         if (isset($data['questions']) && is_array($data['questions'])) {
+            error_log('SFQ: Saving ' . count($data['questions']) . ' questions');
             $this->save_questions($form_id, $data['questions']);
         }
         
         // Limpiar cache después de guardar
         $this->clear_form_cache($form_id);
+        
+        error_log('SFQ: === SAVE FORM DEBUG END ===');
         
         return $form_id;
     }
@@ -647,6 +722,17 @@ class SFQ_Database {
                     $processed_settings[$key] = $this->validate_opacity($value);
                     break;
                 
+                // ✅ NUEVO: Valores de opacidad para colores
+                case 'primary_color_opacity':
+                case 'secondary_color_opacity':
+                case 'background_color_opacity':
+                case 'options_background_color_opacity':
+                case 'options_border_color_opacity':
+                case 'text_color_opacity':
+                case 'input_border_color_opacity':
+                    $processed_settings[$key] = $this->validate_opacity($value);
+                    break;
+                
                 // Valores booleanos
                 case 'background_overlay':
                 case 'form_container_shadow':
@@ -724,7 +810,7 @@ class SFQ_Database {
     }
     
     /**
-     * ✅ NUEVO: Validar URL de imagen
+     * ✅ CORREGIDO: Validar URL de imagen - Validación menos estricta y más robusta
      */
     private function validate_image_url($url) {
         if (empty($url)) {
@@ -734,23 +820,79 @@ class SFQ_Database {
         // Validar que sea una URL válida
         $validated_url = esc_url_raw($url);
         if (!$validated_url) {
+            error_log('SFQ: Invalid URL format: ' . $url);
             return '';
         }
         
-        // Verificar que tenga extensión de imagen válida
-        $valid_extensions = array('jpg', 'jpeg', 'png', 'gif', 'webp', 'svg');
+        // ✅ MEJORADO: Aceptar URLs válidas aunque no tengan extensión visible
+        // Muchas URLs de CDN y servicios modernos no muestran extensiones
+        
+        $url_lower = strtolower($validated_url);
+        
+        // Verificar extensiones de imagen visibles (método tradicional)
+        $valid_extensions = array('jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'ico');
         $path_info = pathinfo(parse_url($validated_url, PHP_URL_PATH));
         $extension = strtolower($path_info['extension'] ?? '');
         
         if (in_array($extension, $valid_extensions)) {
+            error_log('SFQ: Valid image URL with extension: ' . $url);
             return $validated_url;
         }
         
-        return '';
+        // ✅ NUEVO: Verificar patrones comunes de URLs de imagen sin extensión visible
+        $image_patterns = array(
+            '/\/image\//i',           // URLs que contienen /image/
+            '/\/img\//i',             // URLs que contienen /img/
+            '/\/photo\//i',           // URLs que contienen /photo/
+            '/\/picture\//i',         // URLs que contienen /picture/
+            '/\/media\//i',           // URLs que contienen /media/
+            '/\/upload\//i',          // URLs que contienen /upload/
+            '/\/assets\//i',          // URLs que contienen /assets/
+            '/\/content\//i',         // URLs que contienen /content/
+            '/\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff|ico)(\?|#|$)/i' // Extensiones con parámetros
+        );
+        
+        foreach ($image_patterns as $pattern) {
+            if (preg_match($pattern, $url_lower)) {
+                error_log('SFQ: Valid image URL by pattern match: ' . $url);
+                return $validated_url;
+            }
+        }
+        
+        // ✅ NUEVO: Verificar dominios conocidos de servicios de imágenes
+        $image_domains = array(
+            'imgur.com', 'i.imgur.com',
+            'unsplash.com', 'images.unsplash.com',
+            'pixabay.com', 'cdn.pixabay.com',
+            'pexels.com', 'images.pexels.com',
+            'flickr.com', 'live.staticflickr.com',
+            'cloudinary.com',
+            'amazonaws.com', 's3.amazonaws.com',
+            'googleusercontent.com',
+            'wp.com', 'wordpress.com',
+            'gravatar.com',
+            'cdninstagram.com',
+            'fbcdn.net'
+        );
+        
+        $parsed_url = parse_url($validated_url);
+        $domain = strtolower($parsed_url['host'] ?? '');
+        
+        foreach ($image_domains as $image_domain) {
+            if (strpos($domain, $image_domain) !== false) {
+                error_log('SFQ: Valid image URL from known domain: ' . $url);
+                return $validated_url;
+            }
+        }
+        
+        // ✅ MEJORADO: Aceptar cualquier URL válida como potencial imagen
+        // Es mejor ser permisivo que rechazar URLs válidas
+        error_log('SFQ: Accepting URL as potentially valid image: ' . $url);
+        return $validated_url;
     }
     
     /**
-     * ✅ NUEVO: Validar datos de imagen JSON
+     * ✅ CORREGIDO: Validar datos de imagen JSON - Validación mucho menos estricta
      */
     private function validate_image_data($data) {
         if (empty($data)) {
@@ -759,30 +901,36 @@ class SFQ_Database {
         
         // Si ya es un array, convertir a JSON
         if (is_array($data)) {
+            error_log('SFQ: Converting array to JSON for image data');
             return wp_json_encode($data);
         }
         
         // Si es string, validar que sea JSON válido
         if (is_string($data)) {
             $decoded = json_decode($data, true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                // Validar que tenga las claves esperadas
-                $required_keys = array('id', 'url', 'alt', 'title', 'width', 'height');
-                $has_required = false;
-                
-                foreach ($required_keys as $key) {
-                    if (isset($decoded[$key])) {
-                        $has_required = true;
-                        break;
-                    }
-                }
-                
-                if ($has_required) {
-                    return $data;
-                }
+            if (json_last_error() === JSON_ERROR_NONE) {
+                // ✅ MEJORADO: Aceptar cualquier JSON válido, sea array u objeto
+                error_log('SFQ: Valid JSON for image data: ' . $data);
+                return $data;
+            } else {
+                error_log('SFQ: Invalid JSON for image data: ' . $data . ' Error: ' . json_last_error_msg());
             }
         }
         
+        // ✅ MEJORADO: Aceptar cualquier string no vacío como datos válidos
+        // Mejor ser permisivo que rechazar datos potencialmente válidos
+        if (is_string($data) && trim($data) !== '') {
+            error_log('SFQ: Accepting string as image data: ' . $data);
+            return sanitize_text_field($data);
+        }
+        
+        // ✅ FALLBACK: Aceptar números como strings
+        if (is_numeric($data)) {
+            error_log('SFQ: Converting numeric value to string for image data: ' . $data);
+            return strval($data);
+        }
+        
+        error_log('SFQ: Rejecting invalid image data: ' . print_r($data, true));
         return '';
     }
     

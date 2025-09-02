@@ -14,13 +14,13 @@
     --sfq-text-color: #333333;
     --sfq-border-radius: 12px;
     --sfq-font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    --sfq-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    --sfq-shadow: none;
     --sfq-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
     --sfq-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     
     /* Nuevas variables CSS para las opciones de estilo */
     --sfq-form-container-border-radius: 20px;
-    --sfq-form-container-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    --sfq-form-container-shadow: none;
     --sfq-form-container-width: responsive;
     --sfq-question-content-width: responsive;
     --sfq-question-text-size: 24px;

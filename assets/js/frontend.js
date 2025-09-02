@@ -1881,7 +1881,7 @@
         const indicatorTextColor = this.settings.redirect_indicator_text_color || '#666666';
         const indicatorSpinnerColor = this.settings.redirect_indicator_spinner_color || '#007cba';
         const indicatorOpacity = this.settings.redirect_indicator_opacity || '0.95';
-        const indicatorText = this.settings.redirect_indicator_text || 'Procesando...';
+        const indicatorText = this.settings.redirect_indicator_text || '';
         
         // Crear overlay elegante
         const indicator = document.createElement('div');
@@ -2375,12 +2375,12 @@
             
             this.container.insertBefore(notification, this.container.firstChild);
             
-            // Auto-ocultar después de 8 segundos
+            // Auto-ocultar después de 5 segundos
             setTimeout(() => {
                 if (notification.parentElement) {
                     notification.remove();
                 }
-            }, 8000);
+            }, 3000);
         }
 
         /**
@@ -3351,16 +3351,29 @@ style.textContent = `
         opacity: 1;
         transform: translateY(0);
     }
-    
+    .sfq-question-content{
+    z-index: 99999999999;
+    position: relative;
+    }
     .sfq-restore-notification {
+        position: fixed !important;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         border-radius: 12px;
-        margin-bottom: 20px;
         box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
-        animation: slideInDown 0.5s ease-out;
+        animation: fadeIn 0.3s ease-in forwards;
+        z-index: 10001;
+        max-width: 90vw;
+        width: auto;
+        min-width: 300px;
     }
-    
+    @keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
     .sfq-restore-content {
         display: flex;
         align-items: center;

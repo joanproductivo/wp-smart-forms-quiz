@@ -516,7 +516,7 @@ class SFQ_Frontend {
                 
                 /* Asegurar que el contenido esté por encima del overlay */
                 #sfq-form-<?php echo $form_id; ?> > * {
-                    position: relative !important;
+
                     z-index: 2 !important;
                 }
                 <?php endif; ?>
@@ -526,16 +526,93 @@ class SFQ_Frontend {
                 #sfq-form-<?php echo $form_id; ?> .sfq-form-container {
                     border-radius: var(--sfq-form-container-border-radius) !important;
                     <?php if (!empty($styles['form_container_shadow'])) : ?>
-                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
-                    <?php else : ?>
                     box-shadow: none !important;
+                    <?php else : ?>
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
                     <?php endif; ?>
                 }
                 
                 #sfq-form-<?php echo $form_id; ?> .sfq-option-card {
-                    background-color: var(--sfq-options-background-color) !important;
-                    border-color: var(--sfq-options-border-color) !important;
+                    <?php 
+                    // Aplicar colores con opacidad
+                    $options_bg_color = $styles['options_background_color'] ?? '#ffffff';
+                    $options_bg_opacity = $styles['options_background_color_opacity'] ?? '1';
+                    $options_border_color = $styles['options_border_color'] ?? '#e0e0e0';
+                    $options_border_opacity = $styles['options_border_color_opacity'] ?? '1';
+                    
+                    // Convertir hex a rgba si hay opacidad diferente de 1
+                    if ($options_bg_opacity != '1') {
+                        $bg_rgba = $this->hex_to_rgba($options_bg_color, $options_bg_opacity);
+                        echo "background-color: {$bg_rgba} !important;";
+                    } else {
+                        echo "background-color: {$options_bg_color} !important;";
+                    }
+                    
+                    if ($options_border_opacity != '1') {
+                        $border_rgba = $this->hex_to_rgba($options_border_color, $options_border_opacity);
+                        echo "border-color: {$border_rgba} !important;";
+                    } else {
+                        echo "border-color: {$options_border_color} !important;";
+                    }
+                    ?>
                 }
+                
+                /* Aplicar opacidad a otros elementos del formulario */
+                #sfq-form-<?php echo $form_id; ?> {
+                    <?php 
+                    // Color de fondo principal con opacidad
+                    $bg_color = $styles['background_color'] ?? '#ffffff';
+                    $bg_opacity = $styles['background_color_opacity'] ?? '1';
+                    if ($bg_opacity != '1') {
+                        $bg_rgba = $this->hex_to_rgba($bg_color, $bg_opacity);
+                        echo "background-color: {$bg_rgba} !important;";
+                    }
+                    
+                    // Color de texto con opacidad
+                    $text_color = $styles['text_color'] ?? '#333333';
+                    $text_opacity = $styles['text_color_opacity'] ?? '1';
+                    if ($text_opacity != '1') {
+                        $text_rgba = $this->hex_to_rgba($text_color, $text_opacity);
+                        echo "color: {$text_rgba} !important;";
+                    }
+                    ?>
+                }
+                
+                /* Color primario con opacidad para botones y elementos activos */
+                <?php 
+                $primary_color = $styles['primary_color'] ?? '#007cba';
+                $primary_opacity = $styles['primary_color_opacity'] ?? '1';
+                if ($primary_opacity != '1') {
+                    $primary_rgba = $this->hex_to_rgba($primary_color, $primary_opacity);
+                    echo "#sfq-form-{$form_id} .sfq-button-primary { background-color: {$primary_rgba} !important; }";
+                    echo "#sfq-form-{$form_id} .sfq-progress-fill { background: linear-gradient(90deg, {$primary_rgba}, var(--sfq-secondary-color)) !important; }";
+                    echo "#sfq-form-{$form_id} .sfq-option-card.selected { border-color: {$primary_rgba} !important; }";
+                    echo "#sfq-form-{$form_id} .sfq-text-input:focus { border-bottom-color: {$primary_rgba} !important; }";
+                    echo "#sfq-form-{$form_id} .sfq-input-line { background: {$primary_rgba} !important; }";
+                }
+                ?>
+                
+                /* Color secundario con opacidad */
+                <?php 
+                $secondary_color = $styles['secondary_color'] ?? '#6c757d';
+                $secondary_opacity = $styles['secondary_color_opacity'] ?? '1';
+                if ($secondary_opacity != '1') {
+                    $secondary_rgba = $this->hex_to_rgba($secondary_color, $secondary_opacity);
+                    echo "#sfq-form-{$form_id} .sfq-button-secondary { background-color: {$secondary_rgba} !important; }";
+                    echo "#sfq-form-{$form_id} .sfq-question-number { color: {$secondary_rgba} !important; }";
+                }
+                ?>
+                
+                /* Color de borde de inputs con opacidad */
+                <?php 
+                $input_border_color = $styles['input_border_color'] ?? '#ddd';
+                $input_border_opacity = $styles['input_border_color_opacity'] ?? '1';
+                if ($input_border_opacity != '1') {
+                    $input_border_rgba = $this->hex_to_rgba($input_border_color, $input_border_opacity);
+                    echo "#sfq-form-{$form_id} .sfq-text-input { border-bottom-color: {$input_border_rgba} !important; }";
+                    echo "#sfq-form-{$form_id} .sfq-star svg { stroke: {$input_border_rgba} !important; }";
+                }
+                ?>
                 
                 #sfq-form-<?php echo $form_id; ?> .sfq-question-text {
                     font-size: var(--sfq-question-text-size) !important;
@@ -2462,5 +2539,33 @@ class SFQ_Frontend {
      */
     public function add_custom_styles() {
         // Los estilos personalizados se añaden inline con cada formulario
+    }
+    
+    /**
+     * Convertir color hexadecimal a RGBA con opacidad
+     */
+    private function hex_to_rgba($hex, $opacity = 1) {
+        // Limpiar el hex (quitar # si existe)
+        $hex = ltrim($hex, '#');
+        
+        // Validar formato hex
+        if (!preg_match('/^[a-fA-F0-9]{3}$|^[a-fA-F0-9]{6}$/', $hex)) {
+            return $hex; // Devolver original si no es hex válido
+        }
+        
+        // Convertir hex de 3 dígitos a 6 dígitos
+        if (strlen($hex) === 3) {
+            $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+        }
+        
+        // Convertir a RGB
+        $r = hexdec(substr($hex, 0, 2));
+        $g = hexdec(substr($hex, 2, 2));
+        $b = hexdec(substr($hex, 4, 2));
+        
+        // Asegurar que la opacidad esté entre 0 y 1
+        $opacity = max(0, min(1, floatval($opacity)));
+        
+        return "rgba({$r}, {$g}, {$b}, {$opacity})";
     }
 }

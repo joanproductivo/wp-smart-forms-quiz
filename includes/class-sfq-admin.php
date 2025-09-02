@@ -916,39 +916,88 @@ class SFQ_Admin {
                         
                         <div class="sfq-field-group">
                             <label><?php _e('Color Primario', 'smart-forms-quiz'); ?></label>
-                            <input type="text" id="primary-color" class="sfq-color-picker" value="#007cba">
+                            <div class="sfq-color-with-opacity">
+                                <input type="text" id="primary-color" class="sfq-color-picker" value="#007cba">
+                                <div class="sfq-opacity-control">
+                                    <label><?php _e('Opacidad', 'smart-forms-quiz'); ?></label>
+                                    <input type="range" id="primary-color-opacity" min="0" max="1" step="0.01" value="1" class="sfq-opacity-range">
+                                    <span class="sfq-opacity-value">100%</span>
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="sfq-field-group">
                             <label><?php _e('Color Secundario', 'smart-forms-quiz'); ?></label>
-                            <input type="text" id="secondary-color" class="sfq-color-picker" value="#6c757d">
+                            <div class="sfq-color-with-opacity">
+                                <input type="text" id="secondary-color" class="sfq-color-picker" value="#6c757d">
+                                <div class="sfq-opacity-control">
+                                    <label><?php _e('Opacidad', 'smart-forms-quiz'); ?></label>
+                                    <input type="range" id="secondary-color-opacity" min="0" max="1" step="0.01" value="1" class="sfq-opacity-range">
+                                    <span class="sfq-opacity-value">100%</span>
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="sfq-field-group">
                             <label><?php _e('Color de Fondo', 'smart-forms-quiz'); ?></label>
-                            <input type="text" id="background-color" class="sfq-color-picker" value="#ffffff">
+                            <div class="sfq-color-with-opacity">
+                                <input type="text" id="background-color" class="sfq-color-picker" value="#ffffff">
+                                <div class="sfq-opacity-control">
+                                    <label><?php _e('Opacidad', 'smart-forms-quiz'); ?></label>
+                                    <input type="range" id="background-color-opacity" min="0" max="1" step="0.01" value="1" class="sfq-opacity-range">
+                                    <span class="sfq-opacity-value">100%</span>
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="sfq-field-group">
                             <label><?php _e('Color de Fondo de Opciones', 'smart-forms-quiz'); ?></label>
-                            <input type="text" id="options-background-color" class="sfq-color-picker" value="#ffffff">
+                            <div class="sfq-color-with-opacity">
+                                <input type="text" id="options-background-color" class="sfq-color-picker" value="#ffffff">
+                                <div class="sfq-opacity-control">
+                                    <label><?php _e('Opacidad', 'smart-forms-quiz'); ?></label>
+                                    <input type="range" id="options-background-color-opacity" min="0" max="1" step="0.01" value="1" class="sfq-opacity-range">
+                                    <span class="sfq-opacity-value">100%</span>
+                                </div>
+                            </div>
                             <p class="description"><?php _e('Color de fondo específico para las tarjetas de opciones (sfq-option-card)', 'smart-forms-quiz'); ?></p>
                         </div>
                         
                         <div class="sfq-field-group">
                             <label><?php _e('Color de Borde de Opciones', 'smart-forms-quiz'); ?></label>
-                            <input type="text" id="options-border-color" class="sfq-color-picker" value="#e0e0e0">
+                            <div class="sfq-color-with-opacity">
+                                <input type="text" id="options-border-color" class="sfq-color-picker" value="#e0e0e0">
+                                <div class="sfq-opacity-control">
+                                    <label><?php _e('Opacidad', 'smart-forms-quiz'); ?></label>
+                                    <input type="range" id="options-border-color-opacity" min="0" max="1" step="0.01" value="1" class="sfq-opacity-range">
+                                    <span class="sfq-opacity-value">100%</span>
+                                </div>
+                            </div>
                             <p class="description"><?php _e('Color del borde para las tarjetas de opciones (sfq-option-card)', 'smart-forms-quiz'); ?></p>
                         </div>
                         
                         <div class="sfq-field-group">
                             <label><?php _e('Color de Texto', 'smart-forms-quiz'); ?></label>
-                            <input type="text" id="text-color" class="sfq-color-picker" value="#333333">
+                            <div class="sfq-color-with-opacity">
+                                <input type="text" id="text-color" class="sfq-color-picker" value="#333333">
+                                <div class="sfq-opacity-control">
+                                    <label><?php _e('Opacidad', 'smart-forms-quiz'); ?></label>
+                                    <input type="range" id="text-color-opacity" min="0" max="1" step="0.01" value="1" class="sfq-opacity-range">
+                                    <span class="sfq-opacity-value">100%</span>
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="sfq-field-group">
                             <label><?php _e('Color de Borde de Inputs y Estrellas', 'smart-forms-quiz'); ?></label>
-                            <input type="text" id="input-border-color" class="sfq-color-picker" value="#ddd">
+                            <div class="sfq-color-with-opacity">
+                                <input type="text" id="input-border-color" class="sfq-color-picker" value="#ddd">
+                                <div class="sfq-opacity-control">
+                                    <label><?php _e('Opacidad', 'smart-forms-quiz'); ?></label>
+                                    <input type="range" id="input-border-color-opacity" min="0" max="1" step="0.01" value="1" class="sfq-opacity-range">
+                                    <span class="sfq-opacity-value">100%</span>
+                                </div>
+                            </div>
                             <p class="description"><?php _e('Color del borde para campos de texto (.sfq-text-input) y contorno de estrellas (.sfq-star svg)', 'smart-forms-quiz'); ?></p>
                         </div>
                         
@@ -1970,6 +2019,104 @@ class SFQ_Admin {
                 cursor: pointer;
             }
             
+            /* Estilos para controles de opacidad */
+            .sfq-color-with-opacity {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .sfq-opacity-control {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 8px 12px;
+                background: #f8f9fa;
+                border-radius: 6px;
+                border: 1px solid #e1e1e1;
+            }
+            
+            .sfq-opacity-control label {
+                font-size: 12px;
+                font-weight: 500;
+                color: #666;
+                min-width: 60px;
+                margin: 0;
+            }
+            
+            .sfq-opacity-range {
+                flex: 1;
+                height: 6px;
+                background: #ddd;
+                border-radius: 3px;
+                outline: none;
+                -webkit-appearance: none;
+                appearance: none;
+            }
+            
+            .sfq-opacity-range::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 18px;
+                height: 18px;
+                background: #007cba;
+                border-radius: 50%;
+                cursor: pointer;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                transition: all 0.2s ease;
+            }
+            
+            .sfq-opacity-range::-webkit-slider-thumb:hover {
+                background: #005a87;
+                transform: scale(1.1);
+            }
+            
+            .sfq-opacity-range::-moz-range-thumb {
+                width: 18px;
+                height: 18px;
+                background: #007cba;
+                border-radius: 50%;
+                cursor: pointer;
+                border: none;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                transition: all 0.2s ease;
+            }
+            
+            .sfq-opacity-range::-moz-range-thumb:hover {
+                background: #005a87;
+                transform: scale(1.1);
+            }
+            
+            .sfq-opacity-value {
+                font-size: 12px;
+                font-weight: 600;
+                color: #007cba;
+                min-width: 40px;
+                text-align: center;
+                background: #fff;
+                padding: 4px 8px;
+                border-radius: 4px;
+                border: 1px solid #ddd;
+            }
+            
+            /* Responsive para controles de opacidad */
+            @media (max-width: 768px) {
+                .sfq-color-with-opacity {
+                    gap: 8px;
+                }
+                
+                .sfq-opacity-control {
+                    flex-direction: column;
+                    align-items: stretch;
+                    gap: 8px;
+                }
+                
+                .sfq-opacity-control label {
+                    min-width: auto;
+                    text-align: center;
+                }
+            }
+            
             /* Tooltips informativos */
             .sfq-field-row[title] {
                 position: relative;
@@ -2177,6 +2324,129 @@ class SFQ_Admin {
             
             // Inicializar color pickers para imagen de fondo
             $('#background-overlay-color').wpColorPicker();
+            
+            // ===== FUNCIONALIDAD DE CONTROLES DE OPACIDAD =====
+            
+            // Función para convertir hex a rgba
+            function hexToRgba(hex, opacity) {
+                const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                if (result) {
+                    const r = parseInt(result[1], 16);
+                    const g = parseInt(result[2], 16);
+                    const b = parseInt(result[3], 16);
+                    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+                }
+                return hex;
+            }
+            
+            // Función para actualizar el valor de opacidad mostrado
+            function updateOpacityValue($range) {
+                const value = parseFloat($range.val());
+                const percentage = Math.round(value * 100);
+                $range.siblings('.sfq-opacity-value').text(percentage + '%');
+            }
+            
+            // Inicializar controles de opacidad
+            $('.sfq-opacity-range').each(function() {
+                const $range = $(this);
+                updateOpacityValue($range);
+                
+                // Manejar cambios en el slider de opacidad
+                $range.on('input', function() {
+                    updateOpacityValue($range);
+                    
+                    // Obtener el color picker asociado
+                    const colorPickerId = $range.attr('id').replace('-opacity', '');
+                    const $colorPicker = $('#' + colorPickerId);
+                    
+                    if ($colorPicker.length) {
+                        // Disparar evento personalizado para notificar el cambio
+                        $colorPicker.trigger('opacity-changed', [parseFloat($range.val())]);
+                    }
+                });
+            });
+            
+            // Manejar cambios en los color pickers para sincronizar con opacidad
+            $('.sfq-color-picker').each(function() {
+                const $colorPicker = $(this);
+                const colorPickerId = $colorPicker.attr('id');
+                const $opacityRange = $('#' + colorPickerId + '-opacity');
+                
+                if ($opacityRange.length) {
+                    // Inicializar el color picker de WordPress
+                    $colorPicker.wpColorPicker({
+                        change: function(event, ui) {
+                            // Cuando cambia el color, mantener la opacidad actual
+                            const opacity = parseFloat($opacityRange.val());
+                            const newColor = ui.color.toString();
+                            
+                            // Disparar evento personalizado
+                            $colorPicker.trigger('color-opacity-changed', [newColor, opacity]);
+                        }
+                    });
+                    
+                    // Escuchar eventos personalizados de cambio de opacidad
+                    $colorPicker.on('opacity-changed', function(event, opacity) {
+                        const currentColor = $colorPicker.val();
+                        $colorPicker.trigger('color-opacity-changed', [currentColor, opacity]);
+                    });
+                    
+                    // Evento combinado para cuando cambia color o opacidad
+                    $colorPicker.on('color-opacity-changed', function(event, color, opacity) {
+                        // Aquí se puede añadir lógica para aplicar los cambios en tiempo real
+                        // Por ejemplo, actualizar una vista previa
+                        console.log('Color changed:', color, 'Opacity:', opacity, 'RGBA:', hexToRgba(color, opacity));
+                        
+                        // Disparar evento global para que otros componentes puedan reaccionar
+                        $(document).trigger('sfq-style-changed', {
+                            element: colorPickerId,
+                            color: color,
+                            opacity: opacity,
+                            rgba: hexToRgba(color, opacity)
+                        });
+                    });
+                } else {
+                    // Inicializar color picker normal sin opacidad
+                    $colorPicker.wpColorPicker();
+                }
+            });
+            
+            // Función para obtener el valor RGBA de un color picker con opacidad
+            window.getSFQColorWithOpacity = function(colorPickerId) {
+                const $colorPicker = $('#' + colorPickerId);
+                const $opacityRange = $('#' + colorPickerId + '-opacity');
+                
+                if ($colorPicker.length && $opacityRange.length) {
+                    const color = $colorPicker.val();
+                    const opacity = parseFloat($opacityRange.val());
+                    return {
+                        hex: color,
+                        opacity: opacity,
+                        rgba: hexToRgba(color, opacity)
+                    };
+                }
+                
+                return null;
+            };
+            
+            // Función para establecer color y opacidad
+            window.setSFQColorWithOpacity = function(colorPickerId, color, opacity) {
+                const $colorPicker = $('#' + colorPickerId);
+                const $opacityRange = $('#' + colorPickerId + '-opacity');
+                
+                if ($colorPicker.length) {
+                    $colorPicker.val(color).trigger('change');
+                }
+                
+                if ($opacityRange.length && opacity !== undefined) {
+                    $opacityRange.val(opacity).trigger('input');
+                }
+            };
+            
+            // Escuchar cambios globales de estilo para debugging
+            $(document).on('sfq-style-changed', function(event, data) {
+                console.log('SFQ Style Changed:', data);
+            });
         });
         </script>
         <?php
