@@ -70,7 +70,7 @@
                 <div class="sfq-preview-minimized" id="sfq-preview-minimized">
                     <button class="sfq-preview-restore" type="button" title="Mostrar previsualización">
                         <span class="dashicons dashicons-visibility"></span>
-                        Vista Previa
+                        Vista Previa en Vivo
                     </button>
                 </div>
             `);
