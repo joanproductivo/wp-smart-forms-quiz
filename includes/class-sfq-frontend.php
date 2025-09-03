@@ -955,9 +955,11 @@ class SFQ_Frontend {
                 $option_text = $option_data['text'] ?? '';
                 $option_value = $option_data['value'] ?? $option_text;
                 $option_alt = $option_data['image_alt'] ?? $option_text;
+                $option_conditions = $option_data['conditions'] ?? array();
                 ?>
                 <div class="sfq-image-option" 
-                     data-value="<?php echo esc_attr($option_value); ?>">
+                     data-value="<?php echo esc_attr($option_value); ?>"
+                     data-conditions='<?php echo json_encode($option_conditions); ?>'>
                     
                     <?php if (!empty($option_image)) : ?>
                         <img src="<?php echo esc_url($option_image); ?>" 

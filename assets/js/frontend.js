@@ -254,7 +254,7 @@
             }
         }
 
-        handleMultipleChoice(e) {
+        async handleMultipleChoice(e) {
             const checkbox = e.target;
             const card = checkbox.closest('.sfq-option-card');
             const questionContainer = checkbox.closest('.sfq-multiple-choice');
@@ -273,15 +273,144 @@
                 selectedValues.push(cb.value);
             });
             this.responses[questionId] = selectedValues;
+
+            // ✅ AÑADIR: Procesar condiciones después de cada cambio
+            try {
+                // Mostrar indicador de procesamiento
+                this.showProcessingIndicator(questionContainer);
+
+                // Crear un elemento temporal con las condiciones para evaluar
+                const tempElement = document.createElement('div');
+                tempElement.dataset.conditions = checkbox.dataset.conditions || '[]';
+                tempElement.dataset.value = selectedValues.join(','); // Para condiciones que evalúen múltiples valores
+                
+                const redirectResult = await this.processConditionsImmediate(tempElement, questionId);
+                
+                if (redirectResult && redirectResult.shouldRedirect) {
+                    // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
+                    if (redirectResult.markAsCompleted) {
+                        console.log('SFQ: Marking form as completed before redirect to:', redirectResult.redirectUrl);
+                        
+                        // Mostrar indicador de procesamiento elegante
+                        this.showRedirectProcessingIndicator();
+                        
+                        try {
+                            // Marcar como completado silenciosamente
+                            await this.markFormAsCompleted();
+                            
+                            // Pequeña pausa para que el usuario vea el indicador
+                            setTimeout(() => {
+                                window.location.href = redirectResult.redirectUrl;
+                            }, 1500);
+                        } catch (error) {
+                            console.error('SFQ: Error marking form as completed before redirect:', error);
+                            // Redirigir de todos modos
+                            window.location.href = redirectResult.redirectUrl;
+                        }
+                    } else {
+                        // Redirección inmediata sin marcar como completado
+                        window.location.href = redirectResult.redirectUrl;
+                    }
+                    return;
+                }
+
+                // Si hay salto de pregunta, configurarlo
+                if (redirectResult && redirectResult.skipToQuestion) {
+                    this.skipToQuestion = redirectResult.skipToQuestion;
+                }
+
+                // ✅ CRÍTICO: Actualizar variables si las hay
+                if (redirectResult && redirectResult.variables) {
+                    console.log('SFQ Frontend Debug: Updating variables from:', this.variables, 'to:', redirectResult.variables);
+                    this.variables = { ...redirectResult.variables };
+                    console.log('SFQ Frontend Debug: Variables updated to:', this.variables);
+                }
+                
+            } catch (error) {
+                console.error('Error processing conditions in multiple choice:', error);
+                this.showError('Error al procesar las condiciones. Continuando...');
+            } finally {
+                // Ocultar indicador de procesamiento
+                this.hideProcessingIndicator(questionContainer);
+            }
         }
 
-        handleTextInput(e) {
+        async handleTextInput(e) {
             const input = e.target;
             const questionId = input.name.replace('question_', '');
             this.responses[questionId] = input.value;
+
+            // ✅ AÑADIR: Procesar condiciones con debounce para evitar spam
+            clearTimeout(this.textInputTimeout);
+            this.textInputTimeout = setTimeout(async () => {
+                try {
+                    // Mostrar indicador de procesamiento
+                    const questionContainer = input.closest('.sfq-question-screen');
+                    if (questionContainer) {
+                        this.showProcessingIndicator(questionContainer);
+                    }
+
+                    // Crear un elemento temporal con las condiciones para evaluar
+                    const tempElement = document.createElement('div');
+                    tempElement.dataset.conditions = input.dataset.conditions || '[]';
+                    tempElement.dataset.value = input.value;
+                    
+                    const redirectResult = await this.processConditionsImmediate(tempElement, questionId);
+                    
+                    if (redirectResult && redirectResult.shouldRedirect) {
+                        // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
+                        if (redirectResult.markAsCompleted) {
+                            console.log('SFQ: Marking form as completed before redirect to:', redirectResult.redirectUrl);
+                            
+                            // Mostrar indicador de procesamiento elegante
+                            this.showRedirectProcessingIndicator();
+                            
+                            try {
+                                // Marcar como completado silenciosamente
+                                await this.markFormAsCompleted();
+                                
+                                // Pequeña pausa para que el usuario vea el indicador
+                                setTimeout(() => {
+                                    window.location.href = redirectResult.redirectUrl;
+                                }, 1500);
+                            } catch (error) {
+                                console.error('SFQ: Error marking form as completed before redirect:', error);
+                                // Redirigir de todos modos
+                                window.location.href = redirectResult.redirectUrl;
+                            }
+                        } else {
+                            // Redirección inmediata sin marcar como completado
+                            window.location.href = redirectResult.redirectUrl;
+                        }
+                        return;
+                    }
+
+                    // Si hay salto de pregunta, configurarlo
+                    if (redirectResult && redirectResult.skipToQuestion) {
+                        this.skipToQuestion = redirectResult.skipToQuestion;
+                    }
+
+                    // ✅ CRÍTICO: Actualizar variables si las hay
+                    if (redirectResult && redirectResult.variables) {
+                        console.log('SFQ Frontend Debug: Updating variables from:', this.variables, 'to:', redirectResult.variables);
+                        this.variables = { ...redirectResult.variables };
+                        console.log('SFQ Frontend Debug: Variables updated to:', this.variables);
+                    }
+                    
+                } catch (error) {
+                    console.error('Error processing conditions in text input:', error);
+                    this.showError('Error al procesar las condiciones. Continuando...');
+                } finally {
+                    // Ocultar indicador de procesamiento
+                    const questionContainer = input.closest('.sfq-question-screen');
+                    if (questionContainer) {
+                        this.hideProcessingIndicator(questionContainer);
+                    }
+                }
+            }, 500); // Esperar 500ms después de que el usuario deje de escribir
         }
 
-        handleRating(e) {
+        async handleRating(e) {
             e.preventDefault();
             const button = e.currentTarget;
             const wrapper = button.closest('.sfq-rating-wrapper');
@@ -310,13 +439,73 @@
             wrapper.querySelector('input[type="hidden"]').value = value;
             this.responses[questionId] = value;
 
-            // Auto-avanzar si está configurado
+            // ✅ AÑADIR: Procesar condiciones inmediatamente
+            try {
+                // Mostrar indicador de procesamiento
+                this.showProcessingIndicator(wrapper);
+
+                // Crear un elemento temporal con las condiciones para evaluar
+                const tempElement = document.createElement('div');
+                tempElement.dataset.conditions = button.dataset.conditions || '[]';
+                tempElement.dataset.value = value;
+                
+                const redirectResult = await this.processConditionsImmediate(tempElement, questionId);
+                
+                if (redirectResult && redirectResult.shouldRedirect) {
+                    // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
+                    if (redirectResult.markAsCompleted) {
+                        console.log('SFQ: Marking form as completed before redirect to:', redirectResult.redirectUrl);
+                        
+                        // Mostrar indicador de procesamiento elegante
+                        this.showRedirectProcessingIndicator();
+                        
+                        try {
+                            // Marcar como completado silenciosamente
+                            await this.markFormAsCompleted();
+                            
+                            // Pequeña pausa para que el usuario vea el indicador
+                            setTimeout(() => {
+                                window.location.href = redirectResult.redirectUrl;
+                            }, 1500);
+                        } catch (error) {
+                            console.error('SFQ: Error marking form as completed before redirect:', error);
+                            // Redirigir de todos modos
+                            window.location.href = redirectResult.redirectUrl;
+                        }
+                    } else {
+                        // Redirección inmediata sin marcar como completado
+                        window.location.href = redirectResult.redirectUrl;
+                    }
+                    return;
+                }
+
+                // Si hay salto de pregunta, configurarlo
+                if (redirectResult && redirectResult.skipToQuestion) {
+                    this.skipToQuestion = redirectResult.skipToQuestion;
+                }
+
+                // ✅ CRÍTICO: Actualizar variables si las hay
+                if (redirectResult && redirectResult.variables) {
+                    console.log('SFQ Frontend Debug: Updating variables from:', this.variables, 'to:', redirectResult.variables);
+                    this.variables = { ...redirectResult.variables };
+                    console.log('SFQ Frontend Debug: Variables updated to:', this.variables);
+                }
+
+            } catch (error) {
+                console.error('Error processing conditions in rating:', error);
+                this.showError('Error al procesar las condiciones. Continuando...');
+            } finally {
+                // Ocultar indicador de procesamiento
+                this.hideProcessingIndicator(wrapper);
+            }
+
+            // Auto-avanzar si está configurado y no hay redirección
             if (this.settings.auto_advance) {
                 setTimeout(() => this.nextQuestion(), 300);
             }
         }
 
-        handleImageChoice(e) {
+        async handleImageChoice(e) {
             const option = e.currentTarget;
             const grid = option.closest('.sfq-image-grid');
             const questionId = grid.dataset.questionId;
@@ -333,10 +522,67 @@
             const input = option.querySelector('input');
             if (input) input.checked = true;
 
-            // Guardar respuesta
-            this.responses[questionId] = option.dataset.value;
+            // Guardar respuesta - buscar valor en sfq-image-label
+            const imageLabel = option.querySelector('.sfq-image-label');
+            const responseValue = imageLabel ? imageLabel.textContent.trim() : (option.dataset.value || '');
+            this.responses[questionId] = responseValue;
 
-            // Auto-avanzar si está configurado
+            // ✅ AÑADIR: Procesar condiciones inmediatamente
+            try {
+                // Mostrar indicador de procesamiento
+                this.showProcessingIndicator(grid);
+
+                const redirectResult = await this.processConditionsImmediate(option, questionId);
+                
+                if (redirectResult && redirectResult.shouldRedirect) {
+                    // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
+                    if (redirectResult.markAsCompleted) {
+                        console.log('SFQ: Marking form as completed before redirect to:', redirectResult.redirectUrl);
+                        
+                        // Mostrar indicador de procesamiento elegante
+                        this.showRedirectProcessingIndicator();
+                        
+                        try {
+                            // Marcar como completado silenciosamente
+                            await this.markFormAsCompleted();
+                            
+                            // Pequeña pausa para que el usuario vea el indicador
+                            setTimeout(() => {
+                                window.location.href = redirectResult.redirectUrl;
+                            }, 1500);
+                        } catch (error) {
+                            console.error('SFQ: Error marking form as completed before redirect:', error);
+                            // Redirigir de todos modos
+                            window.location.href = redirectResult.redirectUrl;
+                        }
+                    } else {
+                        // Redirección inmediata sin marcar como completado
+                        window.location.href = redirectResult.redirectUrl;
+                    }
+                    return;
+                }
+
+                // Si hay salto de pregunta, configurarlo
+                if (redirectResult && redirectResult.skipToQuestion) {
+                    this.skipToQuestion = redirectResult.skipToQuestion;
+                }
+
+                // ✅ CRÍTICO: Actualizar variables si las hay
+                if (redirectResult && redirectResult.variables) {
+                    console.log('SFQ Frontend Debug: Updating variables from:', this.variables, 'to:', redirectResult.variables);
+                    this.variables = { ...redirectResult.variables };
+                    console.log('SFQ Frontend Debug: Variables updated to:', this.variables);
+                }
+
+            } catch (error) {
+                console.error('Error processing conditions in image choice:', error);
+                this.showError('Error al procesar las condiciones. Continuando...');
+            } finally {
+                // Ocultar indicador de procesamiento
+                this.hideProcessingIndicator(grid);
+            }
+
+            // Auto-avanzar si está configurado y no hay redirección
             if (this.settings.auto_advance) {
                 setTimeout(() => this.nextQuestion(), 300);
             }
