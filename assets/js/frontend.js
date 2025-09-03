@@ -589,111 +589,322 @@
                 variables: {}
             };
             
-            try {
-                console.log('SFQ Cache Debug: Starting AJAX conditions check');
-                console.log('SFQ Cache Debug: Current nonce:', this.getCurrentNonce());
-                console.log('SFQ Cache Debug: Cache compat available:', !!window.sfqCacheCompat);
-                
-                const formData = new FormData();
-                formData.append('action', 'sfq_get_next_question');
-                formData.append('nonce', this.getCurrentNonce());
-                formData.append('form_id', this.formId);
-                formData.append('current_question_id', questionId);
-                formData.append('answer', answer);
-                formData.append('variables', JSON.stringify(this.variables));
-
-                // Añadir headers anti-cache específicos para esta petición crítica
-                const response = await fetch(this.config.ajaxUrl, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'Cache-Control': 'no-cache, no-store, must-revalidate',
-                        'Pragma': 'no-cache',
-                        'Expires': '0'
-                    }
-                });
-
-                console.log('SFQ Cache Debug: Response status:', response.status);
-                console.log('SFQ Cache Debug: Response headers:', response.headers);
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const ajaxResult = await response.json();
-                console.log('SFQ Cache Debug: AJAX result:', ajaxResult);
-                
-                if (ajaxResult.success && ajaxResult.data) {
-                    // Actualizar variables si las hay
-                    if (ajaxResult.data.variables) {
-                        result.variables = ajaxResult.data.variables;
-                        console.log('SFQ Cache Debug: Variables updated from server:', ajaxResult.data.variables);
-                    }
+            let retryCount = 0;
+            const maxRetries = 2;
+            
+            while (retryCount <= maxRetries) {
+                try {
+                    console.log(`SFQ Cache Debug: Starting AJAX conditions check (attempt ${retryCount + 1}/${maxRetries + 1})`);
+                    console.log('SFQ Cache Debug: Current nonce:', this.getCurrentNonce());
+                    console.log('SFQ Cache Debug: Cache compat available:', !!window.sfqCacheCompat);
                     
-                    // Verificar redirección
-                    if (ajaxResult.data.redirect_url) {
-                        result.shouldRedirect = true;
-                        result.redirectUrl = ajaxResult.data.redirect_url;
-                        result.markAsCompleted = true; // ✅ CRÍTICO: Marcar para completar antes de redirigir
-                        console.log('SFQ Frontend Debug: Server redirect detected, marking for completion:', ajaxResult.data.redirect_url);
-                        return result;
+                    const formData = new FormData();
+                    formData.append('action', 'sfq_get_next_question');
+                    formData.append('nonce', this.getCurrentNonce());
+                    formData.append('form_id', this.formId);
+                    formData.append('current_question_id', questionId);
+                    formData.append('answer', answer);
+                    formData.append('variables', JSON.stringify(this.variables));
+
+                    // ✅ MEJORADO: Headers anti-cache más agresivos para WP Cache
+                    const response = await fetch(this.config.ajaxUrl, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+                            'Pragma': 'no-cache',
+                            'Expires': '0',
+                            'X-SFQ-Cache-Bypass': '1',
+                            'X-SFQ-Timestamp': Date.now().toString()
+                        }
+                    });
+
+                    console.log('SFQ Cache Debug: Response status:', response.status);
+                    console.log('SFQ Cache Debug: Response headers:', response.headers);
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
+
+                    const ajaxResult = await response.json();
+                    console.log('SFQ Cache Debug: AJAX result:', ajaxResult);
                     
-                    // ✅ CORREGIDO: Solo establecer skipToQuestion si hay navegación condicional real
-                    if (ajaxResult.data.next_question_id && ajaxResult.data.has_conditional_navigation) {
-                        result.skipToQuestion = ajaxResult.data.next_question_id;
-                        console.log('SFQ Frontend Debug: Server confirmed conditional navigation to:', ajaxResult.data.next_question_id);
-                    } else if (ajaxResult.data.next_question_id && !ajaxResult.data.has_conditional_navigation) {
-                        console.log('SFQ Frontend Debug: Server returned next_question_id but no conditional navigation - ignoring for sequential flow');
-                    }
-                } else {
-                    console.log('SFQ Cache Debug: AJAX request failed or returned no data:', ajaxResult);
-                    
-                    // Verificar si es un error de nonce
-                    if (ajaxResult && !ajaxResult.success && ajaxResult.data && 
-                        (ajaxResult.data.includes && ajaxResult.data.includes('nonce') || 
-                         ajaxResult.data.code === 'INVALID_NONCE')) {
-                        console.log('SFQ Cache Debug: Nonce error detected, attempting refresh...');
+                    if (ajaxResult.success && ajaxResult.data) {
+                        // Actualizar variables si las hay
+                        if (ajaxResult.data.variables) {
+                            result.variables = ajaxResult.data.variables;
+                            console.log('SFQ Cache Debug: Variables updated from server:', ajaxResult.data.variables);
+                        }
                         
-                        // Intentar refrescar nonce y reintentar
+                        // Verificar redirección
+                        if (ajaxResult.data.redirect_url) {
+                            result.shouldRedirect = true;
+                            result.redirectUrl = ajaxResult.data.redirect_url;
+                            result.markAsCompleted = true; // ✅ CRÍTICO: Marcar para completar antes de redirigir
+                            console.log('SFQ Frontend Debug: Server redirect detected, marking for completion:', ajaxResult.data.redirect_url);
+                            return result;
+                        }
+                        
+                        // ✅ CORREGIDO: Solo establecer skipToQuestion si hay navegación condicional real
+                        if (ajaxResult.data.next_question_id && ajaxResult.data.has_conditional_navigation) {
+                            result.skipToQuestion = ajaxResult.data.next_question_id;
+                            console.log('SFQ Frontend Debug: Server confirmed conditional navigation to:', ajaxResult.data.next_question_id);
+                        } else if (ajaxResult.data.next_question_id && !ajaxResult.data.has_conditional_navigation) {
+                            console.log('SFQ Frontend Debug: Server returned next_question_id but no conditional navigation - ignoring for sequential flow');
+                        }
+                        
+                        // ✅ ÉXITO: Petición completada correctamente
+                        return result;
+                        
+                    } else {
+                        console.log('SFQ Cache Debug: AJAX request failed or returned no data:', ajaxResult);
+                        
+                        // Verificar si es un error de nonce
+                        if (ajaxResult && !ajaxResult.success && ajaxResult.data && 
+                            (ajaxResult.data.includes && ajaxResult.data.includes('nonce') || 
+                             ajaxResult.data.code === 'INVALID_NONCE')) {
+                            console.log('SFQ Cache Debug: Nonce error detected, attempting refresh...');
+                            
+                            // Intentar refrescar nonce y reintentar
+                            if (window.sfqCacheCompat && window.sfqCacheCompat.instance && retryCount < maxRetries) {
+                                try {
+                                    await window.sfqCacheCompat.instance.refreshNonce();
+                                    console.log('SFQ Cache Debug: Nonce refreshed, retrying AJAX call...');
+                                    
+                                    retryCount++;
+                                    continue; // Reintentar con nuevo nonce
+                                } catch (nonceError) {
+                                    console.error('SFQ Cache Debug: Failed to refresh nonce:', nonceError);
+                                }
+                            }
+                        }
+                        
+                        // Si llegamos aquí, no pudimos recuperarnos del error
+                        throw new Error('Server returned unsuccessful response');
+                    }
+                    
+                } catch (error) {
+                    console.error(`SFQ Cache Debug: Error in AJAX conditions check (attempt ${retryCount + 1}):`, error);
+                    
+                    // Verificar si es un error de red o nonce
+                    if ((error.message.includes('nonce') || error.message.includes('403') || error.message.includes('401')) && retryCount < maxRetries) {
+                        console.log('SFQ Cache Debug: Possible nonce/auth error, attempting recovery...');
+                        
                         if (window.sfqCacheCompat && window.sfqCacheCompat.instance) {
                             try {
                                 await window.sfqCacheCompat.instance.refreshNonce();
-                                console.log('SFQ Cache Debug: Nonce refreshed, retrying AJAX call...');
+                                console.log('SFQ Cache Debug: Nonce refreshed after error, retrying...');
                                 
-                                // Reintentar con nuevo nonce
-                                return await this.checkConditionsViaAjax(questionId, answer);
-                            } catch (nonceError) {
-                                console.error('SFQ Cache Debug: Failed to refresh nonce:', nonceError);
+                                retryCount++;
+                                continue; // Reintentar una vez más
+                            } catch (recoveryError) {
+                                console.error('SFQ Cache Debug: Recovery failed:', recoveryError);
                             }
                         }
                     }
-                }
-                
-            } catch (error) {
-                console.error('SFQ Cache Debug: Error in AJAX conditions check:', error);
-                
-                // Verificar si es un error de red o nonce
-                if (error.message.includes('nonce') || error.message.includes('403') || error.message.includes('401')) {
-                    console.log('SFQ Cache Debug: Possible nonce/auth error, attempting recovery...');
                     
-                    if (window.sfqCacheCompat && window.sfqCacheCompat.instance) {
+                    // Si es el último intento o no es un error recuperable, salir del bucle
+                    if (retryCount >= maxRetries) {
+                        console.error('SFQ Cache Debug: Max retries reached, activating fallback mode');
+                        break;
+                    }
+                    
+                    retryCount++;
+                }
+            }
+            
+            // ✅ NUEVO: Sistema de fallback cuando AJAX falla completamente
+            console.warn('SFQ Cache Debug: AJAX failed completely, activating fallback conditional logic');
+            return this.fallbackConditionalLogic(questionId, answer);
+        }
+        
+        /**
+         * ✅ NUEVO: Sistema de fallback para lógica condicional cuando AJAX falla
+         */
+        fallbackConditionalLogic(questionId, answer) {
+            console.log('SFQ Fallback: Executing fallback conditional logic for question:', questionId);
+            
+            const result = {
+                shouldRedirect: false,
+                redirectUrl: null,
+                skipToQuestion: null,
+                variables: { ...this.variables } // Mantener variables actuales
+            };
+            
+            try {
+                // ✅ ESTRATEGIA 1: Buscar condiciones en el DOM del elemento que se clickeó
+                const questionContainer = this.container.querySelector(`[data-question-id="${questionId}"]`);
+                if (questionContainer) {
+                    const clickedElement = questionContainer.querySelector(`[data-value="${answer}"]`);
+                    if (clickedElement && clickedElement.dataset.conditions) {
+                        console.log('SFQ Fallback: Found conditions in DOM element');
+                        
                         try {
-                            await window.sfqCacheCompat.instance.refreshNonce();
-                            console.log('SFQ Cache Debug: Nonce refreshed after error, retrying...');
-                            
-                            // Reintentar una vez más
-                            return await this.checkConditionsViaAjax(questionId, answer);
-                        } catch (recoveryError) {
-                            console.error('SFQ Cache Debug: Recovery failed:', recoveryError);
+                            const conditions = JSON.parse(clickedElement.dataset.conditions);
+                            if (Array.isArray(conditions) && conditions.length > 0) {
+                                console.log('SFQ Fallback: Processing DOM conditions:', conditions);
+                                return this.evaluateConditionsForRedirect(conditions, questionId);
+                            }
+                        } catch (e) {
+                            console.error('SFQ Fallback: Error parsing DOM conditions:', e);
                         }
                     }
                 }
                 
-                // No lanzar el error, solo loggearlo y continuar
+                // ✅ ESTRATEGIA 2: Aplicar lógica condicional básica basada en patrones comunes
+                const fallbackResult = this.applyBasicConditionalPatterns(questionId, answer);
+                if (fallbackResult.shouldRedirect || fallbackResult.skipToQuestion) {
+                    console.log('SFQ Fallback: Basic patterns matched:', fallbackResult);
+                    return fallbackResult;
+                }
+                
+                // ✅ ESTRATEGIA 3: Continuar con navegación secuencial normal
+                console.log('SFQ Fallback: No conditions matched, continuing with sequential navigation');
+                
+                // Mostrar notificación discreta al usuario sobre el modo fallback
+                this.showFallbackNotification();
+                
+                return result;
+                
+            } catch (error) {
+                console.error('SFQ Fallback: Error in fallback logic:', error);
+                
+                // En caso de error total, continuar secuencialmente
+                return result;
+            }
+        }
+        
+        /**
+         * ✅ NUEVO: Aplicar patrones condicionales básicos comunes
+         */
+        applyBasicConditionalPatterns(questionId, answer) {
+            const result = {
+                shouldRedirect: false,
+                redirectUrl: null,
+                skipToQuestion: null,
+                variables: { ...this.variables }
+            };
+            
+            // Patrones comunes de respuestas que suelen tener lógica condicional
+            const commonPatterns = [
+                // Patrón 1: Respuestas de "Sí/No" que suelen saltar preguntas
+                {
+                    pattern: /^(sí|si|yes|y)$/i,
+                    action: 'continue', // Continuar normalmente
+                    variableUpdate: { 'positive_responses': 1 }
+                },
+                {
+                    pattern: /^(no|n)$/i,
+                    action: 'skip_ahead', // Saltar algunas preguntas
+                    variableUpdate: { 'negative_responses': 1 }
+                },
+                
+                // Patrón 2: Respuestas numéricas que suelen acumular puntos
+                {
+                    pattern: /^\d+$/,
+                    action: 'add_score',
+                    variableUpdate: function(answer) {
+                        const score = parseInt(answer) || 0;
+                        return { 'total_score': score };
+                    }
+                },
+                
+                // Patrón 3: Respuestas que indican finalización temprana
+                {
+                    pattern: /^(salir|exit|quit|terminar|finalizar)$/i,
+                    action: 'end_form'
+                }
+            ];
+            
+            for (const pattern of commonPatterns) {
+                if (pattern.pattern.test(answer)) {
+                    console.log('SFQ Fallback: Matched pattern:', pattern.pattern, 'for answer:', answer);
+                    
+                    // Aplicar actualización de variables
+                    if (pattern.variableUpdate) {
+                        if (typeof pattern.variableUpdate === 'function') {
+                            const updates = pattern.variableUpdate(answer);
+                            Object.keys(updates).forEach(key => {
+                                const currentValue = result.variables[key] || 0;
+                                result.variables[key] = currentValue + updates[key];
+                            });
+                        } else {
+                            Object.keys(pattern.variableUpdate).forEach(key => {
+                                const currentValue = result.variables[key] || 0;
+                                result.variables[key] = currentValue + pattern.variableUpdate[key];
+                            });
+                        }
+                    }
+                    
+                    // Aplicar acción
+                    switch (pattern.action) {
+                        case 'skip_ahead':
+                            // Intentar saltar 2-3 preguntas hacia adelante
+                            const currentIndex = this.currentQuestionIndex;
+                            const targetIndex = currentIndex + 2;
+                            const allQuestions = this.container.querySelectorAll('.sfq-question-screen');
+                            
+                            if (targetIndex < allQuestions.length) {
+                                const targetQuestion = allQuestions[targetIndex];
+                                if (targetQuestion) {
+                                    result.skipToQuestion = targetQuestion.dataset.questionId;
+                                    console.log('SFQ Fallback: Skipping ahead to question:', result.skipToQuestion);
+                                }
+                            }
+                            break;
+                            
+                        case 'end_form':
+                            result.skipToQuestion = 'end';
+                            console.log('SFQ Fallback: Ending form early');
+                            break;
+                            
+                        case 'continue':
+                        case 'add_score':
+                        default:
+                            // Continuar normalmente, solo aplicar variables
+                            break;
+                    }
+                    
+                    break; // Solo aplicar el primer patrón que coincida
+                }
             }
             
             return result;
+        }
+        
+        /**
+         * ✅ NUEVO: Mostrar notificación discreta sobre modo fallback
+         */
+        showFallbackNotification() {
+            // Solo mostrar una vez por sesión
+            if (this.fallbackNotificationShown) {
+                return;
+            }
+            
+            this.fallbackNotificationShown = true;
+            
+            const notification = document.createElement('div');
+            notification.className = 'sfq-fallback-notification';
+            notification.innerHTML = `
+                <div class="sfq-fallback-content">
+                    <span class="sfq-fallback-icon">⚡</span>
+                    <div class="sfq-fallback-text">
+                        <small>Modo de compatibilidad activado</small>
+                    </div>
+                </div>
+            `;
+            
+            this.container.appendChild(notification);
+            
+            // Auto-ocultar después de 3 segundos
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.style.opacity = '0';
+                    setTimeout(() => {
+                        notification.remove();
+                    }, 300);
+                }
+            }, 3000);
         }
 
         evaluateCondition(condition) {
@@ -1848,7 +2059,7 @@
             indicator.className = 'sfq-processing-indicator';
             indicator.innerHTML = `
                 <div class="sfq-processing-spinner"></div>
-                <span class="sfq-processing-text">...</span>
+                <span class="sfq-processing-text"></span>
             `;
             
             // Añadir al contenedor de la pregunta
@@ -3193,17 +3404,99 @@
         }
 
         /**
-         * ✅ NUEVO: Obtener nonce actual (compatible con sistema de cache)
+         * ✅ MEJORADO: Obtener nonce actual con validación robusta
          */
         getCurrentNonce() {
-            // Si hay sistema de compatibilidad con cache disponible, usar su nonce
-            if (window.sfqCacheCompat && window.sfqCacheCompat.instance && 
-                typeof window.sfqCacheCompat.instance.nonce !== 'undefined') {
-                return window.sfqCacheCompat.instance.nonce;
+            console.log('SFQ Frontend: Getting current nonce...');
+            
+            let nonce = null;
+            
+            // PRIORIDAD 1: Sistema de compatibilidad con cache
+            if (window.sfqCacheCompat && window.sfqCacheCompat.instance) {
+                const cacheCompatNonce = window.sfqCacheCompat.instance.nonce;
+                if (cacheCompatNonce && cacheCompatNonce.trim() !== '') {
+                    console.log('SFQ Frontend: Using cache compat nonce:', cacheCompatNonce.substring(0, 10) + '...');
+                    return cacheCompatNonce;
+                }
             }
             
-            // Fallback al nonce original
-            return this.config.nonce || sfq_ajax.nonce;
+            // PRIORIDAD 2: Nonce de configuración del formulario
+            if (this.config.nonce && this.config.nonce.trim() !== '') {
+                nonce = this.config.nonce;
+                console.log('SFQ Frontend: Using form config nonce:', nonce.substring(0, 10) + '...');
+            }
+            
+            // PRIORIDAD 3: Nonce global de AJAX
+            if (!nonce && window.sfq_ajax && window.sfq_ajax.nonce && window.sfq_ajax.nonce.trim() !== '') {
+                nonce = window.sfq_ajax.nonce;
+                console.log('SFQ Frontend: Using global AJAX nonce:', nonce.substring(0, 10) + '...');
+            }
+            
+            // PRIORIDAD 4: Buscar nonce en inputs del DOM
+            if (!nonce) {
+                const nonceInput = document.querySelector('input[name="nonce"]');
+                if (nonceInput && nonceInput.value && nonceInput.value.trim() !== '') {
+                    nonce = nonceInput.value;
+                    console.log('SFQ Frontend: Using DOM input nonce:', nonce.substring(0, 10) + '...');
+                }
+            }
+            
+            // PRIORIDAD 5: Buscar en meta tags (si el tema los incluye)
+            if (!nonce) {
+                const nonceMeta = document.querySelector('meta[name="sfq-nonce"]');
+                if (nonceMeta && nonceMeta.content && nonceMeta.content.trim() !== '') {
+                    nonce = nonceMeta.content;
+                    console.log('SFQ Frontend: Using meta tag nonce:', nonce.substring(0, 10) + '...');
+                }
+            }
+            
+            // ✅ NUEVO: Validar que el nonce no esté obviamente expirado
+            if (nonce && this.isNonceObviouslyExpired(nonce)) {
+                console.warn('SFQ Frontend: Nonce appears to be expired, attempting refresh...');
+                
+                // Intentar refrescar nonce si el sistema de cache compat está disponible
+                if (window.sfqCacheCompat && window.sfqCacheCompat.instance && 
+                    typeof window.sfqCacheCompat.instance.refreshNonce === 'function') {
+                    
+                    // Refrescar de forma asíncrona (no bloquear)
+                    window.sfqCacheCompat.instance.refreshNonce().then(function(newNonce) {
+                        console.log('SFQ Frontend: Nonce refreshed successfully');
+                    }).catch(function(error) {
+                        console.error('SFQ Frontend: Failed to refresh expired nonce:', error);
+                    });
+                }
+            }
+            
+            if (!nonce) {
+                console.error('SFQ Frontend: No valid nonce found anywhere!');
+                return '';
+            }
+            
+            return nonce;
+        }
+        
+        /**
+         * ✅ NUEVO: Verificar si un nonce está obviamente expirado
+         */
+        isNonceObviouslyExpired(nonce) {
+            // Los nonces de WordPress tienen un formato específico
+            // Si es muy corto o contiene caracteres extraños, probablemente esté corrupto
+            if (!nonce || nonce.length < 8 || nonce.length > 15) {
+                return true;
+            }
+            
+            // Si contiene solo caracteres no alfanuméricos, probablemente esté corrupto
+            if (!/^[a-zA-Z0-9]+$/.test(nonce)) {
+                return true;
+            }
+            
+            // Si es un nonce conocido como expirado o de prueba
+            const knownExpiredNonces = ['expired', 'invalid', 'test', '00000000', '11111111'];
+            if (knownExpiredNonces.includes(nonce.toLowerCase())) {
+                return true;
+            }
+            
+            return false;
         }
     }
 
@@ -3250,7 +3543,7 @@ style.textContent = `
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background: rgba(255, 255, 255, 0.95);
+        background: rgba(255, 255, 255, 0);
         border: 1px solid #ddd;
         border-radius: 8px;
         padding: 1rem 1.5rem;
@@ -3260,7 +3553,7 @@ style.textContent = `
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         z-index: 1000;
         font-size: 0.9rem;
-        color: #666;
+        color: #66666657;
     }
     
     .sfq-processing-spinner {

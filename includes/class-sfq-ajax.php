@@ -71,6 +71,10 @@ class SFQ_Ajax {
         add_action('wp_ajax_sfq_upload_file', array($this, 'upload_file'));
         add_action('wp_ajax_nopriv_sfq_upload_file', array($this, 'upload_file'));
         
+        // ✅ NUEVO: AJAX handler para refresh de nonce (compatibilidad con cache)
+        add_action('wp_ajax_sfq_refresh_nonce', array($this, 'refresh_nonce'));
+        add_action('wp_ajax_nopriv_sfq_refresh_nonce', array($this, 'refresh_nonce'));
+        
     }
     
     /**
@@ -138,9 +142,17 @@ class SFQ_Ajax {
             return;
         }
         
-        // Decodificar datos JSON
-        $responses = json_decode(stripslashes($_POST['responses'] ?? '{}'), true);
-        $variables = json_decode(stripslashes($_POST['variables'] ?? '{}'), true);
+        // ✅ CORREGIDO: Decodificar datos JSON sin stripslashes para preservar acentos
+        $responses = json_decode($_POST['responses'] ?? '{}', true);
+        $variables = json_decode($_POST['variables'] ?? '{}', true);
+        
+        // ✅ FALLBACK: Si falla, intentar con stripslashes para compatibilidad con datos legacy
+        if (json_last_error() !== JSON_ERROR_NONE && isset($_POST['responses'])) {
+            $responses = json_decode(stripslashes($_POST['responses']), true);
+        }
+        if (json_last_error() !== JSON_ERROR_NONE && isset($_POST['variables'])) {
+            $variables = json_decode(stripslashes($_POST['variables']), true);
+        }
         
         if (!is_array($responses)) {
             $responses = array();
@@ -275,7 +287,12 @@ class SFQ_Ajax {
         
         $form_id = intval($_POST['form_id'] ?? 0);
         $event_type = sanitize_text_field($_POST['event_type'] ?? '');
-        $event_data = json_decode(stripslashes($_POST['event_data'] ?? '{}'), true);
+        // ✅ CORREGIDO: Decodificar JSON sin stripslashes para preservar acentos
+        $event_data = json_decode($_POST['event_data'] ?? '{}', true);
+        // ✅ FALLBACK: Si falla, intentar con stripslashes para compatibilidad
+        if (json_last_error() !== JSON_ERROR_NONE && isset($_POST['event_data'])) {
+            $event_data = json_decode(stripslashes($_POST['event_data']), true);
+        }
         $session_id = sanitize_text_field($_POST['session_id'] ?? '');
         
         // Validar datos requeridos
@@ -333,7 +350,12 @@ class SFQ_Ajax {
         $form_id = intval($_POST['form_id'] ?? 0);
         $current_question_id = intval($_POST['current_question_id'] ?? 0);
         $answer = sanitize_text_field($_POST['answer'] ?? '');
-        $variables = json_decode(stripslashes($_POST['variables'] ?? '{}'), true);
+        // ✅ CORREGIDO: Decodificar JSON sin stripslashes para preservar acentos
+        $variables = json_decode($_POST['variables'] ?? '{}', true);
+        // ✅ FALLBACK: Si falla, intentar con stripslashes para compatibilidad
+        if (json_last_error() !== JSON_ERROR_NONE && isset($_POST['variables'])) {
+            $variables = json_decode(stripslashes($_POST['variables']), true);
+        }
         
         // Validar datos requeridos
         if (!$form_id || !$current_question_id) {
@@ -2863,10 +2885,18 @@ class SFQ_Ajax {
             return;
         }
         
-        // Decodificar datos JSON
-        $responses = json_decode(stripslashes($_POST['responses'] ?? '{}'), true);
-        $variables = json_decode(stripslashes($_POST['variables'] ?? '{}'), true);
+        // ✅ CORREGIDO: Decodificar datos JSON sin stripslashes para preservar acentos
+        $responses = json_decode($_POST['responses'] ?? '{}', true);
+        $variables = json_decode($_POST['variables'] ?? '{}', true);
         $current_question = intval($_POST['current_question'] ?? 0);
+        
+        // ✅ FALLBACK: Si falla, intentar con stripslashes para compatibilidad
+        if (json_last_error() !== JSON_ERROR_NONE && isset($_POST['responses'])) {
+            $responses = json_decode(stripslashes($_POST['responses']), true);
+        }
+        if (json_last_error() !== JSON_ERROR_NONE && isset($_POST['variables'])) {
+            $variables = json_decode(stripslashes($_POST['variables']), true);
+        }
         
         if (!is_array($responses)) {
             $responses = array();
@@ -3714,6 +3744,82 @@ class SFQ_Ajax {
         }
         
         return $clean_array;
+    }
+    
+    /**
+     * ✅ NUEVO: Refrescar nonce para compatibilidad con cache
+     */
+    public function refresh_nonce() {
+        // ✅ CRÍTICO: Para refresh de nonce, usar validación más permisiva
+        // ya que el nonce actual puede estar expirado
+        
+        // Verificar que la petición venga de una fuente válida
+        if (!wp_doing_ajax()) {
+            wp_send_json_error(array(
+                'message' => __('Petición inválida', 'smart-forms-quiz'),
+                'code' => 'INVALID_REQUEST'
+            ));
+            return;
+        }
+        
+        // Rate limiting específico para refresh de nonce
+        if (!$this->check_rate_limit('refresh_nonce', 10, 60)) {
+            wp_send_json_error(array(
+                'message' => __('Demasiadas peticiones de refresh. Intenta de nuevo en un momento.', 'smart-forms-quiz'),
+                'code' => 'RATE_LIMIT_EXCEEDED'
+            ));
+            return;
+        }
+        
+        // Obtener datos de la petición
+        $old_nonce = sanitize_text_field($_POST['old_nonce'] ?? '');
+        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
+        
+        // Log para debugging
+        error_log('SFQ Nonce Refresh: Request received');
+        error_log('SFQ Nonce Refresh: Old nonce: ' . substr($old_nonce, 0, 8) . '...');
+        error_log('SFQ Nonce Refresh: Session ID: ' . $session_id);
+        
+        try {
+            // ✅ NUEVO: Generar nuevo nonce
+            $new_nonce = wp_create_nonce('sfq_nonce');
+            
+            if (!$new_nonce) {
+                throw new Exception('Failed to generate new nonce');
+            }
+            
+            // ✅ NUEVO: Añadir headers anti-cache específicos
+            if (!headers_sent()) {
+                header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
+                header('Pragma: no-cache');
+                header('Expires: 0');
+                header('X-SFQ-Nonce-Refresh: 1');
+            }
+            
+            // Calcular tiempo de vida del nonce (12 horas por defecto)
+            $nonce_lifetime = apply_filters('nonce_life', DAY_IN_SECONDS / 2);
+            
+            error_log('SFQ Nonce Refresh: New nonce generated: ' . substr($new_nonce, 0, 8) . '...');
+            error_log('SFQ Nonce Refresh: Nonce lifetime: ' . $nonce_lifetime . ' seconds');
+            
+            wp_send_json_success(array(
+                'nonce' => $new_nonce,
+                'lifetime' => $nonce_lifetime,
+                'expires_at' => time() + $nonce_lifetime,
+                'session_id' => $session_id,
+                'message' => __('Nonce refrescado correctamente', 'smart-forms-quiz'),
+                'timestamp' => current_time('timestamp')
+            ));
+            
+        } catch (Exception $e) {
+            error_log('SFQ Nonce Refresh Error: ' . $e->getMessage());
+            
+            wp_send_json_error(array(
+                'message' => __('Error al refrescar nonce', 'smart-forms-quiz'),
+                'code' => 'REFRESH_FAILED',
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
+        }
     }
     
 }

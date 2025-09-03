@@ -211,11 +211,19 @@ class SFQ_Utils {
         
         // Decodificar JSON si es string
         if (is_string($options)) {
-            $decoded = json_decode(stripslashes($options), true);
+            // ✅ CORREGIDO: Eliminar stripslashes() que causaba problemas con acentos
+            // stripslashes() interfiere con la codificación UTF-8 de caracteres especiales
+            $decoded = json_decode($options, true);
             if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
                 $options = $decoded;
             } else {
-                return array();
+                // ✅ FALLBACK: Si falla, intentar con stripslashes() para compatibilidad con datos legacy
+                $decoded = json_decode(stripslashes($options), true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    $options = $decoded;
+                } else {
+                    return array();
+                }
             }
         }
         

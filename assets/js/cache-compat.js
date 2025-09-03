@@ -57,29 +57,106 @@
                 if (settings.url && settings.url.includes('admin-ajax.php') && 
                     settings.data && settings.data.includes('action=sfq_')) {
                     
-                    // Verificar si el nonce está próximo a expirar
+                    console.log('SFQ Cache Compat: Intercepting AJAX request:', settings.data);
+                    
+                    // ✅ MEJORADO: Verificar si el nonce está próximo a expirar
                     if (self.isNonceNearExpiry()) {
+                        console.log('SFQ Cache Compat: Nonce near expiry, refreshing before request');
                         // Pausar la petición y refrescar nonce primero
                         xhr.abort();
                         self.refreshNonceAndRetry(settings);
                         return false;
                     }
                     
-                    // Asegurar que se use el nonce más reciente
+                    // ✅ MEJORADO: Asegurar que se use el nonce más reciente
                     if (self.nonce && settings.data) {
+                        const oldData = settings.data;
                         settings.data = self.updateNonceInData(settings.data);
+                        console.log('SFQ Cache Compat: Updated nonce in request data');
+                    }
+                    
+                    // ✅ NUEVO: Añadir headers anti-cache específicos para WP Cache
+                    xhr.setRequestHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+                    xhr.setRequestHeader('Pragma', 'no-cache');
+                    xhr.setRequestHeader('Expires', '0');
+                    xhr.setRequestHeader('X-SFQ-Cache-Bypass', '1');
+                    
+                    // ✅ NUEVO: Añadir timestamp único para evitar cache
+                    const timestamp = Date.now();
+                    if (typeof settings.data === 'string') {
+                        settings.data += '&_cache_bust=' + timestamp;
+                    } else if (typeof settings.data === 'object') {
+                        settings.data._cache_bust = timestamp;
                     }
                 }
             });
             
-            // Manejar errores de nonce expirado
+            // ✅ MEJORADO: Manejar errores de nonce expirado con detección más robusta
             $(document).ajaxError(function(event, xhr, settings, error) {
-                if (xhr.responseJSON && xhr.responseJSON.data && 
-                    xhr.responseJSON.data.includes && 
-                    xhr.responseJSON.data.includes('nonce')) {
+                // Solo procesar errores de peticiones SFQ
+                if (!settings.url || !settings.url.includes('admin-ajax.php') || 
+                    !settings.data || !settings.data.includes('action=sfq_')) {
+                    return;
+                }
+                
+                console.log('SFQ Cache Compat: AJAX error detected:', {
+                    status: xhr.status,
+                    statusText: xhr.statusText,
+                    responseText: xhr.responseText,
+                    responseJSON: xhr.responseJSON
+                });
+                
+                let isNonceError = false;
+                
+                // ✅ MEJORADO: Detección múltiple de errores de nonce
+                if (xhr.responseJSON) {
+                    const response = xhr.responseJSON;
                     
-                    console.log('SFQ Cache Compat: Nonce error detected, refreshing...');
+                    // Verificar diferentes formatos de error de nonce
+                    if (!response.success) {
+                        const errorData = response.data;
+                        
+                        // Formato 1: String que contiene 'nonce'
+                        if (typeof errorData === 'string' && 
+                            (errorData.includes('nonce') || errorData.includes('seguridad'))) {
+                            isNonceError = true;
+                        }
+                        
+                        // Formato 2: Objeto con código de error
+                        if (typeof errorData === 'object' && errorData.code) {
+                            if (errorData.code === 'INVALID_NONCE' || 
+                                errorData.code === 'rest_cookie_invalid_nonce') {
+                                isNonceError = true;
+                            }
+                        }
+                        
+                        // Formato 3: Mensaje directo
+                        if (response.message && 
+                            (response.message.includes('nonce') || response.message.includes('seguridad'))) {
+                            isNonceError = true;
+                        }
+                    }
+                } else if (xhr.responseText) {
+                    // ✅ NUEVO: Verificar también en responseText para casos edge
+                    const responseText = xhr.responseText.toLowerCase();
+                    if (responseText.includes('nonce') || 
+                        responseText.includes('security') || 
+                        responseText.includes('seguridad')) {
+                        isNonceError = true;
+                    }
+                }
+                
+                // ✅ NUEVO: También considerar errores 403 como posibles errores de nonce
+                if (xhr.status === 403) {
+                    console.log('SFQ Cache Compat: 403 error detected, treating as potential nonce error');
+                    isNonceError = true;
+                }
+                
+                if (isNonceError) {
+                    console.log('SFQ Cache Compat: Nonce error confirmed, attempting refresh and retry');
                     self.refreshNonceAndRetry(settings);
+                } else {
+                    console.log('SFQ Cache Compat: Non-nonce error, not retrying');
                 }
             });
         },
@@ -351,11 +428,25 @@
     
     // Inicializar cuando el DOM esté listo
     $(document).ready(function() {
-        // Solo inicializar si hay configuración de cache compat
+        // ✅ CRÍTICO: Inicializar siempre, incluso sin configuración previa
+        // Esto asegura que el sistema esté disponible cuando WP Cache cause problemas
         if (window.sfqCacheCompat) {
             CacheCompat.init();
             
             // Hacer disponible globalmente para debug
+            window.sfqCacheCompat.instance = CacheCompat;
+        } else {
+            // ✅ NUEVO: Inicialización de emergencia para casos de WP Cache
+            console.log('SFQ Cache Compat: No config found, initializing emergency mode');
+            
+            // Crear configuración mínima de emergencia
+            window.sfqCacheCompat = {
+                ajax_url: sfq_ajax ? sfq_ajax.ajax_url : '/wp-admin/admin-ajax.php',
+                nonce_lifetime: 43200, // 12 horas por defecto
+                refresh_interval: 300000 // 5 minutos
+            };
+            
+            CacheCompat.init();
             window.sfqCacheCompat.instance = CacheCompat;
         }
     });
