@@ -2596,8 +2596,34 @@ class SFQ_Frontend {
             return;
         }
         
+        // ✅ NUEVO: Obtener el valor real de la variable desde las variables globales del formulario
+        $display_value = $preview_value; // Valor por defecto (para admin/preview)
+        
+        // Intentar obtener el valor real de la variable si estamos en el frontend
+        if (!is_admin()) {
+            // Obtener las variables globales del formulario actual
+            $form_id = $this->get_current_form_id($question_id);
+            if ($form_id) {
+                $form = $this->database->get_form($form_id);
+                if ($form && isset($form->global_variables) && is_array($form->global_variables)) {
+                    // Buscar la variable por nombre
+                    foreach ($form->global_variables as $global_var) {
+                        if (isset($global_var['name']) && $global_var['name'] === $variable_name) {
+                            $display_value = $global_var['initial_value'] ?? $preview_value;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        
         // Aplicar estilos personalizados desde las configuraciones
         $styles = array();
+        
+        // ✅ NUEVO: Ancho adaptado al contenido
+        $styles['display'] = 'inline-block';
+        $styles['width'] = 'auto';
+        $styles['max-width'] = '100%';
         
         // Tamaño de fuente
         if (!empty($settings['font_size'])) {
@@ -2624,9 +2650,17 @@ class SFQ_Frontend {
             $styles['background-color'] = $settings['background_color'];
         }
         
-        // Color de borde
+        // Color de borde con opacidad
         if (!empty($settings['border_color'])) {
-            $styles['border'] = '2px solid ' . $settings['border_color'];
+            $border_color = $settings['border_color'];
+            $border_opacity = $settings['border_opacity'] ?? '1';
+            
+            if ($border_opacity != '1') {
+                $border_rgba = $this->hex_to_rgba($border_color, $border_opacity);
+                $styles['border'] = '2px solid ' . $border_rgba;
+            } else {
+                $styles['border'] = '2px solid ' . $border_color;
+            }
         }
         
         // Radio del borde
@@ -2660,14 +2694,16 @@ class SFQ_Frontend {
         }
         
         ?>
-        <div class="sfq-freestyle-variable-display" 
-             data-element-id="<?php echo esc_attr($element['id']); ?>"
-             data-variable-name="<?php echo esc_attr($variable_name); ?>"
-             style="<?php echo esc_attr(trim($style_string)); ?>">
-            
-            <span class="sfq-variable-value" data-variable="<?php echo esc_attr($variable_name); ?>">
-                <?php echo esc_html($preview_value); ?>
-            </span>
+        <div class="sfq-freestyle-variable-display-wrapper" style="text-align: <?php echo esc_attr($settings['text_align'] ?? 'left'); ?>;">
+            <div class="sfq-freestyle-variable-display" 
+                 data-element-id="<?php echo esc_attr($element['id']); ?>"
+                 data-variable-name="<?php echo esc_attr($variable_name); ?>"
+                 style="<?php echo esc_attr(trim($style_string)); ?>">
+                
+                <span class="sfq-variable-value" data-variable="<?php echo esc_attr($variable_name); ?>">
+                    <?php echo esc_html($display_value); ?>
+                </span>
+            </div>
         </div>
         
         <!-- Campo oculto para registrar que se mostró la variable -->
@@ -2676,6 +2712,26 @@ class SFQ_Frontend {
                value="variable_displayed"
                class="sfq-variable-tracker">
         <?php
+    }
+    
+    /**
+     * ✅ NUEVO: Obtener el ID del formulario actual basado en el ID de pregunta
+     */
+    private function get_current_form_id($question_id) {
+        if (empty($question_id)) {
+            return null;
+        }
+        
+        // Intentar obtener el form_id desde la base de datos usando el question_id
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'sfq_forms';
+        
+        $form_id = $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$table_name} WHERE JSON_SEARCH(questions, 'one', %s, NULL, '$[*].id') IS NOT NULL",
+            $question_id
+        ));
+        
+        return $form_id ? intval($form_id) : null;
     }
     
     /**

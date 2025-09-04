@@ -3270,6 +3270,21 @@
                                value="${settings.text_color || '#333333'}">
                     </label>
                     <label class="sfq-config-label">
+                        Color del borde:
+                        <input type="color" class="sfq-config-input" data-setting="border_color" 
+                               value="${settings.border_color || '#e9ecef'}">
+                    </label>
+                </div>
+                
+                <div class="sfq-config-row variable-display-colors">
+                    <label class="sfq-config-label">
+                        Opacidad del borde:
+                        <input type="range" class="sfq-config-input" data-setting="border_opacity" 
+                               min="0" max="1" step="0.1" 
+                               value="${settings.border_opacity || '1'}">
+                        <span class="sfq-border-opacity-display">${settings.border_opacity || '1'}</span>
+                    </label>
+                    <label class="sfq-config-label">
                         Color de fondo:
                         <input type="color" class="sfq-config-input" data-setting="background_color" 
                                value="${settings.background_color || '#f8f9fa'}">
@@ -3277,11 +3292,6 @@
                 </div>
                 
                 <div class="sfq-config-row variable-display-colors">
-                    <label class="sfq-config-label">
-                        Color del borde:
-                        <input type="color" class="sfq-config-input" data-setting="border_color" 
-                               value="${settings.border_color || '#e9ecef'}">
-                    </label>
                     <label class="sfq-config-label">
                         Opacidad del fondo:
                         <input type="range" class="sfq-config-input" data-setting="background_opacity" 
@@ -3431,6 +3441,11 @@
             $panel.find('[data-setting="background_opacity"]').on('input', function() {
                 const value = $(this).val();
                 $panel.find('.sfq-opacity-display').text(value);
+            });
+            
+            $panel.find('[data-setting="border_opacity"]').on('input', function() {
+                const value = $(this).val();
+                $panel.find('.sfq-border-opacity-display').text(value);
             });
             
             $panel.find('[data-setting="border_radius"]').on('input', function() {

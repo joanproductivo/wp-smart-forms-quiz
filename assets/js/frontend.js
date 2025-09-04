@@ -52,6 +52,12 @@
                     const globalVariables = JSON.parse(variablesInput.value);
                     this.variables = { ...globalVariables };
                     console.log('SFQ Frontend Debug: Initialized global variables:', this.variables);
+                    
+                    // ✅ NUEVO: Actualizar DOM inmediatamente después de inicializar variables
+                    setTimeout(() => {
+                        this.updateVariablesInDOM();
+                    }, 100); // Pequeño delay para asegurar que el DOM esté listo
+                    
                 } catch (e) {
                     console.error('SFQ Frontend Error: Failed to parse global variables:', e);
                     this.variables = {};
@@ -60,6 +66,37 @@
                 console.log('SFQ Frontend Debug: No global variables found, using empty object');
                 this.variables = {};
             }
+        }
+
+        /**
+         * ✅ CRÍTICO: Actualizar variables si las hay
+         */
+        updateVariablesInDOM() {
+            console.log('SFQ Frontend Debug: Updating variables in DOM:', this.variables);
+            
+            // Buscar todos los elementos que muestran variables
+            const variableElements = this.container.querySelectorAll('.sfq-variable-value[data-variable]');
+            
+            variableElements.forEach(element => {
+                const variableName = element.dataset.variable;
+                if (this.variables.hasOwnProperty(variableName)) {
+                    const newValue = this.variables[variableName];
+                    console.log(`SFQ Frontend Debug: Updating variable ${variableName} from ${element.textContent} to ${newValue}`);
+                    
+                    // ✅ NUEVO: Añadir animación suave al cambio de valor
+                    if (element.textContent !== newValue.toString()) {
+                        element.style.transition = 'all 0.3s ease';
+                        element.style.transform = 'scale(1.1)';
+                        element.style.opacity = '0.7';
+                        
+                        setTimeout(() => {
+                            element.textContent = newValue;
+                            element.style.transform = 'scale(1)';
+                            element.style.opacity = '1';
+                        }, 150);
+                    }
+                }
+            });
         }
 
         init() {
@@ -238,6 +275,8 @@
                     console.log('SFQ Frontend Debug: Updating variables from:', this.variables, 'to:', redirectResult.variables);
                     this.variables = { ...redirectResult.variables };
                     console.log('SFQ Frontend Debug: Variables updated to:', this.variables);
+                    // ✅ NUEVO: Actualizar DOM con nuevos valores
+                    this.updateVariablesInDOM();
                 }
 
             } catch (error) {
@@ -324,6 +363,8 @@
                     console.log('SFQ Frontend Debug: Updating variables from:', this.variables, 'to:', redirectResult.variables);
                     this.variables = { ...redirectResult.variables };
                     console.log('SFQ Frontend Debug: Variables updated to:', this.variables);
+                    // ✅ NUEVO: Actualizar DOM con nuevos valores
+                    this.updateVariablesInDOM();
                 }
                 
             } catch (error) {
@@ -395,6 +436,8 @@
                         console.log('SFQ Frontend Debug: Updating variables from:', this.variables, 'to:', redirectResult.variables);
                         this.variables = { ...redirectResult.variables };
                         console.log('SFQ Frontend Debug: Variables updated to:', this.variables);
+                        // ✅ NUEVO: Actualizar DOM con nuevos valores
+                        this.updateVariablesInDOM();
                     }
                     
                 } catch (error) {
