@@ -3415,6 +3415,12 @@
             // Actualizar visibilidad del botón siguiente
             this.updateNextButtonVisibility(questionElement);
 
+            // ✅ SOLUCIÓN: Actualizar variables en DOM después de insertar la pregunta
+            setTimeout(() => {
+                console.log('SFQ Secure: Updating variables in DOM for newly inserted question');
+                this.updateVariablesInDOM();
+            }, 100);
+
             // Hacer scroll si está habilitado
             if (this.settings.auto_scroll_to_form !== false) {
                 this.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -3475,6 +3481,12 @@
 
             // Reinicializar eventos para la pantalla final (si tiene elementos interactivos)
             this.bindEventsForNewQuestion(finalScreenElement);
+
+            // ✅ SOLUCIÓN: Actualizar variables en DOM después de insertar la pantalla final
+            setTimeout(() => {
+                console.log('SFQ Secure: Updating variables in DOM for newly inserted final screen');
+                this.updateVariablesInDOM();
+            }, 100);
 
             // Actualizar progreso al 100% para pantallas finales
             this.updateProgress();
