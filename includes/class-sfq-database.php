@@ -444,31 +444,58 @@ class SFQ_Database {
      * Procesar elementos freestyle
      */
     private function process_freestyle_elements($elements_json) {
+        error_log('SFQ: === PROCESSING FREESTYLE ELEMENTS DEBUG ===');
+        error_log('SFQ: Raw elements JSON: ' . $elements_json);
+        
         if (empty($elements_json)) {
+            error_log('SFQ: Empty elements JSON, returning empty array');
             return [];
         }
         
         // Decodificar JSON
         $elements = json_decode($elements_json, true);
+        error_log('SFQ: Decoded elements: ' . json_encode($elements));
+        error_log('SFQ: JSON decode error: ' . json_last_error_msg());
         
         if (!is_array($elements)) {
+            error_log('SFQ: Elements is not an array, returning empty array');
             return [];
         }
         
+        error_log('SFQ: Processing ' . count($elements) . ' elements');
+        
         // Procesar cada elemento
         $processed_elements = [];
-        foreach ($elements as $element) {
+        foreach ($elements as $index => $element) {
+            error_log('SFQ: --- Processing element ' . ($index + 1) . ' ---');
+            error_log('SFQ: Element data: ' . json_encode($element));
+            
             if (!is_array($element) || empty($element['type'])) {
+                error_log('SFQ: SKIPPING - Element is not array or has no type');
                 continue;
             }
             
-        // Validar que el tipo sea válido
-        $valid_types = ['text', 'video', 'image', 'countdown', 'phone', 'email', 'file_upload', 'button', 'rating', 'dropdown', 'checkbox', 'legal_text', 'variable_display'];
-        if (!in_array($element['type'], $valid_types)) {
-            continue;
-        }
+            $element_type = $element['type'];
+            error_log('SFQ: Element type: ' . $element_type);
             
-            $processed_elements[] = [
+            // Validar que el tipo sea válido
+            $valid_types = ['text', 'video', 'image', 'countdown', 'phone', 'email', 'file_upload', 'button', 'rating', 'dropdown', 'checkbox', 'legal_text', 'variable_display', 'styled_text'];
+            if (!in_array($element_type, $valid_types)) {
+                error_log('SFQ: SKIPPING - Invalid element type: ' . $element_type);
+                error_log('SFQ: Valid types: ' . json_encode($valid_types));
+                continue;
+            }
+            
+            // ✅ CRÍTICO: Log específico para styled_text
+            if ($element_type === 'styled_text') {
+                error_log('SFQ: *** STYLED_TEXT ELEMENT FOUND ***');
+                error_log('SFQ: styled_text ID: ' . ($element['id'] ?? 'NO ID'));
+                error_log('SFQ: styled_text label: ' . ($element['label'] ?? 'NO LABEL'));
+                error_log('SFQ: styled_text settings: ' . json_encode($element['settings'] ?? []));
+                error_log('SFQ: styled_text settings size: ' . strlen(json_encode($element['settings'] ?? [])) . ' bytes');
+            }
+            
+            $processed_element = [
                 'id' => $element['id'] ?? 'element_' . time() . '_' . count($processed_elements),
                 'type' => $element['type'],
                 'label' => sanitize_text_field($element['label'] ?? ''),
@@ -476,12 +503,37 @@ class SFQ_Database {
                 'settings' => is_array($element['settings'] ?? null) ? $element['settings'] : [],
                 'value' => sanitize_text_field($element['value'] ?? '')
             ];
+            
+            error_log('SFQ: Processed element: ' . json_encode($processed_element));
+            
+            // ✅ CRÍTICO: Log específico después del procesamiento de styled_text
+            if ($element_type === 'styled_text') {
+                error_log('SFQ: *** STYLED_TEXT AFTER PROCESSING ***');
+                error_log('SFQ: Processed settings: ' . json_encode($processed_element['settings']));
+                error_log('SFQ: Settings preserved: ' . (count($processed_element['settings']) > 0 ? 'YES' : 'NO'));
+            }
+            
+            $processed_elements[] = $processed_element;
         }
+        
+        error_log('SFQ: Total processed elements: ' . count($processed_elements));
+        
+        // Log específico de elementos styled_text en el resultado final
+        $styled_text_count = 0;
+        foreach ($processed_elements as $element) {
+            if ($element['type'] === 'styled_text') {
+                $styled_text_count++;
+                error_log('SFQ: Final styled_text element #' . $styled_text_count . ': ' . json_encode($element));
+            }
+        }
+        error_log('SFQ: Total styled_text elements in final result: ' . $styled_text_count);
         
         // Ordenar por orden
         usort($processed_elements, function($a, $b) {
             return $a['order'] - $b['order'];
         });
+        
+        error_log('SFQ: === END PROCESSING FREESTYLE ELEMENTS DEBUG ===');
         
         return $processed_elements;
     }
@@ -987,6 +1039,33 @@ class SFQ_Database {
                 $options_data = array();
                 if ($question['question_type'] === 'freestyle') {
                     $options_data = $question['freestyle_elements'] ?? array();
+                    
+                    // ✅ CRÍTICO: Log específico para elementos styled_text durante el guardado
+                    if (!empty($options_data)) {
+                        error_log('SFQ: === SAVING FREESTYLE ELEMENTS ===');
+                        error_log('SFQ: Question text: ' . ($question['question_text'] ?? 'NO TEXT'));
+                        error_log('SFQ: Total elements to save: ' . count($options_data));
+                        
+                        $styled_text_elements = array_filter($options_data, function($element) {
+                            return isset($element['type']) && $element['type'] === 'styled_text';
+                        });
+                        
+                        error_log('SFQ: styled_text elements to save: ' . count($styled_text_elements));
+                        
+                        foreach ($styled_text_elements as $st_index => $st_element) {
+                            error_log('SFQ: styled_text element #' . ($st_index + 1) . ':');
+                            error_log('SFQ: - ID: ' . ($st_element['id'] ?? 'NO ID'));
+                            error_log('SFQ: - Label: ' . ($st_element['label'] ?? 'NO LABEL'));
+                            error_log('SFQ: - Settings count: ' . (isset($st_element['settings']) ? count($st_element['settings']) : 0));
+                            error_log('SFQ: - Settings: ' . json_encode($st_element['settings'] ?? []));
+                        }
+                        
+                        // Log del JSON que se va a guardar
+                        $json_to_save = wp_json_encode($options_data);
+                        error_log('SFQ: JSON size to save: ' . strlen($json_to_save) . ' bytes');
+                        error_log('SFQ: JSON preview (first 500 chars): ' . substr($json_to_save, 0, 500));
+                        error_log('SFQ: === END SAVING FREESTYLE ELEMENTS ===');
+                    }
                 } else {
                     $options_data = $question['options'] ?? array();
                 }

@@ -2366,7 +2366,7 @@
                 const validTypes = [
                     'text', 'video', 'image', 'countdown', 'phone', 'email', 
                     'file_upload', 'button', 'rating', 'dropdown', 'checkbox', 
-                    'legal_text', 'variable_display'
+                    'legal_text', 'variable_display', 'styled_text'
                 ];
                 
                 const elementType = element.type || 'text';
@@ -2536,7 +2536,8 @@
             
             // ✅ CRÍTICO: Inicializar el estado del checkbox según los settings guardados
             // SOLUCIÓN: Asegurar que settings existe como objeto antes de acceder a hide_title
-            if (!question.settings || typeof question.settings !== 'object') {
+            if (!question.settings || typeof question.settings !== 'object' || Array.isArray(question.settings)) {
+                console.log('SFQ: FIXING INVALID SETTINGS - was:', typeof question.settings, Array.isArray(question.settings) ? '(array)' : '', question.settings);
                 question.settings = {};
                 console.log('SFQ: Initialized empty settings object for question', question.id);
             }
@@ -2854,6 +2855,9 @@
                     break;
                 case 'variable_display':
                     specificConfig = this.createVariableDisplayConfig(element);
+                    break;
+                case 'styled_text':
+                    specificConfig = this.createStyledTextConfig(element);
                     break;
                 default:
                     specificConfig = '<div class="sfq-config-notice">Configuración específica próximamente</div>';
@@ -3359,6 +3363,154 @@
             `;
         }
         
+        createStyledTextConfig(element) {
+            const settings = element.settings || {};
+            
+            return `
+                <h5>✨ Configuración de Texto Estilizado</h5>
+                
+                <!-- Contenido del texto -->
+                <label class="sfq-config-label">
+                    Contenido del texto:
+                    <textarea class="sfq-config-input" data-setting="text_content" rows="3" 
+                              placeholder="Escribe aquí el texto que quieres mostrar">${this.formBuilder.uiRenderer.escapeHtml(settings.text_content || '')}</textarea>
+                    <small>Este es el texto que verán los usuarios</small>
+                </label>
+                
+                <!-- Tipo de texto -->
+                <label class="sfq-config-label">
+                    Tipo de elemento:
+                    <select class="sfq-config-input" data-setting="text_type">
+                        <option value="paragraph" ${settings.text_type === 'paragraph' || !settings.text_type ? 'selected' : ''}>Párrafo</option>
+                        <option value="title" ${settings.text_type === 'title' ? 'selected' : ''}>Título</option>
+                    </select>
+                    <small>Los títulos tienen mayor peso visual que los párrafos</small>
+                </label>
+                
+                <!-- Configuración de tipografía -->
+                <h6 style="margin-top: 20px; margin-bottom: 10px;">🔤 Tipografía</h6>
+                
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Familia de fuente:
+                        <select class="sfq-config-input" data-setting="font_family">
+                            <option value="inherit" ${settings.font_family === 'inherit' || !settings.font_family ? 'selected' : ''}>Por defecto</option>
+                            <option value="Arial, sans-serif" ${settings.font_family === 'Arial, sans-serif' ? 'selected' : ''}>Arial</option>
+                            <option value="'Times New Roman', serif" ${settings.font_family === "'Times New Roman', serif" ? 'selected' : ''}>Times New Roman</option>
+                            <option value="'Courier New', monospace" ${settings.font_family === "'Courier New', monospace" ? 'selected' : ''}>Courier New</option>
+                            <option value="Georgia, serif" ${settings.font_family === 'Georgia, serif' ? 'selected' : ''}>Georgia</option>
+                            <option value="Verdana, sans-serif" ${settings.font_family === 'Verdana, sans-serif' ? 'selected' : ''}>Verdana</option>
+                            <option value="'Trebuchet MS', sans-serif" ${settings.font_family === "'Trebuchet MS', sans-serif" ? 'selected' : ''}>Trebuchet MS</option>
+                        </select>
+                    </label>
+                    <label class="sfq-config-label">
+                        Tamaño de fuente:
+                        <input type="range" class="sfq-config-input" data-setting="font_size" 
+                               min="12" max="48" step="1" 
+                               value="${settings.font_size || '16'}">
+                        <span class="sfq-font-size-display">${settings.font_size || '16'}px</span>
+                    </label>
+                </div>
+                
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Peso de fuente:
+                        <select class="sfq-config-input" data-setting="font_weight">
+                            <option value="normal" ${settings.font_weight === 'normal' || !settings.font_weight ? 'selected' : ''}>Normal</option>
+                            <option value="bold" ${settings.font_weight === 'bold' ? 'selected' : ''}>Negrita</option>
+                            <option value="lighter" ${settings.font_weight === 'lighter' ? 'selected' : ''}>Ligera</option>
+                            <option value="600" ${settings.font_weight === '600' ? 'selected' : ''}>Semi-negrita</option>
+                        </select>
+                    </label>
+                    <label class="sfq-config-label">
+                        Alineación:
+                        <select class="sfq-config-input" data-setting="text_align">
+                            <option value="left" ${settings.text_align === 'left' || !settings.text_align ? 'selected' : ''}>Izquierda</option>
+                            <option value="center" ${settings.text_align === 'center' ? 'selected' : ''}>Centro</option>
+                            <option value="right" ${settings.text_align === 'right' ? 'selected' : ''}>Derecha</option>
+                            <option value="justify" ${settings.text_align === 'justify' ? 'selected' : ''}>Justificado</option>
+                        </select>
+                    </label>
+                </div>
+                
+                <!-- Efectos de texto -->
+                <h6 style="margin-top: 15px; margin-bottom: 10px;">✨ Efectos de Texto</h6>
+                
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        <input type="checkbox" data-setting="italic" ${settings.italic ? 'checked' : ''}>
+                        Cursiva
+                    </label>
+                    <label class="sfq-config-label">
+                        <input type="checkbox" data-setting="strikethrough" ${settings.strikethrough ? 'checked' : ''}>
+                        Tachado
+                    </label>
+                </div>
+                
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        <input type="checkbox" data-setting="text_shadow" ${settings.text_shadow ? 'checked' : ''}>
+                        Sombra de texto
+                    </label>
+                    <label class="sfq-config-label">
+                        <input type="checkbox" data-setting="box_shadow" ${settings.box_shadow ? 'checked' : ''}>
+                        Sombra del recuadro
+                    </label>
+                </div>
+                
+                <!-- Colores -->
+                <h6 style="margin-top: 15px; margin-bottom: 10px;">🎨 Colores</h6>
+                
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Color del texto:
+                        <input type="color" class="sfq-config-input" data-setting="text_color" 
+                               value="${settings.text_color || '#333333'}">
+                    </label>
+                    <label class="sfq-config-label">
+                        Color de fondo:
+                        <input type="color" class="sfq-config-input" data-setting="background_color" 
+                               value="${settings.background_color || '#ffffff'}">
+                    </label>
+                </div>
+                
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Opacidad del fondo:
+                        <input type="range" class="sfq-config-input" data-setting="background_opacity" 
+                               min="0" max="1" step="0.1" 
+                               value="${settings.background_opacity || '0'}">
+                        <span class="sfq-bg-opacity-display">${settings.background_opacity || '0'}</span>
+                    </label>
+                    <label class="sfq-config-label">
+                        Color del borde:
+                        <input type="color" class="sfq-config-input" data-setting="border_color" 
+                               value="${settings.border_color || '#e0e0e0'}">
+                    </label>
+                </div>
+                
+                <!-- Configuración del recuadro -->
+                <h6 style="margin-top: 15px; margin-bottom: 10px;">📦 Recuadro</h6>
+                
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Radio del borde:
+                        <input type="range" class="sfq-config-input" data-setting="border_radius" 
+                               min="0" max="50" step="1" 
+                               value="${settings.border_radius || '0'}">
+                        <span class="sfq-border-radius-display">${settings.border_radius || '0'}px</span>
+                    </label>
+                    <label class="sfq-config-label">
+                        Opacidad del borde:
+                        <input type="range" class="sfq-config-input" data-setting="border_opacity" 
+                               min="0" max="1" step="0.1" 
+                               value="${settings.border_opacity || '0'}">
+                        <span class="sfq-border-opacity-display">${settings.border_opacity || '0'}</span>
+                    </label>
+                </div>
+            `;
+        }
+        
         bindConfigPanelEvents($panel, questionId, elementId) {
             const question = this.questions.find(q => q.id === questionId);
             const element = question?.freestyle_elements?.find(el => el.id === elementId);
@@ -3496,6 +3648,27 @@
             $panel.find('[data-setting="border_radius"]').on('input', function() {
                 const value = $(this).val();
                 $panel.find('.sfq-radius-display').text(value + 'px');
+            });
+            
+            // Eventos específicos para styled_text
+            $panel.find('[data-setting="font_size"]').on('input', function() {
+                const value = $(this).val();
+                $panel.find('.sfq-font-size-display').text(value + 'px');
+            });
+            
+            $panel.find('[data-setting="background_opacity"]').on('input', function() {
+                const value = $(this).val();
+                $panel.find('.sfq-bg-opacity-display').text(value);
+            });
+            
+            $panel.find('[data-setting="border_radius"]').on('input', function() {
+                const value = $(this).val();
+                $panel.find('.sfq-border-radius-display').text(value + 'px');
+            });
+            
+            $panel.find('[data-setting="border_opacity"]').on('input', function() {
+                const value = $(this).val();
+                $panel.find('.sfq-border-opacity-display').text(value);
             });
             
             // Manejar opciones de dropdown dinámicamente
@@ -3771,23 +3944,85 @@
         }
 
         /**
-         * ✅ NUEVO: Mostrar preview de imagen
+         * ✅ CORREGIDO: Mostrar preview de imagen con verificaciones robustas
          */
         updateImagePreview($optionItem, imageData) {
+            console.log('SFQ: Updating image preview with data:', imageData);
+            
             const $previewContainer = $optionItem.find('.sfq-image-preview-container');
-            const $previewImage = $previewContainer.find('.sfq-preview-image');
             
             if ($previewContainer.length === 0) {
-                console.error('SFQ: Preview container not found');
-                return;
+                console.error('SFQ: Preview container not found, creating it...');
+                // ✅ NUEVO: Crear contenedor de preview si no existe
+                this._createImagePreviewContainer($optionItem);
+                return this.updateImagePreview($optionItem, imageData); // Recursión para intentar de nuevo
             }
             
-            $previewImage.attr('src', imageData.url);
-            $previewImage.attr('alt', imageData.alt || 'Vista previa');
+            let $previewImage = $previewContainer.find('.sfq-preview-image');
             
-            $previewContainer.show();
+            // ✅ NUEVO: Crear imagen de preview si no existe
+            if ($previewImage.length === 0) {
+                console.log('SFQ: Preview image element not found, creating it...');
+                $previewContainer.find('.sfq-image-preview').html(`
+                    <img src="" alt="Vista previa" class="sfq-preview-image">
+                    <button type="button" class="sfq-remove-image" title="Eliminar imagen">
+                        <span class="dashicons dashicons-no-alt"></span>
+                    </button>
+                `);
+                $previewImage = $previewContainer.find('.sfq-preview-image');
+            }
             
-            console.log('SFQ: Updated image preview for URL:', imageData.url);
+            // ✅ CORREGIDO: Actualizar imagen con manejo de errores
+            if ($previewImage.length > 0) {
+                $previewImage.attr('src', imageData.url);
+                $previewImage.attr('alt', imageData.alt || 'Vista previa');
+                
+                // ✅ NUEVO: Manejar errores de carga de imagen
+                $previewImage.off('error').on('error', function() {
+                    console.warn('SFQ: Failed to load image:', imageData.url);
+                    $(this).attr('src', 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+SW1hZ2VuPC90ZXh0Pjwvc3ZnPg==');
+                    $(this).attr('alt', 'Error al cargar imagen');
+                });
+                
+                $previewContainer.show();
+                console.log('SFQ: Successfully updated image preview for URL:', imageData.url);
+            } else {
+                console.error('SFQ: Could not create or find preview image element');
+            }
+        }
+        
+        /**
+         * ✅ NUEVO: Crear contenedor de preview de imagen si no existe
+         */
+        _createImagePreviewContainer($optionItem) {
+            console.log('SFQ: Creating image preview container');
+            
+            const previewHtml = `
+                <div class="sfq-image-preview-container" style="display: none;">
+                    <div class="sfq-image-preview">
+                        <img src="" alt="Vista previa" class="sfq-preview-image">
+                        <button type="button" class="sfq-remove-image" title="Eliminar imagen">
+                            <span class="dashicons dashicons-no-alt"></span>
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Buscar la sección de imagen o crearla
+            let $imageSection = $optionItem.find('.sfq-image-upload-section');
+            
+            if ($imageSection.length === 0) {
+                // Si no existe la sección de imagen, crearla completa
+                const optionIndex = $optionItem.index();
+                this._createImageUploadSection($optionItem, optionIndex);
+                $imageSection = $optionItem.find('.sfq-image-upload-section');
+            }
+            
+            // Añadir el contenedor de preview si no existe
+            if ($imageSection.find('.sfq-image-preview-container').length === 0) {
+                $imageSection.find('.sfq-image-controls').after(previewHtml);
+                console.log('SFQ: Created image preview container');
+            }
         }
 
         /**
@@ -4101,17 +4336,48 @@
         }
 
         /**
-         * ✅ NUEVO: Repoblar previews de imagen después de cargar datos
+         * ✅ CORREGIDO: Repoblar previews de imagen después de cargar datos con timing mejorado
          */
         repopulateImagePreviews(questionId, question) {
-            console.log('SFQ: Repopulating image previews for question:', questionId);
+            console.log('SFQ: === STARTING IMAGE REPOPULATION ===');
+            console.log('SFQ: Question ID:', questionId);
+            console.log('SFQ: Question type:', question.type);
+            console.log('SFQ: Options count:', question.options ? question.options.length : 0);
             
-            // ✅ CORREGIDO: Obtener elemento del DOM correctamente
-            const $question = $(`#${questionId}`);
+            // ✅ CORREGIDO: Usar setTimeout para asegurar que el DOM esté completamente renderizado
+            setTimeout(() => {
+                this._performImageRepopulation(questionId, question);
+            }, 150); // Delay suficiente para que el DOM esté listo
+        }
+        
+        /**
+         * ✅ NUEVO: Función interna para realizar la repoblación con verificaciones robustas
+         */
+        _performImageRepopulation(questionId, question) {
+            console.log('SFQ: Performing delayed image repopulation for question:', questionId);
+            
+            // ✅ CORREGIDO: Múltiples selectores para encontrar el elemento
+            let $question = $(`#${questionId}`);
+            
+            // Si no se encuentra con el ID directo, buscar por atributo data
             if ($question.length === 0) {
-                console.error('SFQ: Question element not found for repopulation:', questionId);
+                $question = $(`.sfq-question-item[data-question-id="${questionId}"]`);
+                console.log('SFQ: Trying alternative selector with data-question-id');
+            }
+            
+            // Si aún no se encuentra, buscar en ambos contenedores
+            if ($question.length === 0) {
+                $question = $(`#sfq-questions-container #${questionId}, #sfq-final-screens-container #${questionId}`);
+                console.log('SFQ: Trying container-specific selectors');
+            }
+            
+            if ($question.length === 0) {
+                console.error('SFQ: Question element not found after all attempts:', questionId);
+                console.log('SFQ: Available question elements:', $('.sfq-question-item').map(function() { return this.id; }).get());
                 return;
             }
+            
+            console.log('SFQ: Found question element:', $question.attr('id'));
             
             // Verificar que tenga opciones con imágenes
             if (!question.options || question.options.length === 0) {
@@ -4119,32 +4385,143 @@
                 return;
             }
             
+            // ✅ CORREGIDO: Verificar que existan elementos de opción en el DOM
+            const $optionItems = $question.find('.sfq-option-item');
+            console.log('SFQ: Found option items in DOM:', $optionItems.length);
+            
+            if ($optionItems.length === 0) {
+                console.error('SFQ: No option items found in DOM for question:', questionId);
+                // ✅ NUEVO: Intentar re-renderizar la pregunta si no hay opciones en el DOM
+                console.log('SFQ: Attempting to re-render question options...');
+                this._reRenderQuestionOptions(questionId, question);
+                return;
+            }
+            
             // Procesar cada opción que tenga imagen
             question.options.forEach((option, index) => {
                 if (option.image && option.image.trim() !== '') {
-                    const $optionItem = $question.find('.sfq-option-item').eq(index);
+                    console.log(`SFQ: Processing option ${index} with image:`, option.image);
+                    
+                    const $optionItem = $optionItems.eq(index);
                     
                     if ($optionItem.length > 0) {
-                        console.log('SFQ: Repopulating image for option', index, 'with URL:', option.image);
+                        console.log('SFQ: Found option item for index', index);
                         
-                        // Actualizar el input de URL
-                        const $urlInput = $optionItem.find('.sfq-image-url-input');
-                        $urlInput.val(option.image).removeClass('invalid').addClass('valid');
+                        // ✅ CORREGIDO: Verificar que exista la sección de imagen
+                        let $imageSection = $optionItem.find('.sfq-image-upload-section');
                         
-                        // Mostrar el preview de la imagen
-                        this.updateImagePreview($optionItem, {
-                            url: option.image,
-                            alt: option.image_alt || 'Imagen cargada'
-                        });
+                        if ($imageSection.length === 0) {
+                            console.warn('SFQ: Image upload section not found, creating it...');
+                            this._createImageUploadSection($optionItem, index);
+                            $imageSection = $optionItem.find('.sfq-image-upload-section');
+                        }
                         
-                        console.log('SFQ: Successfully repopulated image preview for option', index);
+                        if ($imageSection.length > 0) {
+                            // Actualizar el input de URL
+                            const $urlInput = $imageSection.find('.sfq-image-url-input');
+                            if ($urlInput.length > 0) {
+                                $urlInput.val(option.image).removeClass('invalid').addClass('valid');
+                                console.log('SFQ: Updated URL input for option', index);
+                            } else {
+                                console.warn('SFQ: URL input not found for option', index);
+                            }
+                            
+                            // Mostrar el preview de la imagen
+                            this.updateImagePreview($optionItem, {
+                                url: option.image,
+                                alt: option.image_alt || 'Imagen cargada'
+                            });
+                            
+                            console.log('SFQ: Successfully repopulated image preview for option', index);
+                        } else {
+                            console.error('SFQ: Could not create image upload section for option', index);
+                        }
                     } else {
                         console.warn('SFQ: Option element not found for index:', index);
                     }
+                } else {
+                    console.log(`SFQ: Option ${index} has no image, skipping`);
                 }
             });
             
-            console.log('SFQ: Finished repopulating image previews for question:', questionId);
+            // ✅ NUEVO: Re-vincular eventos después de la repoblación
+            this.bindImageChoiceEvents($question, question);
+            
+            console.log('SFQ: === FINISHED IMAGE REPOPULATION ===');
+        }
+        
+        /**
+         * ✅ NUEVO: Re-renderizar opciones de pregunta si no existen en el DOM
+         */
+        _reRenderQuestionOptions(questionId, question) {
+            console.log('SFQ: Re-rendering options for question:', questionId);
+            
+            const $question = $(`#${questionId}`);
+            const $optionsContainer = $question.find(`#options-${questionId}`);
+            
+            if ($optionsContainer.length === 0) {
+                console.error('SFQ: Options container not found for question:', questionId);
+                return;
+            }
+            
+            // Limpiar opciones existentes
+            $optionsContainer.empty();
+            
+            // Re-renderizar cada opción
+            question.options.forEach((option, index) => {
+                const optionHtml = this.formBuilder.uiRenderer.renderOption(option, index + 1, question.type);
+                $optionsContainer.append(optionHtml);
+            });
+            
+            // Re-vincular eventos
+            this.bindOptionEvents(questionId);
+            
+            console.log('SFQ: Re-rendered', question.options.length, 'options for question:', questionId);
+            
+            // ✅ NUEVO: Intentar repoblación nuevamente después de re-renderizar
+            setTimeout(() => {
+                this._performImageRepopulation(questionId, question);
+            }, 100);
+        }
+        
+        /**
+         * ✅ NUEVO: Crear sección de subida de imagen si no existe
+         */
+        _createImageUploadSection($optionItem, index) {
+            console.log('SFQ: Creating image upload section for option', index);
+            
+            const imageUploadHtml = `
+                <div class="sfq-image-upload-section">
+                    <div class="sfq-image-controls">
+                        <button type="button" class="button sfq-upload-image-btn" 
+                                data-option-index="${index}">
+                            <span class="dashicons dashicons-upload"></span>
+                            Subir Imagen
+                        </button>
+                        <input type="url" class="sfq-image-url-input" 
+                               name="options[${index}][image]"
+                               placeholder="O pega URL de imagen..." 
+                               value="">
+                    </div>
+                    <div class="sfq-image-preview-container" style="display: none;">
+                        <div class="sfq-image-preview">
+                            <img src="" alt="Vista previa" class="sfq-preview-image">
+                            <button type="button" class="sfq-remove-image" title="Eliminar imagen">
+                                <span class="dashicons dashicons-no-alt"></span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Campos ocultos para datos adicionales de la imagen -->
+                    <input type="hidden" name="options[${index}][image_id]" value="">
+                    <input type="hidden" name="options[${index}][image_alt]" value="">
+                </div>
+            `;
+            
+            // Insertar después del input de texto de la opción
+            $optionItem.find('.sfq-option-input').after(imageUploadHtml);
+            
+            console.log('SFQ: Created image upload section for option', index);
         }
 
         destroy() {
@@ -4779,7 +5156,8 @@
                 'dropdown': '📋 Desplegable',
                 'checkbox': '☑️ Opción Check',
                 'legal_text': '⚖️ Texto RGPD',
-                'variable_display': '🔢 Mostrar Variable'
+                'variable_display': '🔢 Mostrar Variable',
+                'styled_text': '✨ Texto Estilizado'
             };
             
             return `
@@ -4860,9 +5238,36 @@
                         <button class="sfq-add-freestyle-element" data-type="variable_display" data-question="${questionId}">
                             🔢 Mostrar Variable
                         </button>
+                        <button class="sfq-add-freestyle-element" data-type="styled_text" data-question="${questionId}">
+                            ✨ Texto Estilizado
+                        </button>
                     </div>
                 </div>
             `;
+        }
+
+        // ✅ NUEVO: Función helper para convertir hex a rgba
+        hexToRgba(hex, opacity = 1) {
+            if (!hex || typeof hex !== 'string') return 'rgba(0,0,0,1)';
+            
+            // Remover el # si existe
+            hex = hex.replace('#', '');
+            
+            // Manejar formato corto (#RGB)
+            if (hex.length === 3) {
+                hex = hex.split('').map(char => char + char).join('');
+            }
+            
+            // Validar formato
+            if (hex.length !== 6 || !/^[0-9A-Fa-f]{6}$/.test(hex)) {
+                return 'rgba(0,0,0,1)';
+            }
+            
+            const r = parseInt(hex.substr(0, 2), 16);
+            const g = parseInt(hex.substr(2, 2), 16);
+            const b = parseInt(hex.substr(4, 2), 16);
+            
+            return `rgba(${r}, ${g}, ${b}, ${opacity})`;
         }
 
         renderElementPreview(element) {
@@ -4894,20 +5299,45 @@
                 case 'variable_display':
                     const variableName = element.settings?.variable_name || 'variable_no_seleccionada';
                     const previewValue = element.settings?.preview_value || '0';
+                    const bgColor = this.hexToRgba(element.settings?.background_color || '#f8f9fa', element.settings?.background_opacity || 1);
+                    const borderColor = this.hexToRgba(element.settings?.border_color || '#e9ecef', element.settings?.border_opacity || 1);
                     return `<div class="sfq-variable-display-preview" style="
                         padding: 12px 16px;
-                        background: ${element.settings?.background_color || '#f8f9fa'};
-                        border: 2px solid ${element.settings?.border_color || '#e9ecef'};
+                        background: ${bgColor};
+                        border: 2px solid ${borderColor};
                         border-radius: ${element.settings?.border_radius || '8'}px;
                         color: ${element.settings?.text_color || '#333333'};
                         font-size: ${element.settings?.font_size || '16'}px;
                         font-weight: ${element.settings?.font_weight || 'normal'};
                         text-align: ${element.settings?.text_align || 'center'};
-                        opacity: ${element.settings?.background_opacity || '1'};
                         ${element.settings?.text_shadow ? 'text-shadow: 1px 1px 2px rgba(0,0,0,0.3);' : ''}
                     ">
                         🔢 Variable: <strong>${variableName}</strong> = ${previewValue}
                     </div>`;
+                case 'styled_text':
+                    const textContent = element.settings?.text_content || 'Texto de ejemplo';
+                    const textType = element.settings?.text_type || 'paragraph';
+                    const tagName = textType === 'title' ? 'h2' : 'p';
+                    const styledBgColor = this.hexToRgba(element.settings?.background_color || '#ffffff', element.settings?.background_opacity || 0);
+                    const styledBorderColor = this.hexToRgba(element.settings?.border_color || '#e0e0e0', element.settings?.border_opacity || 0);
+                    return `<${tagName} class="sfq-styled-text-preview" style="
+                        font-family: ${element.settings?.font_family || 'inherit'};
+                        font-size: ${element.settings?.font_size || '16'}px;
+                        font-weight: ${element.settings?.font_weight || 'normal'};
+                        font-style: ${element.settings?.italic ? 'italic' : 'normal'};
+                        text-decoration: ${element.settings?.strikethrough ? 'line-through' : 'none'};
+                        color: ${element.settings?.text_color || '#333333'};
+                        text-align: ${element.settings?.text_align || 'left'};
+                        background: ${styledBgColor};
+                        border: 2px solid ${styledBorderColor};
+                        border-radius: ${element.settings?.border_radius || '0'}px;
+                        padding: 12px;
+                        margin: 8px 0;
+                        ${element.settings?.text_shadow ? 'text-shadow: 2px 2px 4px rgba(0,0,0,0.3);' : ''}
+                        ${element.settings?.box_shadow ? 'box-shadow: 0 4px 8px rgba(0,0,0,0.1);' : ''}
+                    ">
+                        ✨ ${textContent}
+                    </${tagName}>`;
                 default:
                     return `<div class="sfq-element-preview">Vista previa de ${element.type}</div>`;
             }

@@ -1272,14 +1272,20 @@ class SFQ_Ajax {
      * Obtener datos del formulario (Admin AJAX) - Optimizado
      */
     public function get_form_data() {
+        error_log('SFQ: === GET_FORM_DATA AJAX CALLED ===');
+        error_log('SFQ: POST data: ' . json_encode($_POST));
+        
         // Early validation
         if (!$this->validate_ajax_request('manage_smart_forms')) {
+            error_log('SFQ: AJAX validation failed in get_form_data');
             return;
         }
         
         $form_id = intval($_POST['form_id'] ?? 0);
+        error_log('SFQ: Form ID requested: ' . $form_id);
         
         if (!$form_id || $form_id < 1) {
+            error_log('SFQ: Invalid form ID: ' . $form_id);
             wp_send_json_error(array(
                 'message' => __('ID de formulario inválido', 'smart-forms-quiz'),
                 'code' => 'INVALID_FORM_ID'
@@ -1293,14 +1299,18 @@ class SFQ_Ajax {
             $cached_form = wp_cache_get($cache_key, 'sfq_forms');
             
             if ($cached_form !== false) {
+                error_log('SFQ: Returning cached form data for form ' . $form_id);
                 wp_send_json_success($cached_form);
                 return;
             }
+            
+            error_log('SFQ: No cache found, loading fresh form data for form ' . $form_id);
             
         // Obtener formulario de la base de datos (usar versión fresh para admin)
         $form = $this->database->get_form_fresh($form_id);
             
             if (!$form) {
+                error_log('SFQ: Form not found in database: ' . $form_id);
                 wp_send_json_error(array(
                     'message' => __('Formulario no encontrado', 'smart-forms-quiz'),
                     'code' => 'FORM_NOT_FOUND'
@@ -1308,21 +1318,80 @@ class SFQ_Ajax {
                 return;
             }
             
+            error_log('SFQ: Form loaded from database, title: ' . ($form->title ?? 'NO TITLE'));
+            error_log('SFQ: Form questions count: ' . (is_array($form->questions) ? count($form->questions) : 'NOT ARRAY'));
+            
+            // ✅ CRÍTICO: Log específico para preguntas freestyle antes de validar
+            if (is_array($form->questions)) {
+                $freestyle_questions = array_filter($form->questions, function($q) {
+                    return isset($q->question_type) && $q->question_type === 'freestyle';
+                });
+                
+                error_log('SFQ: Freestyle questions found: ' . count($freestyle_questions));
+                
+                foreach ($freestyle_questions as $index => $fq) {
+                    error_log('SFQ: Freestyle question #' . ($index + 1) . ':');
+                    error_log('SFQ: - ID: ' . ($fq->id ?? 'NO ID'));
+                    error_log('SFQ: - Text: ' . ($fq->question_text ?? 'NO TEXT'));
+                    error_log('SFQ: - Elements count: ' . (isset($fq->freestyle_elements) ? count($fq->freestyle_elements) : 'NO ELEMENTS'));
+                    
+                    if (isset($fq->freestyle_elements) && is_array($fq->freestyle_elements)) {
+                        $styled_text_elements = array_filter($fq->freestyle_elements, function($el) {
+                            return isset($el['type']) && $el['type'] === 'styled_text';
+                        });
+                        
+                        error_log('SFQ: - styled_text elements: ' . count($styled_text_elements));
+                        
+                        foreach ($styled_text_elements as $st_index => $st_el) {
+                            error_log('SFQ: -- styled_text #' . ($st_index + 1) . ':');
+                            error_log('SFQ: --- ID: ' . ($st_el['id'] ?? 'NO ID'));
+                            error_log('SFQ: --- Label: ' . ($st_el['label'] ?? 'NO LABEL'));
+                            error_log('SFQ: --- Settings: ' . json_encode($st_el['settings'] ?? []));
+                        }
+                    }
+                }
+            }
+            
             // Validar y estructurar datos del formulario
             $form = $this->validate_and_structure_form_data($form);
+            
+            error_log('SFQ: Form data validated and structured');
+            
+            // ✅ CRÍTICO: Log específico después de validar
+            if (is_array($form->questions)) {
+                $freestyle_questions_after = array_filter($form->questions, function($q) {
+                    return isset($q->question_type) && $q->question_type === 'freestyle';
+                });
+                
+                error_log('SFQ: Freestyle questions after validation: ' . count($freestyle_questions_after));
+                
+                foreach ($freestyle_questions_after as $index => $fq) {
+                    if (isset($fq->freestyle_elements) && is_array($fq->freestyle_elements)) {
+                        $styled_text_elements_after = array_filter($fq->freestyle_elements, function($el) {
+                            return isset($el['type']) && $el['type'] === 'styled_text';
+                        });
+                        
+                        error_log('SFQ: - styled_text elements after validation: ' . count($styled_text_elements_after));
+                    }
+                }
+            }
             
             // Cache the result for 5 minutes
             wp_cache_set($cache_key, $form, 'sfq_forms', 300);
             
+            error_log('SFQ: Sending successful response with form data');
             wp_send_json_success($form);
             
         } catch (Exception $e) {
             error_log('SFQ Error in get_form_data: ' . $e->getMessage());
+            error_log('SFQ Error stack trace: ' . $e->getTraceAsString());
             wp_send_json_error(array(
                 'message' => __('Error al cargar los datos del formulario', 'smart-forms-quiz'),
                 'code' => 'INTERNAL_ERROR'
             ));
         }
+        
+        error_log('SFQ: === END GET_FORM_DATA AJAX ===');
     }
     
     /**
@@ -1396,6 +1465,7 @@ class SFQ_Ajax {
     
     /**
      * Validar y estructurar opciones de pregunta
+     * ✅ CORREGIDO: Preservar datos de imagen para preguntas image_choice
      */
     private function validate_and_structure_options($options) {
         if (!is_array($options)) {
@@ -1406,22 +1476,33 @@ class SFQ_Ajax {
         
         foreach ($options as $option) {
             if (is_string($option)) {
+                // Opción simple como string
                 $structured_options[] = [
                     'text' => $option,
-                    'value' => $option
+                    'value' => $option,
+                    'image' => '',
+                    'image_id' => '',
+                    'image_alt' => ''
                 ];
             } elseif (is_array($option) || is_object($option)) {
                 $option = (array) $option;
-                $structured_options[] = [
+                
+                // ✅ CRÍTICO: Preservar TODOS los datos de imagen
+                $structured_option = [
                     'text' => $option['text'] ?? $option['value'] ?? '',
-                    'value' => $option['value'] ?? $option['text'] ?? ''
+                    'value' => $option['value'] ?? $option['text'] ?? '',
+                    'image' => $option['image'] ?? '',
+                    'image_id' => $option['image_id'] ?? '',
+                    'image_alt' => $option['image_alt'] ?? ''
                 ];
+                
+                $structured_options[] = $structured_option;
             }
         }
         
-        // Filtrar opciones vacías
+        // Filtrar opciones vacías (pero mantener las que tienen imagen aunque no tengan texto)
         $structured_options = array_filter($structured_options, function($option) {
-            return !empty(trim($option['text']));
+            return !empty(trim($option['text'])) || !empty(trim($option['image']));
         });
         
         return array_values($structured_options); // Reindexar array
@@ -1431,33 +1512,65 @@ class SFQ_Ajax {
      * Validar y estructurar elementos freestyle
      */
     private function validate_and_structure_freestyle_elements($elements) {
+        error_log('SFQ: === VALIDATE_AND_STRUCTURE_FREESTYLE_ELEMENTS ===');
+        error_log('SFQ: Input elements: ' . json_encode($elements));
+        error_log('SFQ: Elements is_array: ' . (is_array($elements) ? 'true' : 'false'));
+        error_log('SFQ: Elements count: ' . (is_array($elements) ? count($elements) : 'N/A'));
+        
         if (!is_array($elements)) {
+            error_log('SFQ: Elements is not array, returning empty array');
             return [];
         }
         
         $structured_elements = [];
         
         foreach ($elements as $index => $element) {
+            error_log('SFQ: --- Processing element ' . ($index + 1) . ' ---');
+            error_log('SFQ: Element data: ' . json_encode($element));
+            error_log('SFQ: Element type: ' . gettype($element));
+            
             if (is_object($element)) {
+                error_log('SFQ: Converting object to array');
                 $element = (array) $element;
             }
             
             if (!is_array($element)) {
+                error_log('SFQ: SKIPPING - Element is not array after conversion');
                 continue;
             }
             
             // Validar que tenga las propiedades mínimas requeridas
             if (empty($element['type'])) {
+                error_log('SFQ: SKIPPING - Element has no type');
+                error_log('SFQ: Available keys: ' . json_encode(array_keys($element)));
                 continue;
             }
             
-            // Validar que el tipo sea válido
-            $valid_types = ['text', 'video', 'image', 'countdown', 'phone', 'email', 'file_upload', 'button', 'rating', 'dropdown', 'checkbox', 'legal_text', 'variable_display'];
-            if (!in_array($element['type'], $valid_types)) {
+            $element_type = $element['type'];
+            error_log('SFQ: Element type found: ' . $element_type);
+            
+            // ✅ CRÍTICO: Añadir 'styled_text' a la lista de tipos válidos
+            $valid_types = ['text', 'video', 'image', 'countdown', 'phone', 'email', 'file_upload', 'button', 'rating', 'dropdown', 'checkbox', 'legal_text', 'variable_display', 'styled_text'];
+            
+            if (!in_array($element_type, $valid_types)) {
+                error_log('SFQ: SKIPPING - Invalid element type: ' . $element_type);
+                error_log('SFQ: Valid types: ' . json_encode($valid_types));
                 continue;
             }
             
-            $structured_elements[] = [
+            error_log('SFQ: Element type is valid: ' . $element_type);
+            
+            // ✅ CRÍTICO: Log específico para styled_text
+            if ($element_type === 'styled_text') {
+                error_log('SFQ: *** PROCESSING STYLED_TEXT IN AJAX VALIDATION ***');
+                error_log('SFQ: styled_text ID: ' . ($element['id'] ?? 'NO ID'));
+                error_log('SFQ: styled_text label: ' . ($element['label'] ?? 'NO LABEL'));
+                error_log('SFQ: styled_text settings: ' . json_encode($element['settings'] ?? []));
+                error_log('SFQ: styled_text settings type: ' . gettype($element['settings'] ?? null));
+                error_log('SFQ: styled_text settings is_array: ' . (is_array($element['settings'] ?? null) ? 'true' : 'false'));
+            }
+            
+            $structured_element = [
                 'id' => $element['id'] ?? 'element_' . time() . '_' . $index,
                 'type' => $element['type'],
                 'label' => sanitize_text_field($element['label'] ?? ''),
@@ -1465,12 +1578,37 @@ class SFQ_Ajax {
                 'settings' => is_array($element['settings'] ?? null) ? $element['settings'] : [],
                 'value' => sanitize_text_field($element['value'] ?? '')
             ];
+            
+            error_log('SFQ: Structured element: ' . json_encode($structured_element));
+            
+            // ✅ CRÍTICO: Log específico después de estructurar styled_text
+            if ($element_type === 'styled_text') {
+                error_log('SFQ: *** STYLED_TEXT AFTER STRUCTURING ***');
+                error_log('SFQ: Final settings: ' . json_encode($structured_element['settings']));
+                error_log('SFQ: Settings preserved: ' . (count($structured_element['settings']) > 0 ? 'YES' : 'NO'));
+            }
+            
+            $structured_elements[] = $structured_element;
         }
+        
+        error_log('SFQ: Total structured elements: ' . count($structured_elements));
+        
+        // Log específico de elementos styled_text en el resultado final
+        $styled_text_count = 0;
+        foreach ($structured_elements as $element) {
+            if ($element['type'] === 'styled_text') {
+                $styled_text_count++;
+                error_log('SFQ: Final styled_text element #' . $styled_text_count . ': ' . json_encode($element));
+            }
+        }
+        error_log('SFQ: Total styled_text elements in final result: ' . $styled_text_count);
         
         // Ordenar por orden
         usort($structured_elements, function($a, $b) {
             return $a['order'] - $b['order'];
         });
+        
+        error_log('SFQ: === END VALIDATE_AND_STRUCTURE_FREESTYLE_ELEMENTS ===');
         
         return $structured_elements;
     }
@@ -1886,7 +2024,7 @@ class SFQ_Ajax {
                     }
                     
                     // Validar que el tipo de elemento sea válido
-                    $valid_element_types = array('text', 'video', 'image', 'countdown', 'phone', 'email', 'file_upload', 'button', 'rating', 'dropdown', 'checkbox', 'legal_text', 'variable_display');
+                    $valid_element_types = array('text', 'video', 'image', 'countdown', 'phone', 'email', 'file_upload', 'button', 'rating', 'dropdown', 'checkbox', 'legal_text', 'variable_display', 'styled_text');
                     if (!empty($element['type']) && !in_array($element['type'], $valid_element_types)) {
                         $errors['freestyle_elements'][] = sprintf(__('Tipo de elemento inválido en el elemento %d de la pregunta %d', 'smart-forms-quiz'), $element_index + 1, $index + 1);
                     }

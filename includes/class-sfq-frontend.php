@@ -2162,6 +2162,10 @@ class SFQ_Frontend {
                 $this->render_freestyle_variable_display($element, $question_id);
                 break;
                 
+            case 'styled_text':
+                $this->render_freestyle_styled_text($element, $question_id);
+                break;
+                
             default:
                 echo '<p>' . sprintf(__('Tipo de elemento "%s" no soportado', 'smart-forms-quiz'), esc_html($element_type)) . '</p>';
         }
@@ -2729,6 +2733,126 @@ class SFQ_Frontend {
                name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
                value="variable_displayed"
                class="sfq-variable-tracker">
+        <?php
+    }
+    
+    /**
+     * ✅ NUEVO: Renderizar elemento de texto con estilo personalizado
+     */
+    private function render_freestyle_styled_text($element, $question_id) {
+        $settings = $element['settings'] ?? array();
+        $text_content = $settings['text_content'] ?? $element['label'] ?? __('Texto de ejemplo', 'smart-forms-quiz');
+        $text_type = $settings['text_type'] ?? 'paragraph'; // 'title' o 'paragraph'
+        
+        // Aplicar estilos personalizados desde las configuraciones
+        $styles = array();
+        
+        // Tamaño de fuente
+        if (!empty($settings['font_size'])) {
+            $styles['font-size'] = intval($settings['font_size']) . 'px';
+        }
+        
+        // Tipo de fuente
+        if (!empty($settings['font_family'])) {
+            $styles['font-family'] = $settings['font_family'];
+        }
+        
+        // Peso de fuente (negrita)
+        if (!empty($settings['font_weight'])) {
+            $styles['font-weight'] = $settings['font_weight'];
+        }
+        
+        // Estilo de fuente (cursiva)
+        if (!empty($settings['font_style']) && $settings['font_style'] === 'italic') {
+            $styles['font-style'] = 'italic';
+        }
+        
+        // Decoración de texto (tachado)
+        if (!empty($settings['text_decoration']) && $settings['text_decoration'] === 'line-through') {
+            $styles['text-decoration'] = 'line-through';
+        }
+        
+        // Alineación de texto
+        if (!empty($settings['text_align'])) {
+            $styles['text-align'] = $settings['text_align'];
+        }
+        
+        // Color de texto
+        if (!empty($settings['text_color'])) {
+            $styles['color'] = $settings['text_color'];
+        }
+        
+        // Color de fondo con opacidad
+        if (!empty($settings['background_color'])) {
+            $bg_color = $settings['background_color'];
+            $bg_opacity = $settings['background_opacity'] ?? '1';
+            
+            if ($bg_opacity != '1') {
+                $styles['background-color'] = $this->hex_to_rgba($bg_color, $bg_opacity);
+            } else {
+                $styles['background-color'] = $bg_color;
+            }
+        }
+        
+        // Color de borde con opacidad
+        if (!empty($settings['border_color'])) {
+            $border_color = $settings['border_color'];
+            $border_opacity = $settings['border_opacity'] ?? '1';
+            
+            if ($border_opacity != '1') {
+                $border_rgba = $this->hex_to_rgba($border_color, $border_opacity);
+                $styles['border'] = '2px solid ' . $border_rgba;
+            } else {
+                $styles['border'] = '2px solid ' . $border_color;
+            }
+        }
+        
+        // Radio del borde
+        if (!empty($settings['border_radius'])) {
+            $styles['border-radius'] = intval($settings['border_radius']) . 'px';
+        }
+        
+        // Sombra de texto
+        if (!empty($settings['text_shadow']) && $settings['text_shadow']) {
+            $styles['text-shadow'] = '2px 2px 4px rgba(0,0,0,0.3)';
+        }
+        
+        // Sombra del recuadro
+        if (!empty($settings['box_shadow']) && $settings['box_shadow']) {
+            $styles['box-shadow'] = '0 4px 8px rgba(0,0,0,0.1)';
+        }
+        
+        // Padding por defecto para el recuadro
+        $styles['padding'] = '16px';
+        $styles['margin'] = '8px 0';
+        $styles['display'] = 'block';
+        $styles['width'] = '100%';
+        $styles['box-sizing'] = 'border-box';
+        
+        // Convertir array de estilos a string CSS
+        $style_string = '';
+        foreach ($styles as $property => $value) {
+            $style_string .= $property . ': ' . $value . '; ';
+        }
+        
+        // Determinar el tag HTML según el tipo de texto
+        $tag = ($text_type === 'title') ? 'h3' : 'p';
+        
+        ?>
+        <div class="sfq-freestyle-styled-text-wrapper">
+            <<?php echo $tag; ?> class="sfq-freestyle-styled-text" 
+                 data-element-id="<?php echo esc_attr($element['id']); ?>"
+                 data-text-type="<?php echo esc_attr($text_type); ?>"
+                 style="<?php echo esc_attr(trim($style_string)); ?>">
+                <?php echo wp_kses_post($text_content); ?>
+            </<?php echo $tag; ?>>
+            
+            <!-- Campo oculto para registrar que se mostró el texto -->
+            <input type="hidden" 
+                   name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
+                   value="styled_text_displayed"
+                   class="sfq-styled-text-tracker">
+        </div>
         <?php
     }
     

@@ -2751,3 +2751,243 @@
     border-radius: 50%;
     animation: sfq-spin 1s linear infinite;
 }
+
+/* ==========================================================================
+   ELEMENTO STYLED TEXT - CONFIGURACIÓN Y PREVIEW
+   ========================================================================== */
+
+/* Preview del elemento Styled Text */
+.sfq-styled-text-preview {
+    display: block;
+    padding: 12px;
+    margin: 8px 0;
+    border: 2px solid transparent;
+    border-radius: 0px;
+    background: transparent;
+    color: #333333;
+    font-size: 16px;
+    font-weight: normal;
+    text-align: left;
+    font-family: inherit;
+    font-style: normal;
+    text-decoration: none;
+    opacity: 1;
+    transition: all 0.3s ease;
+    min-height: 20px;
+    word-wrap: break-word;
+    line-height: 1.4;
+}
+
+.sfq-styled-text-preview:hover {
+    transform: translateY(-1px);
+}
+
+/* Estilos para el elemento Styled Text en el frontend */
+.sfq-styled-text {
+    display: block;
+    padding: 12px;
+    margin: 8px 0;
+    border: 2px solid transparent;
+    border-radius: 0px;
+    background: transparent;
+    color: #333333;
+    font-size: 16px;
+    font-weight: normal;
+    text-align: left;
+    font-family: inherit;
+    font-style: normal;
+    text-decoration: none;
+    opacity: 1;
+    transition: all 0.3s ease;
+    min-height: 20px;
+    word-wrap: break-word;
+    line-height: 1.4;
+}
+
+/* Estilos para títulos vs párrafos */
+.sfq-styled-text.text-type-title {
+    font-size: 24px;
+    font-weight: 600;
+    margin: 16px 0;
+    line-height: 1.2;
+}
+
+.sfq-styled-text.text-type-paragraph {
+    font-size: 16px;
+    font-weight: normal;
+    margin: 8px 0;
+    line-height: 1.4;
+}
+
+/* Efectos de texto */
+.sfq-styled-text.has-text-shadow {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.sfq-styled-text.has-box-shadow {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.sfq-styled-text.italic {
+    font-style: italic;
+}
+
+.sfq-styled-text.strikethrough {
+    text-decoration: line-through;
+}
+
+.sfq-styled-text.bold {
+    font-weight: bold;
+}
+
+/* Controles de rango específicos para styled text */
+.sfq-font-size-display,
+.sfq-bg-opacity-display,
+.sfq-border-radius-display {
+    display: inline-block;
+    min-width: 45px;
+    padding: 4px 8px;
+    background: #e9ecef;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #495057;
+    text-align: center;
+    vertical-align: middle;
+    font-family: 'Courier New', monospace;
+}
+
+/* Responsive para Styled Text */
+@media (max-width: 768px) {
+    .sfq-styled-text-preview,
+    .sfq-styled-text {
+        padding: 10px;
+        font-size: 14px;
+    }
+    
+    .sfq-styled-text.text-type-title {
+        font-size: 20px;
+        margin: 12px 0;
+    }
+    
+    .sfq-styled-text.text-type-paragraph {
+        font-size: 14px;
+        margin: 6px 0;
+    }
+}
+
+/* Animación para cuando se actualiza el contenido */
+@keyframes sfq-styled-text-update {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.02);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.sfq-styled-text.updated {
+    animation: sfq-styled-text-update 0.6s ease;
+}
+
+/* Estados especiales */
+.sfq-styled-text.error {
+    background: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+
+.sfq-styled-text.loading {
+    opacity: 0.6;
+    position: relative;
+}
+
+.sfq-styled-text.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    width: 12px;
+    height: 12px;
+    margin-top: -6px;
+    border: 2px solid #ccc;
+    border-top: 2px solid #666;
+    border-radius: 50%;
+    animation: sfq-spin 1s linear infinite;
+}
+
+/* Mejoras para la configuración de Styled Text */
+.sfq-config-section h6 {
+    margin: 15px 0 10px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #495057;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #dee2e6;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Estilos específicos para el panel de configuración de styled text */
+.sfq-element-config-panel[data-element-type="styled_text"] {
+    border-left: 4px solid #9b59b6;
+}
+
+.sfq-element-config-panel[data-element-type="styled_text"] .sfq-config-header {
+    background: linear-gradient(135deg, #f3e5f5 0%, #f8f9fa 100%);
+}
+
+.sfq-element-config-panel[data-element-type="styled_text"] .sfq-config-header h4 {
+    color: #7b1fa2;
+}
+
+/* Mejoras visuales para los controles de styled text */
+.sfq-config-input[type="range"] {
+    width: calc(100% - 60px);
+    margin-right: 10px;
+    vertical-align: middle;
+    accent-color: #9b59b6;
+}
+
+.sfq-config-input[type="color"] {
+    width: 60px;
+    height: 40px;
+    padding: 2px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    cursor: pointer;
+    background: white;
+}
+
+.sfq-config-input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.sfq-config-input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 4px;
+}
+
+/* Mejoras para textarea de contenido */
+.sfq-config-input[data-setting="text_content"] {
+    min-height: 80px;
+    resize: vertical;
+    font-family: inherit;
+    line-height: 1.4;
+}
+
+/* Indicadores visuales para efectos activos */
+.sfq-config-input[type="checkbox"]:checked + label::after {
+    content: " ✓";
+    color: #28a745;
+    font-weight: bold;
+}
