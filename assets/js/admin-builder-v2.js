@@ -753,7 +753,7 @@
             // Actualizar resumen de límites después de cargar los datos
             this.updateLimitsSummary();
             
-            // Renderizar variables globales
+            // CRÍTICO: Renderizar variables globales después de cargar los datos
             this.renderVariables();
         }
 
@@ -1459,10 +1459,20 @@
         }
         
         renderVariables() {
+            console.log('SFQ: === RENDERING VARIABLES ===');
+            
             const variables = this.getGlobalVariables();
+            console.log('SFQ: Variables to render:', variables);
+            
             const $container = $('#sfq-global-variables-list');
             
+            if (!$container.length) {
+                console.warn('SFQ: Variables container #sfq-global-variables-list not found');
+                return;
+            }
+            
             if (variables.length === 0) {
+                console.log('SFQ: No variables found, showing empty state');
                 $container.html(`
                     <div class="sfq-variables-empty">
                         <span class="dashicons dashicons-admin-settings"></span>
@@ -1473,11 +1483,14 @@
                 return;
             }
             
+            console.log('SFQ: Rendering', variables.length, 'variables');
             const variablesHtml = variables.map(variable => this.renderVariable(variable)).join('');
             $container.html(variablesHtml);
             
             // Bind events para cada variable
             this.bindVariableEvents();
+            
+            console.log('SFQ: Variables rendered successfully');
         }
         
         renderVariable(variable) {
@@ -2346,14 +2359,35 @@
         processFreestyleElements(elements) {
             if (!Array.isArray(elements)) return [];
             
-            return elements.map((element, index) => ({
-                id: element.id || 'element_' + Date.now() + '_' + index,
-                type: element.type || 'text',
-                label: element.label || '',
-                settings: element.settings || {},
-                order: element.order || index,
-                value: element.value || ''
-            }));
+            console.log('SFQ: Processing freestyle elements from database:', elements);
+            
+            return elements.map((element, index) => {
+                // ✅ CRÍTICO: Validar que el tipo de elemento sea válido
+                const validTypes = [
+                    'text', 'video', 'image', 'countdown', 'phone', 'email', 
+                    'file_upload', 'button', 'rating', 'dropdown', 'checkbox', 
+                    'legal_text', 'variable_display'
+                ];
+                
+                const elementType = element.type || 'text';
+                
+                if (!validTypes.includes(elementType)) {
+                    console.warn('SFQ: Invalid element type found:', elementType, 'defaulting to text');
+                }
+                
+                const processedElement = {
+                    id: element.id || 'element_' + Date.now() + '_' + index,
+                    type: validTypes.includes(elementType) ? elementType : 'text',
+                    label: element.label || '',
+                    settings: element.settings || {},
+                    order: element.order || index,
+                    value: element.value || ''
+                };
+                
+                console.log('SFQ: Processed element:', processedElement);
+                
+                return processedElement;
+            });
         }
 
         addQuestion(type, isFinalScreen = false) {
@@ -2773,6 +2807,9 @@
                 case 'legal_text':
                     specificConfig = this.createLegalTextConfig(element);
                     break;
+                case 'variable_display':
+                    specificConfig = this.createVariableDisplayConfig(element);
+                    break;
                 default:
                     specificConfig = '<div class="sfq-config-notice">Configuración específica próximamente</div>';
             }
@@ -3147,6 +3184,126 @@
             `;
         }
         
+        createVariableDisplayConfig(element) {
+            const settings = element.settings || {};
+            const variables = this.formBuilder.getGlobalVariables() || [];
+            
+            // Generar opciones del desplegable de variables
+            let variableOptions = '<option value="">Selecciona una variable...</option>';
+            variables.forEach(variable => {
+                const isSelected = settings.variable_name === variable.name ? 'selected' : '';
+                variableOptions += `<option value="${variable.name}" ${isSelected}>
+                    ${this.formBuilder.uiRenderer.escapeHtml(variable.name)} (${variable.type})
+                </option>`;
+            });
+            
+            return `
+                <h5>🔢 Configuración de Mostrar Variable</h5>
+                
+                <!-- Selección de variable -->
+                <label class="sfq-config-label">
+                    Variable a mostrar:
+                    <select class="sfq-config-input" data-setting="variable_name">
+                        ${variableOptions}
+                    </select>
+                    <small>Selecciona la variable cuyo valor quieres mostrar</small>
+                </label>
+                
+                <!-- Valor de preview para el admin -->
+                <label class="sfq-config-label">
+                    Valor de ejemplo (solo para vista previa):
+                    <input type="text" class="sfq-config-input" data-setting="preview_value" 
+                           value="${this.formBuilder.uiRenderer.escapeHtml(settings.preview_value || '0')}" 
+                           placeholder="Ej: 100, Excelente, true">
+                    <small>Este valor solo se usa para la vista previa en el admin</small>
+                </label>
+                
+                <!-- Configuración de estilo -->
+                <h6 style="margin-top: 20px; margin-bottom: 10px;">🎨 Configuración de Estilo</h6>
+                
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Tamaño de fuente:
+                        <select class="sfq-config-input" data-setting="font_size">
+                            <option value="12" ${settings.font_size === '12' ? 'selected' : ''}>12px</option>
+                            <option value="14" ${settings.font_size === '14' ? 'selected' : ''}>14px</option>
+                            <option value="16" ${settings.font_size === '16' || !settings.font_size ? 'selected' : ''}>16px</option>
+                            <option value="18" ${settings.font_size === '18' ? 'selected' : ''}>18px</option>
+                            <option value="20" ${settings.font_size === '20' ? 'selected' : ''}>20px</option>
+                            <option value="24" ${settings.font_size === '24' ? 'selected' : ''}>24px</option>
+                            <option value="28" ${settings.font_size === '28' ? 'selected' : ''}>28px</option>
+                            <option value="32" ${settings.font_size === '32' ? 'selected' : ''}>32px</option>
+                        </select>
+                    </label>
+                    <label class="sfq-config-label">
+                        Peso de fuente:
+                        <select class="sfq-config-input" data-setting="font_weight">
+                            <option value="normal" ${settings.font_weight === 'normal' || !settings.font_weight ? 'selected' : ''}>Normal</option>
+                            <option value="bold" ${settings.font_weight === 'bold' ? 'selected' : ''}>Negrita</option>
+                            <option value="lighter" ${settings.font_weight === 'lighter' ? 'selected' : ''}>Ligera</option>
+                        </select>
+                    </label>
+                </div>
+                
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Alineación:
+                        <select class="sfq-config-input" data-setting="text_align">
+                            <option value="left" ${settings.text_align === 'left' ? 'selected' : ''}>Izquierda</option>
+                            <option value="center" ${settings.text_align === 'center' || !settings.text_align ? 'selected' : ''}>Centro</option>
+                            <option value="right" ${settings.text_align === 'right' ? 'selected' : ''}>Derecha</option>
+                        </select>
+                    </label>
+                    <label class="sfq-config-label">
+                        <input type="checkbox" data-setting="text_shadow" ${settings.text_shadow ? 'checked' : ''}>
+                        Sombra de texto
+                    </label>
+                </div>
+                
+                <!-- Colores -->
+                <h6 style="margin-top: 15px; margin-bottom: 10px;">🎨 Colores</h6>
+                
+                <div class="sfq-config-row variable-display-colors">
+                    <label class="sfq-config-label">
+                        Color de texto:
+                        <input type="color" class="sfq-config-input" data-setting="text_color" 
+                               value="${settings.text_color || '#333333'}">
+                    </label>
+                    <label class="sfq-config-label">
+                        Color de fondo:
+                        <input type="color" class="sfq-config-input" data-setting="background_color" 
+                               value="${settings.background_color || '#f8f9fa'}">
+                    </label>
+                </div>
+                
+                <div class="sfq-config-row variable-display-colors">
+                    <label class="sfq-config-label">
+                        Color del borde:
+                        <input type="color" class="sfq-config-input" data-setting="border_color" 
+                               value="${settings.border_color || '#e9ecef'}">
+                    </label>
+                    <label class="sfq-config-label">
+                        Opacidad del fondo:
+                        <input type="range" class="sfq-config-input" data-setting="background_opacity" 
+                               min="0" max="1" step="0.1" 
+                               value="${settings.background_opacity || '1'}">
+                        <span class="sfq-opacity-display">${settings.background_opacity || '1'}</span>
+                    </label>
+                </div>
+                
+                <!-- Configuración del recuadro -->
+                <h6 style="margin-top: 15px; margin-bottom: 10px;">📦 Recuadro</h6>
+                
+                <label class="sfq-config-label">
+                    Radio del borde:
+                    <input type="range" class="sfq-config-input" data-setting="border_radius" 
+                           min="0" max="50" step="1" 
+                           value="${settings.border_radius || '8'}">
+                    <span class="sfq-radius-display">${settings.border_radius || '8'}px</span>
+                </label>
+            `;
+        }
+        
         bindConfigPanelEvents($panel, questionId, elementId) {
             const question = this.questions.find(q => q.id === questionId);
             const element = question?.freestyle_elements?.find(el => el.id === elementId);
@@ -3187,7 +3344,18 @@
                         element.settings = {};
                     }
                     
+                    // ✅ CRÍTICO: Log para debugging del problema con variable_name
+                    if (setting === 'variable_name') {
+                        console.log('SFQ: Saving variable_name setting:', value);
+                        console.log('SFQ: Field type:', $field.prop('tagName'), 'Value:', $field.val());
+                    }
+                    
                     element.settings[setting] = value;
+                    
+                    // ✅ VERIFICACIÓN: Log después del guardado
+                    if (setting === 'variable_name') {
+                        console.log('SFQ: variable_name saved in element.settings:', element.settings[setting]);
+                    }
                 });
                 
                 // Manejar opciones de dropdown especialmente
@@ -3257,6 +3425,17 @@
                 } else {
                     $acceptanceConfig.hide();
                 }
+            });
+            
+            // Eventos específicos para variable_display
+            $panel.find('[data-setting="background_opacity"]').on('input', function() {
+                const value = $(this).val();
+                $panel.find('.sfq-opacity-display').text(value);
+            });
+            
+            $panel.find('[data-setting="border_radius"]').on('input', function() {
+                const value = $(this).val();
+                $panel.find('.sfq-radius-display').text(value + 'px');
             });
             
             // Manejar opciones de dropdown dinámicamente
@@ -3813,6 +3992,7 @@
         repopulateImagePreviews(questionId, question) {
             console.log('SFQ: Repopulating image previews for question:', questionId);
             
+            // ✅ CORREGIDO: Obtener elemento del DOM correctamente
             const $question = $(`#${questionId}`);
             if ($question.length === 0) {
                 console.error('SFQ: Question element not found for repopulation:', questionId);
@@ -4474,7 +4654,8 @@
                 'rating': '⭐ Valoración',
                 'dropdown': '📋 Desplegable',
                 'checkbox': '☑️ Opción Check',
-                'legal_text': '⚖️ Texto RGPD'
+                'legal_text': '⚖️ Texto RGPD',
+                'variable_display': '🔢 Mostrar Variable'
             };
             
             return `
@@ -4552,6 +4733,9 @@
                         <button class="sfq-add-freestyle-element" data-type="legal_text" data-question="${questionId}">
                             ⚖️ Texto RGPD
                         </button>
+                        <button class="sfq-add-freestyle-element" data-type="variable_display" data-question="${questionId}">
+                            🔢 Mostrar Variable
+                        </button>
                     </div>
                 </div>
             `;
@@ -4583,6 +4767,23 @@
                     return `<div class="sfq-file-preview">📤 Subir archivo</div>`;
                 case 'legal_text':
                     return `<div class="sfq-legal-preview">⚖️ ${element.settings?.text_content || 'Texto legal'}</div>`;
+                case 'variable_display':
+                    const variableName = element.settings?.variable_name || 'variable_no_seleccionada';
+                    const previewValue = element.settings?.preview_value || '0';
+                    return `<div class="sfq-variable-display-preview" style="
+                        padding: 12px 16px;
+                        background: ${element.settings?.background_color || '#f8f9fa'};
+                        border: 2px solid ${element.settings?.border_color || '#e9ecef'};
+                        border-radius: ${element.settings?.border_radius || '8'}px;
+                        color: ${element.settings?.text_color || '#333333'};
+                        font-size: ${element.settings?.font_size || '16'}px;
+                        font-weight: ${element.settings?.font_weight || 'normal'};
+                        text-align: ${element.settings?.text_align || 'center'};
+                        opacity: ${element.settings?.background_opacity || '1'};
+                        ${element.settings?.text_shadow ? 'text-shadow: 1px 1px 2px rgba(0,0,0,0.3);' : ''}
+                    ">
+                        🔢 Variable: <strong>${variableName}</strong> = ${previewValue}
+                    </div>`;
                 default:
                     return `<div class="sfq-element-preview">Vista previa de ${element.type}</div>`;
             }

@@ -2543,3 +2543,211 @@
 .sfq-image-upload-section input[type="hidden"] {
     display: none;
 }
+
+/* ==========================================================================
+   ELEMENTO VARIABLE DISPLAY - CONFIGURACIÓN Y PREVIEW
+   ========================================================================== */
+
+/* Preview del elemento Variable Display */
+.sfq-variable-display-preview {
+    display: inline-block;
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    color: #333333;
+    font-size: 16px;
+    font-weight: normal;
+    text-align: center;
+    opacity: 1;
+    transition: all 0.3s ease;
+    min-width: 120px;
+    font-family: var(--sfq-font-family);
+}
+
+.sfq-variable-display-preview:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Configuración específica para Variable Display */
+.sfq-config-section h6 {
+    margin: 15px 0 10px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #495057;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #dee2e6;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Controles de rango con display de valor */
+.sfq-config-input[type="range"] {
+    width: calc(100% - 60px);
+    margin-right: 10px;
+    vertical-align: middle;
+}
+
+.sfq-opacity-display,
+.sfq-radius-display {
+    display: inline-block;
+    min-width: 45px;
+    padding: 4px 8px;
+    background: #e9ecef;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #495057;
+    text-align: center;
+    vertical-align: middle;
+    font-family: 'Courier New', monospace;
+}
+
+/* Estilos para inputs de color en la configuración */
+.sfq-config-input[type="color"] {
+    width: 60px;
+    height: 40px;
+    padding: 2px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    cursor: pointer;
+    background: white;
+}
+
+.sfq-config-input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.sfq-config-input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 4px;
+}
+
+/* Mejoras para la configuración de Variable Display */
+.sfq-config-row.variable-display-colors {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    align-items: end;
+}
+
+.sfq-config-row.variable-display-colors .sfq-config-label {
+    margin-bottom: 0;
+}
+
+/* Estilos para el elemento Variable Display en el frontend */
+.sfq-variable-display {
+    display: inline-block;
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    color: #333333;
+    font-size: 16px;
+    font-weight: normal;
+    text-align: center;
+    opacity: 1;
+    transition: all 0.3s ease;
+    min-width: 120px;
+    font-family: var(--sfq-font-family);
+    margin: 10px 0;
+}
+
+.sfq-variable-display.has-shadow {
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.sfq-variable-display strong {
+    font-weight: 600;
+}
+
+/* Responsive para Variable Display */
+@media (max-width: 768px) {
+    .sfq-variable-display-preview,
+    .sfq-variable-display {
+        min-width: 100px;
+        padding: 10px 14px;
+        font-size: 14px;
+    }
+    
+    .sfq-config-row.variable-display-colors {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .sfq-config-input[type="range"] {
+        width: calc(100% - 50px);
+    }
+    
+    .sfq-opacity-display,
+    .sfq-radius-display {
+        min-width: 40px;
+        font-size: 11px;
+    }
+}
+
+/* Animación para cuando se actualiza el valor de la variable */
+@keyframes sfq-variable-update {
+    0% {
+        transform: scale(1);
+        background: #f8f9fa;
+    }
+    50% {
+        transform: scale(1.05);
+        background: #e3f2fd;
+    }
+    100% {
+        transform: scale(1);
+        background: #f8f9fa;
+    }
+}
+
+.sfq-variable-display.updated {
+    animation: sfq-variable-update 0.6s ease;
+}
+
+/* Estilos para diferentes tipos de variables */
+.sfq-variable-display[data-type="number"] {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+}
+
+.sfq-variable-display[data-type="boolean"] .variable-value {
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+.sfq-variable-display[data-type="text"] {
+    font-style: italic;
+}
+
+/* Estados especiales */
+.sfq-variable-display.error {
+    background: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+
+.sfq-variable-display.loading {
+    opacity: 0.6;
+    position: relative;
+}
+
+.sfq-variable-display.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    width: 12px;
+    height: 12px;
+    margin-top: -6px;
+    border: 2px solid #ccc;
+    border-top: 2px solid #666;
+    border-radius: 50%;
+    animation: sfq-spin 1s linear infinite;
+}

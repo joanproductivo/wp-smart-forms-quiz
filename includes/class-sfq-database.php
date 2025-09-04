@@ -294,6 +294,11 @@ class SFQ_Database {
             $form->settings = json_decode($form->settings, true) ?: array();
             $form->style_settings = json_decode($form->style_settings, true) ?: array();
             
+            // ✅ CRÍTICO: Extraer variables globales de las configuraciones
+            $form->global_variables = isset($form->settings['global_variables']) && is_array($form->settings['global_variables']) 
+                ? $form->settings['global_variables'] 
+                : array();
+            
             // Obtener preguntas
             $form->questions = $this->get_questions($form_id);
             
@@ -324,6 +329,11 @@ class SFQ_Database {
             // Decodificar configuraciones JSON
             $form->settings = json_decode($form->settings, true) ?: array();
             $form->style_settings = json_decode($form->style_settings, true) ?: array();
+            
+            // ✅ CRÍTICO: Extraer variables globales de las configuraciones (igual que en get_form)
+            $form->global_variables = isset($form->settings['global_variables']) && is_array($form->settings['global_variables']) 
+                ? $form->settings['global_variables'] 
+                : array();
             
             // Obtener preguntas
             $form->questions = $this->get_questions($form_id);
@@ -452,11 +462,11 @@ class SFQ_Database {
                 continue;
             }
             
-            // Validar que el tipo sea válido
-            $valid_types = ['text', 'video', 'image', 'countdown', 'phone', 'email', 'file_upload', 'button', 'rating', 'dropdown', 'checkbox', 'legal_text'];
-            if (!in_array($element['type'], $valid_types)) {
-                continue;
-            }
+        // Validar que el tipo sea válido
+        $valid_types = ['text', 'video', 'image', 'countdown', 'phone', 'email', 'file_upload', 'button', 'rating', 'dropdown', 'checkbox', 'legal_text', 'variable_display'];
+        if (!in_array($element['type'], $valid_types)) {
+            continue;
+        }
             
             $processed_elements[] = [
                 'id' => $element['id'] ?? 'element_' . time() . '_' . count($processed_elements),
@@ -621,6 +631,14 @@ class SFQ_Database {
         if (isset($data['questions']) && is_array($data['questions'])) {
             error_log('SFQ: Saving ' . count($data['questions']) . ' questions');
             $this->save_questions($form_id, $data['questions']);
+        }
+        
+        // ✅ CRÍTICO: Guardar variables globales si existen
+        if (isset($data['global_variables']) && is_array($data['global_variables'])) {
+            error_log('SFQ: Saving ' . count($data['global_variables']) . ' global variables');
+            $this->save_global_variables($form_id, $data['global_variables']);
+        } else {
+            error_log('SFQ: No global variables provided in form data');
         }
         
         // Limpiar cache después de guardar
@@ -1744,6 +1762,87 @@ class SFQ_Database {
         }
         
         return $optimized;
+    }
+    
+    /**
+     * ✅ CRÍTICO: Guardar variables globales del formulario
+     */
+    private function save_global_variables($form_id, $global_variables) {
+        if (!is_array($global_variables) || empty($global_variables)) {
+            error_log('SFQ: No global variables to save for form ' . $form_id);
+            return;
+        }
+        
+        error_log('SFQ: === SAVING GLOBAL VARIABLES ===');
+        error_log('SFQ: Form ID: ' . $form_id);
+        error_log('SFQ: Variables to save: ' . json_encode($global_variables));
+        
+        // Las variables globales se guardan en el campo settings del formulario
+        global $wpdb;
+        
+        // Obtener configuraciones actuales del formulario
+        $current_settings = $wpdb->get_var($wpdb->prepare(
+            "SELECT settings FROM {$this->forms_table} WHERE id = %d",
+            $form_id
+        ));
+        
+        // Decodificar configuraciones existentes
+        $settings = json_decode($current_settings, true) ?: array();
+        
+        // Añadir/actualizar las variables globales
+        $settings['global_variables'] = $global_variables;
+        
+        // Guardar de vuelta en la base de datos
+        $result = $wpdb->update(
+            $this->forms_table,
+            array('settings' => json_encode($settings)),
+            array('id' => $form_id),
+            array('%s'),
+            array('%d')
+        );
+        
+        if ($result === false) {
+            error_log('SFQ: ERROR saving global variables: ' . $wpdb->last_error);
+        } else {
+            error_log('SFQ: Successfully saved ' . count($global_variables) . ' global variables');
+            
+            // Verificar que se guardaron correctamente
+            $verification = $wpdb->get_var($wpdb->prepare(
+                "SELECT settings FROM {$this->forms_table} WHERE id = %d",
+                $form_id
+            ));
+            
+            $verified_settings = json_decode($verification, true);
+            if (isset($verified_settings['global_variables'])) {
+                error_log('SFQ: Verification - global variables saved correctly: ' . count($verified_settings['global_variables']) . ' variables');
+            } else {
+                error_log('SFQ: WARNING - global variables not found in verification');
+            }
+        }
+        
+        error_log('SFQ: === END SAVING GLOBAL VARIABLES ===');
+    }
+    
+    /**
+     * ✅ CRÍTICO: Obtener variables globales del formulario
+     */
+    public function get_global_variables($form_id) {
+        global $wpdb;
+        
+        $settings = $wpdb->get_var($wpdb->prepare(
+            "SELECT settings FROM {$this->forms_table} WHERE id = %d",
+            $form_id
+        ));
+        
+        if (!$settings) {
+            return array();
+        }
+        
+        $decoded_settings = json_decode($settings, true);
+        
+        return isset($decoded_settings['global_variables']) && is_array($decoded_settings['global_variables']) 
+            ? $decoded_settings['global_variables'] 
+            : array();
     }
     
     /**

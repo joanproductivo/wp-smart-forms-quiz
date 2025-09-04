@@ -1441,7 +1441,7 @@ class SFQ_Ajax {
             }
             
             // Validar que el tipo sea válido
-            $valid_types = ['text', 'video', 'image', 'countdown', 'phone', 'email', 'file_upload', 'button', 'rating', 'dropdown', 'checkbox', 'legal_text'];
+            $valid_types = ['text', 'video', 'image', 'countdown', 'phone', 'email', 'file_upload', 'button', 'rating', 'dropdown', 'checkbox', 'legal_text', 'variable_display'];
             if (!in_array($element['type'], $valid_types)) {
                 continue;
             }
@@ -1875,7 +1875,7 @@ class SFQ_Ajax {
                     }
                     
                     // Validar que el tipo de elemento sea válido
-                    $valid_element_types = array('text', 'video', 'image', 'countdown', 'phone', 'email', 'file_upload', 'button', 'rating', 'dropdown', 'checkbox', 'legal_text');
+                    $valid_element_types = array('text', 'video', 'image', 'countdown', 'phone', 'email', 'file_upload', 'button', 'rating', 'dropdown', 'checkbox', 'legal_text', 'variable_display');
                     if (!empty($element['type']) && !in_array($element['type'], $valid_element_types)) {
                         $errors['freestyle_elements'][] = sprintf(__('Tipo de elemento inválido en el elemento %d de la pregunta %d', 'smart-forms-quiz'), $element_index + 1, $index + 1);
                     }
