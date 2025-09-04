@@ -2501,6 +2501,51 @@
                 this.formBuilder.isDirty = true;
             });
             
+            // Update hide title
+            $question.find('.sfq-hide-title-checkbox').off('change').on('change', (e) => {
+                // ✅ SOLUCIÓN: Forzar creación de objeto plano
+                if (!question.settings || Array.isArray(question.settings) || typeof question.settings !== 'object') {
+                    question.settings = Object.create(null); // Crear objeto sin prototipo
+                    question.settings = {}; // Luego asignar objeto literal limpio
+                }
+                
+                // ✅ CRÍTICO: Crear nuevo objeto para evitar referencias de array
+                const newSettings = {};
+                
+                // Copiar settings existentes si los hay
+                if (question.settings && typeof question.settings === 'object' && !Array.isArray(question.settings)) {
+                    Object.keys(question.settings).forEach(key => {
+                        newSettings[key] = question.settings[key];
+                    });
+                }
+                
+                // Establecer el nuevo valor
+                newSettings.hide_title = $(e.target).is(':checked');
+                
+                // Asignar el nuevo objeto
+                question.settings = newSettings;
+                
+                this.formBuilder.isDirty = true;
+                
+                // Debug logging
+                console.log('SFQ: hide_title setting updated for question', question.id, ':', question.settings.hide_title);
+                console.log('SFQ: Full settings object:', question.settings);
+                console.log('SFQ: Settings is array?', Array.isArray(question.settings));
+                console.log('SFQ: Settings type:', typeof question.settings);
+            });
+            
+            // ✅ CRÍTICO: Inicializar el estado del checkbox según los settings guardados
+            // SOLUCIÓN: Asegurar que settings existe como objeto antes de acceder a hide_title
+            if (!question.settings || typeof question.settings !== 'object') {
+                question.settings = {};
+                console.log('SFQ: Initialized empty settings object for question', question.id);
+            }
+            
+            const hideTitle = question.settings.hide_title === true;
+            $question.find('.sfq-hide-title-checkbox').prop('checked', hideTitle);
+            console.log('SFQ: Initialized hide_title checkbox for question', question.id, 'to:', hideTitle);
+            console.log('SFQ: Question settings:', question.settings);
+            
             // ELIMINADO: Lógica del checkbox para convertir a pantalla final
             // Solo se usará el botón "Pantalla Final" para crear pantallas finales
             
@@ -3967,6 +4012,27 @@
                     settings: question.settings || {}
                 };
 
+                // ✅ CRÍTICO: Debug logging para verificar settings
+                console.log(`SFQ: Question ${index + 1} settings being saved:`, question.settings);
+                console.log(`SFQ: Question ${index + 1} settings type:`, typeof question.settings);
+                console.log(`SFQ: Question ${index + 1} settings is array:`, Array.isArray(question.settings));
+                console.log(`SFQ: Question ${index + 1} settings keys:`, question.settings ? Object.keys(question.settings) : 'NO SETTINGS');
+                
+                if (question.settings && question.settings.hide_title !== undefined) {
+                    console.log(`SFQ: Question ${index + 1} hide_title value:`, question.settings.hide_title);
+                    console.log(`SFQ: Question ${index + 1} hide_title type:`, typeof question.settings.hide_title);
+                } else {
+                    console.log(`SFQ: Question ${index + 1} NO hide_title setting found`);
+                }
+                
+                // ✅ VERIFICACIÓN ADICIONAL: Comprobar si settings se está convirtiendo en array
+                if (Array.isArray(question.settings)) {
+                    console.error(`SFQ: CRITICAL ERROR - Question ${index + 1} settings is an array instead of object!`);
+                    console.error(`SFQ: Array contents:`, question.settings);
+                    // Convertir array vacío a objeto vacío
+                    question.settings = {};
+                }
+
                 // CRÍTICO: Incluir IDs para mapeo correcto
                 if (question.originalId) {
                     // Si tiene ID original (de la base de datos), usarlo como ID principal
@@ -4615,6 +4681,11 @@
                                        ${question.required ? 'checked' : ''}>
                                 Pregunta obligatoria
                             </label>
+                            <label>
+                                <input type="checkbox" class="sfq-hide-title-checkbox" 
+                                       ${question.settings?.hide_title ? 'checked' : ''}>
+                                Ocultar título de la pregunta
+                            </label>
                         </div>
                         
                         <details class="sfq-conditions-section">
@@ -4672,6 +4743,11 @@
                                 <input type="checkbox" class="sfq-required-checkbox" 
                                        ${question.required ? 'checked' : ''}>
                                 Pregunta obligatoria
+                            </label>
+                            <label>
+                                <input type="checkbox" class="sfq-hide-title-checkbox" 
+                                       ${question.settings?.hide_title ? 'checked' : ''}>
+                                Ocultar título de la pregunta
                             </label>
                         </div>
                     </div>

@@ -183,7 +183,7 @@
 
 /* Contenido de pregunta */
 .sfq-question-content {
-    min-height: 400px;
+    min-height: 200px;
     display: flex;
     flex-direction: column;
 }

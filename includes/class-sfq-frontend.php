@@ -262,12 +262,18 @@ class SFQ_Frontend {
                                 <?php endif; ?>
                                 
                                 <!-- Texto de la pregunta -->
-                                <h3 class="sfq-question-text">
-                                    <?php echo esc_html($first_question->question_text); ?>
-                                    <?php if ($first_question->required) : ?>
-                                        <span class="sfq-required">*</span>
-                                    <?php endif; ?>
-                                </h3>
+                                <?php 
+                                $question_settings = $first_question->settings ?? array();
+                                $hide_title = isset($question_settings['hide_title']) && $question_settings['hide_title'];
+                                ?>
+                                <?php if (!$hide_title) : ?>
+                                    <h3 class="sfq-question-text">
+                                        <?php echo esc_html($first_question->question_text); ?>
+                                        <?php if ($first_question->required) : ?>
+                                            <span class="sfq-required">*</span>
+                                        <?php endif; ?>
+                                    </h3>
+                                <?php endif; ?>
                                 
                                 <!-- Renderizar según el tipo de pregunta -->
                                 <div class="sfq-answer-container">
@@ -339,12 +345,18 @@ class SFQ_Frontend {
                             <?php endif; ?>
                             
                             <!-- Texto de la pregunta -->
-                            <h3 class="sfq-question-text">
-                                <?php echo esc_html($question->question_text); ?>
-                                <?php if ($question->required) : ?>
-                                    <span class="sfq-required">*</span>
-                                <?php endif; ?>
-                            </h3>
+                            <?php 
+                            $question_settings = $question->settings ?? array();
+                            $hide_title = isset($question_settings['hide_title']) && $question_settings['hide_title'];
+                            ?>
+                            <?php if (!$hide_title) : ?>
+                                <h3 class="sfq-question-text">
+                                    <?php echo esc_html($question->question_text); ?>
+                                    <?php if ($question->required) : ?>
+                                        <span class="sfq-required">*</span>
+                                    <?php endif; ?>
+                                </h3>
+                            <?php endif; ?>
                             
                             <!-- Renderizar según el tipo de pregunta -->
                             <div class="sfq-answer-container">
@@ -417,12 +429,18 @@ class SFQ_Frontend {
                         
                         <div class="sfq-question-content">
                             <!-- Texto de la pregunta -->
-                            <h3 class="sfq-question-text">
-                                <?php echo esc_html($question->question_text); ?>
-                                <?php if ($question->required) : ?>
-                                    <span class="sfq-required">*</span>
-                                <?php endif; ?>
-                            </h3>
+                            <?php 
+                            $question_settings = $question->settings ?? array();
+                            $hide_title = isset($question_settings['hide_title']) && $question_settings['hide_title'];
+                            ?>
+                            <?php if (!$hide_title) : ?>
+                                <h3 class="sfq-question-text">
+                                    <?php echo esc_html($question->question_text); ?>
+                                    <?php if ($question->required) : ?>
+                                        <span class="sfq-required">*</span>
+                                    <?php endif; ?>
+                                </h3>
+                            <?php endif; ?>
                             
                             <!-- Renderizar según el tipo de pregunta -->
                             <div class="sfq-answer-container">

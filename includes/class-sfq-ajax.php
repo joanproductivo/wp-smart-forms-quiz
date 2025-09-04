@@ -650,12 +650,23 @@ class SFQ_Ajax {
                 <?php endif; ?>
                 
                 <!-- Texto de la pregunta -->
-                <h3 class="sfq-question-text">
-                    <?php echo esc_html($question->question_text); ?>
-                    <?php if ($question->required) : ?>
-                        <span class="sfq-required">*</span>
-                    <?php endif; ?>
-                </h3>
+                <?php 
+                // ✅ SOLUCIÓN: Verificar si se debe ocultar el título
+                $hide_title = false;
+                if (isset($question->settings) && is_array($question->settings)) {
+                    $hide_title = !empty($question->settings['hide_title']);
+                } elseif (isset($question->settings) && is_object($question->settings)) {
+                    $hide_title = !empty($question->settings->hide_title);
+                }
+                
+                if (!$hide_title) : ?>
+                    <h3 class="sfq-question-text">
+                        <?php echo esc_html($question->question_text); ?>
+                        <?php if ($question->required) : ?>
+                            <span class="sfq-required">*</span>
+                        <?php endif; ?>
+                    </h3>
+                <?php endif; ?>
                 
                 <!-- Renderizar según el tipo de pregunta -->
                 <div class="sfq-answer-container">
@@ -713,7 +724,7 @@ class SFQ_Ajax {
             
             <div class="sfq-final-screen-content">
                 <!-- Título de la pantalla final -->
-                <?php if (!empty($final_screen->question_text)) : ?>
+                <?php if (!empty($final_screen->question_text) && empty($screen_settings['hide_title'])) : ?>
                     <h2 class="sfq-final-screen-title">
                         <?php echo esc_html($final_screen->question_text); ?>
                     </h2>

@@ -991,12 +991,44 @@ class SFQ_Database {
                     $options_data = $question['options'] ?? array();
                 }
                 
+                // ✅ CRÍTICO: Procesar settings correctamente preservando todos los campos
+                $settings = $question['settings'] ?? array();
+                
+                // ✅ DEBUGGING: Log detallado de los settings recibidos
+                error_log('SFQ: === PROCESSING QUESTION SETTINGS ===');
+                error_log('SFQ: Question text: ' . ($question['question_text'] ?? 'NO TEXT'));
+                error_log('SFQ: Question type: ' . ($question['question_type'] ?? 'NO TYPE'));
+                error_log('SFQ: Raw settings received: ' . json_encode($settings));
+                error_log('SFQ: Settings type: ' . gettype($settings));
+                error_log('SFQ: Settings is_array: ' . (is_array($settings) ? 'true' : 'false'));
+                
+                // Verificar específicamente hide_title
+                if (isset($settings['hide_title'])) {
+                    error_log('SFQ: hide_title found in settings: ' . json_encode($settings['hide_title']));
+                    error_log('SFQ: hide_title type: ' . gettype($settings['hide_title']));
+                } else {
+                    error_log('SFQ: hide_title NOT found in settings');
+                    error_log('SFQ: Available settings keys: ' . json_encode(array_keys($settings)));
+                }
+                
+                // ✅ SOLUCIÓN: Asegurar que settings sea un array válido
+                if (!is_array($settings)) {
+                    error_log('SFQ: WARNING - Settings is not an array, converting to array');
+                    $settings = array();
+                }
+                
+                // ✅ CRÍTICO: Preservar todos los settings sin modificación
+                $processed_settings = $settings;
+                
+                error_log('SFQ: Final processed settings: ' . json_encode($processed_settings));
+                error_log('SFQ: === END PROCESSING QUESTION SETTINGS ===');
+
                 $question_data = array(
                     'form_id' => $form_id,
                     'question_text' => sanitize_textarea_field($question['question_text']),
                     'question_type' => sanitize_text_field($question['question_type']),
                     'options' => wp_json_encode($options_data),
-                    'settings' => wp_json_encode($question['settings'] ?? array()),
+                    'settings' => wp_json_encode($processed_settings),
                     'required' => isset($question['required']) && $question['required'] ? 1 : 0,
                     'order_position' => $index,
                     'variable_name' => sanitize_text_field($question['variable_name'] ?? ''),
