@@ -3006,6 +3006,8 @@
             const settings = element.settings || {};
             return `
                 <h5>🔘 Configuración de Botón</h5>
+                
+                <!-- Configuración básica -->
                 <label class="sfq-config-label">
                     Texto del botón:
                     <input type="text" class="sfq-config-input" data-setting="button_text" 
@@ -3019,20 +3021,138 @@
                            placeholder="https://ejemplo.com">
                     <small>Si no se especifica, solo registrará el clic</small>
                 </label>
+                <label class="sfq-config-label">
+                    <input type="checkbox" data-setting="open_new_tab" ${settings.open_new_tab ? 'checked' : ''}>
+                    Abrir en nueva pestaña
+                </label>
+                
+                <!-- Configuración de tipografía -->
+                <h6 style="margin-top: 20px; margin-bottom: 10px;">🔤 Tipografía</h6>
+                
                 <div class="sfq-config-row">
                     <label class="sfq-config-label">
-                        Estilo:
-                        <select class="sfq-config-input" data-setting="button_style">
-                            <option value="primary" ${settings.button_style === 'primary' ? 'selected' : ''}>Primario</option>
-                            <option value="secondary" ${settings.button_style === 'secondary' ? 'selected' : ''}>Secundario</option>
-                            <option value="outline" ${settings.button_style === 'outline' ? 'selected' : ''}>Contorno</option>
+                        Familia de fuente:
+                        <select class="sfq-config-input" data-setting="font_family">
+                            <option value="inherit" ${settings.font_family === 'inherit' || !settings.font_family ? 'selected' : ''}>Por defecto</option>
+                            <option value="Arial, sans-serif" ${settings.font_family === 'Arial, sans-serif' ? 'selected' : ''}>Arial</option>
+                            <option value="'Times New Roman', serif" ${settings.font_family === "'Times New Roman', serif" ? 'selected' : ''}>Times New Roman</option>
+                            <option value="'Courier New', monospace" ${settings.font_family === "'Courier New', monospace" ? 'selected' : ''}>Courier New</option>
+                            <option value="Georgia, serif" ${settings.font_family === 'Georgia, serif' ? 'selected' : ''}>Georgia</option>
+                            <option value="Verdana, sans-serif" ${settings.font_family === 'Verdana, sans-serif' ? 'selected' : ''}>Verdana</option>
+                            <option value="'Trebuchet MS', sans-serif" ${settings.font_family === "'Trebuchet MS', sans-serif" ? 'selected' : ''}>Trebuchet MS</option>
                         </select>
                     </label>
                     <label class="sfq-config-label">
-                        <input type="checkbox" data-setting="open_new_tab" ${settings.open_new_tab ? 'checked' : ''}>
-                        Abrir en nueva pestaña
+                        Tamaño de letra:
+                        <input type="range" class="sfq-config-input" data-setting="font_size" 
+                               min="12" max="32" step="1" 
+                               value="${settings.font_size || '16'}">
+                        <span class="sfq-button-font-size-display">${settings.font_size || '16'}px</span>
                     </label>
                 </div>
+                
+                <!-- Efectos de texto -->
+                <h6 style="margin-top: 15px; margin-bottom: 10px;">✨ Efectos de Texto</h6>
+                
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        <input type="checkbox" data-setting="font_italic" ${settings.font_italic ? 'checked' : ''}>
+                        Cursiva
+                    </label>
+                    <label class="sfq-config-label">
+                        <input type="checkbox" data-setting="font_bold" ${settings.font_bold ? 'checked' : ''}>
+                        Negrita
+                    </label>
+                </div>
+                
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        <input type="checkbox" data-setting="font_strikethrough" ${settings.font_strikethrough ? 'checked' : ''}>
+                        Tachado
+                    </label>
+                    <label class="sfq-config-label">
+                        <input type="checkbox" data-setting="text_shadow" ${settings.text_shadow ? 'checked' : ''}>
+                        Sombreado de letra
+                    </label>
+                </div>
+                
+                <!-- Alineación -->
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Alineación del contenido:
+                        <select class="sfq-config-input" data-setting="text_align">
+                            <option value="center" ${settings.text_align === 'center' || !settings.text_align ? 'selected' : ''}>Centro</option>
+                            <option value="left" ${settings.text_align === 'left' ? 'selected' : ''}>Izquierda</option>
+                            <option value="right" ${settings.text_align === 'right' ? 'selected' : ''}>Derecha</option>
+                        </select>
+                    </label>
+                    <label class="sfq-config-label">
+                        Color del texto:
+                        <input type="color" class="sfq-config-input" data-setting="text_color" 
+                               value="${settings.text_color || '#ffffff'}">
+                    </label>
+                </div>
+                
+                <!-- Configuración del fondo -->
+                <h6 style="margin-top: 15px; margin-bottom: 10px;">🎨 Fondo del Botón</h6>
+                
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Color de fondo:
+                        <input type="color" class="sfq-config-input" data-setting="background_color" 
+                               value="${settings.background_color || '#007cba'}">
+                    </label>
+                    <label class="sfq-config-label">
+                        Opacidad del fondo:
+                        <input type="range" class="sfq-config-input" data-setting="background_opacity" 
+                               min="0" max="1" step="0.1" 
+                               value="${settings.background_opacity || '1'}">
+                        <span class="sfq-button-bg-opacity-display">${settings.background_opacity || '1'}</span>
+                    </label>
+                </div>
+                
+                <!-- Configuración del borde -->
+                <h6 style="margin-top: 15px; margin-bottom: 10px;">📦 Borde del Botón</h6>
+                
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Color del borde:
+                        <input type="color" class="sfq-config-input" data-setting="border_color" 
+                               value="${settings.border_color || '#007cba'}">
+                    </label>
+                    <label class="sfq-config-label">
+                        Opacidad del borde:
+                        <input type="range" class="sfq-config-input" data-setting="border_opacity" 
+                               min="0" max="1" step="0.1" 
+                               value="${settings.border_opacity || '1'}">
+                        <span class="sfq-button-border-opacity-display">${settings.border_opacity || '1'}</span>
+                    </label>
+                </div>
+                
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Radio del borde:
+                        <input type="range" class="sfq-config-input" data-setting="border_radius" 
+                               min="0" max="50" step="1" 
+                               value="${settings.border_radius || '8'}">
+                        <span class="sfq-button-border-radius-display">${settings.border_radius || '8'}px</span>
+                    </label>
+                    <label class="sfq-config-label">
+                        <input type="checkbox" data-setting="box_shadow" ${settings.box_shadow ? 'checked' : ''}>
+                        Sombreado del recuadro
+                    </label>
+                </div>
+                
+                <!-- CSS Selector personalizado -->
+                <h6 style="margin-top: 15px; margin-bottom: 10px;">🔧 Seguimiento Avanzado</h6>
+                
+                <label class="sfq-config-label">
+                    CSS Selector personalizado:
+                    <input type="text" class="sfq-config-input" data-setting="css_selector" 
+                           value="${this.formBuilder.uiRenderer.escapeHtml(settings.css_selector || '')}" 
+                           placeholder="Ej: btn-custom-tracking">
+                    <small>Clase CSS adicional para herramientas de seguimiento (Google Analytics, etc.)</small>
+                </label>
             `;
         }
         
@@ -3669,6 +3789,27 @@
             $panel.find('[data-setting="border_opacity"]').on('input', function() {
                 const value = $(this).val();
                 $panel.find('.sfq-border-opacity-display').text(value);
+            });
+            
+            // Eventos específicos para button (nuevas opciones de estilo)
+            $panel.find('[data-setting="font_size"]').on('input', function() {
+                const value = $(this).val();
+                $panel.find('.sfq-button-font-size-display').text(value + 'px');
+            });
+            
+            $panel.find('[data-setting="background_opacity"]').on('input', function() {
+                const value = $(this).val();
+                $panel.find('.sfq-button-bg-opacity-display').text(value);
+            });
+            
+            $panel.find('[data-setting="border_opacity"]').on('input', function() {
+                const value = $(this).val();
+                $panel.find('.sfq-button-border-opacity-display').text(value);
+            });
+            
+            $panel.find('[data-setting="border_radius"]').on('input', function() {
+                const value = $(this).val();
+                $panel.find('.sfq-button-border-radius-display').text(value + 'px');
             });
             
             // Manejar opciones de dropdown dinámicamente

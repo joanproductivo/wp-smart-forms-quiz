@@ -2372,21 +2372,122 @@ class SFQ_Frontend {
         $settings = $element['settings'] ?? array();
         $button_text = $settings['button_text'] ?? $element['label'] ?? __('Botón', 'smart-forms-quiz');
         $button_url = $settings['button_url'] ?? '';
-        $button_style = $settings['button_style'] ?? 'primary';
         $open_new_tab = $settings['open_new_tab'] ?? false;
+        $css_selector = $settings['css_selector'] ?? '';
+        
+        // Aplicar estilos personalizados desde las configuraciones
+        $styles = array();
+        
+        // Tamaño de fuente
+        if (!empty($settings['font_size'])) {
+            $styles['font-size'] = intval($settings['font_size']) . 'px';
+        }
+        
+        // Tipo de fuente
+        if (!empty($settings['font_family'])) {
+            $styles['font-family'] = $settings['font_family'];
+        }
+        
+        // Peso de fuente (negrita)
+        if (!empty($settings['font_weight'])) {
+            $styles['font-weight'] = $settings['font_weight'];
+        }
+        
+        // Estilo de fuente (cursiva)
+        if (!empty($settings['font_style']) && $settings['font_style'] === 'italic') {
+            $styles['font-style'] = 'italic';
+        }
+        
+        // Decoración de texto (tachado)
+        if (!empty($settings['text_decoration']) && $settings['text_decoration'] === 'line-through') {
+            $styles['text-decoration'] = 'line-through';
+        }
+        
+        // Alineación de texto
+        if (!empty($settings['text_align'])) {
+            $styles['text-align'] = $settings['text_align'];
+        }
+        
+        // Color de texto
+        if (!empty($settings['text_color'])) {
+            $styles['color'] = $settings['text_color'];
+        }
+        
+        // Color de fondo con opacidad
+        if (!empty($settings['background_color'])) {
+            $bg_color = $settings['background_color'];
+            $bg_opacity = $settings['background_opacity'] ?? '1';
+            
+            if ($bg_opacity != '1') {
+                $styles['background-color'] = $this->hex_to_rgba($bg_color, $bg_opacity);
+            } else {
+                $styles['background-color'] = $bg_color;
+            }
+        }
+        
+        // Color de borde con opacidad
+        if (!empty($settings['border_color'])) {
+            $border_color = $settings['border_color'];
+            $border_opacity = $settings['border_opacity'] ?? '1';
+            
+            if ($border_opacity != '1') {
+                $border_rgba = $this->hex_to_rgba($border_color, $border_opacity);
+                $styles['border'] = '2px solid ' . $border_rgba;
+            } else {
+                $styles['border'] = '2px solid ' . $border_color;
+            }
+        }
+        
+        // Radio del borde
+        if (!empty($settings['border_radius'])) {
+            $styles['border-radius'] = intval($settings['border_radius']) . 'px';
+        }
+        
+        // Sombra de texto
+        if (!empty($settings['text_shadow']) && $settings['text_shadow']) {
+            $styles['text-shadow'] = '2px 2px 4px rgba(0,0,0,0.3)';
+        }
+        
+        // Sombra del recuadro
+        if (!empty($settings['box_shadow']) && $settings['box_shadow']) {
+            $styles['box-shadow'] = '0 4px 8px rgba(0,0,0,0.1)';
+        }
+        
+        // Padding y estilos básicos del botón
+        $styles['padding'] = '12px 24px';
+        $styles['border'] = $styles['border'] ?? 'none';
+        $styles['cursor'] = 'pointer';
+        $styles['transition'] = 'all 0.2s ease';
+        $styles['text-decoration'] = $styles['text-decoration'] ?? 'none';
+        $styles['display'] = 'inline-block';
+        
+        // Convertir array de estilos a string CSS
+        $style_string = '';
+        foreach ($styles as $property => $value) {
+            $style_string .= $property . ': ' . $value . '; ';
+        }
+        
+        // Clases CSS adicionales
+        $css_classes = 'sfq-freestyle-button';
+        if (!empty($css_selector)) {
+            $css_classes .= ' ' . esc_attr($css_selector);
+        }
+        
         ?>
-        <div class="sfq-freestyle-button-wrapper">
+        <div class="sfq-freestyle-button-wrapper" style="text-align: <?php echo esc_attr($settings['text_align'] ?? 'left'); ?>;">
             <?php if (!empty($button_url)) : ?>
                 <a href="<?php echo esc_url($button_url); ?>" 
-                   class="sfq-freestyle-button sfq-button-<?php echo esc_attr($button_style); ?>"
+                   class="<?php echo esc_attr($css_classes); ?>"
                    <?php echo $open_new_tab ? 'target="_blank" rel="noopener"' : ''; ?>
-                   data-element-id="<?php echo $element['id']; ?>">
+                   data-element-id="<?php echo esc_attr($element['id']); ?>"
+                   style="<?php echo esc_attr(trim($style_string)); ?>">
                     <?php echo esc_html($button_text); ?>
                 </a>
             <?php else : ?>
                 <button type="button" 
-                        class="sfq-freestyle-button sfq-button-<?php echo esc_attr($button_style); ?>"
-                        data-element-id="<?php echo $element['id']; ?>">
+                        class="<?php echo esc_attr($css_classes); ?>"
+                        data-element-id="<?php echo esc_attr($element['id']); ?>"
+                        style="<?php echo esc_attr(trim($style_string)); ?>">
                     <?php echo esc_html($button_text); ?>
                 </button>
             <?php endif; ?>
