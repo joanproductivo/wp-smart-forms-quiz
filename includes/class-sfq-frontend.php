@@ -2140,6 +2140,10 @@ class SFQ_Frontend {
                 $this->render_freestyle_legal_text($element, $question_id);
                 break;
                 
+            case 'variable_display':
+                $this->render_freestyle_variable_display($element, $question_id);
+                break;
+                
             default:
                 echo '<p>' . sprintf(__('Tipo de elemento "%s" no soportado', 'smart-forms-quiz'), esc_html($element_type)) . '</p>';
         }
@@ -2576,6 +2580,101 @@ class SFQ_Frontend {
                        value="legal_text_displayed">
             <?php endif; ?>
         </div>
+        <?php
+    }
+    
+    /**
+     * Renderizar elemento de mostrar variable freestyle
+     */
+    private function render_freestyle_variable_display($element, $question_id) {
+        $settings = $element['settings'] ?? array();
+        $variable_name = $settings['variable_name'] ?? '';
+        $preview_value = $settings['preview_value'] ?? '0';
+        
+        if (empty($variable_name)) {
+            echo '<p class="sfq-variable-error">' . __('Variable no configurada', 'smart-forms-quiz') . '</p>';
+            return;
+        }
+        
+        // Aplicar estilos personalizados desde las configuraciones
+        $styles = array();
+        
+        // Tamaño de fuente
+        if (!empty($settings['font_size'])) {
+            $styles['font-size'] = intval($settings['font_size']) . 'px';
+        }
+        
+        // Peso de fuente
+        if (!empty($settings['font_weight'])) {
+            $styles['font-weight'] = $settings['font_weight'];
+        }
+        
+        // Alineación de texto
+        if (!empty($settings['text_align'])) {
+            $styles['text-align'] = $settings['text_align'];
+        }
+        
+        // Color de texto
+        if (!empty($settings['text_color'])) {
+            $styles['color'] = $settings['text_color'];
+        }
+        
+        // Color de fondo
+        if (!empty($settings['background_color'])) {
+            $styles['background-color'] = $settings['background_color'];
+        }
+        
+        // Color de borde
+        if (!empty($settings['border_color'])) {
+            $styles['border'] = '2px solid ' . $settings['border_color'];
+        }
+        
+        // Radio del borde
+        if (!empty($settings['border_radius'])) {
+            $styles['border-radius'] = intval($settings['border_radius']) . 'px';
+        }
+        
+        // Padding
+        if (!empty($settings['padding'])) {
+            $styles['padding'] = $settings['padding'];
+        } else {
+            $styles['padding'] = '12px 16px';
+        }
+        
+        // Opacidad del fondo
+        if (!empty($settings['background_opacity']) && $settings['background_opacity'] != '1') {
+            if (!empty($settings['background_color'])) {
+                $styles['background-color'] = $this->hex_to_rgba($settings['background_color'], $settings['background_opacity']);
+            }
+        }
+        
+        // Sombra de texto
+        if (!empty($settings['text_shadow']) && $settings['text_shadow']) {
+            $styles['text-shadow'] = '1px 1px 2px rgba(0,0,0,0.3)';
+        }
+        
+        // Convertir array de estilos a string CSS
+        $style_string = '';
+        foreach ($styles as $property => $value) {
+            $style_string .= $property . ': ' . $value . '; ';
+        }
+        
+        ?>
+        <div class="sfq-freestyle-variable-display" 
+             data-element-id="<?php echo esc_attr($element['id']); ?>"
+             data-variable-name="<?php echo esc_attr($variable_name); ?>"
+             style="<?php echo esc_attr(trim($style_string)); ?>">
+            
+            <span class="sfq-variable-value" data-variable="<?php echo esc_attr($variable_name); ?>">
+                <?php echo esc_html($preview_value); ?>
+            </span>
+        </div>
+        
+        <!-- Campo oculto para registrar que se mostró la variable -->
+        <input type="hidden" 
+               name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
+               value="variable_displayed"
+               class="sfq-variable-tracker">
         <?php
     }
     

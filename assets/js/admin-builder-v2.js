@@ -3964,7 +3964,40 @@
 
                 // Handle freestyle questions
                 if (question.type === 'freestyle') {
-                    baseData.freestyle_elements = question.freestyle_elements || [];
+                    // ✅ SOLUCIÓN: Mapeo explícito para preservar settings de elementos freestyle
+                    baseData.freestyle_elements = (question.freestyle_elements || []).map(element => {
+                        // ✅ CRÍTICO: Preservar todos los datos del elemento incluyendo settings
+                        
+                        // ✅ DEBUGGING TEMPORAL: Log detallado del elemento
+                        console.log('SFQ: === PROCESSING FREESTYLE ELEMENT ===');
+                        console.log('SFQ: Element ID:', element.id);
+                        console.log('SFQ: Element type:', element.type);
+                        console.log('SFQ: Element label:', element.label);
+                        console.log('SFQ: Element settings (original):', element.settings);
+                        console.log('SFQ: Element settings type:', typeof element.settings);
+                        console.log('SFQ: Element settings keys:', element.settings ? Object.keys(element.settings) : 'NO SETTINGS');
+                        
+                        // Verificar específicamente variable_name si es variable_display
+                        if (element.type === 'variable_display') {
+                            console.log('SFQ: VARIABLE_DISPLAY ELEMENT DETECTED');
+                            console.log('SFQ: variable_name setting:', element.settings?.variable_name);
+                            console.log('SFQ: All settings for variable_display:', JSON.stringify(element.settings, null, 2));
+                        }
+                        
+                        const processedElement = {
+                            id: element.id,
+                            type: element.type,
+                            label: element.label || '',
+                            settings: element.settings || {},  // ✅ PRESERVAR SETTINGS COMO OBJETO
+                            order: element.order || 0,
+                            value: element.value || ''
+                        };
+                        
+                        console.log('SFQ: Processed element settings:', processedElement.settings);
+                        console.log('SFQ: === END PROCESSING ELEMENT ===');
+                        
+                        return processedElement;
+                    });
                     baseData.global_settings = question.global_settings || {};
                     baseData.options = []; // Freestyle questions don't have traditional options
                     baseData.pantallaFinal = question.pantallaFinal || false; // Incluir campo pantalla final
