@@ -1697,7 +1697,7 @@
         /**
          * Manejar click en botón freestyle
          */
-        handleFreestyleButton(e) {
+        async handleFreestyleButton(e) {
             const button = e.currentTarget;
             const elementId = button.dataset.elementId;
             const questionContainer = button.closest('.sfq-freestyle-container');
@@ -1715,6 +1715,14 @@
             }
 
             this.responses[questionId][elementId] = 'clicked';
+
+            // ✅ NUEVO: Guardar el clic inmediatamente en el servidor
+            try {
+                await this.saveButtonClickImmediately(questionId, elementId, button);
+            } catch (error) {
+                console.error('SFQ: Error saving button click:', error);
+                // Continuar con el comportamiento normal aunque falle el guardado
+            }
 
             // Si es un botón con URL, el navegador manejará la navegación automáticamente
         }
@@ -3924,6 +3932,57 @@
             blockedDiv.innerHTML = content;
             
             return blockedDiv;
+        }
+
+        /**
+         * ✅ NUEVO: Guardar clic de botón inmediatamente en el servidor
+         */
+        async saveButtonClickImmediately(questionId, elementId, button) {
+            console.log('SFQ: Saving button click immediately for element:', elementId);
+            
+            try {
+                const formData = new FormData();
+                formData.append('action', 'sfq_save_button_click');
+                formData.append('nonce', this.getCurrentNonce());
+                formData.append('form_id', this.formId);
+                formData.append('session_id', this.sessionId);
+                formData.append('question_id', questionId);
+                formData.append('element_id', elementId);
+                formData.append('click_timestamp', Date.now());
+                
+                // Incluir información adicional del botón si está disponible
+                const buttonText = button.textContent || button.innerText || '';
+                const buttonUrl = button.href || button.dataset.url || '';
+                
+                formData.append('button_text', buttonText);
+                formData.append('button_url', buttonUrl);
+
+                const response = await fetch(this.config.ajaxUrl, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('SFQ: Button click saved successfully');
+                } else {
+                    console.warn('SFQ: Button click save failed:', result.data);
+                }
+                
+            } catch (error) {
+                console.error('SFQ: Error saving button click:', error);
+                // No lanzar el error para no interrumpir el flujo normal
+            }
         }
 
         /**

@@ -15,6 +15,7 @@ class SFQ_Loader {
     private $shortcode;
     private $analytics;
     private $form_statistics;
+    private $admin_submissions;
     
     public function init() {
         // Inicializar componentes según el contexto
@@ -26,6 +27,12 @@ class SFQ_Loader {
             if (class_exists('SFQ_Form_Statistics')) {
                 $this->form_statistics = new SFQ_Form_Statistics();
                 $this->form_statistics->init();
+            }
+            
+            // Inicializar submissions avanzadas si existe la clase
+            if (class_exists('SFQ_Admin_Submissions')) {
+                $this->admin_submissions = new SFQ_Admin_Submissions();
+                $this->admin_submissions->init();
             }
         }
         

@@ -211,6 +211,10 @@ class SFQ_Admin {
                                         <span class="sfq-stat-value" id="partial-<?php echo $form->id; ?>">0</span>
                                     </div>
                                     <div class="sfq-stat">
+                                        <span class="sfq-stat-label"><?php _e('Clics', 'smart-forms-quiz'); ?></span>
+                                        <span class="sfq-stat-value" id="button-clicks-<?php echo $form->id; ?>">0</span>
+                                    </div>
+                                    <div class="sfq-stat">
                                         <span class="sfq-stat-label"><?php _e('Tasa', 'smart-forms-quiz'); ?></span>
                                         <span class="sfq-stat-value" id="rate-<?php echo $form->id; ?>">0%</span>
                                     </div>
@@ -325,6 +329,7 @@ class SFQ_Admin {
                             card.find('#views-' + formId).text(response.data.views);
                             card.find('#completed-' + formId).text(response.data.completed);
                             card.find('#partial-' + formId).text(response.data.partial_responses);
+                            card.find('#button-clicks-' + formId).text(response.data.button_clicks || 0);
                             card.find('#rate-' + formId).text(response.data.rate + '%');
                         }
                     },
@@ -379,6 +384,7 @@ class SFQ_Admin {
                             card.find('#views-' + formId).text('0');
                             card.find('#completed-' + formId).text('0');
                             card.find('#partial-' + formId).text('0');
+                            card.find('#button-clicks-' + formId).text('0');
                             card.find('#rate-' + formId).text('0%');
                             
                             // Mostrar mensaje de éxito

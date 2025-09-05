@@ -18,7 +18,7 @@
 
         init() {
             this.bindEvents();
-            this.loadStatistics();
+            this.loadVisitorsAnalytics();
             this.initCharts();
         }
 
@@ -44,12 +44,12 @@
 
             // Apply filters
             $('#sfq-apply-stats-filter').on('click', () => {
-                this.loadStatistics();
+                   this.loadVisitorsAnalytics();
             });
 
             // Refresh button
             $('#sfq-refresh-stats').on('click', () => {
-                this.loadStatistics();
+                 this.loadVisitorsAnalytics();
             });
 
             // Export button
@@ -105,6 +105,9 @@
                 case 'responses':
                     this.loadResponses();
                     break;
+                case 'questions':
+                    this.loadStatistics();
+                     break;   
             }
         }
 
@@ -172,7 +175,21 @@
 
     updateGeneralStats(stats) {
         $('#total-responses').text(stats.total_responses.toLocaleString());
-        $('#completion-rate').text(stats.completion_rate + '%');
+        
+        // ✅ CORREGIDO: Aplicar la misma lógica de clases CSS que en admin-forms-list.js
+        const completionRateElement = $('#completion-rate');
+        const rateValue = parseFloat(stats.completion_rate) || 0;
+        completionRateElement.text(rateValue + '%');
+        
+        // Aplicar clases CSS según el valor de la tasa (misma lógica que rate-1, rate-2, etc.)
+        if (rateValue >= 70) {
+            completionRateElement.addClass('sfq-rate-high').removeClass('sfq-rate-medium sfq-rate-low');
+        } else if (rateValue >= 40) {
+            completionRateElement.addClass('sfq-rate-medium').removeClass('sfq-rate-high sfq-rate-low');
+        } else {
+            completionRateElement.addClass('sfq-rate-low').removeClass('sfq-rate-high sfq-rate-medium');
+        }
+        
         $('#avg-time').text(stats.avg_time);
         $('#countries-count').text(stats.countries_count);
         $('#partial-responses').text(stats.partial_responses || 0);
@@ -675,22 +692,18 @@
                 return;
             }
             
-            // Set explicit canvas dimensions to prevent infinite stretching
-            const container = canvas.parentElement;
-            const containerWidth = container.offsetWidth || 800;
-            const containerHeight = Math.min(400, Math.max(300, containerWidth * 0.5));
-            
-            canvas.style.width = containerWidth + 'px';
-            canvas.style.height = containerHeight + 'px';
-            canvas.width = containerWidth;
-            canvas.height = containerHeight;
-            
             const ctx = canvas.getContext('2d');
             
-            // Destroy existing chart if exists
+            // Destroy existing chart and cleanup observers
             if (this.charts.timeline) {
                 this.charts.timeline.destroy();
                 this.charts.timeline = null;
+            }
+            
+            // Cleanup previous resize observer
+            if (this.charts.timelineResizeObserver) {
+                this.charts.timelineResizeObserver.disconnect();
+                this.charts.timelineResizeObserver = null;
             }
             
             // Prepare data
@@ -711,7 +724,13 @@
             });
             const data = dailyData.map(item => parseInt(item.count) || 0);
             
-            // Create timeline chart with fixed dimensions
+            // Reset canvas to default size and let Chart.js handle responsiveness
+            canvas.style.width = '';
+            canvas.style.height = '';
+            canvas.removeAttribute('width');
+            canvas.removeAttribute('height');
+            
+            // Create timeline chart with proper responsive settings
             try {
                 this.charts.timeline = new Chart(ctx, {
                     type: 'line',
@@ -733,8 +752,8 @@
                         }]
                     },
                     options: {
-                        responsive: false, // Disable responsive to prevent infinite stretching
-                        maintainAspectRatio: false,
+                        responsive: true, // Enable responsive behavior
+                        maintainAspectRatio: false, // Allow flexible aspect ratio
                         animation: {
                             duration: 750,
                             easing: 'easeInOutQuart'
@@ -799,26 +818,6 @@
                         }
                     }
                 });
-                
-                // Add resize handler to update chart when container size changes
-                const resizeObserver = new ResizeObserver(() => {
-                    if (this.charts.timeline) {
-                        const newWidth = container.offsetWidth || 800;
-                        const newHeight = Math.min(400, Math.max(300, newWidth * 0.5));
-                        
-                        canvas.style.width = newWidth + 'px';
-                        canvas.style.height = newHeight + 'px';
-                        canvas.width = newWidth;
-                        canvas.height = newHeight;
-                        
-                        this.charts.timeline.resize();
-                    }
-                });
-                
-                resizeObserver.observe(container);
-                
-                // Store observer for cleanup
-                this.charts.timelineResizeObserver = resizeObserver;
                 
             } catch (error) {
                 console.error('Error creating timeline chart:', error);
@@ -2166,6 +2165,544 @@
                     button.attr('title', 'Colapsar todos los países');
                 }
             });
+        }
+
+        /**
+         * ✅ NUEVO: Cargar analytics de visitantes y clics
+         */
+        async loadVisitorsAnalytics() {
+            const period = $('#sfq-visitors-timeline-period').val() || '30';
+            
+            // Show loading state
+            $('#unique-visitors').text('-');
+            $('#total-visits').text('-');
+            $('#unique-clicks').text('-');
+            $('#total-clicks').text('-');
+            $('#top-country-unique-clicks .sfq-country-name').text('-');
+            $('#top-country-unique-clicks .sfq-country-count').text('(-)');
+            $('#global-conversion-rate .sfq-conversion-percentage').text('-%');
+            $('#avg-clicks-per-visitor .sfq-avg-number').text('-');
+            
+            // Show loading in table
+            $('#sfq-visitors-countries-tbody').html(`
+                <tr>
+                    <td colspan="7" class="sfq-loading-cell">
+                        <div class="sfq-loading-spinner"></div>
+                        Cargando datos de visitantes...
+                    </td>
+                </tr>
+            `);
+            
+            try {
+                const response = await $.ajax({
+                    url: sfq_ajax.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'sfq_get_visitors_analytics',
+                        nonce: sfq_ajax.nonce,
+                        form_id: this.formId,
+                        period: period
+                    }
+                });
+
+                if (response.success) {
+                    this.updateVisitorsDisplay(response.data);
+                } else {
+                    console.error('Error loading visitors analytics:', response.data);
+                    this.showVisitorsError(response.data);
+                }
+            } catch (error) {
+                console.error('Error loading visitors analytics:', error);
+                this.showVisitorsError('Error de conexión');
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Actualizar display de analytics de visitantes
+         */
+        updateVisitorsDisplay(data) {
+            // Update summary cards
+            $('#unique-visitors').text(data.summary.unique_visitors.toLocaleString());
+            $('#total-visits').text(data.summary.total_visits.toLocaleString());
+            $('#unique-clicks').text(data.summary.unique_clicks.toLocaleString());
+            $('#total-clicks').text(data.summary.total_clicks.toLocaleString());
+            
+            // Update top country with unique clicks
+            const topCountry = data.summary.top_country_unique_clicks;
+            $('#top-country-unique-clicks .sfq-country-flag').text(topCountry.flag_emoji);
+            $('#top-country-unique-clicks .sfq-country-name').text(topCountry.country_name);
+            $('#top-country-unique-clicks .sfq-country-count').text(`(${topCountry.count})`);
+            
+            // Update conversion rate
+            $('#global-conversion-rate .sfq-conversion-percentage').text(data.summary.conversion_rate + '%');
+            
+            // Update average clicks per visitor
+            $('#avg-clicks-per-visitor .sfq-avg-number').text(data.summary.avg_clicks_per_visitor);
+            
+            // Create charts
+            this.createVisitorsTimelineChart(data.timeline_chart);
+            this.createVisitorsCountriesChart(data.countries_chart);
+            
+            // Update countries table
+            this.updateVisitorsCountriesTable(data.countries_table);
+            
+            // Update button stats
+            this.updateButtonStats(data.button_stats);
+            
+            // Bind events for visitors tab
+            this.bindVisitorsEvents();
+        }
+
+        /**
+         * ✅ NUEVO: Crear gráfico temporal de visitantes
+         */
+        createVisitorsTimelineChart(timelineData) {
+            const canvas = document.getElementById('sfq-visitors-timeline-chart');
+            if (!canvas || !timelineData || timelineData.length === 0) {
+                if (canvas) {
+                    canvas.parentElement.innerHTML = '<p style="text-align: center; color: #646970;">No hay datos de timeline de visitantes</p>';
+                }
+                return;
+            }
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Destroy existing chart if exists
+            if (this.charts.visitorsTimeline) {
+                this.charts.visitorsTimeline.destroy();
+            }
+            
+            const labels = timelineData.map(item => {
+                const date = new Date(item.date);
+                return date.toLocaleDateString('es-ES', { 
+                    month: 'short', 
+                    day: 'numeric' 
+                });
+            });
+            
+            this.charts.visitorsTimeline = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Visitantes Únicos',
+                            data: timelineData.map(item => parseInt(item.unique_visitors) || 0),
+                            borderColor: '#007cba',
+                            backgroundColor: 'rgba(0, 124, 186, 0.1)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.4,
+                            pointBackgroundColor: '#007cba',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointRadius: 4
+                        },
+                        {
+                            label: 'Clics Únicos',
+                            data: timelineData.map(item => parseInt(item.unique_clicks) || 0),
+                            borderColor: '#46b450',
+                            backgroundColor: 'rgba(70, 180, 80, 0.1)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.4,
+                            pointBackgroundColor: '#46b450',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1 }
+                        },
+                        x: {
+                            ticks: { maxRotation: 45 }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { padding: 20 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.parsed.y}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * ✅ NUEVO: Crear gráfico de países con más clics únicos
+         */
+        createVisitorsCountriesChart(countriesData) {
+            const canvas = document.getElementById('sfq-visitors-countries-chart');
+            if (!canvas || !countriesData || countriesData.length === 0) {
+                if (canvas) {
+                    canvas.parentElement.innerHTML = '<p style="text-align: center; color: #646970;">No hay datos de países</p>';
+                }
+                return;
+            }
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Destroy existing chart if exists
+            if (this.charts.visitorsCountries) {
+                this.charts.visitorsCountries.destroy();
+            }
+            
+            // Take top 8 countries for better visualization
+            const topCountries = countriesData.slice(0, 8);
+            
+            this.charts.visitorsCountries = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: topCountries.map(c => c.flag_emoji + ' ' + c.country_name),
+                    datasets: [{
+                        label: 'Clics Únicos',
+                        data: topCountries.map(c => c.unique_clicks),
+                        backgroundColor: [
+                            '#007cba', '#46b450', '#f56e28', '#e74c3c',
+                            '#9b59b6', '#f39c12', '#1abc9c', '#34495e'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { 
+                                padding: 10, 
+                                font: { size: 11 },
+                                generateLabels: function(chart) {
+                                    const data = chart.data;
+                                    if (data.labels.length && data.datasets.length) {
+                                        return data.labels.map((label, i) => {
+                                            const value = data.datasets[0].data[i];
+                                            return {
+                                                text: `${label}: ${value}`,
+                                                fillStyle: data.datasets[0].backgroundColor[i],
+                                                strokeStyle: data.datasets[0].borderColor,
+                                                lineWidth: data.datasets[0].borderWidth,
+                                                hidden: false,
+                                                index: i
+                                            };
+                                        });
+                                    }
+                                    return [];
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.parsed;
+                                    const percentage = topCountries[context.dataIndex].percentage || 0;
+                                    return `${context.label}: ${value} clics únicos (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * ✅ NUEVO: Actualizar tabla de países con estadísticas detalladas
+         */
+        updateVisitorsCountriesTable(countriesData) {
+            const tbody = $('#sfq-visitors-countries-tbody');
+            
+            if (!countriesData || countriesData.length === 0) {
+                tbody.html('<tr><td colspan="7" style="text-align: center; color: #646970;">No hay datos de países disponibles</td></tr>');
+                return;
+            }
+            
+            const html = countriesData.map(country => `
+                <tr>
+                    <td>
+                        <span class="sfq-country-flag">${country.flag_emoji}</span>
+                        <span class="sfq-country-name">${this.escapeHtml(country.country_name)}</span>
+                    </td>
+                    <td>${country.unique_visitors.toLocaleString()}</td>
+                    <td>${country.total_visits.toLocaleString()}</td>
+                    <td><strong>${country.unique_clicks.toLocaleString()}</strong></td>
+                    <td>${country.total_clicks.toLocaleString()}</td>
+                    <td>
+                        <span class="sfq-conversion-rate ${country.conversion_rate >= 50 ? 'high' : country.conversion_rate >= 25 ? 'medium' : 'low'}">
+                            ${country.conversion_rate}%
+                        </span>
+                    </td>
+                    <td>${country.percentage}%</td>
+                </tr>
+            `).join('');
+            
+            tbody.html(html);
+        }
+
+        /**
+         * ✅ NUEVO: Bind events específicos para la pestaña de visitantes
+         */
+        bindVisitorsEvents() {
+            // Period selector for visitors timeline
+            $('#sfq-visitors-timeline-period').off('change').on('change', (e) => {
+                this.loadVisitorsAnalytics();
+            });
+
+            // Refresh visitors data
+            $('#sfq-refresh-visitors-data').off('click').on('click', (e) => {
+                e.preventDefault();
+                this.loadVisitorsAnalytics();
+            });
+
+            // Export visitors data
+            $('#sfq-export-visitors-data').off('click').on('click', (e) => {
+                e.preventDefault();
+                this.exportVisitorsData();
+            });
+        }
+
+        /**
+         * ✅ NUEVO: Exportar datos de visitantes
+         */
+        async exportVisitorsData() {
+            const period = $('#sfq-visitors-timeline-period').val() || '30';
+            
+            try {
+                const response = await $.ajax({
+                    url: sfq_ajax.ajax_url,
+                    type: 'POST',
+                    data: {
+                        action: 'sfq_export_visitors_data',
+                        nonce: sfq_ajax.nonce,
+                        form_id: this.formId,
+                        period: period
+                    }
+                });
+
+                if (response.success) {
+                    // Download the file
+                    window.location.href = response.data.file_url;
+                    this.showNotice('Datos de visitantes exportados correctamente', 'success');
+                } else {
+                    this.showNotice('Error al exportar datos de visitantes: ' + (response.data || 'Error desconocido'), 'error');
+                }
+            } catch (error) {
+                console.error('Error exporting visitors data:', error);
+                this.showNotice('Error al exportar datos de visitantes', 'error');
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Mostrar error en pestaña de visitantes
+         */
+        showVisitorsError(error) {
+            $('#unique-visitors').text('Error');
+            $('#total-visits').text('Error');
+            $('#unique-clicks').text('Error');
+            $('#total-clicks').text('Error');
+            $('#top-country-unique-clicks .sfq-country-name').text('Error');
+            $('#top-country-unique-clicks .sfq-country-count').text('(-)');
+            $('#global-conversion-rate .sfq-conversion-percentage').text('Error');
+            $('#avg-clicks-per-visitor .sfq-avg-number').text('Error');
+            
+            // Show error in charts
+            const chartContainers = [
+                '#sfq-visitors-timeline-chart',
+                '#sfq-visitors-countries-chart'
+            ];
+            
+            chartContainers.forEach(selector => {
+                const canvas = document.querySelector(selector);
+                if (canvas) {
+                    canvas.parentElement.innerHTML = `<p style="text-align: center; color: #dc3232;">Error al cargar datos: ${error}</p>`;
+                }
+            });
+            
+            // Show error in table
+            $('#sfq-visitors-countries-tbody').html(`
+                <tr>
+                    <td colspan="7" style="text-align: center; color: #dc3232;">
+                        Error al cargar datos de visitantes: ${error}
+                    </td>
+                </tr>
+            `);
+        }
+
+        /**
+         * ✅ NUEVO: Actualizar estadísticas de botones y URLs
+         */
+        updateButtonStats(buttonStats) {
+            const container = $('#sfq-button-stats-content');
+            
+            if (!buttonStats || (buttonStats.button_clicks.length === 0 && buttonStats.url_clicks.length === 0)) {
+                container.html(`
+                    <div class="sfq-no-data">
+                        <span class="dashicons dashicons-info"></span>
+                        <p>No hay datos de clics en botones disponibles</p>
+                        <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                            Los clics en botones con URLs se mostrarán aquí cuando estén disponibles.
+                        </p>
+                    </div>
+                `);
+                return;
+            }
+            
+            let html = '';
+            
+            // Mostrar estadísticas por botón individual
+            if (buttonStats.button_clicks.length > 0) {
+                html += `
+                    <div class="sfq-button-clicks-section">
+                        <h4>Clics por Botón Individual</h4>
+                        <div class="sfq-button-clicks-grid">
+                `;
+                
+                buttonStats.button_clicks.forEach((button, index) => {
+                    html += `
+                        <div class="sfq-button-click-card">
+                            <div class="sfq-button-click-header">
+                                <h5>${this.escapeHtml(button.button_text)}</h5>
+                                <a href="${this.escapeHtml(button.button_url)}" target="_blank" class="sfq-button-url">
+                                    ${this.escapeHtml(button.button_url)}
+                                    <span class="dashicons dashicons-external"></span>
+                                </a>
+                            </div>
+                            <div class="sfq-button-click-stats">
+                                <div class="sfq-stat-item">
+                                    <span class="sfq-stat-value">${button.click_count}</span>
+                                    <span class="sfq-stat-label">Total Clics</span>
+                                </div>
+                                <div class="sfq-stat-item">
+                                    <span class="sfq-stat-value">${button.unique_clicks}</span>
+                                    <span class="sfq-stat-label">Clics Únicos</span>
+                                </div>
+                                <div class="sfq-stat-item">
+                                    <span class="sfq-stat-value">${button.unique_users}</span>
+                                    <span class="sfq-stat-label">Usuarios Únicos</span>
+                                </div>
+                            </div>
+                            ${button.countries_data && button.countries_data.length > 0 ? `
+                                <div class="sfq-button-countries">
+                                    <h6>Top Países</h6>
+                                    <div class="sfq-button-countries-list">
+                                        ${button.countries_data.map(country => `
+                                            <div class="sfq-button-country-item">
+                                                <span class="sfq-country-flag">${country.flag_emoji}</span>
+                                                <span class="sfq-country-name">${this.escapeHtml(country.country_name)}</span>
+                                                <span class="sfq-country-clicks">${country.clicks} (${country.percentage}%)</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Mostrar estadísticas por URL agrupada
+            if (buttonStats.url_clicks.length > 0) {
+                html += `
+                    <div class="sfq-url-clicks-section">
+                        <h4>Clics por URL (Agrupados)</h4>
+                        <div class="sfq-url-clicks-grid">
+                `;
+                
+                buttonStats.url_clicks.forEach((url, index) => {
+                    html += `
+                        <div class="sfq-url-click-card">
+                            <div class="sfq-url-click-header">
+                                <a href="${this.escapeHtml(url.button_url)}" target="_blank" class="sfq-url-link">
+                                    ${this.escapeHtml(url.button_url)}
+                                    <span class="dashicons dashicons-external"></span>
+                                </a>
+                                <div class="sfq-url-button-texts">
+                                    <strong>Textos de botones:</strong>
+                                    ${url.button_texts.map(text => `<span class="sfq-button-text-tag">${this.escapeHtml(text)}</span>`).join('')}
+                                </div>
+                            </div>
+                            <div class="sfq-url-click-stats">
+                                <div class="sfq-stat-item">
+                                    <span class="sfq-stat-value">${url.click_count}</span>
+                                    <span class="sfq-stat-label">Total Clics</span>
+                                </div>
+                                <div class="sfq-stat-item">
+                                    <span class="sfq-stat-value">${url.unique_clicks}</span>
+                                    <span class="sfq-stat-label">Clics Únicos</span>
+                                </div>
+                                <div class="sfq-stat-item">
+                                    <span class="sfq-stat-value">${url.unique_users}</span>
+                                    <span class="sfq-stat-label">Usuarios Únicos</span>
+                                </div>
+                            </div>
+                            ${url.countries_data && url.countries_data.length > 0 ? `
+                                <div class="sfq-url-countries">
+                                    <h6>Top Países</h6>
+                                    <div class="sfq-url-countries-list">
+                                        ${url.countries_data.map(country => `
+                                            <div class="sfq-url-country-item">
+                                                <span class="sfq-country-flag">${country.flag_emoji}</span>
+                                                <span class="sfq-country-name">${this.escapeHtml(country.country_name)}</span>
+                                                <span class="sfq-country-clicks">${country.clicks} (${country.percentage}%)</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Mostrar resumen general
+            if (buttonStats.total_button_clicks > 0 || buttonStats.total_url_clicks > 0) {
+                html += `
+                    <div class="sfq-button-stats-summary">
+                        <h4>Resumen de Clics en Botones</h4>
+                        <div class="sfq-button-summary-grid">
+                            <div class="sfq-summary-stat">
+                                <span class="sfq-summary-value">${buttonStats.total_button_clicks}</span>
+                                <span class="sfq-summary-label">Total Clics en Botones</span>
+                            </div>
+                            <div class="sfq-summary-stat">
+                                <span class="sfq-summary-value">${buttonStats.button_clicks.length}</span>
+                                <span class="sfq-summary-label">Botones Únicos</span>
+                            </div>
+                            <div class="sfq-summary-stat">
+                                <span class="sfq-summary-value">${buttonStats.url_clicks.length}</span>
+                                <span class="sfq-summary-label">URLs Únicas</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.html(html);
         }
     }
 

@@ -68,6 +68,7 @@ class SFQ_Admin_Submissions {
         add_action('wp_ajax_sfq_get_dashboard_stats', array($this, 'get_dashboard_stats'));
         add_action('wp_ajax_sfq_get_form_analytics', array($this, 'get_form_analytics'));
         add_action('wp_ajax_sfq_save_submission_note', array($this, 'save_submission_note'));
+        add_action('wp_ajax_sfq_get_global_clicks_stats', array($this, 'get_global_clicks_stats'));
     }
     
     /**
@@ -164,6 +165,103 @@ class SFQ_Admin_Submissions {
                             <div class="sfq-stat-label"><?php _e('Tasa Conversión', 'smart-forms-quiz'); ?></div>
                             <div class="sfq-stat-change">-</div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sección de Clics Globales -->
+            <div class="sfq-global-clicks-section">
+                <div class="sfq-global-clicks-header">
+                    <h2><?php _e('Clics Globales', 'smart-forms-quiz'); ?></h2>
+                    <div class="sfq-global-clicks-info">
+                        <span class="dashicons dashicons-info"></span>
+                        <div class="sfq-tooltip">
+                            <?php _e('Estadísticas de clics en botones de todos los formularios', 'smart-forms-quiz'); ?>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="sfq-global-clicks-grid">
+                    <div class="sfq-global-click-card" id="total-button-clicks">
+                        <div class="sfq-global-click-icon">
+                            <span class="dashicons dashicons-controls-forward"></span>
+                        </div>
+                        <div class="sfq-global-click-content">
+                            <div class="sfq-global-click-number">-</div>
+                            <div class="sfq-global-click-label"><?php _e('Total Clics en Botones', 'smart-forms-quiz'); ?></div>
+                            <div class="sfq-global-click-change">-</div>
+                        </div>
+                    </div>
+                    
+                    <div class="sfq-global-click-card" id="unique-button-clicks">
+                        <div class="sfq-global-click-icon">
+                            <span class="dashicons dashicons-admin-users"></span>
+                        </div>
+                        <div class="sfq-global-click-content">
+                            <div class="sfq-global-click-number">-</div>
+                            <div class="sfq-global-click-label"><?php _e('Clics Únicos en Botones', 'smart-forms-quiz'); ?></div>
+                            <div class="sfq-global-click-change">-</div>
+                        </div>
+                    </div>
+                    
+                    <div class="sfq-global-click-card" id="top-clicked-url">
+                        <div class="sfq-global-click-icon">
+                            <span class="dashicons dashicons-admin-links"></span>
+                        </div>
+                        <div class="sfq-global-click-content">
+                            <div class="sfq-global-click-number">-</div>
+                            <div class="sfq-global-click-label"><?php _e('URL Más Clicada', 'smart-forms-quiz'); ?></div>
+                            <div class="sfq-global-click-url">-</div>
+                        </div>
+                    </div>
+                    
+                    <div class="sfq-global-click-card" id="button-conversion-rate">
+                        <div class="sfq-global-click-icon">
+                            <span class="dashicons dashicons-chart-area"></span>
+                        </div>
+                        <div class="sfq-global-click-content">
+                            <div class="sfq-global-click-number">-</div>
+                            <div class="sfq-global-click-label"><?php _e('Tasa de Conversión de Botones', 'smart-forms-quiz'); ?></div>
+                            <div class="sfq-global-click-change">-</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tabla de URLs más clicadas -->
+                <div class="sfq-top-urls-section">
+                    <div class="sfq-top-urls-header">
+                        <h3><?php _e('URLs Más Clicadas', 'smart-forms-quiz'); ?></h3>
+                        <div class="sfq-top-urls-controls">
+                            <button class="button" id="sfq-refresh-global-clicks">
+                                <span class="dashicons dashicons-update"></span>
+                                <?php _e('Actualizar', 'smart-forms-quiz'); ?>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="sfq-top-urls-table">
+                        <table class="wp-list-table widefat fixed striped">
+                            <thead>
+                                <tr>
+                                    <th><?php _e('URL', 'smart-forms-quiz'); ?></th>
+                                    <th><?php _e('Total Clics', 'smart-forms-quiz'); ?></th>
+                                    <th><?php _e('Clics Únicos', 'smart-forms-quiz'); ?></th>
+                                    <th><?php _e('Formularios', 'smart-forms-quiz'); ?></th>
+                                    <th><?php _e('País Principal', 'smart-forms-quiz'); ?></th>
+                                    <th><?php _e('% del Total', 'smart-forms-quiz'); ?></th>
+                                </tr>
+                            </thead>
+                            <tbody id="sfq-top-urls-tbody">
+                                <tr>
+                                    <td colspan="6" class="sfq-loading-cell">
+                                        <div class="sfq-loading-content">
+                                            <div class="sfq-loading-spinner"></div>
+                                            <span><?php _e('Cargando clics globales...', 'smart-forms-quiz'); ?></span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -2155,5 +2253,458 @@ class SFQ_Admin_Submissions {
         // Seleccionar país basado en hash de IP para consistencia
         $index = hexdec(substr($ip_hash, 0, 2)) % count($countries);
         return $countries[$index];
+    }
+    
+    /**
+     * ✅ NUEVO: Obtener estadísticas globales de clics en botones
+     */
+    public function get_global_clicks_stats() {
+        if (!$this->verify_ajax_request()) {
+            return;
+        }
+        
+        $period = sanitize_text_field($_POST['period'] ?? '7');
+        
+        try {
+            $date_condition = $this->build_analytics_date_condition($period);
+            
+            // Obtener estadísticas globales de clics
+            $global_clicks_stats = $this->calculate_global_clicks_stats($date_condition);
+            
+            wp_send_json_success($global_clicks_stats);
+        } catch (Exception $e) {
+            error_log('SFQ Global Clicks Stats Error: ' . $e->getMessage());
+            wp_send_json_error('Error al obtener estadísticas de clics globales: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Calcular estadísticas globales de clics
+     */
+    private function calculate_global_clicks_stats($date_condition) {
+        global $wpdb;
+        
+        // Verificar si existe la tabla de analytics
+        $analytics_table = $wpdb->prefix . 'sfq_analytics';
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$analytics_table'") === $analytics_table;
+        
+        if (!$table_exists) {
+            return array(
+                'summary' => array(
+                    'total_clicks' => 0,
+                    'unique_clicks' => 0,
+                    'top_url_clicks' => 0,
+                    'conversion_rate' => 0,
+                    'top_url' => 'N/A',
+                    'changes' => array(
+                        'total_clicks' => 0,
+                        'unique_clicks' => 0,
+                        'conversion_rate' => 0
+                    )
+                ),
+                'top_urls' => array()
+            );
+        }
+        
+        // Obtener TOTAL de clics en botones del período (TODOS los clics, incluyendo repetidos)
+        $total_clicks_query = "SELECT COUNT(*) FROM {$analytics_table} 
+                              WHERE event_type = 'button_click_immediate'";
+        $total_clicks_params = array();
+        
+        if (!empty($date_condition['params'])) {
+            $total_clicks_query .= str_replace('completed_at', 'created_at', $date_condition['where']);
+            $total_clicks_params = $date_condition['params'];
+        }
+        
+        $total_clicks = $wpdb->get_var($wpdb->prepare($total_clicks_query, $total_clicks_params));
+        
+        // Obtener clics ÚNICOS (sesiones distintas que hicieron clic en botones)
+        $unique_clicks_query = "SELECT COUNT(DISTINCT session_id) FROM {$analytics_table} 
+                               WHERE event_type = 'button_click_immediate'";
+        $unique_clicks_params = array();
+        
+        if (!empty($date_condition['params'])) {
+            $unique_clicks_query .= str_replace('completed_at', 'created_at', $date_condition['where']);
+            $unique_clicks_params = $date_condition['params'];
+        }
+        
+        $unique_clicks = $wpdb->get_var($wpdb->prepare($unique_clicks_query, $unique_clicks_params));
+        
+        // Obtener total de visitantes únicos para calcular tasa de conversión
+        $total_visitors_query = "SELECT COUNT(DISTINCT session_id) FROM {$analytics_table} 
+                                WHERE event_type = 'view'";
+        $total_visitors_params = array();
+        
+        if (!empty($date_condition['params'])) {
+            $total_visitors_query .= str_replace('completed_at', 'created_at', $date_condition['where']);
+            $total_visitors_params = $date_condition['params'];
+        }
+        
+        $total_visitors = $wpdb->get_var($wpdb->prepare($total_visitors_query, $total_visitors_params));
+        
+        // Calcular tasa de conversión de botones
+        $conversion_rate = 0;
+        if ($total_visitors > 0 && $unique_clicks > 0) {
+            $conversion_rate = ($unique_clicks / $total_visitors) * 100;
+            $conversion_rate = round($conversion_rate, 1);
+            $conversion_rate = max(0, min(100, $conversion_rate));
+        }
+        
+        // Obtener URL más clicada
+        $top_url_data = $this->get_top_clicked_url($date_condition);
+        
+        // Calcular cambios porcentuales (período actual vs período anterior)
+        $changes = $this->calculate_global_clicks_changes($date_condition, $total_clicks, $unique_clicks, $conversion_rate);
+        
+        // Obtener top URLs con detalles
+        $top_urls = $this->get_top_urls_detailed($date_condition);
+        
+        return array(
+            'summary' => array(
+                'total_clicks' => intval($total_clicks),
+                'unique_clicks' => intval($unique_clicks),
+                'top_url_clicks' => $top_url_data['clicks'],
+                'conversion_rate' => $conversion_rate,
+                'top_url' => $top_url_data['url'],
+                'changes' => $changes
+            ),
+            'top_urls' => $top_urls
+        );
+    }
+    
+    /**
+     * ✅ NUEVO: Obtener URL más clicada
+     */
+    private function get_top_clicked_url($date_condition) {
+        global $wpdb;
+        
+        $analytics_table = $wpdb->prefix . 'sfq_analytics';
+        
+        $query = "SELECT 
+                    JSON_UNQUOTE(JSON_EXTRACT(event_data, '$.button_url')) as button_url,
+                    COUNT(*) as clicks
+                  FROM {$analytics_table}
+                  WHERE event_type = 'button_click_immediate'
+                  AND JSON_EXTRACT(event_data, '$.button_url') IS NOT NULL
+                  AND JSON_EXTRACT(event_data, '$.button_url') != ''
+                  AND JSON_EXTRACT(event_data, '$.button_url') != 'null'";
+        
+        $params = array();
+        
+        if (!empty($date_condition['params'])) {
+            $query .= str_replace('completed_at', 'created_at', $date_condition['where']);
+            $params = $date_condition['params'];
+        }
+        
+        $query .= " GROUP BY JSON_EXTRACT(event_data, '$.button_url')
+                   ORDER BY clicks DESC
+                   LIMIT 1";
+        
+        $result = $wpdb->get_row($wpdb->prepare($query, $params));
+        
+        if ($result) {
+            return array(
+                'url' => $result->button_url,
+                'clicks' => intval($result->clicks)
+            );
+        }
+        
+        return array(
+            'url' => 'N/A',
+            'clicks' => 0
+        );
+    }
+    
+    /**
+     * ✅ NUEVO: Calcular cambios porcentuales de clics globales
+     */
+    private function calculate_global_clicks_changes($date_condition, $current_total, $current_unique, $current_conversion) {
+        global $wpdb;
+        
+        $analytics_table = $wpdb->prefix . 'sfq_analytics';
+        
+        // Calcular período anterior basado en el período actual
+        $previous_date_condition = $this->get_previous_period_condition($date_condition);
+        
+        if (!$previous_date_condition) {
+            return array(
+                'total_clicks' => 0,
+                'unique_clicks' => 0,
+                'conversion_rate' => 0
+            );
+        }
+        
+        // Total clics del período anterior
+        $prev_total_query = "SELECT COUNT(*) FROM {$analytics_table} 
+                            WHERE event_type = 'button_click_immediate'";
+        
+        if (!empty($previous_date_condition['params'])) {
+            $prev_total_query .= str_replace('completed_at', 'created_at', $previous_date_condition['where']);
+        }
+        
+        $prev_total = $wpdb->get_var($wpdb->prepare($prev_total_query, $previous_date_condition['params']));
+        
+        // Clics únicos del período anterior
+        $prev_unique_query = "SELECT COUNT(DISTINCT session_id) FROM {$analytics_table} 
+                             WHERE event_type = 'button_click_immediate'";
+        
+        if (!empty($previous_date_condition['params'])) {
+            $prev_unique_query .= str_replace('completed_at', 'created_at', $previous_date_condition['where']);
+        }
+        
+        $prev_unique = $wpdb->get_var($wpdb->prepare($prev_unique_query, $previous_date_condition['params']));
+        
+        // Visitantes únicos del período anterior para calcular conversión
+        $prev_visitors_query = "SELECT COUNT(DISTINCT session_id) FROM {$analytics_table} 
+                               WHERE event_type = 'view'";
+        
+        if (!empty($previous_date_condition['params'])) {
+            $prev_visitors_query .= str_replace('completed_at', 'created_at', $previous_date_condition['where']);
+        }
+        
+        $prev_visitors = $wpdb->get_var($wpdb->prepare($prev_visitors_query, $previous_date_condition['params']));
+        
+        // Calcular conversión del período anterior
+        $prev_conversion = 0;
+        if ($prev_visitors > 0 && $prev_unique > 0) {
+            $prev_conversion = ($prev_unique / $prev_visitors) * 100;
+            $prev_conversion = round($prev_conversion, 1);
+        }
+        
+        // Calcular cambios porcentuales
+        $total_change = $prev_total > 0 ? round((($current_total - $prev_total) / $prev_total) * 100, 1) : 0;
+        $unique_change = $prev_unique > 0 ? round((($current_unique - $prev_unique) / $prev_unique) * 100, 1) : 0;
+        $conversion_change = $prev_conversion > 0 ? round((($current_conversion - $prev_conversion) / $prev_conversion) * 100, 1) : 0;
+        
+        return array(
+            'total_clicks' => $total_change,
+            'unique_clicks' => $unique_change,
+            'conversion_rate' => $conversion_change
+        );
+    }
+    
+    /**
+     * ✅ NUEVO: Obtener condición de período anterior
+     */
+    private function get_previous_period_condition($current_condition) {
+        // Si no hay condición de fecha actual, no podemos calcular período anterior
+        if (empty($current_condition['params'])) {
+            return null;
+        }
+        
+        // Extraer fechas de la condición actual
+        $current_params = $current_condition['params'];
+        
+        if (count($current_params) === 1) {
+            // Período de un solo día (ej: hoy)
+            $current_date = $current_params[0];
+            $previous_date = date('Y-m-d', strtotime($current_date . ' -1 day'));
+            
+            return array(
+                'where' => ' AND DATE(created_at) = %s',
+                'params' => array($previous_date)
+            );
+        } elseif (count($current_params) === 2) {
+            // Rango de fechas
+            $date_from = $current_params[0];
+            $date_to = $current_params[1];
+            
+            // Calcular duración del período
+            $days_diff = (strtotime($date_to) - strtotime($date_from)) / (24 * 60 * 60);
+            
+            // Calcular período anterior del mismo tamaño
+            $prev_date_to = date('Y-m-d', strtotime($date_from . ' -1 day'));
+            $prev_date_from = date('Y-m-d', strtotime($prev_date_to . ' -' . $days_diff . ' days'));
+            
+            return array(
+                'where' => ' AND DATE(created_at) >= %s AND DATE(created_at) <= %s',
+                'params' => array($prev_date_from, $prev_date_to)
+            );
+        }
+        
+        return null;
+    }
+    
+    /**
+     * ✅ NUEVO: Obtener top URLs con detalles completos
+     */
+    private function get_top_urls_detailed($date_condition) {
+        global $wpdb;
+        
+        $analytics_table = $wpdb->prefix . 'sfq_analytics';
+        
+        // Obtener URLs agrupadas con estadísticas
+        $query = "SELECT 
+                    JSON_UNQUOTE(JSON_EXTRACT(event_data, '$.button_url')) as url,
+                    COUNT(*) as total_clicks,
+                    COUNT(DISTINCT session_id) as unique_clicks,
+                    COUNT(DISTINCT form_id) as forms_count,
+                    GROUP_CONCAT(DISTINCT form_id) as form_ids
+                  FROM {$analytics_table}
+                  WHERE event_type = 'button_click_immediate'
+                  AND JSON_EXTRACT(event_data, '$.button_url') IS NOT NULL
+                  AND JSON_EXTRACT(event_data, '$.button_url') != ''
+                  AND JSON_EXTRACT(event_data, '$.button_url') != 'null'";
+        
+        $params = array();
+        
+        if (!empty($date_condition['params'])) {
+            $query .= str_replace('completed_at', 'created_at', $date_condition['where']);
+            $params = $date_condition['params'];
+        }
+        
+        $query .= " GROUP BY JSON_EXTRACT(event_data, '$.button_url')
+                   ORDER BY total_clicks DESC
+                   LIMIT 10";
+        
+        $urls_data = $wpdb->get_results($wpdb->prepare($query, $params));
+        
+        if (empty($urls_data)) {
+            return array();
+        }
+        
+        // Calcular total de clics para porcentajes
+        $total_all_clicks = array_sum(array_column($urls_data, 'total_clicks'));
+        
+        $processed_urls = array();
+        
+        foreach ($urls_data as $url_data) {
+            // Obtener títulos de formularios
+            $form_ids = explode(',', $url_data->form_ids);
+            $form_titles = array();
+            
+            foreach ($form_ids as $form_id) {
+                $form_title = $wpdb->get_var($wpdb->prepare(
+                    "SELECT title FROM {$wpdb->prefix}sfq_forms WHERE id = %d",
+                    intval($form_id)
+                ));
+                if ($form_title) {
+                    $form_titles[] = $form_title;
+                }
+            }
+            
+            // Obtener país principal para esta URL
+            $top_country = $this->get_top_country_for_url($url_data->url, $date_condition);
+            
+            // Calcular porcentaje
+            $percentage = $total_all_clicks > 0 ? round(($url_data->total_clicks / $total_all_clicks) * 100, 1) : 0;
+            
+            $processed_urls[] = array(
+                'url' => $url_data->url,
+                'total_clicks' => intval($url_data->total_clicks),
+                'unique_clicks' => intval($url_data->unique_clicks),
+                'forms_count' => intval($url_data->forms_count),
+                'form_titles' => $form_titles,
+                'top_country' => $top_country,
+                'percentage' => $percentage
+            );
+        }
+        
+        return $processed_urls;
+    }
+    
+    /**
+     * ✅ NUEVO: Obtener país principal para una URL específica
+     */
+    private function get_top_country_for_url($url, $date_condition) {
+        global $wpdb;
+        
+        $analytics_table = $wpdb->prefix . 'sfq_analytics';
+        
+        // Obtener IPs que hicieron clic en esta URL
+        $ips_query = "SELECT DISTINCT user_ip, COUNT(*) as clicks
+                      FROM {$analytics_table}
+                      WHERE event_type = 'button_click_immediate'
+                      AND JSON_UNQUOTE(JSON_EXTRACT(event_data, '$.button_url')) = %s
+                      AND user_ip IS NOT NULL AND user_ip != ''";
+        
+        $ips_params = array($url);
+        
+        if (!empty($date_condition['params'])) {
+            $ips_query .= str_replace('completed_at', 'created_at', $date_condition['where']);
+            $ips_params = array_merge($ips_params, $date_condition['params']);
+        }
+        
+        $ips_query .= " GROUP BY user_ip ORDER BY clicks DESC LIMIT 10";
+        
+        $ips_data = $wpdb->get_results($wpdb->prepare($ips_query, $ips_params));
+        
+        if (empty($ips_data)) {
+            return array(
+                'country_name' => 'Desconocido',
+                'flag_emoji' => '🌍',
+                'clicks' => 0
+            );
+        }
+        
+        // Obtener información de países para las IPs
+        $countries_info = $this->get_countries_info_batch(array_column($ips_data, 'user_ip'));
+        
+        $countries_count = array();
+        
+        foreach ($ips_data as $ip_data) {
+            $country_info = $countries_info[$ip_data->user_ip] ?? null;
+            
+            if ($country_info && $country_info['country_code'] !== 'XX') {
+                $country_key = $country_info['country_code'];
+                
+                if (!isset($countries_count[$country_key])) {
+                    $countries_count[$country_key] = array(
+                        'country_name' => $country_info['country_name'],
+                        'flag_emoji' => $country_info['flag_emoji'],
+                        'clicks' => 0
+                    );
+                }
+                
+                $countries_count[$country_key]['clicks'] += intval($ip_data->clicks);
+            }
+        }
+        
+        if (empty($countries_count)) {
+            return array(
+                'country_name' => 'Desconocido',
+                'flag_emoji' => '🌍',
+                'clicks' => 0
+            );
+        }
+        
+        // Obtener el país con más clics
+        uasort($countries_count, function($a, $b) {
+            return $b['clicks'] - $a['clicks'];
+        });
+        
+        return array_values($countries_count)[0];
+    }
+    
+    /**
+     * ✅ NUEVO: Construir condición de fecha para analytics (reutilizado)
+     */
+    private function build_analytics_date_condition($period) {
+        $where = '';
+        $params = array();
+        
+        switch ($period) {
+            case 'today':
+                $where = ' AND DATE(created_at) = %s';
+                $params[] = current_time('Y-m-d');
+                break;
+            case '7':
+                $where = ' AND DATE(created_at) >= %s';
+                $params[] = date('Y-m-d', current_time('timestamp') - (7 * 24 * 60 * 60));
+                break;
+            case '30':
+                $where = ' AND DATE(created_at) >= %s';
+                $params[] = date('Y-m-d', current_time('timestamp') - (30 * 24 * 60 * 60));
+                break;
+            case '90':
+                $where = ' AND DATE(created_at) >= %s';
+                $params[] = date('Y-m-d', current_time('timestamp') - (90 * 24 * 60 * 60));
+                break;
+            default:
+                // Sin filtro de fecha para 'all'
+                break;
+        }
+        
+        return array('where' => $where, 'params' => $params);
     }
 }

@@ -75,6 +75,10 @@ class SFQ_Ajax {
         add_action('wp_ajax_sfq_refresh_nonce', array($this, 'refresh_nonce'));
         add_action('wp_ajax_nopriv_sfq_refresh_nonce', array($this, 'refresh_nonce'));
         
+        // ✅ NUEVO: AJAX handler para guardar clics de botones inmediatamente
+        add_action('wp_ajax_sfq_save_button_click', array($this, 'save_button_click'));
+        add_action('wp_ajax_nopriv_sfq_save_button_click', array($this, 'save_button_click'));
+        
     }
     
     /**
@@ -2104,6 +2108,17 @@ class SFQ_Ajax {
             ));
         }
         
+        // ✅ NUEVO: Obtener conteo de clics de botones inmediatos desde analytics
+        $button_clicks_count = 0;
+        if ($table_exists) {
+            $button_clicks_count = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) 
+                FROM {$wpdb->prefix}sfq_analytics 
+                WHERE form_id = %d AND event_type = 'button_click_immediate'",
+                $form_id
+            ));
+        }
+        
         // Calcular tasa de conversión: (total_submissions / total_views) * 100
         // Usar la misma lógica exacta que get_dashboard_stats para consistencia
         $conversion_rate = 0;
@@ -2122,7 +2137,8 @@ class SFQ_Ajax {
             'views' => intval($total_views),
             'completed' => intval($total_submissions),
             'rate' => $conversion_rate,
-            'partial_responses' => intval($partial_responses_count)
+            'partial_responses' => intval($partial_responses_count),
+            'button_clicks' => intval($button_clicks_count)
         ));
     }
     
@@ -3942,6 +3958,172 @@ class SFQ_Ajax {
             wp_send_json_error(array(
                 'message' => __('Error al refrescar nonce', 'smart-forms-quiz'),
                 'code' => 'REFRESH_FAILED',
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Guardar clic de botón inmediatamente en analytics
+     */
+    public function save_button_click() {
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Rate limiting para clics de botones (permisivo pero controlado)
+        if (!$this->check_rate_limit('save_button_click', 50, 60)) {
+            wp_send_json_error(array(
+                'message' => __('Demasiados clics registrados. Intenta de nuevo en un momento.', 'smart-forms-quiz'),
+                'code' => 'RATE_LIMIT_EXCEEDED'
+            ));
+            return;
+        }
+        
+        // Validar datos requeridos
+        $form_id = intval($_POST['form_id'] ?? 0);
+        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
+        $question_id = intval($_POST['question_id'] ?? 0);
+        $element_id = sanitize_text_field($_POST['element_id'] ?? '');
+        $click_timestamp = intval($_POST['click_timestamp'] ?? 0);
+        
+        if (!$form_id || !$session_id || !$question_id || !$element_id) {
+            wp_send_json_error(__('Datos del clic incompletos', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Datos adicionales opcionales
+        $button_text = sanitize_text_field($_POST['button_text'] ?? '');
+        $button_url = esc_url_raw($_POST['button_url'] ?? '');
+        
+        try {
+            global $wpdb;
+            
+            // ✅ NUEVO: Verificar si la pregunta es una pantalla final
+            $question = $wpdb->get_row($wpdb->prepare(
+                "SELECT id, question_type, settings FROM {$wpdb->prefix}sfq_questions WHERE id = %d",
+                $question_id
+            ));
+            
+            $is_final_screen = false;
+            if ($question) {
+                // Verificar si es pantalla final por configuración
+                $question_settings = json_decode($question->settings, true) ?: array();
+                $is_final_screen = !empty($question_settings['pantallaFinal']) || 
+                                  (isset($question_settings['pantalla_final']) && $question_settings['pantalla_final']);
+                
+                // También verificar por tipo de pregunta si es freestyle (pantallas finales suelen ser freestyle)
+                if (!$is_final_screen && $question->question_type === 'freestyle') {
+                    // Para preguntas freestyle, verificar si tiene elementos de pantalla final
+                    $form = $this->database->get_form($form_id);
+                    if ($form && !empty($form->questions)) {
+                        foreach ($form->questions as $form_question) {
+                            if ($form_question->id == $question_id) {
+                                $is_final_screen = !empty($form_question->pantallaFinal);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Preparar datos del evento para analytics
+            $event_data = array(
+                'question_id' => $question_id,
+                'element_id' => $element_id,
+                'button_text' => $button_text,
+                'button_url' => $button_url,
+                'click_timestamp' => $click_timestamp,
+                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+                'saved_immediately' => true,
+                'is_final_screen' => $is_final_screen
+            );
+            
+            // Guardar en sfq_analytics con tipo específico para clics inmediatos
+            $analytics_data = array(
+                'form_id' => $form_id,
+                'event_type' => 'button_click_immediate',
+                'event_data' => json_encode($event_data, JSON_UNESCAPED_UNICODE),
+                'user_ip' => $this->get_user_ip(),
+                'session_id' => $session_id,
+                'created_at' => current_time('mysql')
+            );
+            
+            $result = $wpdb->insert(
+                $wpdb->prefix . 'sfq_analytics',
+                $analytics_data,
+                array('%d', '%s', '%s', '%s', '%s', '%s')
+            );
+            
+            if ($result === false) {
+                throw new Exception('Error al guardar en analytics: ' . $wpdb->last_error);
+            }
+            
+            $analytics_id = $wpdb->insert_id;
+            $response_id = null;
+            
+            // ✅ NUEVO: Si es pantalla final, también guardar en sfq_responses
+            if ($is_final_screen) {
+                // Buscar o crear submission para esta sesión
+                $submission = $wpdb->get_row($wpdb->prepare(
+                    "SELECT id FROM {$wpdb->prefix}sfq_submissions 
+                    WHERE form_id = %d AND session_id = %s 
+                    ORDER BY created_at DESC LIMIT 1",
+                    $form_id,
+                    $session_id
+                ));
+                
+                if ($submission) {
+                    // Preparar respuesta para guardar en sfq_responses
+                    $click_response_data = array(
+                        'button_text' => $button_text,
+                        'button_url' => $button_url,
+                        'element_id' => $element_id,
+                        'clicked_at' => current_time('mysql'),
+                        'click_type' => 'final_screen_button'
+                    );
+                    
+                    // Guardar en sfq_responses
+                    $response_data = array(
+                        'submission_id' => $submission->id,
+                        'question_id' => $question_id,
+                        'answer' => json_encode($click_response_data, JSON_UNESCAPED_UNICODE),
+                        'score' => 0
+                    );
+                    
+                    $response_result = $wpdb->insert(
+                        $wpdb->prefix . 'sfq_responses',
+                        $response_data,
+                        array('%d', '%d', '%s', '%d')
+                    );
+                    
+                    if ($response_result !== false) {
+                        $response_id = $wpdb->insert_id;
+                    }
+                }
+            }
+            
+            wp_send_json_success(array(
+                'message' => $is_final_screen 
+                    ? __('Clic de pantalla final guardado en analytics y responses', 'smart-forms-quiz')
+                    : __('Clic de botón guardado correctamente en analytics', 'smart-forms-quiz'),
+                'form_id' => $form_id,
+                'question_id' => $question_id,
+                'element_id' => $element_id,
+                'analytics_id' => $analytics_id,
+                'response_id' => $response_id,
+                'is_final_screen' => $is_final_screen,
+                'method' => $is_final_screen ? 'analytics_and_responses' : 'analytics_immediate',
+                'timestamp' => current_time('timestamp')
+            ));
+            
+        } catch (Exception $e) {
+            error_log('SFQ Error in save_button_click: ' . $e->getMessage());
+            
+            wp_send_json_error(array(
+                'message' => __('Error al guardar el clic del botón', 'smart-forms-quiz'),
                 'debug' => WP_DEBUG ? $e->getMessage() : null
             ));
         }

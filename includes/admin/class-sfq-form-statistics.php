@@ -30,6 +30,9 @@ class SFQ_Form_Statistics {
         // ✅ NUEVO: AJAX handlers para análisis de abandono
         add_action('wp_ajax_sfq_get_abandonment_analytics', array($this, 'get_abandonment_analytics'));
         add_action('wp_ajax_sfq_get_partial_responses_list', array($this, 'get_partial_responses_list'));
+        // ✅ NUEVO: AJAX handlers para visitantes y clics
+        add_action('wp_ajax_sfq_get_visitors_analytics', array($this, 'get_visitors_analytics'));
+        add_action('wp_ajax_sfq_export_visitors_data', array($this, 'export_visitors_data'));
     }
     
     /**
@@ -171,7 +174,11 @@ class SFQ_Form_Statistics {
             <!-- Tabs de contenido -->
             <div class="sfq-stats-tabs">
                 <nav class="sfq-tabs-nav">
-                    <button class="sfq-tab-button active" data-tab="questions">
+                    <button class="sfq-tab-button active" data-tab="visitors">
+                        <span class="dashicons dashicons-visibility"></span>
+                        <?php _e('Visitantes y Clics', 'smart-forms-quiz'); ?>
+                    </button>
+                    <button class="sfq-tab-button" data-tab="questions">
                         <span class="dashicons dashicons-editor-help"></span>
                         <?php _e('Estadísticas por Pregunta', 'smart-forms-quiz'); ?>
                     </button>
@@ -195,7 +202,7 @@ class SFQ_Form_Statistics {
             </div>
 
             <!-- Tab: Estadísticas por Pregunta -->
-            <div class="sfq-tab-content active" id="tab-questions">
+            <div class="sfq-tab-content" id="tab-questions">
                 <div class="sfq-questions-stats" id="sfq-questions-container">
                     <?php if (empty($questions)) : ?>
                         <div class="sfq-no-data">
@@ -429,6 +436,181 @@ class SFQ_Form_Statistics {
                 </div>
             </div>
 
+            <!-- Tab: Visitantes y Clics -->
+            <div class="sfq-tab-content active" id="tab-visitors">
+                <div class="sfq-visitors-container">
+                    <!-- Resumen de visitantes y clics -->
+                    <div class="sfq-visitors-summary">
+                        <div class="sfq-visitors-grid">
+                            <div class="sfq-visitors-card">
+                                <div class="sfq-visitors-icon">
+                                    <span class="dashicons dashicons-visibility"></span>
+                                </div>
+                                <div class="sfq-visitors-content">
+                                    <div class="sfq-visitors-value" id="unique-visitors">-</div>
+                                    <div class="sfq-visitors-label"><?php _e('Visitantes Únicos', 'smart-forms-quiz'); ?></div>
+                                </div>
+                            </div>
+                            
+                            <div class="sfq-visitors-card">
+                                <div class="sfq-visitors-icon">
+                                    <span class="dashicons dashicons-admin-page"></span>
+                                </div>
+                                <div class="sfq-visitors-content">
+                                    <div class="sfq-visitors-value" id="total-visits">-</div>
+                                    <div class="sfq-visitors-label"><?php _e('Total Visitas', 'smart-forms-quiz'); ?></div>
+                                </div>
+                            </div>
+                            
+                            <div class="sfq-visitors-card">
+                                <div class="sfq-visitors-icon">
+                                    <span class="dashicons dashicons-admin-users"></span>
+                                </div>
+                                <div class="sfq-visitors-content">
+                                    <div class="sfq-visitors-value" id="unique-clicks">-</div>
+                                    <div class="sfq-visitors-label"><?php _e('Clics Únicos', 'smart-forms-quiz'); ?></div>
+                                </div>
+                            </div>
+                            
+                            <div class="sfq-visitors-card">
+                                <div class="sfq-visitors-icon">
+                                    <span class="dashicons dashicons-controls-forward"></span>
+                                </div>
+                                <div class="sfq-visitors-content">
+                                    <div class="sfq-visitors-value" id="total-clicks">-</div>
+                                    <div class="sfq-visitors-label"><?php _e('Total Clics', 'smart-forms-quiz'); ?></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Estadísticas adicionales -->
+                    <div class="sfq-visitors-additional-stats">
+                        <div class="sfq-visitors-additional-grid">
+                            <div class="sfq-stat-box">
+                                <h4><?php _e('País con Más Clics Únicos', 'smart-forms-quiz'); ?></h4>
+                                <div class="sfq-stat-highlight" id="top-country-unique-clicks">
+                                    <span class="sfq-country-flag">🌍</span>
+                                    <span class="sfq-country-name">-</span>
+                                    <span class="sfq-country-count">(-)</span>
+                                </div>
+                            </div>
+                            
+                            <div class="sfq-stat-box">
+                                <h4><?php _e('Tasa de Conversión Global', 'smart-forms-quiz'); ?></h4>
+                                <div class="sfq-stat-highlight" id="global-conversion-rate">
+                                    <span class="sfq-conversion-percentage">-%</span>
+                                    <span class="sfq-conversion-description"><?php _e('visitantes que hicieron clic', 'smart-forms-quiz'); ?></span>
+                                </div>
+                            </div>
+                            
+                            <div class="sfq-stat-box">
+                                <h4><?php _e('Promedio de Clics por Visitante', 'smart-forms-quiz'); ?></h4>
+                                <div class="sfq-stat-highlight" id="avg-clicks-per-visitor">
+                                    <span class="sfq-avg-number">-</span>
+                                    <span class="sfq-avg-description"><?php _e('clics por visitante', 'smart-forms-quiz'); ?></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Gráficos de visitantes y clics -->
+                    <div class="sfq-visitors-charts">
+                        <div class="sfq-visitors-charts-grid">
+                            <!-- Gráfico de evolución temporal -->
+                            <div class="sfq-chart-container">
+                                <div class="sfq-chart-header">
+                                    <h3><?php _e('Evolución de Visitantes y Clics', 'smart-forms-quiz'); ?></h3>
+                                    <div class="sfq-chart-controls">
+                                        <select id="sfq-visitors-timeline-period">
+                                            <option value="7"><?php _e('Últimos 7 días', 'smart-forms-quiz'); ?></option>
+                                            <option value="30" selected><?php _e('Últimos 30 días', 'smart-forms-quiz'); ?></option>
+                                            <option value="90"><?php _e('Últimos 90 días', 'smart-forms-quiz'); ?></option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="sfq-chart-content">
+                                    <canvas id="sfq-visitors-timeline-chart" width="300" height="300"></canvas>
+                                </div>
+                            </div>
+                            
+                            <!-- Gráfico de países con más clics únicos -->
+                            <div class="sfq-chart-container">
+                                <div class="sfq-chart-header">
+                                    <h3><?php _e('Países con Más Clics Únicos', 'smart-forms-quiz'); ?></h3>
+                                    <div class="sfq-chart-info">
+                                        <span class="dashicons dashicons-info"></span>
+                                        <div class="sfq-tooltip">
+                                            <?php _e('Distribución geográfica de los clics únicos del formulario', 'smart-forms-quiz'); ?>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="sfq-chart-content">
+                                    <canvas id="sfq-visitors-countries-chart" width="400" height="300"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tabla de países con estadísticas detalladas -->
+                    <div class="sfq-visitors-countries-table">
+                        <div class="sfq-visitors-countries-header">
+                            <h3><?php _e('Estadísticas Detalladas por País', 'smart-forms-quiz'); ?></h3>
+                            <div class="sfq-visitors-countries-controls">
+                                <button class="button" id="sfq-refresh-visitors-data">
+                                    <span class="dashicons dashicons-update"></span>
+                                    <?php _e('Actualizar', 'smart-forms-quiz'); ?>
+                                </button>
+                                <button class="button button-primary" id="sfq-export-visitors-data">
+                                    <span class="dashicons dashicons-download"></span>
+                                    <?php _e('Exportar CSV', 'smart-forms-quiz'); ?>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="sfq-visitors-table-container">
+                            <table class="wp-list-table widefat fixed striped">
+                                <thead>
+                                    <tr>
+                                        <th><?php _e('País', 'smart-forms-quiz'); ?></th>
+                                        <th><?php _e('Visitantes Únicos', 'smart-forms-quiz'); ?></th>
+                                        <th><?php _e('Total Visitas', 'smart-forms-quiz'); ?></th>
+                                        <th><?php _e('Clics Únicos', 'smart-forms-quiz'); ?></th>
+                                        <th><?php _e('Total Clics', 'smart-forms-quiz'); ?></th>
+                                        <th><?php _e('Tasa de Conversión', 'smart-forms-quiz'); ?></th>
+                                        <th><?php _e('% del Total', 'smart-forms-quiz'); ?></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sfq-visitors-countries-tbody">
+                                    <tr>
+                                        <td colspan="7" class="sfq-loading-cell">
+                                            <div class="sfq-loading-spinner"></div>
+                                            <?php _e('Cargando datos de visitantes...', 'smart-forms-quiz'); ?>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Estadísticas de botones y URLs -->
+                    <div class="sfq-button-stats-section">
+                        <div class="sfq-button-stats-header">
+                            <h3><?php _e('Estadísticas de Botones y URLs', 'smart-forms-quiz'); ?></h3>
+                            <div class="sfq-button-stats-info">
+                                <span class="dashicons dashicons-info"></span>
+                                <div class="sfq-tooltip">
+                                    <?php _e('Clics en botones con URLs del formulario', 'smart-forms-quiz'); ?>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="sfq-button-stats-content" id="sfq-button-stats-content">
+                            <div class="sfq-loading-spinner"></div>
+                            <p><?php _e('Cargando estadísticas de botones...', 'smart-forms-quiz'); ?></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Tab: Respuestas Individuales -->
             <div class="sfq-tab-content" id="tab-responses">
                 <div class="sfq-responses-container">
@@ -604,10 +786,17 @@ class SFQ_Form_Statistics {
             $total_views = $total_responses * 2; // Estimación conservadora
         }
         
-        // Tasa de completado
-        $completion_rate = 0;
-        if ($total_views > 0) {
-            $completion_rate = round(($total_responses / $total_views) * 100, 1);
+        // ✅ CORREGIDO: Usar la misma lógica de cálculo que get_form_quick_stats
+        $conversion_rate = 0;
+        
+        if ($total_views > 0 && $total_responses > 0) {
+            $conversion_rate = ($total_responses / $total_views) * 100;
+            
+            // Redondear a 1 decimal
+            $conversion_rate = round($conversion_rate, 1);
+            
+            // Asegurar que esté en el rango 0-100%
+            $conversion_rate = max(0, min(100, $conversion_rate));
         }
         
         // Tiempo promedio - construir consulta de forma más robusta
@@ -631,7 +820,7 @@ class SFQ_Form_Statistics {
         return array(
             'total_responses' => intval($total_responses),
             'total_views' => intval($total_views),
-            'completion_rate' => $completion_rate,
+            'completion_rate' => $conversion_rate,
             'avg_time' => $this->format_time(intval($avg_time)),
             'avg_time_seconds' => intval($avg_time),
             'countries_count' => intval($countries_count),
@@ -2519,5 +2708,864 @@ class SFQ_Form_Statistics {
         }
         
         return intval($wpdb->get_var($wpdb->prepare($query, $params)));
+    }
+    
+    /**
+     * ✅ NUEVO: Obtener analytics de visitantes y clics
+     */
+    public function get_visitors_analytics() {
+        // Verificar permisos
+        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
+            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        $form_id = intval($_POST['form_id'] ?? 0);
+        $period = sanitize_text_field($_POST['period'] ?? 'month');
+        
+        if (!$form_id) {
+            wp_send_json_error(__('ID de formulario inválido', 'smart-forms-quiz'));
+            return;
+        }
+        
+        try {
+            $date_condition = $this->build_analytics_date_condition($period);
+            
+            // Obtener estadísticas de visitantes y clics
+            $visitors_stats = $this->calculate_visitors_stats($form_id, $date_condition);
+            
+            wp_send_json_success($visitors_stats);
+        } catch (Exception $e) {
+            error_log('SFQ Visitors Analytics Error: ' . $e->getMessage());
+            wp_send_json_error('Error al obtener analytics de visitantes: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * ✅ CORREGIDO: Calcular estadísticas de visitantes y clics usando la misma lógica que get_form_quick_stats
+     */
+    private function calculate_visitors_stats($form_id, $date_condition) {
+        global $wpdb;
+        
+        // Verificar si existe la tabla de analytics
+        $analytics_table = $wpdb->prefix . 'sfq_analytics';
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$analytics_table'") === $analytics_table;
+        
+        if (!$table_exists) {
+            return array(
+                'summary' => array(
+                    'unique_visitors' => 0,
+                    'total_visits' => 0,
+                    'unique_clicks' => 0,
+                    'total_clicks' => 0,
+                    'conversion_rate' => 0,
+                    'avg_clicks_per_visitor' => 0,
+                    'top_country_unique_clicks' => array(
+                        'flag_emoji' => '🌍',
+                        'country_name' => 'N/A',
+                        'count' => 0
+                    )
+                ),
+                'timeline_chart' => array(),
+                'countries_chart' => array(),
+                'countries_table' => array(),
+                'button_stats' => array(
+                    'button_clicks' => array(),
+                    'url_clicks' => array(),
+                    'total_button_clicks' => 0,
+                    'total_url_clicks' => 0
+                )
+            );
+        }
+        
+        // ✅ CORREGIDO: Usar la misma lógica exacta que get_form_quick_stats
+        
+        // Obtener visitantes únicos (sesiones únicas que vieron el formulario)
+        $unique_visitors_query = "SELECT COUNT(DISTINCT session_id) FROM {$analytics_table} 
+                                 WHERE form_id = %d AND event_type = 'view'";
+        $unique_visitors_params = [$form_id];
+        
+        if (!empty($date_condition['params'])) {
+            $unique_visitors_query .= $date_condition['where'];
+            $unique_visitors_params = array_merge($unique_visitors_params, $date_condition['params']);
+        }
+        
+        $unique_visitors = $wpdb->get_var($wpdb->prepare($unique_visitors_query, $unique_visitors_params));
+        
+        // Obtener total de visitas (todas las vistas del formulario)
+        $total_visits_query = "SELECT COUNT(*) FROM {$analytics_table} 
+                              WHERE form_id = %d AND event_type = 'view'";
+        $total_visits_params = [$form_id];
+        
+        if (!empty($date_condition['params'])) {
+            $total_visits_query .= $date_condition['where'];
+            $total_visits_params = array_merge($total_visits_params, $date_condition['params']);
+        }
+        
+        $total_visits = $wpdb->get_var($wpdb->prepare($total_visits_query, $total_visits_params));
+        
+        // ✅ CORREGIDO: Usar la misma lógica exacta que get_form_quick_stats para clics
+        
+        // Obtener clics únicos (sesiones únicas que hicieron clic en botones inmediatamente)
+        $unique_clicks_query = "SELECT COUNT(DISTINCT session_id) FROM {$analytics_table}
+                               WHERE form_id = %d AND event_type = 'button_click_immediate'";
+        $unique_clicks_params = [$form_id];
+        
+        if (!empty($date_condition['params'])) {
+            $unique_clicks_query .= str_replace('completed_at', 'created_at', $date_condition['where']);
+            $unique_clicks_params = array_merge($unique_clicks_params, $date_condition['params']);
+        }
+        
+        $unique_clicks = $wpdb->get_var($wpdb->prepare($unique_clicks_query, $unique_clicks_params));
+        
+        // Obtener total de clics (todos los clics en botones inmediatos)
+        $total_clicks_query = "SELECT COUNT(*) FROM {$analytics_table}
+                              WHERE form_id = %d AND event_type = 'button_click_immediate'";
+        $total_clicks_params = [$form_id];
+        
+        if (!empty($date_condition['params'])) {
+            $total_clicks_query .= str_replace('completed_at', 'created_at', $date_condition['where']);
+            $total_clicks_params = array_merge($total_clicks_params, $date_condition['params']);
+        }
+        
+        $total_clicks = $wpdb->get_var($wpdb->prepare($total_clicks_query, $total_clicks_params));
+        
+        // ✅ FALLBACK: Si no hay vistas en analytics, usar el contador de submissions como aproximación (igual que get_form_quick_stats)
+        if ($unique_visitors == 0 && $total_visits == 0) {
+            $total_submissions = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}sfq_submissions 
+                WHERE form_id = %d AND status = 'completed'",
+                $form_id
+            ));
+            
+            if ($total_submissions > 0) {
+                $unique_visitors = $total_submissions;
+                $total_visits = $total_submissions * 2; // Estimación conservadora
+            }
+        }
+        
+        // Calcular métricas usando la misma lógica que get_form_quick_stats
+        $conversion_rate = 0;
+        if ($unique_visitors > 0 && $unique_clicks > 0) {
+            $conversion_rate = ($unique_clicks / $unique_visitors) * 100;
+            $conversion_rate = round($conversion_rate, 1);
+            $conversion_rate = max(0, min(100, $conversion_rate));
+        }
+        
+        $avg_clicks_per_visitor = $unique_visitors > 0 ? round($total_clicks / $unique_visitors, 2) : 0;
+        
+        // Obtener datos por país
+        $countries_data = $this->get_visitors_countries_data($form_id, $date_condition);
+        
+        // Obtener evolución temporal
+        $timeline_data = $this->get_visitors_timeline_data($form_id, $date_condition);
+        
+        // Encontrar país con más clics únicos
+        $top_country_unique_clicks = array(
+            'flag_emoji' => '🌍',
+            'country_name' => 'N/A',
+            'count' => 0
+        );
+        
+        if (!empty($countries_data)) {
+            $max_unique_clicks = max(array_column($countries_data, 'unique_clicks'));
+            foreach ($countries_data as $country) {
+                if ($country['unique_clicks'] === $max_unique_clicks) {
+                    $top_country_unique_clicks = array(
+                        'flag_emoji' => $country['flag_emoji'],
+                        'country_name' => $country['country_name'],
+                        'count' => $country['unique_clicks']
+                    );
+                    break;
+                }
+            }
+        }
+        
+        // Obtener estadísticas de URLs y botones
+        $button_stats = $this->get_button_click_stats($form_id, $date_condition);
+        
+        return array(
+            'summary' => array(
+                'unique_visitors' => intval($unique_visitors),
+                'total_visits' => intval($total_visits),
+                'unique_clicks' => intval($unique_clicks),
+                'total_clicks' => intval($total_clicks),
+                'conversion_rate' => $conversion_rate,
+                'avg_clicks_per_visitor' => $avg_clicks_per_visitor,
+                'top_country_unique_clicks' => $top_country_unique_clicks
+            ),
+            'timeline_chart' => $timeline_data,
+            'countries_chart' => array_slice($countries_data, 0, 10), // Top 10 para el gráfico
+            'countries_table' => $countries_data, // Todos para la tabla
+            'button_stats' => $button_stats // Estadísticas de botones y URLs
+        );
+    }
+    
+    /**
+     * ✅ NUEVO: Obtener datos de visitantes por país
+     */
+    private function get_visitors_countries_data($form_id, $date_condition) {
+        global $wpdb;
+        
+        // Obtener todas las sesiones con sus IPs para este formulario
+        $sessions_query = "SELECT DISTINCT session_id, user_ip FROM {$wpdb->prefix}sfq_analytics 
+                          WHERE form_id = %d AND user_ip IS NOT NULL AND user_ip != ''";
+        $sessions_params = [$form_id];
+        
+        if (!empty($date_condition['params'])) {
+            $sessions_query .= $date_condition['where'];
+            $sessions_params = array_merge($sessions_params, $date_condition['params']);
+        }
+        
+        $sessions = $wpdb->get_results($wpdb->prepare($sessions_query, $sessions_params));
+        
+        if (empty($sessions)) {
+            return array();
+        }
+        
+        // Obtener información de países para todas las IPs
+        if (class_exists('SFQ_Admin_Submissions')) {
+            $submissions_handler = new SFQ_Admin_Submissions();
+            $reflection = new ReflectionClass($submissions_handler);
+            $method = $reflection->getMethod('get_countries_info_batch');
+            $method->setAccessible(true);
+            
+            $countries_info = $method->invoke($submissions_handler, array_unique(array_column($sessions, 'user_ip')));
+        } else {
+            return array();
+        }
+        
+        // Agrupar sesiones por país
+        $countries_sessions = array();
+        foreach ($sessions as $session) {
+            $country_info = $countries_info[$session->user_ip] ?? null;
+            
+            if ($country_info && $country_info['country_code'] !== 'XX') {
+                $country_key = $country_info['country_code'];
+                
+                if (!isset($countries_sessions[$country_key])) {
+                    $countries_sessions[$country_key] = array(
+                        'country_code' => $country_info['country_code'],
+                        'country_name' => $country_info['country_name'],
+                        'flag_emoji' => $country_info['flag_emoji'],
+                        'sessions' => array()
+                    );
+                }
+                
+                $countries_sessions[$country_key]['sessions'][] = $session->session_id;
+            }
+        }
+        
+        // Calcular estadísticas para cada país
+        $countries_data = array();
+        foreach ($countries_sessions as $country_key => $country_data) {
+            $sessions_list = array_unique($country_data['sessions']);
+            $sessions_placeholders = implode(',', array_fill(0, count($sessions_list), '%s'));
+            
+            // Visitantes únicos (sesiones que vieron el formulario)
+            $unique_visitors = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(DISTINCT session_id) FROM {$wpdb->prefix}sfq_analytics 
+                WHERE form_id = %d AND event_type = 'view' AND session_id IN ($sessions_placeholders)" .
+                (!empty($date_condition['params']) ? $date_condition['where'] : ''),
+                array_merge([$form_id], $sessions_list, $date_condition['params'] ?? [])
+            ));
+            
+            // Total visitas
+            $total_visits = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}sfq_analytics 
+                WHERE form_id = %d AND event_type = 'view' AND session_id IN ($sessions_placeholders)" .
+                (!empty($date_condition['params']) ? $date_condition['where'] : ''),
+                array_merge([$form_id], $sessions_list, $date_condition['params'] ?? [])
+            ));
+            
+            // Clics únicos (sesiones que hicieron clic en botones inmediatamente)
+            $unique_clicks = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(DISTINCT session_id) FROM {$wpdb->prefix}sfq_analytics 
+                WHERE form_id = %d AND event_type = 'button_click_immediate' AND session_id IN ($sessions_placeholders)" .
+                (!empty($date_condition['params']) ? str_replace('completed_at', 'created_at', $date_condition['where']) : ''),
+                array_merge([$form_id], $sessions_list, $date_condition['params'] ?? [])
+            ));
+            
+            // Total clics
+            $total_clicks = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}sfq_analytics 
+                WHERE form_id = %d AND event_type = 'button_click_immediate' AND session_id IN ($sessions_placeholders)" .
+                (!empty($date_condition['params']) ? str_replace('completed_at', 'created_at', $date_condition['where']) : ''),
+                array_merge([$form_id], $sessions_list, $date_condition['params'] ?? [])
+            ));
+            
+            // Calcular tasa de conversión
+            $conversion_rate = $unique_visitors > 0 ? round(($unique_clicks / $unique_visitors) * 100, 1) : 0;
+            
+            $countries_data[] = array(
+                'country_code' => $country_data['country_code'],
+                'country_name' => $country_data['country_name'],
+                'flag_emoji' => $country_data['flag_emoji'],
+                'unique_visitors' => intval($unique_visitors),
+                'total_visits' => intval($total_visits),
+                'unique_clicks' => intval($unique_clicks),
+                'total_clicks' => intval($total_clicks),
+                'conversion_rate' => $conversion_rate
+            );
+        }
+        
+        // Calcular porcentajes del total
+        $total_unique_visitors = array_sum(array_column($countries_data, 'unique_visitors'));
+        foreach ($countries_data as &$country) {
+            $country['percentage'] = $total_unique_visitors > 0 ? 
+                round(($country['unique_visitors'] / $total_unique_visitors) * 100, 1) : 0;
+        }
+        
+        // Ordenar por clics únicos descendente
+        usort($countries_data, function($a, $b) {
+            return $b['unique_clicks'] - $a['unique_clicks'];
+        });
+        
+        return $countries_data;
+    }
+    
+    /**
+     * ✅ NUEVO: Obtener datos de timeline de visitantes
+     */
+    private function get_visitors_timeline_data($form_id, $date_condition) {
+        global $wpdb;
+        
+        // Obtener datos diarios de visitantes y clics (usando button_click_immediate)
+        $timeline_query = "SELECT 
+                            DATE(created_at) as date,
+                            COUNT(CASE WHEN event_type = 'view' THEN 1 END) as visits,
+                            COUNT(DISTINCT CASE WHEN event_type = 'view' THEN session_id END) as unique_visitors,
+                            COUNT(CASE WHEN event_type = 'button_click_immediate' THEN 1 END) as clicks,
+                            COUNT(DISTINCT CASE WHEN event_type = 'button_click_immediate' THEN session_id END) as unique_clicks
+                          FROM {$wpdb->prefix}sfq_analytics
+                          WHERE form_id = %d";
+        $timeline_params = [$form_id];
+        
+        if (!empty($date_condition['params'])) {
+            $timeline_query .= str_replace('completed_at', 'created_at', $date_condition['where']);
+            $timeline_params = array_merge($timeline_params, $date_condition['params']);
+        }
+        
+        $timeline_query .= " GROUP BY DATE(created_at) ORDER BY date ASC";
+        
+        $timeline_data = $wpdb->get_results($wpdb->prepare($timeline_query, $timeline_params));
+        
+        return $timeline_data;
+    }
+    
+    /**
+     * ✅ NUEVO: Construir condición de fecha para analytics
+     */
+    private function build_analytics_date_condition($period) {
+        $where = '';
+        $params = array();
+        
+        switch ($period) {
+            case 'today':
+                $where = ' AND DATE(created_at) = %s';
+                $params[] = current_time('Y-m-d');
+                break;
+            case '7':
+                $where = ' AND DATE(created_at) >= %s';
+                $params[] = date('Y-m-d', current_time('timestamp') - (7 * 24 * 60 * 60));
+                break;
+            case '30':
+                $where = ' AND DATE(created_at) >= %s';
+                $params[] = date('Y-m-d', current_time('timestamp') - (30 * 24 * 60 * 60));
+                break;
+            case '90':
+                $where = ' AND DATE(created_at) >= %s';
+                $params[] = date('Y-m-d', current_time('timestamp') - (90 * 24 * 60 * 60));
+                break;
+            default:
+                // Sin filtro de fecha
+                break;
+        }
+        
+        return array('where' => $where, 'params' => $params);
+    }
+    
+    /**
+     * ✅ NUEVO: Exportar datos de visitantes
+     */
+    public function export_visitors_data() {
+        // Verificar permisos
+        if (!current_user_can('manage_smart_forms') && !current_user_can('manage_options')) {
+            wp_send_json_error(__('No tienes permisos', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        $form_id = intval($_POST['form_id'] ?? 0);
+        $period = sanitize_text_field($_POST['period'] ?? 'month');
+        
+        if (!$form_id) {
+            wp_send_json_error(__('ID de formulario inválido', 'smart-forms-quiz'));
+            return;
+        }
+        
+        try {
+            $date_condition = $this->build_analytics_date_condition($period);
+            $visitors_stats = $this->calculate_visitors_stats($form_id, $date_condition);
+            
+            // Crear CSV
+            $upload_dir = wp_upload_dir();
+            $filename = 'visitors_statistics_' . $form_id . '_' . date('Y-m-d_H-i-s') . '.csv';
+            $filepath = $upload_dir['path'] . '/' . $filename;
+            
+            $file = fopen($filepath, 'w');
+            
+            // Escribir resumen general
+            fputcsv($file, array('RESUMEN DE VISITANTES Y CLICS'));
+            fputcsv($file, array('Visitantes Únicos', $visitors_stats['summary']['unique_visitors']));
+            fputcsv($file, array('Total Visitas', $visitors_stats['summary']['total_visits']));
+            fputcsv($file, array('Clics Únicos', $visitors_stats['summary']['unique_clicks']));
+            fputcsv($file, array('Total Clics', $visitors_stats['summary']['total_clicks']));
+            fputcsv($file, array('Tasa de Conversión', $visitors_stats['summary']['conversion_rate'] . '%'));
+            fputcsv($file, array('Promedio Clics por Visitante', $visitors_stats['summary']['avg_clicks_per_visitor']));
+            fputcsv($file, array(''));
+            
+            // Escribir estadísticas por país
+            fputcsv($file, array('ESTADÍSTICAS POR PAÍS'));
+            fputcsv($file, array('País', 'Visitantes Únicos', 'Total Visitas', 'Clics Únicos', 'Total Clics', 'Tasa Conversión', '% del Total'));
+            
+            foreach ($visitors_stats['countries_table'] as $country) {
+                fputcsv($file, array(
+                    $country['country_name'],
+                    $country['unique_visitors'],
+                    $country['total_visits'],
+                    $country['unique_clicks'],
+                    $country['total_clicks'],
+                    $country['conversion_rate'] . '%',
+                    $country['percentage'] . '%'
+                ));
+            }
+            
+            fclose($file);
+            
+            wp_send_json_success(array(
+                'file_url' => $upload_dir['url'] . '/' . $filename,
+                'message' => __('Datos de visitantes exportados correctamente', 'smart-forms-quiz')
+            ));
+            
+        } catch (Exception $e) {
+            error_log('SFQ Export Visitors Error: ' . $e->getMessage());
+            wp_send_json_error('Error al exportar datos de visitantes: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * ✅ CORREGIDO: Obtener estadísticas de clics en botones y URLs desde event_data
+     */
+    private function get_button_click_stats($form_id, $date_condition) {
+        global $wpdb;
+        
+        // Verificar si existe la tabla de analytics
+        $analytics_table = $wpdb->prefix . 'sfq_analytics';
+        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$analytics_table'") === $analytics_table;
+        
+        if (!$table_exists) {
+            return array(
+                'button_clicks' => array(),
+                'url_clicks' => array(),
+                'total_button_clicks' => 0,
+                'total_url_clicks' => 0
+            );
+        }
+        
+        // ✅ CORREGIDO: Usar event_type = 'button_click_immediate' y extraer datos del JSON correctamente
+        $button_clicks_query = "SELECT 
+                                  JSON_UNQUOTE(JSON_EXTRACT(event_data, '$.button_text')) as button_text,
+                                  JSON_UNQUOTE(JSON_EXTRACT(event_data, '$.button_url')) as button_url,
+                                  JSON_UNQUOTE(JSON_EXTRACT(event_data, '$.question_id')) as question_id,
+                                  JSON_UNQUOTE(JSON_EXTRACT(event_data, '$.element_id')) as element_id,
+                                  COUNT(*) as click_count,
+                                  COUNT(DISTINCT session_id) as unique_clicks,
+                                  COUNT(DISTINCT user_ip) as unique_users
+                                FROM {$analytics_table}
+                                WHERE form_id = %d 
+                                AND event_type = 'button_click_immediate'
+                                AND JSON_EXTRACT(event_data, '$.button_url') IS NOT NULL
+                                AND JSON_EXTRACT(event_data, '$.button_url') != ''
+                                AND JSON_EXTRACT(event_data, '$.button_url') != 'null'";
+        
+        $button_params = [$form_id];
+        
+        if (!empty($date_condition['params'])) {
+            $button_clicks_query .= str_replace('completed_at', 'created_at', $date_condition['where']);
+            $button_params = array_merge($button_params, $date_condition['params']);
+        }
+        
+        $button_clicks_query .= " GROUP BY JSON_EXTRACT(event_data, '$.button_text'), JSON_EXTRACT(event_data, '$.button_url'), JSON_EXTRACT(event_data, '$.question_id'), JSON_EXTRACT(event_data, '$.element_id')
+                                 ORDER BY click_count DESC";
+        
+        $button_clicks = $wpdb->get_results($wpdb->prepare($button_clicks_query, $button_params));
+        
+        // Limpiar y procesar datos de botones
+        $processed_button_clicks = array();
+        $total_button_clicks = 0;
+        
+        foreach ($button_clicks as $click) {
+            $button_text = $click->button_text;
+            $button_url = $click->button_url;
+            $question_id = intval($click->question_id);
+            $element_id = $click->element_id;
+            
+            if (!empty($button_text) && !empty($button_url)) {
+                // Obtener información de la pregunta
+                $question_info = $wpdb->get_row($wpdb->prepare(
+                    "SELECT question_text, order_position FROM {$wpdb->prefix}sfq_questions WHERE id = %d",
+                    $question_id
+                ));
+                
+                // Obtener información de países para este botón específico
+                $countries_data = $this->get_button_countries_data_corrected($form_id, $button_text, $button_url, $question_id, $element_id, $date_condition);
+                
+                $processed_button_clicks[] = array(
+                    'button_text' => $button_text,
+                    'button_url' => $button_url,
+                    'question_id' => $question_id,
+                    'element_id' => $element_id,
+                    'question_text' => $question_info ? $question_info->question_text : 'Pregunta #' . ($question_info->order_position ?? $question_id),
+                    'question_position' => $question_info ? intval($question_info->order_position) + 1 : $question_id,
+                    'click_count' => intval($click->click_count),
+                    'unique_clicks' => intval($click->unique_clicks),
+                    'unique_users' => intval($click->unique_users),
+                    'countries_data' => $countries_data
+                );
+                
+                $total_button_clicks += intval($click->click_count);
+            }
+        }
+        
+        // Obtener clics por URL (agrupados) - ✅ CORREGIDO
+        $url_clicks_query = "SELECT 
+                               JSON_UNQUOTE(JSON_EXTRACT(event_data, '$.button_url')) as button_url,
+                               COUNT(*) as click_count,
+                               COUNT(DISTINCT session_id) as unique_clicks,
+                               COUNT(DISTINCT user_ip) as unique_users,
+                               GROUP_CONCAT(DISTINCT JSON_UNQUOTE(JSON_EXTRACT(event_data, '$.button_text'))) as button_texts,
+                               GROUP_CONCAT(DISTINCT CONCAT('Q', JSON_UNQUOTE(JSON_EXTRACT(event_data, '$.question_id')))) as question_ids
+                             FROM {$analytics_table}
+                             WHERE form_id = %d 
+                             AND event_type = 'button_click_immediate'
+                             AND JSON_EXTRACT(event_data, '$.button_url') IS NOT NULL
+                             AND JSON_EXTRACT(event_data, '$.button_url') != ''
+                             AND JSON_EXTRACT(event_data, '$.button_url') != 'null'";
+        
+        $url_params = [$form_id];
+        
+        if (!empty($date_condition['params'])) {
+            $url_clicks_query .= str_replace('completed_at', 'created_at', $date_condition['where']);
+            $url_params = array_merge($url_params, $date_condition['params']);
+        }
+        
+        $url_clicks_query .= " GROUP BY JSON_EXTRACT(event_data, '$.button_url')
+                              ORDER BY click_count DESC";
+        
+        $url_clicks = $wpdb->get_results($wpdb->prepare($url_clicks_query, $url_params));
+        
+        // Procesar datos de URLs
+        $processed_url_clicks = array();
+        $total_url_clicks = 0;
+        
+        foreach ($url_clicks as $click) {
+            $button_url = $click->button_url;
+            $button_texts = $click->button_texts;
+            $question_ids = $click->question_ids;
+            
+            if (!empty($button_url)) {
+                // Limpiar textos de botones
+                $texts_array = explode(',', $button_texts);
+                $clean_texts = array_unique(array_filter($texts_array));
+                
+                // Limpiar IDs de preguntas
+                $questions_array = explode(',', $question_ids);
+                $clean_questions = array_unique(array_filter($questions_array));
+                
+                // Obtener información de países para esta URL
+                $countries_data = $this->get_url_countries_data_corrected($form_id, $button_url, $date_condition);
+                
+                $processed_url_clicks[] = array(
+                    'button_url' => $button_url,
+                    'button_texts' => $clean_texts,
+                    'question_ids' => $clean_questions,
+                    'click_count' => intval($click->click_count),
+                    'unique_clicks' => intval($click->unique_clicks),
+                    'unique_users' => intval($click->unique_users),
+                    'countries_data' => $countries_data
+                );
+                
+                $total_url_clicks += intval($click->click_count);
+            }
+        }
+        
+        return array(
+            'button_clicks' => $processed_button_clicks,
+            'url_clicks' => $processed_url_clicks,
+            'total_button_clicks' => $total_button_clicks,
+            'total_url_clicks' => $total_url_clicks
+        );
+    }
+    
+    /**
+     * ✅ NUEVO: Obtener datos de países para un botón específico
+     */
+    private function get_button_countries_data($form_id, $button_text, $button_url, $date_condition) {
+        global $wpdb;
+        
+        $analytics_table = $wpdb->prefix . 'sfq_analytics';
+        
+        // Obtener todas las IPs que hicieron clic en este botón específico
+        $ips_query = "SELECT DISTINCT user_ip, COUNT(*) as clicks
+                      FROM {$analytics_table}
+                      WHERE form_id = %d 
+                      AND event_type = 'button_click'
+                      AND JSON_EXTRACT(event_data, '$.button_text') = %s
+                      AND JSON_EXTRACT(event_data, '$.button_url') = %s
+                      AND user_ip IS NOT NULL AND user_ip != ''";
+        
+        $ips_params = [$form_id, '"' . $button_text . '"', '"' . $button_url . '"'];
+        
+        if (!empty($date_condition['params'])) {
+            $ips_query .= $date_condition['where'];
+            $ips_params = array_merge($ips_params, $date_condition['params']);
+        }
+        
+        $ips_query .= " GROUP BY user_ip";
+        
+        $ips_data = $wpdb->get_results($wpdb->prepare($ips_query, $ips_params));
+        
+        if (empty($ips_data)) {
+            return array();
+        }
+        
+        // Obtener información de países
+        if (class_exists('SFQ_Admin_Submissions')) {
+            $submissions_handler = new SFQ_Admin_Submissions();
+            $reflection = new ReflectionClass($submissions_handler);
+            $method = $reflection->getMethod('get_countries_info_batch');
+            $method->setAccessible(true);
+            
+            $countries_info = $method->invoke($submissions_handler, array_column($ips_data, 'user_ip'));
+        } else {
+            return array();
+        }
+        
+        $countries_count = array();
+        $total_clicks = 0;
+        
+        foreach ($ips_data as $ip_data) {
+            $country_info = $countries_info[$ip_data->user_ip] ?? null;
+            
+            if ($country_info && $country_info['country_code'] !== 'XX') {
+                $country_key = $country_info['country_code'];
+                
+                if (!isset($countries_count[$country_key])) {
+                    $countries_count[$country_key] = array(
+                        'country_code' => $country_info['country_code'],
+                        'country_name' => $country_info['country_name'],
+                        'flag_emoji' => $country_info['flag_emoji'],
+                        'clicks' => 0,
+                        'unique_users' => 0
+                    );
+                }
+                
+                $countries_count[$country_key]['clicks'] += intval($ip_data->clicks);
+                $countries_count[$country_key]['unique_users']++;
+                $total_clicks += intval($ip_data->clicks);
+            }
+        }
+        
+        // Calcular porcentajes
+        foreach ($countries_count as &$country) {
+            $country['percentage'] = $total_clicks > 0 ? 
+                round(($country['clicks'] / $total_clicks) * 100, 1) : 0;
+        }
+        
+        // Ordenar por clics descendente y limitar a top 5
+        uasort($countries_count, function($a, $b) {
+            return $b['clicks'] - $a['clicks'];
+        });
+        
+        return array_slice(array_values($countries_count), 0, 5);
+    }
+    
+    /**
+     * ✅ CORREGIDO: Obtener datos de países para un botón específico usando event_data
+     */
+    private function get_button_countries_data_corrected($form_id, $button_text, $button_url, $question_id, $element_id, $date_condition) {
+        global $wpdb;
+        
+        $analytics_table = $wpdb->prefix . 'sfq_analytics';
+        
+        // ✅ CORREGIDO: Usar event_type = 'button_click_immediate' y JSON_UNQUOTE
+        $ips_query = "SELECT DISTINCT user_ip, COUNT(*) as clicks
+                      FROM {$analytics_table}
+                      WHERE form_id = %d 
+                      AND event_type = 'button_click_immediate'
+                      AND JSON_UNQUOTE(JSON_EXTRACT(event_data, '$.button_text')) = %s
+                      AND JSON_UNQUOTE(JSON_EXTRACT(event_data, '$.button_url')) = %s
+                      AND JSON_UNQUOTE(JSON_EXTRACT(event_data, '$.question_id')) = %s
+                      AND JSON_UNQUOTE(JSON_EXTRACT(event_data, '$.element_id')) = %s
+                      AND user_ip IS NOT NULL AND user_ip != ''";
+        
+        $ips_params = [$form_id, $button_text, $button_url, $question_id, $element_id];
+        
+        if (!empty($date_condition['params'])) {
+            $ips_query .= str_replace('completed_at', 'created_at', $date_condition['where']);
+            $ips_params = array_merge($ips_params, $date_condition['params']);
+        }
+        
+        $ips_query .= " GROUP BY user_ip";
+        
+        $ips_data = $wpdb->get_results($wpdb->prepare($ips_query, $ips_params));
+        
+        if (empty($ips_data)) {
+            return array();
+        }
+        
+        // Obtener información de países
+        if (class_exists('SFQ_Admin_Submissions')) {
+            $submissions_handler = new SFQ_Admin_Submissions();
+            $reflection = new ReflectionClass($submissions_handler);
+            $method = $reflection->getMethod('get_countries_info_batch');
+            $method->setAccessible(true);
+            
+            $countries_info = $method->invoke($submissions_handler, array_column($ips_data, 'user_ip'));
+        } else {
+            return array();
+        }
+        
+        $countries_count = array();
+        $total_clicks = 0;
+        
+        foreach ($ips_data as $ip_data) {
+            $country_info = $countries_info[$ip_data->user_ip] ?? null;
+            
+            if ($country_info && $country_info['country_code'] !== 'XX') {
+                $country_key = $country_info['country_code'];
+                
+                if (!isset($countries_count[$country_key])) {
+                    $countries_count[$country_key] = array(
+                        'country_code' => $country_info['country_code'],
+                        'country_name' => $country_info['country_name'],
+                        'flag_emoji' => $country_info['flag_emoji'],
+                        'clicks' => 0,
+                        'unique_users' => 0
+                    );
+                }
+                
+                $countries_count[$country_key]['clicks'] += intval($ip_data->clicks);
+                $countries_count[$country_key]['unique_users']++;
+                $total_clicks += intval($ip_data->clicks);
+            }
+        }
+        
+        // Calcular porcentajes
+        foreach ($countries_count as &$country) {
+            $country['percentage'] = $total_clicks > 0 ? 
+                round(($country['clicks'] / $total_clicks) * 100, 1) : 0;
+        }
+        
+        // Ordenar por clics descendente y limitar a top 5
+        uasort($countries_count, function($a, $b) {
+            return $b['clicks'] - $a['clicks'];
+        });
+        
+        return array_slice(array_values($countries_count), 0, 5);
+    }
+    
+    /**
+     * ✅ CORREGIDO: Obtener datos de países para una URL específica usando event_data
+     */
+    private function get_url_countries_data_corrected($form_id, $button_url, $date_condition) {
+        global $wpdb;
+        
+        $analytics_table = $wpdb->prefix . 'sfq_analytics';
+        
+        // ✅ CORREGIDO: Usar event_type = 'button_click_immediate' y JSON_UNQUOTE
+        $ips_query = "SELECT DISTINCT user_ip, COUNT(*) as clicks
+                      FROM {$analytics_table}
+                      WHERE form_id = %d 
+                      AND event_type = 'button_click_immediate'
+                      AND JSON_UNQUOTE(JSON_EXTRACT(event_data, '$.button_url')) = %s
+                      AND user_ip IS NOT NULL AND user_ip != ''";
+        
+        $ips_params = [$form_id, $button_url];
+        
+        if (!empty($date_condition['params'])) {
+            $ips_query .= str_replace('completed_at', 'created_at', $date_condition['where']);
+            $ips_params = array_merge($ips_params, $date_condition['params']);
+        }
+        
+        $ips_query .= " GROUP BY user_ip";
+        
+        $ips_data = $wpdb->get_results($wpdb->prepare($ips_query, $ips_params));
+        
+        if (empty($ips_data)) {
+            return array();
+        }
+        
+        // Obtener información de países
+        if (class_exists('SFQ_Admin_Submissions')) {
+            $submissions_handler = new SFQ_Admin_Submissions();
+            $reflection = new ReflectionClass($submissions_handler);
+            $method = $reflection->getMethod('get_countries_info_batch');
+            $method->setAccessible(true);
+            
+            $countries_info = $method->invoke($submissions_handler, array_column($ips_data, 'user_ip'));
+        } else {
+            return array();
+        }
+        
+        $countries_count = array();
+        $total_clicks = 0;
+        
+        foreach ($ips_data as $ip_data) {
+            $country_info = $countries_info[$ip_data->user_ip] ?? null;
+            
+            if ($country_info && $country_info['country_code'] !== 'XX') {
+                $country_key = $country_info['country_code'];
+                
+                if (!isset($countries_count[$country_key])) {
+                    $countries_count[$country_key] = array(
+                        'country_code' => $country_info['country_code'],
+                        'country_name' => $country_info['country_name'],
+                        'flag_emoji' => $country_info['flag_emoji'],
+                        'clicks' => 0,
+                        'unique_users' => 0
+                    );
+                }
+                
+                $countries_count[$country_key]['clicks'] += intval($ip_data->clicks);
+                $countries_count[$country_key]['unique_users']++;
+                $total_clicks += intval($ip_data->clicks);
+            }
+        }
+        
+        // Calcular porcentajes
+        foreach ($countries_count as &$country) {
+            $country['percentage'] = $total_clicks > 0 ? 
+                round(($country['clicks'] / $total_clicks) * 100, 1) : 0;
+        }
+        
+        // Ordenar por clics descendente y limitar a top 5
+        uasort($countries_count, function($a, $b) {
+            return $b['clicks'] - $a['clicks'];
+        });
+        
+        return array_slice(array_values($countries_count), 0, 5);
     }
 }

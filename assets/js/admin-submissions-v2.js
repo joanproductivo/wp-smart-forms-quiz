@@ -1108,6 +1108,7 @@
             // Cargar datos que no dependen de gráficos
             this.loadDashboardStats();
             this.loadSubmissions();
+            this.loadGlobalClicksData();
         },
 
         loadInitialData: function() {
@@ -1193,6 +1194,9 @@
             $('#sfq-dashboard-period').on('change', (e) => this.syncTimePeriods(e, 'dashboard'));
             $('#sfq-chart-period').on('change', (e) => this.syncTimePeriods(e, 'chart'));
 
+            // Clics globales
+            $('#sfq-refresh-global-clicks').on('click', () => this.loadGlobalClicksData());
+
             // Configuración de columnas
             $('#sfq-table-columns').on('click', () => ColumnManager.showModal());
             $('#sfq-save-columns').on('click', () => ColumnManager.save());
@@ -1237,6 +1241,7 @@
             this.loadDashboardStats();
             this.loadSubmissions();
             this.loadAnalyticsData();
+            this.loadGlobalClicksData();
             NotificationManager.show('Datos actualizados', 'success');
         },
 
@@ -1262,9 +1267,10 @@
                 $('#sfq-dashboard-period').val(selectedValue);
             }
             
-            // Recargar ambos: dashboard y gráficos
+            // Recargar ambos: dashboard, gráficos y clics globales
             this.loadDashboardStats();
             this.loadAnalyticsData();
+            this.loadGlobalClicksData();
         },
 
         loadDashboardStats: function() {
@@ -1310,6 +1316,131 @@
                         ChartManager.updateCharts(response.data);
                     }
                 });
+        },
+
+        loadGlobalClicksData: function() {
+            const period = $('#sfq-dashboard-period').val() || '7';
+            
+            // Mostrar loading en las tarjetas de clics globales
+            $('#total-button-clicks .sfq-global-click-number').text('-');
+            $('#unique-button-clicks .sfq-global-click-number').text('-');
+            $('#top-clicked-url .sfq-global-click-number').text('-');
+            $('#button-conversion-rate .sfq-global-click-number').text('-');
+            
+            // Mostrar loading en la tabla
+            $('#sfq-top-urls-tbody').html(`
+                <tr>
+                    <td colspan="6" class="sfq-loading-cell">
+                        <div class="sfq-loading-content">
+                            <div class="sfq-loading-spinner"></div>
+                            <span>Cargando clics globales...</span>
+                        </div>
+                    </td>
+                </tr>
+            `);
+            
+            AjaxManager.request('sfq_get_global_clicks_stats', { period }, { showLoading: false })
+                .done((response) => {
+                    if (response.success) {
+                        this.updateGlobalClicksData(response.data);
+                    }
+                })
+                .fail(() => {
+                    $('#sfq-top-urls-tbody').html(`
+                        <tr>
+                            <td colspan="6" class="sfq-text-center" style="padding: 40px;">
+                                <p>Error al cargar datos de clics globales.</p>
+                            </td>
+                        </tr>
+                    `);
+                });
+        },
+
+        updateGlobalClicksData: function(data) {
+            // Actualizar tarjetas de resumen
+            $('#total-button-clicks .sfq-global-click-number').text(data.summary.total_clicks.toLocaleString());
+            $('#unique-button-clicks .sfq-global-click-number').text(data.summary.unique_clicks.toLocaleString());
+            $('#top-clicked-url .sfq-global-click-number').text(data.summary.top_url_clicks.toLocaleString());
+            $('#button-conversion-rate .sfq-global-click-number').text(data.summary.conversion_rate + '%');
+            
+            // Actualizar URL más clicada
+            if (data.summary.top_url) {
+                $('#top-clicked-url .sfq-global-click-url').text(data.summary.top_url);
+            } else {
+                $('#top-clicked-url .sfq-global-click-url').text('N/A');
+            }
+            
+            // Actualizar cambios porcentuales
+            this.updateGlobalClicksChanges(data.summary.changes);
+            
+            // Actualizar tabla de URLs
+            this.updateTopUrlsTable(data.top_urls);
+        },
+
+        updateGlobalClicksChanges: function(changes) {
+            const changeElements = [
+                { selector: '#total-button-clicks .sfq-global-click-change', value: changes.total_clicks },
+                { selector: '#unique-button-clicks .sfq-global-click-change', value: changes.unique_clicks },
+                { selector: '#button-conversion-rate .sfq-global-click-change', value: changes.conversion_rate }
+            ];
+            
+            changeElements.forEach(item => {
+                const changeClass = item.value > 0 ? 'positive' : (item.value < 0 ? 'negative' : 'neutral');
+                const changeSymbol = item.value > 0 ? '+' : '';
+                
+                $(item.selector)
+                    .text(changeSymbol + item.value + '%')
+                    .removeClass('positive negative neutral')
+                    .addClass(changeClass);
+            });
+        },
+
+        updateTopUrlsTable: function(urls) {
+            const tbody = $('#sfq-top-urls-tbody');
+            tbody.empty();
+            
+            if (!urls || urls.length === 0) {
+                tbody.html(`
+                    <tr>
+                        <td colspan="6" class="sfq-text-center" style="padding: 40px;">
+                            <p>No hay datos de clics en URLs disponibles.</p>
+                        </td>
+                    </tr>
+                `);
+                return;
+            }
+            
+            urls.forEach(url => {
+                const row = `
+                    <tr>
+                        <td>
+                            <div class="sfq-url-info">
+                                <strong>${Utils.escapeHtml(url.url)}</strong>
+                                <div class="sfq-url-forms">${url.forms_count} formulario(s)</div>
+                            </div>
+                        </td>
+                        <td><strong>${url.total_clicks.toLocaleString()}</strong></td>
+                        <td><strong>${url.unique_clicks.toLocaleString()}</strong></td>
+                        <td>
+                            <div class="sfq-forms-list">
+                                ${url.form_titles.slice(0, 3).map(title => 
+                                    `<span class="sfq-form-badge">${Utils.escapeHtml(title)}</span>`
+                                ).join('')}
+                                ${url.form_titles.length > 3 ? `<span class="sfq-more-forms">+${url.form_titles.length - 3} más</span>` : ''}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="sfq-country-info">
+                                <span class="sfq-country-flag">${url.top_country.flag_emoji}</span>
+                                <span class="sfq-country-name">${Utils.escapeHtml(url.top_country.country_name)}</span>
+                                <span class="sfq-country-count">(${url.top_country.clicks})</span>
+                            </div>
+                        </td>
+                        <td><strong>${url.percentage}%</strong></td>
+                    </tr>
+                `;
+                tbody.append(row);
+            });
         }
     };
 
