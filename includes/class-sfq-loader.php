@@ -16,6 +16,8 @@ class SFQ_Loader {
     private $analytics;
     private $form_statistics;
     private $admin_submissions;
+    private $webhooks;
+    private $webhook_admin;
     
     public function init() {
         // Inicializar componentes según el contexto
@@ -34,6 +36,18 @@ class SFQ_Loader {
                 $this->admin_submissions = new SFQ_Admin_Submissions();
                 $this->admin_submissions->init();
             }
+            
+            // Inicializar administración de webhooks
+            if (class_exists('SFQ_Webhook_Admin')) {
+                $this->webhook_admin = new SFQ_Webhook_Admin();
+                $this->webhook_admin->init();
+            }
+        }
+        
+        // Inicializar webhooks (siempre, tanto en admin como frontend)
+        if (class_exists('SFQ_Webhooks')) {
+            $this->webhooks = new SFQ_Webhooks();
+            $this->webhooks->init();
         }
         
         // Frontend siempre se carga para shortcodes
@@ -230,6 +244,41 @@ class SFQ_Loader {
                     'no_data' => __('No hay datos disponibles', 'smart-forms-quiz'),
                     'export_success' => __('Exportación completada', 'smart-forms-quiz'),
                     'export_error' => __('Error al exportar', 'smart-forms-quiz')
+                )
+            ));
+        }
+        
+        // CSS y JavaScript para la página de webhooks
+        if (strpos($hook, 'sfq-webhooks') !== false) {
+            $webhooks_css_version = $this->get_asset_version('assets/css/admin-webhooks.css');
+            wp_enqueue_style(
+                'sfq-admin-webhooks',
+                SFQ_PLUGIN_URL . 'assets/css/admin-webhooks.css',
+                array(),
+                $webhooks_css_version
+            );
+            
+            $webhooks_js_version = $this->get_asset_version('assets/js/admin-webhooks.js');
+            wp_enqueue_script(
+                'sfq-admin-webhooks',
+                SFQ_PLUGIN_URL . 'assets/js/admin-webhooks.js',
+                array('jquery'),
+                $webhooks_js_version,
+                true
+            );
+            
+            // Localización específica para webhooks
+            wp_localize_script('sfq-admin-webhooks', 'sfq_webhook_ajax', array(
+                'ajax_url' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('sfq_webhook_nonce'),
+                'strings' => array(
+                    'confirm_delete' => __('¿Estás seguro de eliminar este webhook?', 'smart-forms-quiz'),
+                    'confirm_clear_logs' => __('¿Estás seguro de limpiar todos los logs?', 'smart-forms-quiz'),
+                    'saving' => __('Guardando...', 'smart-forms-quiz'),
+                    'saved' => __('Guardado', 'smart-forms-quiz'),
+                    'testing' => __('Probando...', 'smart-forms-quiz'),
+                    'error' => __('Error', 'smart-forms-quiz'),
+                    'success' => __('Éxito', 'smart-forms-quiz')
                 )
             ));
         }

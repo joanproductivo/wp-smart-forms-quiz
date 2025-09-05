@@ -36,10 +36,14 @@ require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-analytics.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-button-views.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-wp-rocket-compat.php';
 
+// Cargar clases de webhooks
+require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-webhooks.php';
+
 // Cargar clases de administración avanzadas
 if (is_admin()) {
     require_once SFQ_PLUGIN_DIR . 'includes/admin/class-sfq-admin-submissions.php';
     require_once SFQ_PLUGIN_DIR . 'includes/admin/class-sfq-form-statistics.php';
+    require_once SFQ_PLUGIN_DIR . 'includes/admin/class-sfq-webhook-admin.php';
 }
 
 // Activación del plugin

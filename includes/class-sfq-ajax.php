@@ -1,11 +1,4 @@
 <?php
-/**
- * Manejo de peticiones AJAX
- */
-
-if (!defined('ABSPATH')) {
-    exit;
-}
 
 class SFQ_Ajax {
     
@@ -81,6 +74,10 @@ class SFQ_Ajax {
         add_action('wp_ajax_sfq_save_button_click', array($this, 'save_button_click'));
         add_action('wp_ajax_nopriv_sfq_save_button_click', array($this, 'save_button_click'));
         
+        // ✅ NUEVO: AJAX handler para disparar webhook después del éxito
+        add_action('wp_ajax_sfq_trigger_webhook', array($this, 'trigger_webhook_post_success'));
+        add_action('wp_ajax_nopriv_sfq_trigger_webhook', array($this, 'trigger_webhook_post_success'));
+        
     }
     
     /**
@@ -113,7 +110,7 @@ class SFQ_Ajax {
         }
         
         // Verificar rate limiting para envío de respuestas
-        if (!$this->check_rate_limit('submit_response')) {
+        if (!SFQ_Security::check_rate_limit('submit_response')) {
             wp_send_json_error(array(
                 'message' => __('Demasiadas peticiones. Intenta de nuevo en un momento.', 'smart-forms-quiz'),
                 'code' => 'RATE_LIMIT_EXCEEDED'
@@ -251,14 +248,14 @@ class SFQ_Ajax {
             // Enviar notificaciones si está configurado (en background)
             wp_schedule_single_event(time(), 'sfq_send_notifications', array($form_id, $submission_id));
             
-            // Disparar hook para limpiar cache después del envío
-            do_action('sfq_form_submitted', $form_id, $submission_id);
-            
+            // ✅ NUEVO: Enviar respuesta inmediata al usuario SIN disparar webhook aún
             wp_send_json_success(array(
                 'submission_id' => $submission_id,
                 'redirect_url' => $redirect_url,
                 'responses_saved' => $responses_saved,
-                'message' => __('Formulario enviado correctamente', 'smart-forms-quiz')
+                'message' => __('Formulario enviado correctamente', 'smart-forms-quiz'),
+                'trigger_webhook' => true, // ✅ NUEVO: Indicar al frontend que debe disparar webhook
+                'form_id' => $form_id
             ));
             
         } catch (Exception $e) {
@@ -455,7 +452,7 @@ class SFQ_Ajax {
         }
         
         // Rate limiting para carga de preguntas
-        if (!$this->check_rate_limit('get_secure_question', 20, 60)) {
+        if (!SFQ_Security::check_rate_limit('get_secure_question', 20, 60)) {
             wp_send_json_error(array(
                 'message' => __('Demasiadas peticiones. Intenta de nuevo en un momento.', 'smart-forms-quiz'),
                 'code' => 'RATE_LIMIT_EXCEEDED'
@@ -1242,7 +1239,7 @@ class SFQ_Ajax {
         }
         
         // Rate limiting check
-        if (!$this->check_rate_limit('save_form', 50, 60)) {
+        if (!SFQ_Security::check_rate_limit('save_form', 50, 60)) {
             wp_send_json_error(__('Demasiadas peticiones. Intenta de nuevo en un momento.', 'smart-forms-quiz'));
             return;
         }
@@ -2996,7 +2993,7 @@ class SFQ_Ajax {
         // Rate limiting para operaciones sensibles
         $sensitive_methods = ['delete_submissions_bulk', 'delete_submission', 'export_submissions_advanced'];
         if (in_array($method_name, $sensitive_methods)) {
-            if (!$this->check_rate_limit($method_name, 5, 60)) {
+            if (!SFQ_Security::check_rate_limit($method_name, 5, 60)) {
                 wp_send_json_error(__('Demasiadas peticiones. Intenta de nuevo en un momento.', 'smart-forms-quiz'));
                 return;
             }
@@ -3361,7 +3358,7 @@ class SFQ_Ajax {
         }
         
         // Rate limiting para guardado parcial (más permisivo que envío completo)
-        if (!$this->check_rate_limit('save_partial', 30, 60)) {
+        if (!SFQ_Security::check_rate_limit('save_partial', 30, 60)) {
             wp_send_json_error(array(
                 'message' => __('Demasiadas peticiones de guardado. Intenta de nuevo en un momento.', 'smart-forms-quiz'),
                 'code' => 'RATE_LIMIT_EXCEEDED'
@@ -3846,7 +3843,7 @@ class SFQ_Ajax {
         }
         
         // Rate limiting para subida de archivos (más restrictivo)
-        if (!$this->check_rate_limit('upload_file', 5, 300)) {
+        if (!SFQ_Security::check_rate_limit('upload_file', 5, 300)) {
             wp_send_json_error(array(
                 'message' => __('Demasiadas subidas de archivos. Intenta de nuevo en unos minutos.', 'smart-forms-quiz'),
                 'code' => 'RATE_LIMIT_EXCEEDED'
@@ -4335,7 +4332,7 @@ class SFQ_Ajax {
         }
         
         // Rate limiting específico para refresh de nonce
-        if (!$this->check_rate_limit('refresh_nonce', 10, 60)) {
+        if (!SFQ_Security::check_rate_limit('refresh_nonce', 10, 60)) {
             wp_send_json_error(array(
                 'message' => __('Demasiadas peticiones de refresh. Intenta de nuevo en un momento.', 'smart-forms-quiz'),
                 'code' => 'RATE_LIMIT_EXCEEDED'
@@ -4405,7 +4402,7 @@ class SFQ_Ajax {
         }
         
         // Rate limiting para clics de botones (permisivo pero controlado)
-        if (!$this->check_rate_limit('save_button_click', 50, 60)) {
+        if (!SFQ_Security::check_rate_limit('save_button_click', 50, 60)) {
             wp_send_json_error(array(
                 'message' => __('Demasiados clics registrados. Intenta de nuevo en un momento.', 'smart-forms-quiz'),
                 'code' => 'RATE_LIMIT_EXCEEDED'
@@ -4558,6 +4555,66 @@ class SFQ_Ajax {
             
             wp_send_json_error(array(
                 'message' => __('Error al guardar el clic del botón', 'smart-forms-quiz'),
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Disparar webhook después de mostrar éxito al usuario
+     */
+    public function trigger_webhook_post_success() {
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Rate limiting para webhooks
+        if (!SFQ_Security::check_rate_limit('trigger_webhook', 5, 60)) {
+            wp_send_json_error(array(
+                'message' => __('Demasiadas peticiones de webhook. Intenta de nuevo en un momento.', 'smart-forms-quiz'),
+                'code' => 'RATE_LIMIT_EXCEEDED'
+            ));
+            return;
+        }
+        
+        // Validar datos requeridos
+        $form_id = intval($_POST['form_id'] ?? 0);
+        $submission_id = intval($_POST['submission_id'] ?? 0);
+        
+        if (!$form_id || !$submission_id) {
+            wp_send_json_error(__('Datos del webhook incompletos', 'smart-forms-quiz'));
+            return;
+        }
+        
+        try {
+            // ✅ DEBUG: Log del disparo post-éxito
+            error_log('SFQ WEBHOOK DEBUG: === POST-SUCCESS WEBHOOK TRIGGER ===');
+            error_log('SFQ WEBHOOK DEBUG: Form ID: ' . $form_id);
+            error_log('SFQ WEBHOOK DEBUG: Submission ID: ' . $submission_id);
+            error_log('SFQ WEBHOOK DEBUG: Current time: ' . current_time('mysql'));
+            error_log('SFQ WEBHOOK DEBUG: User ID: ' . get_current_user_id());
+            
+            // Disparar hook para webhooks
+            do_action('sfq_form_submitted', $form_id, $submission_id);
+            
+            // ✅ DEBUG: Log después de disparar hook
+            error_log('SFQ WEBHOOK DEBUG: Post-success hook sfq_form_submitted triggered successfully');
+            error_log('SFQ WEBHOOK DEBUG: === END POST-SUCCESS WEBHOOK TRIGGER ===');
+            
+            wp_send_json_success(array(
+                'message' => __('Webhook disparado correctamente', 'smart-forms-quiz'),
+                'form_id' => $form_id,
+                'submission_id' => $submission_id,
+                'timestamp' => current_time('timestamp')
+            ));
+            
+        } catch (Exception $e) {
+            error_log('SFQ Error in trigger_webhook_post_success: ' . $e->getMessage());
+            
+            wp_send_json_error(array(
+                'message' => __('Error al disparar webhook', 'smart-forms-quiz'),
                 'debug' => WP_DEBUG ? $e->getMessage() : null
             ));
         }

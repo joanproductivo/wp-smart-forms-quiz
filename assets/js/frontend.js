@@ -2245,6 +2245,26 @@
                 if (result.success) {
                     console.log('SFQ: Form submitted successfully (normal flow)');
                     
+                    // ✅ NUEVO: Verificar si el servidor indica que debe disparar webhook
+                    const shouldTriggerWebhook = result.data && result.data.trigger_webhook;
+                    const submissionId = result.data && result.data.submission_id;
+                    
+                    if (shouldTriggerWebhook && submissionId) {
+                        console.log('SFQ: Server indicates webhook should be triggered post-success');
+                        
+                        // Mostrar pantalla de éxito PRIMERO
+                        this.showThankYouScreen();
+                        
+                        // Disparar webhook DESPUÉS de mostrar éxito (con pequeño delay)
+                        setTimeout(() => {
+                            this.triggerWebhookPostSuccess(submissionId);
+                        }, 500); // 500ms delay para que el usuario vea el éxito primero
+                        
+                        // Manejar redirecciones después del webhook
+                        this.handlePostWebhookRedirection(result.data);
+                        return;
+                    }
+                    
                     // PRIORITY 1: Verificar si hay redirección condicional desde el resultado del servidor
                     if (result.data && result.data.redirect_url) {
                         window.location.href = result.data.redirect_url;
@@ -3169,7 +3189,7 @@
         }
 
         /**
-         * ✅ NUEVO: Marcar formulario como completado sin mostrar pantalla de agradecimiento
+         * ✅ CORREGIDO: Marcar formulario como completado Y disparar webhook
          */
         async markFormAsCompleted() {
             console.log('SFQ: Marking form as completed silently');
@@ -3200,6 +3220,19 @@
                     const result = await response.json();
                     if (result.success) {
                         console.log('SFQ: Form marked as completed successfully');
+                        
+                        // ✅ CRÍTICO: Verificar si el servidor indica que debe disparar webhook
+                        const shouldTriggerWebhook = result.data && result.data.trigger_webhook;
+                        const submissionId = result.data && result.data.submission_id;
+                        
+                        if (shouldTriggerWebhook && submissionId) {
+                            console.log('SFQ: Server indicates webhook should be triggered for silent completion');
+                            
+                            // ✅ NUEVO: Disparar webhook para completado silencioso también
+                            setTimeout(() => {
+                                this.triggerWebhookPostSuccess(submissionId);
+                            }, 500); // 500ms delay
+                        }
                         
                         // Verificar si hay redirección condicional
                         if (result.data && result.data.redirect_url) {
@@ -4249,6 +4282,92 @@
                     this.handleButtonBecameVisible(button);
                 }
             });
+        }
+
+        /**
+         * ✅ NUEVO: Disparar webhook después de mostrar éxito al usuario
+         */
+        async triggerWebhookPostSuccess(submissionId) {
+            console.log('SFQ: Triggering webhook post-success for submission:', submissionId);
+            
+            try {
+                const formData = new FormData();
+                formData.append('action', 'sfq_trigger_webhook');
+                formData.append('nonce', this.getCurrentNonce());
+                formData.append('form_id', this.formId);
+                formData.append('submission_id', submissionId);
+
+                const response = await fetch(this.config.ajaxUrl, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('SFQ: Webhook triggered successfully post-success');
+                } else {
+                    console.warn('SFQ: Webhook trigger failed:', result.data);
+                }
+                
+            } catch (error) {
+                console.error('SFQ: Error triggering webhook post-success:', error);
+                // No interrumpir el flujo aunque falle el webhook
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Manejar redirecciones después del webhook
+         */
+        handlePostWebhookRedirection(responseData) {
+            console.log('SFQ: Handling post-webhook redirection');
+            
+            // PRIORITY 1: Verificar si hay redirección condicional desde el resultado del servidor
+            if (responseData && responseData.redirect_url) {
+                setTimeout(() => {
+                    window.location.href = responseData.redirect_url;
+                }, 2000); // Dar tiempo para que se complete el webhook
+                
+                // Mostrar mensaje de redirección
+                const thankYouScreen = this.container.querySelector('.sfq-thank-you-screen');
+                if (thankYouScreen) {
+                    const redirectMessage = document.createElement('div');
+                    redirectMessage.className = 'sfq-redirect-message';
+                    redirectMessage.innerHTML = '<p>Redirigiendo en 2 segundos...</p>';
+                    thankYouScreen.appendChild(redirectMessage);
+                }
+                return;
+            }
+            
+            // PRIORITY 2: Verificar redirección configurada en el formulario
+            const configuredRedirectUrl = this.container.querySelector('#sfq-redirect-url-' + this.formId);
+            if (configuredRedirectUrl && configuredRedirectUrl.value) {
+                setTimeout(() => {
+                    window.location.href = configuredRedirectUrl.value;
+                }, 3000); // Dar más tiempo para webhook + mostrar éxito
+                
+                // Mostrar mensaje de redirección
+                const thankYouScreen = this.container.querySelector('.sfq-thank-you-screen');
+                if (thankYouScreen) {
+                    const redirectMessage = document.createElement('div');
+                    redirectMessage.className = 'sfq-redirect-message';
+                    redirectMessage.innerHTML = '<p>Redirigiendo en 3 segundos...</p>';
+                    thankYouScreen.appendChild(redirectMessage);
+                }
+                return;
+            }
+            
+            // PRIORITY 3: No hay redirección, mantener pantalla de agradecimiento
+            console.log('SFQ: No redirection configured, staying on thank you screen');
         }
     }
 

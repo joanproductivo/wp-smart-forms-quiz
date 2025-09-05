@@ -204,6 +204,10 @@ class SFQ_Activator {
         dbDelta($sql_conditions);
         dbDelta($sql_partial_responses); // ✅ NUEVO
         
+        // Crear tablas de webhooks
+        $webhooks = new SFQ_Webhooks();
+        $webhooks->create_tables();
+        
         // Verificar que las tablas se crearon correctamente
         $tables_created = self::verify_tables();
         
