@@ -33,6 +33,7 @@ require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-frontend.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-ajax.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-shortcode.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-analytics.php';
+require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-button-views.php';
 require_once SFQ_PLUGIN_DIR . 'includes/class-sfq-wp-rocket-compat.php';
 
 // Cargar clases de administración avanzadas

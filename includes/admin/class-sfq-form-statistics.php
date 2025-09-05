@@ -728,50 +728,47 @@ class SFQ_Form_Statistics {
     }
     
     /**
-     * Calcular estadísticas generales del formulario (MEJORADO)
+     * Calcular estadísticas generales del formulario (MEJORADO CON VISTAS DE BOTONES)
      */
     private function calculate_form_stats($form_id, $date_condition) {
         global $wpdb;
         
-        // Construir consulta base de forma más robusta
-        $base_query = "SELECT COUNT(*) FROM {$wpdb->prefix}sfq_submissions WHERE form_id = %d";
-        $query_params = [$form_id];
-        
-        // Añadir condiciones de fecha y status de forma controlada
-        if (!empty($date_condition['params'])) {
-            $base_query .= " AND status = 'completed' {$date_condition['where']}";
-            $query_params = array_merge($query_params, $date_condition['params']);
-        } else {
-            $base_query .= " AND status = 'completed'";
-        }
-        
-        $total_responses = $wpdb->get_var($wpdb->prepare($base_query, $query_params));
-        
-        // Si no hay respuestas completadas, verificar si hay submissions en general
-        if ($total_responses == 0) {
-            $total_any_status = $wpdb->get_var($wpdb->prepare(
-                "SELECT COUNT(*) FROM {$wpdb->prefix}sfq_submissions WHERE form_id = %d",
-                $form_id
-            ));
+        // ✅ NUEVO: Usar el sistema de vistas de botones para obtener estadísticas precisas
+        if (class_exists('SFQ_Button_Views')) {
+            $button_views = new SFQ_Button_Views();
+            $quick_stats = $button_views->get_form_quick_stats($form_id);
             
-            // Si hay submissions pero no completadas, usar esas para mostrar algo
-            if ($total_any_status > 0) {
-                $total_responses = $total_any_status;
+            // Usar las estadísticas del nuevo sistema
+            $total_responses = $quick_stats['total_responses'];
+            $unique_clicks = $quick_stats['unique_clicks'];
+            $conversion_rate = $quick_stats['click_rate'];
+        } else {
+            // Fallback al sistema anterior
+            $base_query = "SELECT COUNT(*) FROM {$wpdb->prefix}sfq_submissions WHERE form_id = %d";
+            $query_params = [$form_id];
+            
+            if (!empty($date_condition['params'])) {
+                $base_query .= " AND status = 'completed' {$date_condition['where']}";
+                $query_params = array_merge($query_params, $date_condition['params']);
+            } else {
+                $base_query .= " AND status = 'completed'";
             }
+            
+            $total_responses = $wpdb->get_var($wpdb->prepare($base_query, $query_params));
+            $unique_clicks = 0;
+            $conversion_rate = 0;
         }
         
-        // Total de vistas (verificar si la tabla existe)
+        // Total de vistas (mantener lógica existente para compatibilidad)
         $analytics_table = $wpdb->prefix . 'sfq_analytics';
         $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$analytics_table'") === $analytics_table;
         
         $total_views = 0;
         if ($table_exists) {
-            // Construir consulta de analytics con parámetros separados
             $analytics_query = "SELECT COUNT(DISTINCT session_id) FROM {$wpdb->prefix}sfq_analytics 
                                WHERE form_id = %d AND event_type = 'view'";
             $analytics_params = [$form_id];
             
-            // Añadir condiciones de fecha para analytics (usar created_at en lugar de completed_at)
             if (!empty($date_condition['params'])) {
                 $analytics_date_condition = str_replace('completed_at', 'created_at', $date_condition['where']);
                 $analytics_query .= $analytics_date_condition;
@@ -781,22 +778,9 @@ class SFQ_Form_Statistics {
             $total_views = $wpdb->get_var($wpdb->prepare($analytics_query, $analytics_params));
         }
         
-        // Si no hay vistas en analytics, usar el contador de submissions como aproximación
+        // Si no hay vistas en analytics, usar total_responses del nuevo sistema
         if ($total_views == 0 && $total_responses > 0) {
-            $total_views = $total_responses * 2; // Estimación conservadora
-        }
-        
-        // ✅ CORREGIDO: Usar la misma lógica de cálculo que get_form_quick_stats
-        $conversion_rate = 0;
-        
-        if ($total_views > 0 && $total_responses > 0) {
-            $conversion_rate = ($total_responses / $total_views) * 100;
-            
-            // Redondear a 1 decimal
-            $conversion_rate = round($conversion_rate, 1);
-            
-            // Asegurar que esté en el rango 0-100%
-            $conversion_rate = max(0, min(100, $conversion_rate));
+            $total_views = $total_responses;
         }
         
         // Tiempo promedio - construir consulta de forma más robusta

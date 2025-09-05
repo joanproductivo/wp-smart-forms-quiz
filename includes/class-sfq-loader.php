@@ -52,6 +52,12 @@ class SFQ_Loader {
         $this->analytics = new SFQ_Analytics();
         $this->analytics->init();
         
+        // Button Views tracking
+        if (class_exists('SFQ_Button_Views')) {
+            $button_views = new SFQ_Button_Views();
+            $button_views->init();
+        }
+        
         // Hooks generales
         $this->setup_hooks();
     }

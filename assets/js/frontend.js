@@ -165,8 +165,11 @@
             // Prevenir envío de formulario por defecto
             this.container.addEventListener('submit', (e) => e.preventDefault());
             
-            // Inicializar botones de todas las preguntas al cargar
-            this.initializeAllQuestionButtons();
+        // Inicializar botones de todas las preguntas al cargar
+        this.initializeAllQuestionButtons();
+        
+        // ✅ NUEVO: Inicializar sistema de seguimiento de vistas de botones
+        this.initializeButtonViewTracking();
         }
 
         initializeForm() {
@@ -3998,6 +4001,254 @@
                 "'": '&#039;'
             };
             return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        /**
+         * ✅ NUEVO: Inicializar sistema de seguimiento de vistas de botones
+         */
+        initializeButtonViewTracking() {
+            console.log('SFQ Button Views: Initializing button view tracking system');
+            
+            // Configurar observer para detectar cuando aparecen botones en pantalla
+            this.setupButtonViewObserver();
+            
+            // Registrar vistas de botones ya visibles
+            this.registerVisibleButtons();
+        }
+
+        /**
+         * ✅ NUEVO: Configurar observer para detectar botones que aparecen en pantalla
+         */
+        setupButtonViewObserver() {
+            // Verificar soporte para Intersection Observer
+            if (!window.IntersectionObserver) {
+                console.warn('SFQ Button Views: IntersectionObserver not supported, using fallback');
+                this.setupButtonViewFallback();
+                return;
+            }
+
+            // Configurar observer con umbral del 50% de visibilidad
+            const observerOptions = {
+                root: null,
+                rootMargin: '0px',
+                threshold: 0.5
+            };
+
+            this.buttonViewObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        this.handleButtonBecameVisible(entry.target);
+                    }
+                });
+            }, observerOptions);
+
+            // Observar todos los botones de preguntas estilo libre
+            this.observeFreestyleButtons();
+        }
+
+        /**
+         * ✅ NUEVO: Observar botones de preguntas estilo libre
+         */
+        observeFreestyleButtons() {
+            // Buscar todos los botones en preguntas freestyle
+            const freestyleButtons = this.container.querySelectorAll('.sfq-freestyle-button[href], .sfq-freestyle-button[data-url]');
+            
+            console.log('SFQ Button Views: Found', freestyleButtons.length, 'freestyle buttons to observe');
+            
+            freestyleButtons.forEach(button => {
+                // Solo observar botones que tengan URL
+                const hasUrl = button.href || button.dataset.url;
+                if (hasUrl && this.buttonViewObserver) {
+                    this.buttonViewObserver.observe(button);
+                    console.log('SFQ Button Views: Observing button:', button.textContent?.trim() || 'Unnamed button');
+                }
+            });
+        }
+
+        /**
+         * ✅ NUEVO: Manejar cuando un botón se vuelve visible
+         */
+        async handleButtonBecameVisible(button) {
+            // Verificar si ya se registró la vista de este botón
+            if (button.dataset.viewRegistered === 'true') {
+                return;
+            }
+
+            console.log('SFQ Button Views: Button became visible:', button.textContent?.trim() || 'Unnamed button');
+
+            // Marcar como vista registrada para evitar duplicados
+            button.dataset.viewRegistered = 'true';
+
+            // Obtener información del botón
+            const buttonInfo = this.extractButtonInfo(button);
+            
+            if (buttonInfo) {
+                await this.registerButtonView(buttonInfo);
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Extraer información del botón
+         */
+        extractButtonInfo(button) {
+            // Encontrar el contenedor de la pregunta
+            const questionContainer = button.closest('.sfq-question-screen');
+            if (!questionContainer) {
+                console.warn('SFQ Button Views: Button not inside question container');
+                return null;
+            }
+
+            // Verificar que sea una pregunta estilo libre
+            const questionType = questionContainer.dataset.questionType;
+            if (questionType !== 'freestyle') {
+                console.log('SFQ Button Views: Skipping non-freestyle question:', questionType);
+                return null;
+            }
+
+            const questionId = questionContainer.dataset.questionId;
+            const elementId = button.dataset.elementId;
+            const buttonText = button.textContent?.trim() || button.innerText?.trim() || '';
+            const buttonUrl = button.href || button.dataset.url || '';
+
+            if (!questionId || !elementId || !buttonUrl) {
+                console.warn('SFQ Button Views: Missing required button information', {
+                    questionId,
+                    elementId,
+                    buttonUrl
+                });
+                return null;
+            }
+
+            return {
+                questionId: parseInt(questionId),
+                elementId: elementId,
+                buttonText: buttonText,
+                buttonUrl: buttonUrl
+            };
+        }
+
+        /**
+         * ✅ NUEVO: Registrar vista de botón en el servidor
+         */
+        async registerButtonView(buttonInfo) {
+            console.log('SFQ Button Views: Registering button view:', buttonInfo);
+
+            try {
+                const formData = new FormData();
+                formData.append('action', 'sfq_register_button_view');
+                formData.append('nonce', this.getCurrentNonce());
+                formData.append('form_id', this.formId);
+                formData.append('question_id', buttonInfo.questionId);
+                formData.append('element_id', buttonInfo.elementId);
+                formData.append('session_id', this.sessionId);
+                formData.append('button_text', buttonInfo.buttonText);
+                formData.append('button_url', buttonInfo.buttonUrl);
+
+                const response = await fetch(this.config.ajaxUrl, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log('SFQ Button Views: Button view registered successfully');
+                } else {
+                    console.warn('SFQ Button Views: Failed to register button view:', result.data);
+                }
+                
+            } catch (error) {
+                console.error('SFQ Button Views: Error registering button view:', error);
+                // No lanzar el error para no interrumpir el flujo normal
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Registrar vistas de botones ya visibles (para botones que aparecen inmediatamente)
+         */
+        registerVisibleButtons() {
+            // Usar setTimeout para permitir que el DOM se estabilice
+            setTimeout(() => {
+                const visibleButtons = this.container.querySelectorAll('.sfq-freestyle-button[href], .sfq-freestyle-button[data-url]');
+                
+                visibleButtons.forEach(button => {
+                    // Verificar si el botón está visible en la pantalla actual
+                    const questionContainer = button.closest('.sfq-question-screen');
+                    if (questionContainer && questionContainer.classList.contains('active')) {
+                        // Verificar si está realmente visible usando getBoundingClientRect
+                        const rect = button.getBoundingClientRect();
+                        const isVisible = rect.top >= 0 && rect.left >= 0 && 
+                                        rect.bottom <= window.innerHeight && 
+                                        rect.right <= window.innerWidth;
+                        
+                        if (isVisible) {
+                            this.handleButtonBecameVisible(button);
+                        }
+                    }
+                });
+            }, 1000); // Esperar 1 segundo para que se complete la inicialización
+        }
+
+        /**
+         * ✅ NUEVO: Sistema de fallback para navegadores sin IntersectionObserver
+         */
+        setupButtonViewFallback() {
+            console.log('SFQ Button Views: Setting up fallback system');
+            
+            // Usar eventos de scroll y resize para detectar visibilidad
+            let scrollTimeout;
+            const checkVisibility = () => {
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(() => {
+                    this.checkButtonVisibilityFallback();
+                }, 250);
+            };
+
+            window.addEventListener('scroll', checkVisibility);
+            window.addEventListener('resize', checkVisibility);
+            
+            // Verificación inicial
+            setTimeout(() => {
+                this.checkButtonVisibilityFallback();
+            }, 1000);
+        }
+
+        /**
+         * ✅ NUEVO: Verificar visibilidad de botones (fallback)
+         */
+        checkButtonVisibilityFallback() {
+            const buttons = this.container.querySelectorAll('.sfq-freestyle-button[href], .sfq-freestyle-button[data-url]');
+            
+            buttons.forEach(button => {
+                if (button.dataset.viewRegistered === 'true') {
+                    return;
+                }
+
+                // Verificar si está en una pregunta activa
+                const questionContainer = button.closest('.sfq-question-screen');
+                if (!questionContainer || !questionContainer.classList.contains('active')) {
+                    return;
+                }
+
+                // Verificar visibilidad usando getBoundingClientRect
+                const rect = button.getBoundingClientRect();
+                const isVisible = rect.top >= 0 && rect.left >= 0 && 
+                                rect.bottom <= window.innerHeight && 
+                                rect.right <= window.innerWidth;
+                
+                if (isVisible) {
+                    this.handleButtonBecameVisible(button);
+                }
+            });
         }
     }
 
