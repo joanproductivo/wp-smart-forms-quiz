@@ -3,9 +3,9 @@
  * Plugin Name: Smart Forms & Quiz
  * Plugin URI: https://github.com/joanproductivo/wp-smart-forms-quiz
  * Description: Plugin eficiente para crear formularios y quiz modernos con lógica condicional y analytics
- * Version: 1.5.0
+ * Version: 2.0
  * Author: Joan Planas & IA
- * License: GPL v2 or later
+ * License: No puedes comercializar con este plugin.
  * Text Domain: smart-forms-quiz
  */
 
