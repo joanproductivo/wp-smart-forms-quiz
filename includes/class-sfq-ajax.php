@@ -142,17 +142,9 @@ class SFQ_Ajax {
             return;
         }
         
-        // ✅ CORREGIDO: Decodificar datos JSON sin stripslashes para preservar acentos
-        $responses = json_decode($_POST['responses'] ?? '{}', true);
-        $variables = json_decode($_POST['variables'] ?? '{}', true);
-        
-        // ✅ FALLBACK: Si falla, intentar con stripslashes para compatibilidad con datos legacy
-        if (json_last_error() !== JSON_ERROR_NONE && isset($_POST['responses'])) {
-            $responses = json_decode(stripslashes($_POST['responses']), true);
-        }
-        if (json_last_error() !== JSON_ERROR_NONE && isset($_POST['variables'])) {
-            $variables = json_decode(stripslashes($_POST['variables']), true);
-        }
+        // Decodificar datos JSON - Revertido al comportamiento de la versión funcional
+        $responses = json_decode(stripslashes($_POST['responses'] ?? '{}'), true);
+        $variables = json_decode(stripslashes($_POST['variables'] ?? '{}'), true);
         
         if (!is_array($responses)) {
             $responses = array();
@@ -287,12 +279,8 @@ class SFQ_Ajax {
         
         $form_id = intval($_POST['form_id'] ?? 0);
         $event_type = sanitize_text_field($_POST['event_type'] ?? '');
-        // ✅ CORREGIDO: Decodificar JSON sin stripslashes para preservar acentos
-        $event_data = json_decode($_POST['event_data'] ?? '{}', true);
-        // ✅ FALLBACK: Si falla, intentar con stripslashes para compatibilidad
-        if (json_last_error() !== JSON_ERROR_NONE && isset($_POST['event_data'])) {
-            $event_data = json_decode(stripslashes($_POST['event_data']), true);
-        }
+        // Decodificar datos JSON - Revertido al comportamiento de la versión funcional
+        $event_data = json_decode(stripslashes($_POST['event_data'] ?? '{}'), true);
         $session_id = sanitize_text_field($_POST['session_id'] ?? '');
         
         // Validar datos requeridos
@@ -350,12 +338,8 @@ class SFQ_Ajax {
         $form_id = intval($_POST['form_id'] ?? 0);
         $current_question_id = intval($_POST['current_question_id'] ?? 0);
         $answer = sanitize_text_field($_POST['answer'] ?? '');
-        // ✅ CORREGIDO: Decodificar JSON sin stripslashes para preservar acentos
-        $variables = json_decode($_POST['variables'] ?? '{}', true);
-        // ✅ FALLBACK: Si falla, intentar con stripslashes para compatibilidad
-        if (json_last_error() !== JSON_ERROR_NONE && isset($_POST['variables'])) {
-            $variables = json_decode(stripslashes($_POST['variables']), true);
-        }
+        // Decodificar datos JSON - Revertido al comportamiento de la versión funcional
+        $variables = json_decode(stripslashes($_POST['variables'] ?? '{}'), true);
         
         // Validar datos requeridos
         if (!$form_id || !$current_question_id) {
@@ -3034,18 +3018,10 @@ class SFQ_Ajax {
             return;
         }
         
-        // ✅ CORREGIDO: Decodificar datos JSON sin stripslashes para preservar acentos
-        $responses = json_decode($_POST['responses'] ?? '{}', true);
-        $variables = json_decode($_POST['variables'] ?? '{}', true);
+        // Decodificar datos JSON - Revertido al comportamiento de la versión funcional
+        $responses = json_decode(stripslashes($_POST['responses'] ?? '{}'), true);
+        $variables = json_decode(stripslashes($_POST['variables'] ?? '{}'), true);
         $current_question = intval($_POST['current_question'] ?? 0);
-        
-        // ✅ FALLBACK: Si falla, intentar con stripslashes para compatibilidad
-        if (json_last_error() !== JSON_ERROR_NONE && isset($_POST['responses'])) {
-            $responses = json_decode(stripslashes($_POST['responses']), true);
-        }
-        if (json_last_error() !== JSON_ERROR_NONE && isset($_POST['variables'])) {
-            $variables = json_decode(stripslashes($_POST['variables']), true);
-        }
         
         if (!is_array($responses)) {
             $responses = array();
