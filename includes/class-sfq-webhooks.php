@@ -21,9 +21,6 @@ class SFQ_Webhooks {
         $this->encryption_key = $this->get_encryption_key();
         
         // ✅ DEBUG: Log de construcción de la clase
-        error_log('SFQ WEBHOOK DEBUG: SFQ_Webhooks class constructed');
-        error_log('SFQ WEBHOOK DEBUG: Webhook table: ' . $this->webhook_table);
-        error_log('SFQ WEBHOOK DEBUG: Logs table: ' . $this->logs_table);
     }
     
     /**
@@ -61,7 +58,6 @@ class SFQ_Webhooks {
         
         // Verificar que las extensiones necesarias estén disponibles
         if (!function_exists('openssl_decrypt')) {
-            error_log('SFQ Webhooks: OpenSSL no está disponible para descifrado');
             return '';
         }
         
@@ -117,7 +113,6 @@ class SFQ_Webhooks {
         
         // Si está en modo desarrollo, permitir URLs locales con log de advertencia
         if ($dev_mode && $this->is_local_url($url)) {
-            error_log('SFQ Webhooks: ADVERTENCIA - URL local permitida en modo desarrollo: ' . $url);
             return true;
         }
         
@@ -205,8 +200,6 @@ class SFQ_Webhooks {
     
     public function init() {
         // ✅ DEBUG: Log de inicialización de webhooks
-        error_log('SFQ WEBHOOK DEBUG: Webhooks system initialized');
-        error_log('SFQ WEBHOOK DEBUG: Registering hook sfq_form_submitted with priority 10');
         
         // Hook para cuando se envía un formulario
         add_action('sfq_form_submitted', array($this, 'trigger_webhook'), 10, 2);
@@ -227,9 +220,7 @@ class SFQ_Webhooks {
         
         // ✅ DEBUG: Verificar webhooks activos al inicializar
         $active_webhooks = $this->get_active_webhooks();
-        error_log('SFQ WEBHOOK DEBUG: Found ' . count($active_webhooks) . ' active webhooks');
         foreach ($active_webhooks as $webhook) {
-            error_log('SFQ WEBHOOK DEBUG: - Webhook ID: ' . $webhook->id . ', Name: ' . $webhook->name . ', URL: ' . $webhook->url);
         }
     }
     
@@ -301,52 +292,35 @@ class SFQ_Webhooks {
      */
     public function trigger_webhook($form_id, $submission_id) {
         // ✅ DEBUG: Log detallado del trigger
-        error_log('SFQ WEBHOOK DEBUG: === TRIGGER_WEBHOOK CALLED ===');
-        error_log('SFQ WEBHOOK DEBUG: Form ID: ' . $form_id);
-        error_log('SFQ WEBHOOK DEBUG: Submission ID: ' . $submission_id);
-        error_log('SFQ WEBHOOK DEBUG: Current time: ' . current_time('mysql'));
-        error_log('SFQ WEBHOOK DEBUG: Hook called from: ' . wp_debug_backtrace_summary());
         
         // Obtener webhooks activos
         $webhooks = $this->get_active_webhooks();
         
-        error_log('SFQ WEBHOOK DEBUG: Found ' . count($webhooks) . ' active webhooks');
         
         if (empty($webhooks)) {
-            error_log('SFQ WEBHOOK DEBUG: No active webhooks found - exiting');
             return;
         }
         
         // Obtener datos del formulario y submission
-        error_log('SFQ WEBHOOK DEBUG: Preparing webhook data...');
         $webhook_data = $this->prepare_webhook_data($form_id, $submission_id);
         
         if (!$webhook_data) {
-            error_log('SFQ WEBHOOK DEBUG: ERROR - No se pudieron obtener datos para form_id=' . $form_id . ', submission_id=' . $submission_id);
             return;
         }
         
-        error_log('SFQ WEBHOOK DEBUG: Webhook data prepared successfully');
-        error_log('SFQ WEBHOOK DEBUG: Event type: ' . ($webhook_data['event'] ?? 'UNKNOWN'));
-        error_log('SFQ WEBHOOK DEBUG: Form title: ' . ($webhook_data['form']['title'] ?? 'UNKNOWN'));
-        error_log('SFQ WEBHOOK DEBUG: Responses count: ' . count($webhook_data['responses'] ?? []));
         
         // Enviar a cada webhook configurado
         $scheduled_count = 0;
         foreach ($webhooks as $webhook) {
-            error_log('SFQ WEBHOOK DEBUG: Processing webhook ID: ' . $webhook->id . ' (' . $webhook->name . ')');
             
             // Verificar si este webhook debe procesar este formulario
             if (!$this->should_process_form($webhook, $form_id)) {
-                error_log('SFQ WEBHOOK DEBUG: Webhook ID ' . $webhook->id . ' skipped - form filter mismatch');
                 continue;
             }
             
-            error_log('SFQ WEBHOOK DEBUG: Scheduling webhook ID ' . $webhook->id . ' for immediate execution');
             
             // ✅ DEBUG: Verificar estado del cron de WordPress
             $cron_disabled = defined('DISABLE_WP_CRON') && DISABLE_WP_CRON;
-            error_log('SFQ WEBHOOK DEBUG: WP Cron disabled: ' . ($cron_disabled ? 'YES' : 'NO'));
             
             // ✅ CORREGIDO: Para ejecución inmediata, ejecutar directamente
             // WP Cron puede no ejecutarse inmediatamente en algunos entornos
@@ -361,7 +335,6 @@ class SFQ_Webhooks {
             
             if ($scheduled) {
                 $scheduled_count++;
-                error_log('SFQ WEBHOOK DEBUG: Webhook ID ' . $webhook->id . ' scheduled successfully');
                 
                 // ✅ DEBUG: Verificar que el evento se programó correctamente
                 $next_scheduled = wp_next_scheduled('sfq_webhook_send', array(
@@ -371,12 +344,10 @@ class SFQ_Webhooks {
                         'attempt' => 1
                     )
                 ));
-                error_log('SFQ WEBHOOK DEBUG: Next scheduled time: ' . ($next_scheduled ? date('Y-m-d H:i:s', $next_scheduled) : 'NOT FOUND'));
                 
                 // ✅ NUEVO: Para ejecución inmediata, forzar ejecución directa
                 // Esto asegura que el webhook se ejecute incluso si WP Cron no funciona inmediatamente
                 if ($execution_time <= time()) {
-                    error_log('SFQ WEBHOOK DEBUG: Forcing immediate execution due to immediate scheduling');
                     
                     // Ejecutar inmediatamente en paralelo
                     $this->handle_webhook_send(array(
@@ -394,31 +365,25 @@ class SFQ_Webhooks {
                         )
                     ));
                     
-                    error_log('SFQ WEBHOOK DEBUG: Immediate execution completed and scheduled event cleaned up');
                 }
                 
             } else {
-                error_log('SFQ WEBHOOK DEBUG: ERROR - Failed to schedule webhook ID ' . $webhook->id);
                 
                 // ✅ CORREGIDO: Solo ejecutar fallback si realmente es necesario
                 // Verificar si WP Cron está completamente deshabilitado
                 $cron_disabled = defined('DISABLE_WP_CRON') && DISABLE_WP_CRON;
                 
                 if ($cron_disabled) {
-                    error_log('SFQ WEBHOOK DEBUG: FALLBACK - WP Cron disabled, executing webhook immediately');
                     $this->handle_webhook_send(array(
                         'webhook_id' => $webhook->id,
                         'webhook_data' => $webhook_data,
                         'attempt' => 1
                     ));
                 } else {
-                    error_log('SFQ WEBHOOK DEBUG: Webhook scheduling failed but WP Cron is enabled - webhook may execute later');
                 }
             }
         }
         
-        error_log('SFQ WEBHOOK DEBUG: Total webhooks scheduled: ' . $scheduled_count);
-        error_log('SFQ WEBHOOK DEBUG: === END TRIGGER_WEBHOOK ===');
     }
     
     /**
@@ -426,36 +391,24 @@ class SFQ_Webhooks {
      */
     public function handle_webhook_send($args) {
         // ✅ DEBUG: Log detallado del handler asíncrono
-        error_log('SFQ WEBHOOK DEBUG: === HANDLE_WEBHOOK_SEND CALLED ===');
-        error_log('SFQ WEBHOOK DEBUG: Args received: ' . (is_array($args) ? 'ARRAY' : gettype($args)));
         
         if (!is_array($args)) {
-            error_log('SFQ WEBHOOK DEBUG: ERROR - Args is not array: ' . gettype($args));
             return;
         }
         
-        error_log('SFQ WEBHOOK DEBUG: Args keys: ' . implode(', ', array_keys($args)));
         
         if (!isset($args['webhook_id'])) {
-            error_log('SFQ WEBHOOK DEBUG: ERROR - Missing webhook_id in args');
             return;
         }
         
         if (!isset($args['webhook_data'])) {
-            error_log('SFQ WEBHOOK DEBUG: ERROR - Missing webhook_data in args');
             return;
         }
         
         $webhook_id = $args['webhook_id'];
         $attempt = $args['attempt'] ?? 1;
         
-        error_log('SFQ WEBHOOK DEBUG: Processing webhook ID: ' . $webhook_id);
-        error_log('SFQ WEBHOOK DEBUG: Attempt number: ' . $attempt);
-        error_log('SFQ WEBHOOK DEBUG: Webhook data event: ' . ($args['webhook_data']['event'] ?? 'UNKNOWN'));
-        error_log('SFQ WEBHOOK DEBUG: Form ID: ' . ($args['webhook_data']['form']['id'] ?? 'UNKNOWN'));
-        error_log('SFQ WEBHOOK DEBUG: Submission ID: ' . ($args['webhook_data']['submission']['id'] ?? 'UNKNOWN'));
         
-        error_log('SFQ WEBHOOK DEBUG: Calling send_webhook...');
         
         $this->send_webhook(
             $webhook_id,
@@ -463,7 +416,6 @@ class SFQ_Webhooks {
             $attempt
         );
         
-        error_log('SFQ WEBHOOK DEBUG: === END HANDLE_WEBHOOK_SEND ===');
     }
     
     /**
@@ -592,7 +544,6 @@ class SFQ_Webhooks {
         
         // Verificar rate limiting
         if (!SFQ_Security::check_rate_limit('webhook_send_' . $webhook_id, 10, 60)) {
-            error_log('SFQ Webhooks: Rate limit excedido para webhook ' . $webhook_id);
             return;
         }
         
@@ -603,13 +554,11 @@ class SFQ_Webhooks {
         ));
         
         if (!$webhook) {
-            error_log('SFQ Webhooks: Webhook no encontrado o inactivo: ' . $webhook_id);
             return;
         }
         
         // Validar URL para prevenir SSRF
         if (!$this->validate_webhook_url($webhook->url)) {
-            error_log('SFQ Webhooks: URL no válida o peligrosa: ' . $webhook->url);
             return;
         }
         
@@ -696,7 +645,6 @@ class SFQ_Webhooks {
                 $log_data['status'] = 'success';
                 $this->log_webhook_attempt($log_data);
                 
-                error_log('SFQ Webhooks: Enviado exitosamente a ' . $webhook->url . ' (código: ' . $response_code . ')');
             } else {
                 throw new Exception('Código de respuesta HTTP: ' . $response_code . '. Respuesta: ' . $response_body);
             }
@@ -724,10 +672,8 @@ class SFQ_Webhooks {
                 ));
                 
                 // Log sin información sensible
-                error_log('SFQ Webhooks: Error en intento ' . $attempt . '/' . $webhook->max_retries . ' para webhook ID ' . $webhook_id . '. Reintentando en ' . ($exponential_delay + $jitter) . ' segundos.');
             } else {
                 $this->log_webhook_attempt($log_data);
-                error_log('SFQ Webhooks: Falló definitivamente después de ' . $webhook->max_retries . ' intentos para webhook ID ' . $webhook_id);
             }
         }
     }
@@ -890,7 +836,6 @@ class SFQ_Webhooks {
         $result = $wpdb->insert($this->logs_table, $log_data);
         
         if ($result === false) {
-            error_log('SFQ Webhooks: Error al guardar log: ' . $wpdb->last_error);
             return false;
         }
         
@@ -916,7 +861,6 @@ class SFQ_Webhooks {
         // Reconstruir datos del webhook
         $webhook_data = json_decode($log->request_body, true);
         if (!$webhook_data) {
-            error_log('SFQ Webhooks: No se pudieron decodificar datos para reintento del log ' . $log_id);
             return;
         }
         
@@ -942,7 +886,6 @@ class SFQ_Webhooks {
             WHERE status = 'failed' AND created_at < DATE_SUB(NOW(), INTERVAL 90 DAY)"
         );
         
-        error_log('SFQ Webhooks: Limpieza de logs completada. Eliminados: ' . ($deleted_success + $deleted_failed) . ' registros');
     }
     
     /**

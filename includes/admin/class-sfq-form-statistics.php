@@ -2037,7 +2037,6 @@ class SFQ_Form_Statistics {
                     $files = $decoded;
                 } else {
                     // Si el JSON falla, intentar como string simple
-                    error_log('SFQ Statistics: Failed to decode file JSON: ' . json_last_error_msg() . ' - Value: ' . substr($value, 0, 100));
                     
                     // Intentar extraer información básica si es un string
                     if (is_string($value) && !empty(trim($value))) {

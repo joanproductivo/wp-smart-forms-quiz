@@ -357,12 +357,10 @@ class SFQ_Ajax {
         
         // Debug: Log del estado inicial
         error_log('SFQ Debug: Initial variables state: ' . json_encode($variables));
-        error_log('SFQ Debug: Processing question ' . $current_question_id . ' with answer: ' . $answer);
         
         // Obtener condiciones de la pregunta actual
         $conditions = $this->get_question_conditions($current_question_id);
         
-        error_log('SFQ Debug: Found ' . count($conditions) . ' conditions for question ' . $current_question_id);
         
         $next_question_id = null;
         $redirect_url = null;
@@ -402,7 +400,6 @@ class SFQ_Ajax {
                         $new_value = $current_value + $var_amount;
                         $updated_variables[$var_name] = $new_value;
                         
-                        error_log("SFQ Debug: ADD_VARIABLE - Variable: {$var_name}, Current: {$current_value}, Adding: {$var_amount}, New: {$new_value}");
                         break;
                         
                     case 'set_variable':
@@ -410,7 +407,6 @@ class SFQ_Ajax {
                         $var_value = $condition->variable_amount;
                         $updated_variables[$var_name] = $var_value;
                         
-                        error_log("SFQ Debug: SET_VARIABLE - Variable: {$var_name}, Set to: {$var_value}");
                         break;
                         
                     case 'show_message':
@@ -430,7 +426,6 @@ class SFQ_Ajax {
             error_log('SFQ Debug: No conditional navigation triggered, letting frontend handle sequential navigation');
         }
         
-        error_log('SFQ Debug: Final variables state: ' . json_encode($updated_variables));
         error_log('SFQ Debug: Has conditional navigation: ' . ($has_conditional_navigation ? 'true' : 'false'));
         
         wp_send_json_success(array(
@@ -1283,7 +1278,6 @@ class SFQ_Ajax {
                 ));
             }
         } catch (Exception $e) {
-            error_log('SFQ Save Form Error: ' . $e->getMessage());
             wp_send_json_error(array(
                 'message' => __('Error interno del servidor', 'smart-forms-quiz'),
                 'code' => 'INTERNAL_ERROR',
@@ -1296,7 +1290,6 @@ class SFQ_Ajax {
      * Obtener datos del formulario (Admin AJAX) - Optimizado
      */
     public function get_form_data() {
-        error_log('SFQ: === GET_FORM_DATA AJAX CALLED ===');
         error_log('SFQ: POST data: ' . json_encode($_POST));
         
         // Early validation
@@ -1306,7 +1299,6 @@ class SFQ_Ajax {
         }
         
         $form_id = intval($_POST['form_id'] ?? 0);
-        error_log('SFQ: Form ID requested: ' . $form_id);
         
         if (!$form_id || $form_id < 1) {
             error_log('SFQ: Invalid form ID: ' . $form_id);
@@ -1334,7 +1326,6 @@ class SFQ_Ajax {
         $form = $this->database->get_form_fresh($form_id);
             
             if (!$form) {
-                error_log('SFQ: Form not found in database: ' . $form_id);
                 wp_send_json_error(array(
                     'message' => __('Formulario no encontrado', 'smart-forms-quiz'),
                     'code' => 'FORM_NOT_FOUND'
@@ -1342,8 +1333,6 @@ class SFQ_Ajax {
                 return;
             }
             
-            error_log('SFQ: Form loaded from database, title: ' . ($form->title ?? 'NO TITLE'));
-            error_log('SFQ: Form questions count: ' . (is_array($form->questions) ? count($form->questions) : 'NOT ARRAY'));
             
             // ✅ CRÍTICO: Log específico para preguntas freestyle antes de validar
             if (is_array($form->questions)) {
@@ -1357,7 +1346,6 @@ class SFQ_Ajax {
                     error_log('SFQ: Freestyle question #' . ($index + 1) . ':');
                     error_log('SFQ: - ID: ' . ($fq->id ?? 'NO ID'));
                     error_log('SFQ: - Text: ' . ($fq->question_text ?? 'NO TEXT'));
-                    error_log('SFQ: - Elements count: ' . (isset($fq->freestyle_elements) ? count($fq->freestyle_elements) : 'NO ELEMENTS'));
                     
                     if (isset($fq->freestyle_elements) && is_array($fq->freestyle_elements)) {
                         $styled_text_elements = array_filter($fq->freestyle_elements, function($el) {
@@ -1370,7 +1358,6 @@ class SFQ_Ajax {
                             error_log('SFQ: -- styled_text #' . ($st_index + 1) . ':');
                             error_log('SFQ: --- ID: ' . ($st_el['id'] ?? 'NO ID'));
                             error_log('SFQ: --- Label: ' . ($st_el['label'] ?? 'NO LABEL'));
-                            error_log('SFQ: --- Settings: ' . json_encode($st_el['settings'] ?? []));
                         }
                     }
                 }
@@ -1379,7 +1366,6 @@ class SFQ_Ajax {
             // Validar y estructurar datos del formulario
             $form = $this->validate_and_structure_form_data($form);
             
-            error_log('SFQ: Form data validated and structured');
             
             // ✅ CRÍTICO: Log específico después de validar
             if (is_array($form->questions)) {
@@ -1415,7 +1401,6 @@ class SFQ_Ajax {
             ));
         }
         
-        error_log('SFQ: === END GET_FORM_DATA AJAX ===');
     }
     
     /**
@@ -1536,53 +1521,40 @@ class SFQ_Ajax {
      * Validar y estructurar elementos freestyle
      */
     private function validate_and_structure_freestyle_elements($elements) {
-        error_log('SFQ: === VALIDATE_AND_STRUCTURE_FREESTYLE_ELEMENTS ===');
         error_log('SFQ: Input elements: ' . json_encode($elements));
-        error_log('SFQ: Elements is_array: ' . (is_array($elements) ? 'true' : 'false'));
-        error_log('SFQ: Elements count: ' . (is_array($elements) ? count($elements) : 'N/A'));
         
         if (!is_array($elements)) {
-            error_log('SFQ: Elements is not array, returning empty array');
             return [];
         }
         
         $structured_elements = [];
         
         foreach ($elements as $index => $element) {
-            error_log('SFQ: --- Processing element ' . ($index + 1) . ' ---');
-            error_log('SFQ: Element data: ' . json_encode($element));
-            error_log('SFQ: Element type: ' . gettype($element));
             
             if (is_object($element)) {
-                error_log('SFQ: Converting object to array');
                 $element = (array) $element;
             }
             
             if (!is_array($element)) {
-                error_log('SFQ: SKIPPING - Element is not array after conversion');
                 continue;
             }
             
             // Validar que tenga las propiedades mínimas requeridas
             if (empty($element['type'])) {
-                error_log('SFQ: SKIPPING - Element has no type');
                 error_log('SFQ: Available keys: ' . json_encode(array_keys($element)));
                 continue;
             }
             
             $element_type = $element['type'];
-            error_log('SFQ: Element type found: ' . $element_type);
             
             // ✅ CRÍTICO: Añadir 'styled_text' a la lista de tipos válidos
             $valid_types = ['text', 'video', 'image', 'countdown', 'phone', 'email', 'file_upload', 'button', 'rating', 'dropdown', 'checkbox', 'legal_text', 'variable_display', 'styled_text'];
             
             if (!in_array($element_type, $valid_types)) {
                 error_log('SFQ: SKIPPING - Invalid element type: ' . $element_type);
-                error_log('SFQ: Valid types: ' . json_encode($valid_types));
                 continue;
             }
             
-            error_log('SFQ: Element type is valid: ' . $element_type);
             
             // ✅ CRÍTICO: Log específico para styled_text
             if ($element_type === 'styled_text') {
@@ -1608,31 +1580,25 @@ class SFQ_Ajax {
             // ✅ CRÍTICO: Log específico después de estructurar styled_text
             if ($element_type === 'styled_text') {
                 error_log('SFQ: *** STYLED_TEXT AFTER STRUCTURING ***');
-                error_log('SFQ: Final settings: ' . json_encode($structured_element['settings']));
-                error_log('SFQ: Settings preserved: ' . (count($structured_element['settings']) > 0 ? 'YES' : 'NO'));
             }
             
             $structured_elements[] = $structured_element;
         }
         
-        error_log('SFQ: Total structured elements: ' . count($structured_elements));
         
         // Log específico de elementos styled_text en el resultado final
         $styled_text_count = 0;
         foreach ($structured_elements as $element) {
             if ($element['type'] === 'styled_text') {
                 $styled_text_count++;
-                error_log('SFQ: Final styled_text element #' . $styled_text_count . ': ' . json_encode($element));
             }
         }
-        error_log('SFQ: Total styled_text elements in final result: ' . $styled_text_count);
         
         // Ordenar por orden
         usort($structured_elements, function($a, $b) {
             return $a['order'] - $b['order'];
         });
         
-        error_log('SFQ: === END VALIDATE_AND_STRUCTURE_FREESTYLE_ELEMENTS ===');
         
         return $structured_elements;
     }
@@ -2025,11 +1991,9 @@ class SFQ_Ajax {
         
         // ✅ NUEVO: Log detallado para debugging
         error_log('SFQ Import Debug: Raw POST data length: ' . strlen($_POST['form_data'] ?? ''));
-        error_log('SFQ Import Debug: JSON decode result: ' . (is_array($import_data) ? 'SUCCESS' : 'FAILED'));
         
         if ($import_data === null) {
             $json_error = json_last_error_msg();
-            error_log('SFQ Import Debug: JSON Error: ' . $json_error);
             wp_send_json_error(array(
                 'message' => __('Error al decodificar JSON: ', 'smart-forms-quiz') . $json_error,
                 'code' => 'JSON_DECODE_ERROR'
@@ -2048,7 +2012,6 @@ class SFQ_Ajax {
         
         // ✅ NUEVO: Log de estructura completa
         error_log('SFQ Import Debug: Import data keys: ' . json_encode(array_keys($import_data)));
-        error_log('SFQ Import Debug: Import data structure: ' . json_encode($import_data, JSON_PRETTY_PRINT));
         
         try {
             // ✅ CORREGIDO: Validación más flexible de estructura del archivo
@@ -2112,8 +2075,6 @@ class SFQ_Ajax {
                 return;
             }
             
-            error_log('SFQ Import Debug: Form data extracted successfully');
-            error_log('SFQ Import Debug: Form data keys: ' . json_encode(array_keys($form_data)));
             
             // ✅ CORREGIDO: Validación más flexible - aceptar formularios con título O preguntas
             $has_title = !empty($form_data['title']);
@@ -3553,7 +3514,6 @@ class SFQ_Ajax {
         
         try {
             // ✅ CORREGIDO: Verificar si ya existe un submission completado usando user_ip + user_agent
-            error_log("SFQ Backend Debug: Checking completion for form_id={$form_id}, session_id={$session_id}");
             
             $user_ip = $this->get_user_ip();
             $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
@@ -3585,10 +3545,8 @@ class SFQ_Ajax {
                 ));
             }
             
-            error_log("SFQ Backend Debug: Completed submission query result: " . ($completed_submission ? json_encode($completed_submission) : 'NULL'));
             
             if ($completed_submission) {
-                error_log("SFQ Backend Debug: Found completed submission, cleaning partial responses");
                 
                 // ✅ NUEVO: Si ya hay un submission completado, limpiar respuesta parcial y retornar false
                 $deleted_count = $wpdb->delete(
@@ -4110,8 +4068,6 @@ class SFQ_Ajax {
             // ✅ CRÍTICO: Validar que el JSON se puede generar correctamente
             $json_result = json_encode($processed_answer, JSON_UNESCAPED_UNICODE);
             if ($json_result === false) {
-                error_log('SFQ JSON Error: Failed to encode answer data - ' . json_last_error_msg());
-                error_log('SFQ JSON Error: Data was - ' . print_r($processed_answer, true));
                 
                 // Fallback: guardar como string simple si el JSON falla
                 return 'Error: Datos no serializables - ' . date('Y-m-d H:i:s');
@@ -4442,18 +4398,14 @@ class SFQ_Ajax {
             $submission_id = $has_submission ? $submission->id : null;
             
             // Log para debugging
-            error_log("SFQ Button Click: Form ID {$form_id}, Session {$session_id}");
-            error_log("SFQ Button Click: Has Completed Submission: " . ($has_submission ? "YES (ID: {$submission_id})" : 'NO'));
             
             // ✅ CORREGIDO: Guardar todos los clics como button_click_immediate
             // independientemente de si existe submission o no
-            error_log("SFQ Button Click: Processing click - Has Submission: " . ($has_submission ? "YES (ID: {$submission_id})" : 'NO'));
             
             $response_id = null;
             
             // Solo guardar en sfq_responses si existe un submission completado
             if ($has_submission) {
-                error_log("SFQ Button Click: Processing with completed submission {$submission_id}");
                 
                 // Verificar si ya existe una respuesta para esta pregunta
                 $existing_response = $wpdb->get_row($wpdb->prepare(
@@ -4590,18 +4542,11 @@ class SFQ_Ajax {
         
         try {
             // ✅ DEBUG: Log del disparo post-éxito
-            error_log('SFQ WEBHOOK DEBUG: === POST-SUCCESS WEBHOOK TRIGGER ===');
-            error_log('SFQ WEBHOOK DEBUG: Form ID: ' . $form_id);
-            error_log('SFQ WEBHOOK DEBUG: Submission ID: ' . $submission_id);
-            error_log('SFQ WEBHOOK DEBUG: Current time: ' . current_time('mysql'));
-            error_log('SFQ WEBHOOK DEBUG: User ID: ' . get_current_user_id());
             
             // Disparar hook para webhooks
             do_action('sfq_form_submitted', $form_id, $submission_id);
             
             // ✅ DEBUG: Log después de disparar hook
-            error_log('SFQ WEBHOOK DEBUG: Post-success hook sfq_form_submitted triggered successfully');
-            error_log('SFQ WEBHOOK DEBUG: === END POST-SUCCESS WEBHOOK TRIGGER ===');
             
             wp_send_json_success(array(
                 'message' => __('Webhook disparado correctamente', 'smart-forms-quiz'),

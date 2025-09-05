@@ -148,7 +148,6 @@ class SFQ_WP_Rocket_Compat {
             
             // Validar que tenemos páginas para procesar
             if (empty($form_pages) || !is_array($form_pages)) {
-                error_log('SFQ Cache Compat: No form pages found or invalid data');
                 return;
             }
             
@@ -165,7 +164,6 @@ class SFQ_WP_Rocket_Compat {
             }
             
         } catch (Exception $e) {
-            error_log('SFQ Cache Compat Error in setup_cache_exclusions: ' . $e->getMessage());
         }
     }
     
@@ -253,7 +251,6 @@ class SFQ_WP_Rocket_Compat {
         }
         
         // Log para debug
-        error_log('SFQ Cache Compat: WP Rocket exclusions configured via filters for ' . count($form_pages) . ' pages');
     }
     
     /**
@@ -512,10 +509,8 @@ class SFQ_WP_Rocket_Compat {
                 $w3tc_config->set('pgcache.reject.uri', $rejected_uris);
                 $w3tc_config->save();
                 
-                error_log('SFQ Cache Compat: W3TC exclusions configured for ' . count($form_pages) . ' pages');
             }
         } catch (Exception $e) {
-            error_log('SFQ Cache Compat Error in W3TC configuration: ' . $e->getMessage());
         }
     }
     
@@ -596,10 +591,8 @@ class SFQ_WP_Rocket_Compat {
             
             update_option('WpFastestCache', $wpfc_options);
             
-            error_log('SFQ Cache Compat: WP Fastest Cache exclusions configured for ' . count($form_pages) . ' pages');
             
         } catch (Exception $e) {
-            error_log('SFQ Cache Compat Error in WP Fastest Cache configuration: ' . $e->getMessage());
         }
     }
     
@@ -820,6 +813,5 @@ class SFQ_WP_Rocket_Compat {
         }
         
         $info = $this->get_compatibility_info();
-        echo '<pre>' . print_r($info, true) . '</pre>';
     }
 }

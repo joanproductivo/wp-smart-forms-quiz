@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Definir constantes del plugin
-define('SFQ_VERSION', '1.5.0');
+define('SFQ_VERSION', '2.0');
 define('SFQ_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SFQ_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('SFQ_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -133,7 +133,6 @@ function sfq_cleanup_expired_partial_responses() {
         );
         
         if ($deleted_count > 0) {
-            error_log("SFQ Cron: Se eliminaron {$deleted_count} respuestas parciales expiradas");
         }
         
         // Opcional: Limpiar también respuestas muy antiguas (más de 30 días)
@@ -143,11 +142,9 @@ function sfq_cleanup_expired_partial_responses() {
         );
         
         if ($old_deleted_count > 0) {
-            error_log("SFQ Cron: Se eliminaron {$old_deleted_count} respuestas parciales muy antiguas");
         }
         
     } catch (Exception $e) {
-        error_log('SFQ Cron Error: Error al limpiar respuestas parciales - ' . $e->getMessage());
     }
 }
 

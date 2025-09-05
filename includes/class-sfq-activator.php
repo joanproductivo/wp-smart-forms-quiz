@@ -30,27 +30,21 @@ class SFQ_Activator {
         
         // Verificar si necesita migración
         if ($migration->is_migration_needed()) {
-            error_log('SFQ Activator: Ejecutando migraciones de base de datos...');
             
             $migration_results = $migration->run_all_migrations();
             
             foreach ($migration_results as $migration_name => $result) {
                 if ($result['success']) {
-                    error_log("SFQ Activator: Migración {$migration_name} exitosa - {$result['message']}");
                 } else {
-                    error_log("SFQ Activator: Error en migración {$migration_name} - {$result['message']}");
                 }
             }
             
             // Verificar integridad después de la migración
             $integrity_check = $migration->verify_migration_integrity();
             if ($integrity_check['success']) {
-                error_log('SFQ Activator: Verificación de integridad exitosa');
             } else {
-                error_log('SFQ Activator: Problemas de integridad: ' . $integrity_check['message']);
             }
         } else {
-            error_log('SFQ Activator: No se necesitan migraciones');
         }
     }
     

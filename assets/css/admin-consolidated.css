@@ -67,7 +67,7 @@
     right: 20px;
     padding: 12px 20px;
     border-radius: 6px;
-    color: rgb(0, 0, 0);
+    color: #f3f3f3;;
     font-weight: 500;
     box-shadow: var(--sfq-shadow-hover);
     animation: sfq-slide-in 0.3s ease-out;

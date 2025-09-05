@@ -30,7 +30,6 @@ class SFQ_Migration {
         ));
         
         if (!empty($column_exists)) {
-            error_log('SFQ Migration: Campo comparison_value ya existe');
             return array(
                 'success' => true,
                 'message' => 'Campo comparison_value ya existe',
@@ -44,7 +43,6 @@ class SFQ_Migration {
         $result = $wpdb->query($add_column_sql);
         
         if ($result === false) {
-            error_log('SFQ Migration Error: No se pudo añadir el campo comparison_value: ' . $wpdb->last_error);
             return array(
                 'success' => false,
                 'message' => 'Error al añadir el campo comparison_value: ' . $wpdb->last_error,
@@ -52,7 +50,6 @@ class SFQ_Migration {
             );
         }
         
-        error_log('SFQ Migration: Campo comparison_value añadido exitosamente');
         
         // Migrar datos existentes
         $migrated_count = $this->migrate_existing_condition_data();
@@ -81,7 +78,6 @@ class SFQ_Migration {
         ));
         
         if (empty($conditions_to_migrate)) {
-            error_log('SFQ Migration: No hay condiciones para migrar');
             return 0;
         }
         
@@ -101,13 +97,10 @@ class SFQ_Migration {
             
             if ($update_result !== false) {
                 $migrated_count++;
-                error_log("SFQ Migration: Migrada condición ID {$condition->id} - {$condition->condition_type} - valor: {$condition->variable_amount}");
             } else {
-                error_log("SFQ Migration Error: No se pudo migrar condición ID {$condition->id}: " . $wpdb->last_error);
             }
         }
         
-        error_log("SFQ Migration: Migradas {$migrated_count} condiciones de un total de " . count($conditions_to_migrate));
         
         return $migrated_count;
     }
@@ -144,7 +137,6 @@ class SFQ_Migration {
         $table_exists = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $partial_table)) === $partial_table;
         
         if ($table_exists) {
-            error_log('SFQ Migration: Tabla sfq_partial_responses ya existe');
             return array(
                 'success' => true,
                 'message' => 'Tabla sfq_partial_responses ya existe',
@@ -183,7 +175,6 @@ class SFQ_Migration {
         $table_created = $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $partial_table)) === $partial_table;
         
         if (!$table_created) {
-            error_log('SFQ Migration Error: No se pudo crear la tabla sfq_partial_responses');
             return array(
                 'success' => false,
                 'message' => 'Error al crear la tabla sfq_partial_responses',
@@ -191,7 +182,6 @@ class SFQ_Migration {
             );
         }
         
-        error_log('SFQ Migration: Tabla sfq_partial_responses creada exitosamente');
         
         return array(
             'success' => true,

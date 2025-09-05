@@ -392,8 +392,6 @@ class SFQ_Database {
             $question->pantallaFinal = isset($settings['pantallaFinal']) ? (bool) $settings['pantallaFinal'] : false;
             
             // Debug logging para verificar el procesamiento
-            error_log('SFQ: Processing freestyle question - pantallaFinal: ' . ($question->pantallaFinal ? 'true' : 'false'));
-            error_log('SFQ: Settings data: ' . json_encode($settings));
         } else {
             // Para preguntas regulares, procesar opciones normalmente
             $question->options = $this->process_question_options($question->options);
@@ -444,45 +442,34 @@ class SFQ_Database {
      * Procesar elementos freestyle
      */
     private function process_freestyle_elements($elements_json) {
-        error_log('SFQ: === PROCESSING FREESTYLE ELEMENTS DEBUG ===');
-        error_log('SFQ: Raw elements JSON: ' . $elements_json);
         
         if (empty($elements_json)) {
-            error_log('SFQ: Empty elements JSON, returning empty array');
             return [];
         }
         
         // Decodificar JSON
         $elements = json_decode($elements_json, true);
         error_log('SFQ: Decoded elements: ' . json_encode($elements));
-        error_log('SFQ: JSON decode error: ' . json_last_error_msg());
         
         if (!is_array($elements)) {
-            error_log('SFQ: Elements is not an array, returning empty array');
             return [];
         }
         
-        error_log('SFQ: Processing ' . count($elements) . ' elements');
         
         // Procesar cada elemento
         $processed_elements = [];
         foreach ($elements as $index => $element) {
-            error_log('SFQ: --- Processing element ' . ($index + 1) . ' ---');
-            error_log('SFQ: Element data: ' . json_encode($element));
             
             if (!is_array($element) || empty($element['type'])) {
-                error_log('SFQ: SKIPPING - Element is not array or has no type');
                 continue;
             }
             
             $element_type = $element['type'];
-            error_log('SFQ: Element type: ' . $element_type);
             
             // Validar que el tipo sea válido
             $valid_types = ['text', 'video', 'image', 'countdown', 'phone', 'email', 'file_upload', 'button', 'rating', 'dropdown', 'checkbox', 'legal_text', 'variable_display', 'styled_text'];
             if (!in_array($element_type, $valid_types)) {
                 error_log('SFQ: SKIPPING - Invalid element type: ' . $element_type);
-                error_log('SFQ: Valid types: ' . json_encode($valid_types));
                 continue;
             }
             
@@ -504,36 +491,29 @@ class SFQ_Database {
                 'value' => sanitize_text_field($element['value'] ?? '')
             ];
             
-            error_log('SFQ: Processed element: ' . json_encode($processed_element));
             
             // ✅ CRÍTICO: Log específico después del procesamiento de styled_text
             if ($element_type === 'styled_text') {
                 error_log('SFQ: *** STYLED_TEXT AFTER PROCESSING ***');
-                error_log('SFQ: Processed settings: ' . json_encode($processed_element['settings']));
-                error_log('SFQ: Settings preserved: ' . (count($processed_element['settings']) > 0 ? 'YES' : 'NO'));
             }
             
             $processed_elements[] = $processed_element;
         }
         
-        error_log('SFQ: Total processed elements: ' . count($processed_elements));
         
         // Log específico de elementos styled_text en el resultado final
         $styled_text_count = 0;
         foreach ($processed_elements as $element) {
             if ($element['type'] === 'styled_text') {
                 $styled_text_count++;
-                error_log('SFQ: Final styled_text element #' . $styled_text_count . ': ' . json_encode($element));
             }
         }
-        error_log('SFQ: Total styled_text elements in final result: ' . $styled_text_count);
         
         // Ordenar por orden
         usort($processed_elements, function($a, $b) {
             return $a['order'] - $b['order'];
         });
         
-        error_log('SFQ: === END PROCESSING FREESTYLE ELEMENTS DEBUG ===');
         
         return $processed_elements;
     }
@@ -552,11 +532,6 @@ class SFQ_Database {
         ));
         
         // Debug logging
-        error_log("SFQ: === GET CONDITIONS DEBUG ===");
-        error_log("SFQ: Question ID: " . $question_id);
-        error_log("SFQ: Conditions found: " . count($conditions));
-        error_log("SFQ: Conditions data: " . json_encode($conditions));
-        error_log("SFQ: === END GET CONDITIONS DEBUG ===");
         
         return $conditions;
     }
@@ -568,13 +543,9 @@ class SFQ_Database {
         global $wpdb;
         
         // ✅ MEJORADO: Logging detallado para debugging
-        error_log('SFQ: === SAVE FORM DEBUG START ===');
-        error_log('SFQ: Form ID: ' . ($data['id'] ?? 'NEW'));
-        error_log('SFQ: Form Title: ' . ($data['title'] ?? 'NO TITLE'));
         
         // Log de datos de estilo recibidos
         if (isset($data['style_settings'])) {
-            error_log('SFQ: Style settings received: ' . json_encode($data['style_settings']));
             
             // Log específico para imagen de fondo
             $bg_fields = ['background_image_url', 'background_image_id', 'background_image_data', 'background_size', 'background_repeat', 'background_position', 'background_attachment', 'background_opacity', 'background_overlay', 'background_overlay_color', 'background_overlay_opacity'];
@@ -593,7 +564,6 @@ class SFQ_Database {
         $style_settings = $this->process_style_settings($data['style_settings'] ?? array());
         
         // Log de datos procesados
-        error_log('SFQ: Style settings after processing: ' . json_encode($style_settings));
         
         // Preparar datos
         $form_data = array(
@@ -611,7 +581,6 @@ class SFQ_Database {
         );
         
         // Log del JSON final que se guardará
-        error_log('SFQ: Final style_settings JSON to save: ' . $form_data['style_settings']);
         
         if (isset($data['id']) && $data['id'] > 0) {
             // Actualizar formulario existente
@@ -628,7 +597,6 @@ class SFQ_Database {
             if ($result === false) {
                 error_log('SFQ: ERROR updating form: ' . $wpdb->last_error);
             } else {
-                error_log('SFQ: Successfully updated form. Rows affected: ' . $result);
             }
             
             $form_id = $data['id'];
@@ -645,7 +613,6 @@ class SFQ_Database {
             if ($result === false) {
                 error_log('SFQ: ERROR creating form: ' . $wpdb->last_error);
             } else {
-                error_log('SFQ: Successfully created form. Insert ID: ' . $wpdb->insert_id);
             }
             
             $form_id = $wpdb->insert_id;
@@ -659,20 +626,17 @@ class SFQ_Database {
             ));
             
             if ($saved_form) {
-                error_log('SFQ: Verification - style_settings saved in DB: ' . $saved_form->style_settings);
                 
                 // Verificar campos específicos de imagen de fondo
                 $saved_styles = json_decode($saved_form->style_settings, true);
                 if ($saved_styles) {
                     foreach ($bg_fields as $field) {
                         if (isset($saved_styles[$field])) {
-                            error_log('SFQ: Verification - ' . $field . ' in DB: ' . $saved_styles[$field]);
                         } else {
                             error_log('SFQ: WARNING - ' . $field . ' NOT FOUND in saved data');
                         }
                     }
                 } else {
-                    error_log('SFQ: ERROR - Could not decode saved style_settings JSON');
                 }
             } else {
                 error_log('SFQ: ERROR - Could not retrieve saved form for verification');
@@ -681,13 +645,11 @@ class SFQ_Database {
         
         // Guardar preguntas si existen
         if (isset($data['questions']) && is_array($data['questions'])) {
-            error_log('SFQ: Saving ' . count($data['questions']) . ' questions');
             $this->save_questions($form_id, $data['questions']);
         }
         
         // ✅ CRÍTICO: Guardar variables globales si existen
         if (isset($data['global_variables']) && is_array($data['global_variables'])) {
-            error_log('SFQ: Saving ' . count($data['global_variables']) . ' global variables');
             $this->save_global_variables($form_id, $data['global_variables']);
         } else {
             error_log('SFQ: No global variables provided in form data');
@@ -696,7 +658,6 @@ class SFQ_Database {
         // Limpiar cache después de guardar
         $this->clear_form_cache($form_id);
         
-        error_log('SFQ: === SAVE FORM DEBUG END ===');
         
         return $form_id;
     }
@@ -905,7 +866,6 @@ class SFQ_Database {
         $extension = strtolower($path_info['extension'] ?? '');
         
         if (in_array($extension, $valid_extensions)) {
-            error_log('SFQ: Valid image URL with extension: ' . $url);
             return $validated_url;
         }
         
@@ -924,7 +884,6 @@ class SFQ_Database {
         
         foreach ($image_patterns as $pattern) {
             if (preg_match($pattern, $url_lower)) {
-                error_log('SFQ: Valid image URL by pattern match: ' . $url);
                 return $validated_url;
             }
         }
@@ -950,14 +909,12 @@ class SFQ_Database {
         
         foreach ($image_domains as $image_domain) {
             if (is_string($domain) && strpos($domain, $image_domain) !== false) {
-                error_log('SFQ: Valid image URL from known domain: ' . $url);
                 return $validated_url;
             }
         }
         
         // ✅ MEJORADO: Aceptar cualquier URL válida como potencial imagen
         // Es mejor ser permisivo que rechazar URLs válidas
-        error_log('SFQ: Accepting URL as potentially valid image: ' . $url);
         return $validated_url;
     }
     
@@ -971,7 +928,6 @@ class SFQ_Database {
         
         // Si ya es un array, convertir a JSON
         if (is_array($data)) {
-            error_log('SFQ: Converting array to JSON for image data');
             return wp_json_encode($data);
         }
         
@@ -980,27 +936,22 @@ class SFQ_Database {
             $decoded = json_decode($data, true);
             if (json_last_error() === JSON_ERROR_NONE) {
                 // ✅ MEJORADO: Aceptar cualquier JSON válido, sea array u objeto
-                error_log('SFQ: Valid JSON for image data: ' . $data);
                 return $data;
             } else {
-                error_log('SFQ: Invalid JSON for image data: ' . $data . ' Error: ' . json_last_error_msg());
             }
         }
         
         // ✅ MEJORADO: Aceptar cualquier string no vacío como datos válidos
         // Mejor ser permisivo que rechazar datos potencialmente válidos
         if (is_string($data) && trim($data) !== '') {
-            error_log('SFQ: Accepting string as image data: ' . $data);
             return sanitize_text_field($data);
         }
         
         // ✅ FALLBACK: Aceptar números como strings
         if (is_numeric($data)) {
-            error_log('SFQ: Converting numeric value to string for image data: ' . $data);
             return strval($data);
         }
         
-        error_log('SFQ: Rejecting invalid image data: ' . print_r($data, true));
         return '';
     }
     
@@ -1042,9 +993,6 @@ class SFQ_Database {
                     
                     // ✅ CRÍTICO: Log específico para elementos styled_text durante el guardado
                     if (!empty($options_data)) {
-                        error_log('SFQ: === SAVING FREESTYLE ELEMENTS ===');
-                        error_log('SFQ: Question text: ' . ($question['question_text'] ?? 'NO TEXT'));
-                        error_log('SFQ: Total elements to save: ' . count($options_data));
                         
                         $styled_text_elements = array_filter($options_data, function($element) {
                             return isset($element['type']) && $element['type'] === 'styled_text';
@@ -1056,15 +1004,10 @@ class SFQ_Database {
                             error_log('SFQ: styled_text element #' . ($st_index + 1) . ':');
                             error_log('SFQ: - ID: ' . ($st_element['id'] ?? 'NO ID'));
                             error_log('SFQ: - Label: ' . ($st_element['label'] ?? 'NO LABEL'));
-                            error_log('SFQ: - Settings count: ' . (isset($st_element['settings']) ? count($st_element['settings']) : 0));
-                            error_log('SFQ: - Settings: ' . json_encode($st_element['settings'] ?? []));
                         }
                         
                         // Log del JSON que se va a guardar
                         $json_to_save = wp_json_encode($options_data);
-                        error_log('SFQ: JSON size to save: ' . strlen($json_to_save) . ' bytes');
-                        error_log('SFQ: JSON preview (first 500 chars): ' . substr($json_to_save, 0, 500));
-                        error_log('SFQ: === END SAVING FREESTYLE ELEMENTS ===');
                     }
                 } else {
                     $options_data = $question['options'] ?? array();
@@ -1074,12 +1017,7 @@ class SFQ_Database {
                 $settings = $question['settings'] ?? array();
                 
                 // ✅ DEBUGGING: Log detallado de los settings recibidos
-                error_log('SFQ: === PROCESSING QUESTION SETTINGS ===');
-                error_log('SFQ: Question text: ' . ($question['question_text'] ?? 'NO TEXT'));
-                error_log('SFQ: Question type: ' . ($question['question_type'] ?? 'NO TYPE'));
                 error_log('SFQ: Raw settings received: ' . json_encode($settings));
-                error_log('SFQ: Settings type: ' . gettype($settings));
-                error_log('SFQ: Settings is_array: ' . (is_array($settings) ? 'true' : 'false'));
                 
                 // Verificar específicamente hide_title
                 if (isset($settings['hide_title'])) {
@@ -1092,15 +1030,12 @@ class SFQ_Database {
                 
                 // ✅ SOLUCIÓN: Asegurar que settings sea un array válido
                 if (!is_array($settings)) {
-                    error_log('SFQ: WARNING - Settings is not an array, converting to array');
                     $settings = array();
                 }
                 
                 // ✅ CRÍTICO: Preservar todos los settings sin modificación
                 $processed_settings = $settings;
                 
-                error_log('SFQ: Final processed settings: ' . json_encode($processed_settings));
-                error_log('SFQ: === END PROCESSING QUESTION SETTINGS ===');
 
                 $question_data = array(
                     'form_id' => $form_id,
@@ -1120,8 +1055,6 @@ class SFQ_Database {
                     $settings['pantallaFinal'] = (bool) $question['pantallaFinal'];
                     $question_data['settings'] = wp_json_encode($settings);
                     
-                    error_log('SFQ: Saving freestyle question with pantallaFinal: ' . ($question['pantallaFinal'] ? 'true' : 'false'));
-                    error_log('SFQ: Settings after adding pantallaFinal: ' . $question_data['settings']);
                 }
 
                 $existing_question_id = null;
@@ -1246,7 +1179,6 @@ class SFQ_Database {
             
             // CRÍTICO: Log del mapeo final para debugging
             if (!empty($id_mapping)) {
-                error_log('SFQ: Final ID mapping: ' . json_encode($id_mapping));
             }
             
         } catch (Exception $e) {
@@ -1262,10 +1194,6 @@ class SFQ_Database {
         global $wpdb;
         
         // Debug logging
-        error_log("SFQ: === SAVE CONDITIONS DEBUG ===");
-        error_log("SFQ: Question ID: " . $question_id);
-        error_log("SFQ: Conditions received: " . json_encode($conditions));
-        error_log("SFQ: Conditions count: " . count($conditions));
         
         // CRÍTICO: Verificar que question_id es válido
         if (!$question_id || !is_numeric($question_id) || intval($question_id) <= 0) {
@@ -1293,7 +1221,6 @@ class SFQ_Database {
             return false;
         }
         
-        error_log("SFQ: Successfully deleted " . $deleted_count . " existing conditions");
         
         // PASO 2: Verificar que la eliminación fue exitosa
         $remaining_check = $wpdb->get_var($wpdb->prepare(
@@ -1362,7 +1289,6 @@ class SFQ_Database {
                 
                 if ($result !== false) {
                     $inserted_count++;
-                    error_log("SFQ: ✅ Successfully inserted condition with ID: " . $wpdb->insert_id);
                 } else {
                     error_log("SFQ: ❌ Failed to insert condition: " . $wpdb->last_error);
                     // Si falla la inserción, esto es un error crítico
@@ -1371,7 +1297,6 @@ class SFQ_Database {
             }
         }
         
-        error_log("SFQ: Total conditions inserted: " . $inserted_count);
         
         // PASO 4: Verificación final MEJORADA
         $final_conditions = $wpdb->get_results($wpdb->prepare(
@@ -1381,9 +1306,7 @@ class SFQ_Database {
         
         $final_count = count($final_conditions);
         
-        error_log("SFQ: === FINAL VERIFICATION ===");
         error_log("SFQ: Expected conditions: " . $expected_count);
-        error_log("SFQ: Final conditions in DB: " . $final_count);
         
         // CRÍTICO: La verificación debe ser exacta
         if ($final_count === $expected_count) {
@@ -1395,13 +1318,11 @@ class SFQ_Database {
             return true;
         } else {
             error_log("SFQ: ❌ MISMATCH - Expected " . $expected_count . " but found " . $final_count);
-            error_log("SFQ: Final conditions data: " . json_encode($final_conditions));
             
             // Esto es un error crítico que debe ser reportado
             return false;
         }
         
-        error_log("SFQ: === END SAVE CONDITIONS DEBUG ===");
     }
     
     /**
@@ -1429,7 +1350,6 @@ class SFQ_Database {
                 if (isset($id_mapping[$original_action_value])) {
                     $mapped_condition['action_value'] = $id_mapping[$original_action_value];
                     
-                    error_log('SFQ: Mapped condition action_value from ' . $original_action_value . ' to ' . $mapped_condition['action_value']);
                 } else {
                     error_log('SFQ: No mapping found for action_value: ' . $original_action_value);
                 }
@@ -1438,7 +1358,6 @@ class SFQ_Database {
             $mapped_conditions[] = $mapped_condition;
         }
         
-        error_log('SFQ: Finished applying ID mapping. Original conditions: ' . count($conditions) . ', Mapped conditions: ' . count($mapped_conditions));
         
         return $mapped_conditions;
     }
@@ -1884,9 +1803,6 @@ class SFQ_Database {
             return;
         }
         
-        error_log('SFQ: === SAVING GLOBAL VARIABLES ===');
-        error_log('SFQ: Form ID: ' . $form_id);
-        error_log('SFQ: Variables to save: ' . json_encode($global_variables));
         
         // Las variables globales se guardan en el campo settings del formulario
         global $wpdb;
@@ -1915,7 +1831,6 @@ class SFQ_Database {
         if ($result === false) {
             error_log('SFQ: ERROR saving global variables: ' . $wpdb->last_error);
         } else {
-            error_log('SFQ: Successfully saved ' . count($global_variables) . ' global variables');
             
             // Verificar que se guardaron correctamente
             $verification = $wpdb->get_var($wpdb->prepare(
@@ -1925,13 +1840,11 @@ class SFQ_Database {
             
             $verified_settings = json_decode($verification, true);
             if (isset($verified_settings['global_variables'])) {
-                error_log('SFQ: Verification - global variables saved correctly: ' . count($verified_settings['global_variables']) . ' variables');
             } else {
                 error_log('SFQ: WARNING - global variables not found in verification');
             }
         }
         
-        error_log('SFQ: === END SAVING GLOBAL VARIABLES ===');
     }
     
     /**

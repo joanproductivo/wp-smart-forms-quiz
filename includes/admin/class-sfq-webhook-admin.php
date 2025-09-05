@@ -1222,10 +1222,7 @@ class SFQ_Webhook_Admin {
         // TEMPORAL: Sin validación de headers para evitar bloqueos
         // El backend de SFQ_Webhooks ya maneja la validación de forma segura
         if (!empty($headers)) {
-            error_log('SFQ DEBUG: Headers recibidos: ' . $headers);
-            error_log('SFQ DEBUG: Saltando validación JSON en frontend');
         } else {
-            error_log('SFQ DEBUG: No headers provided');
         }
         
         // Preparar datos de autenticación
