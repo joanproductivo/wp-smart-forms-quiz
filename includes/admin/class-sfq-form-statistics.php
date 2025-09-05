@@ -1944,6 +1944,47 @@ class SFQ_Form_Statistics {
      * Procesar elementos de interacción (button, image)
      */
     private function process_interaction_element($element, $element_responses) {
+        global $wpdb;
+        
+        // Para elementos button, usar el sistema de analytics para obtener vistas únicas
+        if ($element['type'] === 'button') {
+            // Verificar si existe la tabla de analytics
+            $analytics_table = $wpdb->prefix . 'sfq_analytics';
+            $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$analytics_table'") === $analytics_table;
+            
+            if ($table_exists) {
+                // Obtener vistas únicas del botón desde sfq_analytics
+                $unique_views = $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(DISTINCT session_id) FROM {$analytics_table} 
+                    WHERE event_type = 'button_view'
+                    AND JSON_EXTRACT(event_data, '$.element_id') = %s",
+                    $element['id']
+                ));
+                
+                // Obtener clics únicos del botón
+                $unique_clicks = $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(DISTINCT session_id) FROM {$analytics_table} 
+                    WHERE event_type = 'button_click_immediate'
+                    AND JSON_EXTRACT(event_data, '$.element_id') = %s",
+                    $element['id']
+                ));
+                
+                // Calcular tasa de clics basada en vistas únicas
+                $click_rate = $unique_views > 0 ? round(($unique_clicks / $unique_views) * 100, 1) : 0;
+                
+                return [
+                    'id' => $element['id'],
+                    'type' => $element['type'],
+                    'label' => $element['label'],
+                    'total_responses' => intval($unique_views), // Vistas únicas del botón
+                    'interaction_count' => intval($unique_clicks),
+                    'interaction_rate' => $click_rate,
+                    'action_type' => 'clicks'
+                ];
+            }
+        }
+        
+        // Fallback para elementos que no son button o cuando no hay tabla de analytics
         $total_responses = count($element_responses);
         $values = array_column($element_responses, 'value');
         

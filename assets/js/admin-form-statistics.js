@@ -1404,7 +1404,7 @@
                 <div class="sfq-element-stats-grid">
                     <div class="sfq-stat-card">
                         <div class="sfq-stat-value">${element.total_responses}</div>
-                        <div class="sfq-stat-label">Total Respuestas</div>
+                        <div class="sfq-stat-label">Vistas Únicas</div>
                     </div>
                     <div class="sfq-stat-card">
                         <div class="sfq-stat-value">${element.interaction_count || 0}</div>
