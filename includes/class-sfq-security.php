@@ -312,6 +312,11 @@ class SFQ_Security {
      * Añadir headers de seguridad
      */
     public static function add_security_headers() {
+        // ✅ CORREGIDO: Verificar que no se hayan enviado headers ya
+        if (headers_sent()) {
+            return;
+        }
+        
         // Solo añadir en páginas del plugin
         if (!self::is_plugin_page()) {
             return;
@@ -325,14 +330,19 @@ class SFQ_Security {
             return;
         }
         
-        // Content Security Policy
-        header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;");
-        
-        // Otros headers de seguridad
-        header("X-Content-Type-Options: nosniff");
-        header("X-Frame-Options: SAMEORIGIN");
-        header("X-XSS-Protection: 1; mode=block");
-        header("Referrer-Policy: strict-origin-when-cross-origin");
+        try {
+            // Content Security Policy
+            header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;");
+            
+            // Otros headers de seguridad
+            header("X-Content-Type-Options: nosniff");
+            header("X-Frame-Options: SAMEORIGIN");
+            header("X-XSS-Protection: 1; mode=block");
+            header("Referrer-Policy: strict-origin-when-cross-origin");
+        } catch (Exception $e) {
+            // Si hay error enviando headers, log pero no interrumpir
+            error_log('SFQ Security: Error sending headers - ' . $e->getMessage());
+        }
     }
     
     /**
@@ -342,7 +352,7 @@ class SFQ_Security {
         global $pagenow;
         
         // Admin pages
-        if (is_admin() && isset($_GET['page']) && strpos($_GET['page'], 'smart-forms') !== false) {
+        if (is_admin() && isset($_GET['page']) && is_string($_GET['page']) && strpos($_GET['page'], 'smart-forms') !== false) {
             return true;
         }
         

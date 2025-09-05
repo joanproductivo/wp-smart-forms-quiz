@@ -1839,7 +1839,7 @@ class SFQ_Frontend {
         }
         
         // 2. Detectar si es SVG (comienza con <svg)
-        if (strpos($content, '<svg') === 0) {
+        if (is_string($content) && strpos($content, '<svg') === 0) {
             // Sanitizar SVG básico (permitir solo elementos seguros)
             $allowed_svg_tags = array(
                 'svg' => array('width' => true, 'height' => true, 'viewBox' => true, 'fill' => true, 'xmlns' => true),
@@ -1855,7 +1855,7 @@ class SFQ_Frontend {
         }
         
         // 3. Detectar si es HTML (contiene tags)
-        if (strpos($content, '<') !== false && strpos($content, '>') !== false) {
+        if (is_string($content) && strpos($content, '<') !== false && strpos($content, '>') !== false) {
             // Permitir algunos tags HTML básicos para iconos
             $allowed_html_tags = array(
                 'i' => array('class' => true, 'style' => true),
@@ -2723,6 +2723,11 @@ class SFQ_Frontend {
         $variable_name = $settings['variable_name'] ?? '';
         $preview_value = $settings['preview_value'] ?? '0';
         
+        // ✅ NUEVO: Configuración de texto opcional
+        $optional_text = $settings['optional_text'] ?? '';
+        $text_position = $settings['text_position'] ?? 'right';
+        $text_spacing = $settings['text_spacing'] ?? 'normal';
+        
         if (empty($variable_name)) {
             echo '<p class="sfq-variable-error">' . __('Variable no configurada', 'smart-forms-quiz') . '</p>';
             return;
@@ -2825,6 +2830,37 @@ class SFQ_Frontend {
             $style_string .= $property . ': ' . $value . '; ';
         }
         
+        // ✅ NUEVO: Calcular espaciado según configuración
+        $spacing_values = array(
+            'none' => '0px',
+            'small' => '4px',
+            'normal' => '8px',
+            'large' => '12px'
+        );
+        $spacing = $spacing_values[$text_spacing] ?? '8px';
+        
+        // ✅ NUEVO: Determinar estructura según posición del texto
+        $has_optional_text = !empty($optional_text);
+        
+        // ✅ NUEVO: Estilos específicos para el texto opcional
+        $optional_text_styles = array();
+        
+        // Tamaño del texto opcional
+        if (!empty($settings['optional_text_size']) && $settings['optional_text_size'] !== 'inherit') {
+            $optional_text_styles['font-size'] = intval($settings['optional_text_size']) . 'px';
+        }
+        
+        // Color del texto opcional
+        if (!empty($settings['optional_text_color']) && $settings['optional_text_color'] !== 'inherit') {
+            $optional_text_styles['color'] = $settings['optional_text_color'];
+        }
+        
+        // Convertir estilos del texto opcional a string CSS
+        $optional_text_style_string = '';
+        foreach ($optional_text_styles as $property => $value) {
+            $optional_text_style_string .= $property . ': ' . $value . '; ';
+        }
+        
         ?>
         <div class="sfq-freestyle-variable-display-wrapper" style="text-align: <?php echo esc_attr($settings['text_align'] ?? 'left'); ?>;">
             <div class="sfq-freestyle-variable-display" 
@@ -2832,9 +2868,46 @@ class SFQ_Frontend {
                  data-variable-name="<?php echo esc_attr($variable_name); ?>"
                  style="<?php echo esc_attr(trim($style_string)); ?>">
                 
-                <span class="sfq-variable-value" data-variable="<?php echo esc_attr($variable_name); ?>">
-                    <?php echo esc_html($display_value); ?>
-                </span>
+                <?php if ($has_optional_text) : ?>
+                    <!-- ✅ CORREGIDO: Texto opcional dentro del mismo recuadro con estilos independientes -->
+                    <div class="sfq-variable-content-with-text" 
+                         data-text-position="<?php echo esc_attr($text_position); ?>"
+                         style="<?php echo $this->get_position_styles($text_position, $spacing); ?>">
+                        
+                        <?php if ($text_position === 'top') : ?>
+                            <span class="sfq-variable-optional-text" style="<?php echo esc_attr(trim($optional_text_style_string)); ?>">
+                                <?php echo esc_html($optional_text); ?>
+                            </span>
+                        <?php endif; ?>
+                        
+                        <?php if ($text_position === 'left') : ?>
+                            <span class="sfq-variable-optional-text" style="<?php echo esc_attr(trim($optional_text_style_string)); ?>">
+                                <?php echo esc_html($optional_text); ?>
+                            </span>
+                        <?php endif; ?>
+                        
+                        <span class="sfq-variable-value" data-variable="<?php echo esc_attr($variable_name); ?>">
+                            <?php echo esc_html($display_value); ?>
+                        </span>
+                        
+                        <?php if ($text_position === 'right') : ?>
+                            <span class="sfq-variable-optional-text" style="<?php echo esc_attr(trim($optional_text_style_string)); ?>">
+                                <?php echo esc_html($optional_text); ?>
+                            </span>
+                        <?php endif; ?>
+                        
+                        <?php if ($text_position === 'bottom') : ?>
+                            <span class="sfq-variable-optional-text" style="<?php echo esc_attr(trim($optional_text_style_string)); ?>">
+                                <?php echo esc_html($optional_text); ?>
+                            </span>
+                        <?php endif; ?>
+                    </div>
+                <?php else : ?>
+                    <!-- Sin texto opcional, renderizado original -->
+                    <span class="sfq-variable-value" data-variable="<?php echo esc_attr($variable_name); ?>">
+                        <?php echo esc_html($display_value); ?>
+                    </span>
+                <?php endif; ?>
             </div>
         </div>
         
@@ -3097,5 +3170,22 @@ class SFQ_Frontend {
         $opacity = max(0, min(1, floatval($opacity)));
         
         return "rgba({$r}, {$g}, {$b}, {$opacity})";
+    }
+    
+    /**
+     * ✅ NUEVO: Generar estilos CSS para posicionamiento del texto opcional
+     */
+    private function get_position_styles($position, $spacing) {
+        switch ($position) {
+            case 'top':
+                return "display: flex; flex-direction: column; align-items: center; gap: {$spacing};";
+            case 'bottom':
+                return "display: flex; flex-direction: column; align-items: center; gap: {$spacing};";
+            case 'left':
+                return "display: flex; flex-direction: row; align-items: center; gap: {$spacing};";
+            case 'right':
+            default:
+                return "display: flex; flex-direction: row; align-items: center; gap: {$spacing};";
+        }
     }
 }

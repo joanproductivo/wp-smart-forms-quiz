@@ -867,7 +867,7 @@ class SFQ_Database {
         }
         
         // Asegurar que empiece con #
-        if (strpos($color, '#') !== 0) {
+        if (is_string($color) && strpos($color, '#') !== 0) {
             $color = '#' . $color;
         }
         
@@ -949,7 +949,7 @@ class SFQ_Database {
         $domain = strtolower($parsed_url['host'] ?? '');
         
         foreach ($image_domains as $image_domain) {
-            if (strpos($domain, $image_domain) !== false) {
+            if (is_string($domain) && strpos($domain, $image_domain) !== false) {
                 error_log('SFQ: Valid image URL from known domain: ' . $url);
                 return $validated_url;
             }

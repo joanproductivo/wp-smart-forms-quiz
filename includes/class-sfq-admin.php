@@ -28,7 +28,7 @@ class SFQ_Admin {
      */
     public function enqueue_admin_scripts($hook) {
         // Solo cargar en las páginas del plugin
-        if (strpos($hook, 'smart-forms-quiz') === false && strpos($hook, 'sfq-') === false) {
+        if (!is_string($hook) || (strpos($hook, 'smart-forms-quiz') === false && strpos($hook, 'sfq-') === false)) {
             return;
         }
         
@@ -169,6 +169,10 @@ class SFQ_Admin {
             <a href="<?php echo admin_url('admin.php?page=sfq-new-form'); ?>" class="page-title-action">
                 <?php _e('Crear Nuevo', 'smart-forms-quiz'); ?>
             </a>
+            <button class="page-title-action sfq-import-form" title="<?php _e('Importar formulario', 'smart-forms-quiz'); ?>">
+                <span class="dashicons dashicons-upload"></span>
+                <?php _e('Importar', 'smart-forms-quiz'); ?>
+            </button>
             
             <hr class="wp-header-end">
             
@@ -237,6 +241,10 @@ class SFQ_Admin {
                                 </a>
                                 <button class="button sfq-duplicate-form" data-form-id="<?php echo $form->id; ?>">
                                     <?php _e('Duplicar', 'smart-forms-quiz'); ?>
+                                </button>
+                                <button class="button sfq-export-form" data-form-id="<?php echo $form->id; ?>" title="<?php _e('Exportar formulario', 'smart-forms-quiz'); ?>">
+                                    <span class="dashicons dashicons-download"></span>
+                                    <?php _e('', 'smart-forms-quiz'); ?>
                                 </button>
                                 <a href="<?php echo admin_url('admin.php?page=sfq-form-statistics&form_id=' . $form->id); ?>" 
                                    class="button sfq-view-responses" 
@@ -430,6 +438,123 @@ class SFQ_Admin {
                         alert('Error al eliminar el formulario');
                     }
                 });
+            });
+            
+            // Exportar formulario
+            $('.sfq-export-form').on('click', function() {
+                const formId = $(this).data('form-id');
+                const button = $(this);
+                
+                // Deshabilitar botón y mostrar estado de carga
+                const originalHtml = button.html();
+                button.prop('disabled', true).html('<span class="dashicons dashicons-update-alt" style="animation: spin 1s linear infinite;"></span> Exportando...');
+                
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'sfq_export_form',
+                        nonce: '<?php echo wp_create_nonce('sfq_nonce'); ?>',
+                        form_id: formId
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            // Crear y descargar archivo JSON
+                            const dataStr = JSON.stringify(response.data.form_data, null, 2);
+                            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                            const url = URL.createObjectURL(dataBlob);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = response.data.filename || 'formulario-exportado.json';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            URL.revokeObjectURL(url);
+                            
+                            // Mostrar mensaje de éxito
+                            alert('Formulario exportado correctamente');
+                        } else {
+                            alert('Error al exportar el formulario: ' + (response.data.message || 'Error desconocido'));
+                        }
+                    },
+                    error: function() {
+                        alert('Error al exportar el formulario');
+                    },
+                    complete: function() {
+                        // Restaurar botón
+                        button.prop('disabled', false).html(originalHtml);
+                    }
+                });
+            });
+            
+            // Importar formulario
+            $('.sfq-import-form').on('click', function() {
+                // Crear input file temporal
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.accept = '.json';
+                fileInput.style.display = 'none';
+                
+                fileInput.onchange = function(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    
+                    // Validar que sea un archivo JSON
+                    if (!file.name.toLowerCase().endsWith('.json')) {
+                        alert('Por favor, selecciona un archivo JSON válido');
+                        return;
+                    }
+                    
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        try {
+                            const formData = JSON.parse(event.target.result);
+                            
+                            // Validar estructura básica del formulario
+                            if (!formData.title || !formData.questions) {
+                                alert('El archivo no contiene un formulario válido');
+                                return;
+                            }
+                            
+                            // Confirmar importación
+                            if (!confirm('¿Estás seguro de que quieres importar el formulario "' + formData.title + '"?')) {
+                                return;
+                            }
+                            
+                            // Enviar datos al servidor
+                            $.ajax({
+                                url: ajaxurl,
+                                type: 'POST',
+                                data: {
+                                    action: 'sfq_import_form',
+                                    nonce: '<?php echo wp_create_nonce('sfq_nonce'); ?>',
+                                    form_data: JSON.stringify(formData)
+                                },
+                                success: function(response) {
+                                    if (response.success) {
+                                        alert('Formulario importado correctamente');
+                                        location.reload();
+                                    } else {
+                                        alert('Error al importar el formulario: ' + (response.data.message || 'Error desconocido'));
+                                    }
+                                },
+                                error: function() {
+                                    alert('Error al importar el formulario');
+                                }
+                            });
+                            
+                        } catch (error) {
+                            alert('Error al leer el archivo: archivo JSON inválido');
+                        }
+                    };
+                    
+                    reader.readAsText(file);
+                };
+                
+                // Simular click en el input file
+                document.body.appendChild(fileInput);
+                fileInput.click();
+                document.body.removeChild(fileInput);
             });
         });
         </script>

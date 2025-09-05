@@ -3456,6 +3456,64 @@
                     <small>Este valor solo se usa para la vista previa en el admin</small>
                 </label>
                 
+                <!-- ✅ NUEVO: Configuración de texto opcional -->
+                <h6 style="margin-top: 20px; margin-bottom: 10px;">📝 Texto Opcional</h6>
+                
+                <label class="sfq-config-label">
+                    Texto adicional (opcional):
+                    <input type="text" class="sfq-config-input" data-setting="optional_text" 
+                           value="${this.formBuilder.uiRenderer.escapeHtml(settings.optional_text || '')}" 
+                           placeholder="Ej: puntos, €, %, etc.">
+                    <small>Texto que aparecerá junto a la variable (ej: "100 puntos", "25€", "80%")</small>
+                </label>
+                
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Posición del texto:
+                        <select class="sfq-config-input" data-setting="text_position">
+                            <option value="right" ${settings.text_position === 'right' || !settings.text_position ? 'selected' : ''}>Derecha</option>
+                            <option value="left" ${settings.text_position === 'left' ? 'selected' : ''}>Izquierda</option>
+                            <option value="top" ${settings.text_position === 'top' ? 'selected' : ''}>Arriba</option>
+                            <option value="bottom" ${settings.text_position === 'bottom' ? 'selected' : ''}>Abajo</option>
+                        </select>
+                    </label>
+                    <label class="sfq-config-label">
+                        Espaciado:
+                        <select class="sfq-config-input" data-setting="text_spacing">
+                            <option value="normal" ${settings.text_spacing === 'normal' || !settings.text_spacing ? 'selected' : ''}>Normal (8px)</option>
+                            <option value="small" ${settings.text_spacing === 'small' ? 'selected' : ''}>Pequeño (4px)</option>
+                            <option value="large" ${settings.text_spacing === 'large' ? 'selected' : ''}>Grande (12px)</option>
+                            <option value="none" ${settings.text_spacing === 'none' ? 'selected' : ''}>Sin espacio</option>
+                        </select>
+                    </label>
+                </div>
+                
+                <!-- ✅ NUEVO: Configuración independiente del texto opcional -->
+                <h6 style="margin-top: 15px; margin-bottom: 10px;">🎨 Estilo del Texto Opcional</h6>
+                
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Tamaño del texto:
+                        <select class="sfq-config-input" data-setting="optional_text_size">
+                            <option value="inherit" ${settings.optional_text_size === 'inherit' || !settings.optional_text_size ? 'selected' : ''}>Igual que la variable</option>
+                            <option value="10" ${settings.optional_text_size === '10' ? 'selected' : ''}>10px</option>
+                            <option value="12" ${settings.optional_text_size === '12' ? 'selected' : ''}>12px</option>
+                            <option value="14" ${settings.optional_text_size === '14' ? 'selected' : ''}>14px</option>
+                            <option value="16" ${settings.optional_text_size === '16' ? 'selected' : ''}>16px</option>
+                            <option value="18" ${settings.optional_text_size === '18' ? 'selected' : ''}>18px</option>
+                            <option value="20" ${settings.optional_text_size === '20' ? 'selected' : ''}>20px</option>
+                            <option value="24" ${settings.optional_text_size === '24' ? 'selected' : ''}>24px</option>
+                            <option value="28" ${settings.optional_text_size === '28' ? 'selected' : ''}>28px</option>
+                        </select>
+                    </label>
+                    <label class="sfq-config-label">
+                        Color del texto:
+                        <input type="color" class="sfq-config-input" data-setting="optional_text_color" 
+                               value="${settings.optional_text_color || 'inherit'}">
+                        <small>Deja en "inherit" para usar el mismo color que la variable</small>
+                    </label>
+                </div>
+                
                 <!-- Configuración de estilo -->
                 <h6 style="margin-top: 20px; margin-bottom: 10px;">🎨 Configuración de Estilo</h6>
                 

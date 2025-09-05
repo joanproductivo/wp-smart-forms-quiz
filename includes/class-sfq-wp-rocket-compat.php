@@ -15,6 +15,7 @@ class SFQ_WP_Rocket_Compat {
     private static $instance = null;
     private $wp_rocket_active = false;
     private $cache_plugins = array();
+    private $form_pages_cache = array(); // ✅ CORREGIDO: Declarar propiedad explícitamente
     
     /**
      * Singleton instance
@@ -186,8 +187,11 @@ class SFQ_WP_Rocket_Compat {
         
         foreach ($posts_with_shortcodes as $post) {
             $permalink = get_permalink($post->ID);
-            if ($permalink) {
-                $form_pages[] = parse_url($permalink, PHP_URL_PATH);
+            if ($permalink && is_string($permalink)) {
+                $parsed_url = parse_url($permalink, PHP_URL_PATH);
+                if ($parsed_url && is_string($parsed_url)) {
+                    $form_pages[] = $parsed_url;
+                }
             }
         }
         
@@ -205,6 +209,7 @@ class SFQ_WP_Rocket_Compat {
         $widget_options = get_option('widget_text', array());
         foreach ($widget_options as $widget) {
             if (is_array($widget) && isset($widget['text']) && 
+                is_string($widget['text']) && 
                 strpos($widget['text'], '[smart_form') !== false) {
                 // Si hay formularios en widgets, excluir todo el sitio de cache dinámico
                 $form_pages[] = '/*';
@@ -224,8 +229,11 @@ class SFQ_WP_Rocket_Compat {
         
         foreach ($recent_posts as $post) {
             $permalink = get_permalink($post->ID);
-            if ($permalink) {
-                $form_pages[] = parse_url($permalink, PHP_URL_PATH);
+            if ($permalink && is_string($permalink)) {
+                $parsed_url = parse_url($permalink, PHP_URL_PATH);
+                if ($parsed_url && is_string($parsed_url)) {
+                    $form_pages[] = $parsed_url;
+                }
             }
         }
     }
@@ -707,6 +715,7 @@ class SFQ_WP_Rocket_Compat {
             foreach ($blocks as $block) {
                 if ($block['blockName'] === 'core/shortcode' && 
                     isset($block['attrs']['text']) && 
+                    is_string($block['attrs']['text']) &&
                     strpos($block['attrs']['text'], 'smart_form') !== false) {
                     return true;
                 }
@@ -757,7 +766,7 @@ class SFQ_WP_Rocket_Compat {
     public function show_compatibility_notices() {
         // Solo mostrar en páginas del plugin
         $screen = get_current_screen();
-        if (!$screen || strpos($screen->id, 'smart-forms-quiz') === false) {
+        if (!$screen || !is_string($screen->id) || strpos($screen->id, 'smart-forms-quiz') === false) {
             return;
         }
         

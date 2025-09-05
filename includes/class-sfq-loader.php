@@ -130,8 +130,8 @@ class SFQ_Loader {
         );
         
         $is_plugin_page = in_array($hook, $plugin_pages) || 
-                         strpos($hook, 'smart-forms-quiz') !== false || 
-                         strpos($hook, 'sfq-') !== false;
+                         (is_string($hook) && strpos($hook, 'smart-forms-quiz') !== false) || 
+                         (is_string($hook) && strpos($hook, 'sfq-') !== false);
         
         if (!$is_plugin_page) {
             return;
@@ -448,11 +448,11 @@ class SFQ_Loader {
             foreach ($sidebars_widgets as $sidebar => $widgets) {
                 if (is_array($widgets)) {
                     foreach ($widgets as $widget) {
-                        if (strpos($widget, 'text') === 0) {
+                        if (is_string($widget) && strpos($widget, 'text') === 0) {
                             $widget_options = get_option('widget_text');
                             if ($widget_options) {
                                 foreach ($widget_options as $instance) {
-                                    if (isset($instance['text']) && strpos($instance['text'], '[smart_form') !== false) {
+                                    if (isset($instance['text']) && is_string($instance['text']) && strpos($instance['text'], '[smart_form') !== false) {
                                         return true;
                                     }
                                 }

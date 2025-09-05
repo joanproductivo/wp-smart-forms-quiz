@@ -1990,7 +1990,7 @@ class SFQ_Form_Statistics {
         
         $interaction_count = 0;
         foreach ($values as $value) {
-            if ($value === 'clicked' || strpos($value, 'clicked') !== false) {
+            if ($value === 'clicked' || (is_string($value) && strpos($value, 'clicked') !== false)) {
                 $interaction_count++;
             }
         }
