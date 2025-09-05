@@ -3964,7 +3964,7 @@ class SFQ_Ajax {
     }
     
     /**
-     * ✅ NUEVO: Guardar clic de botón inmediatamente en analytics
+     * ✅ CORREGIDO: Guardar clic de botón usando mismo formato que flujo normal
      */
     public function save_button_click() {
         // Verificar nonce
@@ -4001,121 +4001,150 @@ class SFQ_Ajax {
         try {
             global $wpdb;
             
-            // ✅ NUEVO: Verificar si la pregunta es una pantalla final
-            $question = $wpdb->get_row($wpdb->prepare(
-                "SELECT id, question_type, settings FROM {$wpdb->prefix}sfq_questions WHERE id = %d",
+            // ✅ CORREGIDO: Buscar submission completado más reciente para este formulario
+            // Ya que no hay session_id en sfq_submissions, buscar el más reciente completado
+            $submission = $wpdb->get_row($wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}sfq_submissions 
+                WHERE form_id = %d AND status = 'completed'
+                ORDER BY completed_at DESC LIMIT 1",
+                $form_id
+            ));
+            
+            $has_submission = !empty($submission);
+            $submission_id = $has_submission ? $submission->id : null;
+            
+            // Log para debugging
+            error_log("SFQ Button Click: Form ID {$form_id}, Session {$session_id}");
+            error_log("SFQ Button Click: Has Completed Submission: " . ($has_submission ? "YES (ID: {$submission_id})" : 'NO'));
+            
+            // ✅ NUEVO: Solo proceder si existe submission completado
+            if (!$has_submission) {
+                error_log("SFQ Button Click: No completed submission found, not saving to responses");
+                
+                // Guardar solo en analytics para tracking
+                $event_data = array(
+                    'question_id' => $question_id,
+                    'element_id' => $element_id,
+                    'button_text' => $button_text,
+                    'button_url' => $button_url,
+                    'click_timestamp' => $click_timestamp,
+                    'reason' => 'no_completed_submission'
+                );
+                
+                $wpdb->insert(
+                    $wpdb->prefix . 'sfq_analytics',
+                    array(
+                        'form_id' => $form_id,
+                        'event_type' => 'button_click_no_submission',
+                        'event_data' => json_encode($event_data, JSON_UNESCAPED_UNICODE),
+                        'user_ip' => $this->get_user_ip(),
+                        'session_id' => $session_id,
+                        'created_at' => current_time('mysql')
+                    ),
+                    array('%d', '%s', '%s', '%s', '%s', '%s')
+                );
+                
+                wp_send_json_success(array(
+                    'message' => __('Clic registrado en analytics (sin submission)', 'smart-forms-quiz'),
+                    'saved_to_responses' => false,
+                    'reason' => 'no_completed_submission'
+                ));
+                return;
+            }
+            
+            // ✅ NUEVO: Procesar con submission existente usando formato del flujo normal
+            error_log("SFQ Button Click: Processing with completed submission {$submission_id}");
+            
+            // ✅ NUEVO: Verificar si ya existe una respuesta para esta pregunta
+            $existing_response = $wpdb->get_row($wpdb->prepare(
+                "SELECT id, answer FROM {$wpdb->prefix}sfq_responses 
+                WHERE submission_id = %d AND question_id = %d",
+                $submission_id,
                 $question_id
             ));
             
-            $is_final_screen = false;
-            if ($question) {
-                // Verificar si es pantalla final por configuración
-                $question_settings = json_decode($question->settings, true) ?: array();
-                $is_final_screen = !empty($question_settings['pantallaFinal']) || 
-                                  (isset($question_settings['pantalla_final']) && $question_settings['pantalla_final']);
+            if ($existing_response) {
+                // ✅ NUEVO: Actualizar respuesta existente usando formato del flujo normal
+                error_log("SFQ Button Click: Updating existing response {$existing_response->id}");
                 
-                // También verificar por tipo de pregunta si es freestyle (pantallas finales suelen ser freestyle)
-                if (!$is_final_screen && $question->question_type === 'freestyle') {
-                    // Para preguntas freestyle, verificar si tiene elementos de pantalla final
-                    $form = $this->database->get_form($form_id);
-                    if ($form && !empty($form->questions)) {
-                        foreach ($form->questions as $form_question) {
-                            if ($form_question->id == $question_id) {
-                                $is_final_screen = !empty($form_question->pantallaFinal);
-                                break;
-                            }
-                        }
-                    }
-                }
+                $existing_data = json_decode($existing_response->answer, true) ?: array();
+                
+                // ✅ CRÍTICO: Usar mismo formato que flujo normal: {"element_id": "clicked"}
+                $existing_data[$element_id] = 'clicked';
+                
+                $update_result = $wpdb->update(
+                    $wpdb->prefix . 'sfq_responses',
+                    array(
+                        'answer' => json_encode($existing_data, JSON_UNESCAPED_UNICODE),
+                        'score' => 0
+                    ),
+                    array('id' => $existing_response->id),
+                    array('%s', '%d'),
+                    array('%d')
+                );
+                
+                $response_id = ($update_result !== false) ? $existing_response->id : null;
+                
+            } else {
+                // ✅ NUEVO: Crear nueva respuesta usando formato del flujo normal
+                error_log("SFQ Button Click: Creating new response");
+                
+                // ✅ CRÍTICO: Usar mismo formato que flujo normal: {"element_id": "clicked"}
+                $response_data_json = array(
+                    $element_id => 'clicked'
+                );
+                
+                $response_result = $wpdb->insert(
+                    $wpdb->prefix . 'sfq_responses',
+                    array(
+                        'submission_id' => $submission_id,
+                        'question_id' => $question_id,
+                        'answer' => json_encode($response_data_json, JSON_UNESCAPED_UNICODE),
+                        'score' => 0
+                    ),
+                    array('%d', '%d', '%s', '%d')
+                );
+                
+                $response_id = ($response_result !== false) ? $wpdb->insert_id : null;
             }
             
-            // Preparar datos del evento para analytics
+            // Guardar también en analytics para tracking completo
             $event_data = array(
                 'question_id' => $question_id,
                 'element_id' => $element_id,
                 'button_text' => $button_text,
                 'button_url' => $button_url,
                 'click_timestamp' => $click_timestamp,
-                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
-                'saved_immediately' => true,
-                'is_final_screen' => $is_final_screen
+                'submission_id' => $submission_id,
+                'response_id' => $response_id,
+                'saved_to_responses' => !empty($response_id)
             );
             
-            // Guardar en sfq_analytics con tipo específico para clics inmediatos
-            $analytics_data = array(
-                'form_id' => $form_id,
-                'event_type' => 'button_click_immediate',
-                'event_data' => json_encode($event_data, JSON_UNESCAPED_UNICODE),
-                'user_ip' => $this->get_user_ip(),
-                'session_id' => $session_id,
-                'created_at' => current_time('mysql')
-            );
-            
-            $result = $wpdb->insert(
+            $analytics_result = $wpdb->insert(
                 $wpdb->prefix . 'sfq_analytics',
-                $analytics_data,
+                array(
+                    'form_id' => $form_id,
+                    'event_type' => 'button_click_immediate',
+                    'event_data' => json_encode($event_data, JSON_UNESCAPED_UNICODE),
+                    'user_ip' => $this->get_user_ip(),
+                    'session_id' => $session_id,
+                    'created_at' => current_time('mysql')
+                ),
                 array('%d', '%s', '%s', '%s', '%s', '%s')
             );
             
-            if ($result === false) {
-                throw new Exception('Error al guardar en analytics: ' . $wpdb->last_error);
-            }
-            
-            $analytics_id = $wpdb->insert_id;
-            $response_id = null;
-            
-            // ✅ NUEVO: Si es pantalla final, también guardar en sfq_responses
-            if ($is_final_screen) {
-                // Buscar o crear submission para esta sesión
-                $submission = $wpdb->get_row($wpdb->prepare(
-                    "SELECT id FROM {$wpdb->prefix}sfq_submissions 
-                    WHERE form_id = %d AND session_id = %s 
-                    ORDER BY created_at DESC LIMIT 1",
-                    $form_id,
-                    $session_id
-                ));
-                
-                if ($submission) {
-                    // Preparar respuesta para guardar en sfq_responses
-                    $click_response_data = array(
-                        'button_text' => $button_text,
-                        'button_url' => $button_url,
-                        'element_id' => $element_id,
-                        'clicked_at' => current_time('mysql'),
-                        'click_type' => 'final_screen_button'
-                    );
-                    
-                    // Guardar en sfq_responses
-                    $response_data = array(
-                        'submission_id' => $submission->id,
-                        'question_id' => $question_id,
-                        'answer' => json_encode($click_response_data, JSON_UNESCAPED_UNICODE),
-                        'score' => 0
-                    );
-                    
-                    $response_result = $wpdb->insert(
-                        $wpdb->prefix . 'sfq_responses',
-                        $response_data,
-                        array('%d', '%d', '%s', '%d')
-                    );
-                    
-                    if ($response_result !== false) {
-                        $response_id = $wpdb->insert_id;
-                    }
-                }
-            }
+            $analytics_id = ($analytics_result !== false) ? $wpdb->insert_id : null;
             
             wp_send_json_success(array(
-                'message' => $is_final_screen 
-                    ? __('Clic de pantalla final guardado en analytics y responses', 'smart-forms-quiz')
-                    : __('Clic de botón guardado correctamente en analytics', 'smart-forms-quiz'),
+                'message' => __('Clic guardado correctamente en responses', 'smart-forms-quiz'),
                 'form_id' => $form_id,
                 'question_id' => $question_id,
                 'element_id' => $element_id,
-                'analytics_id' => $analytics_id,
+                'submission_id' => $submission_id,
                 'response_id' => $response_id,
-                'is_final_screen' => $is_final_screen,
-                'method' => $is_final_screen ? 'analytics_and_responses' : 'analytics_immediate',
+                'analytics_id' => $analytics_id,
+                'saved_to_responses' => !empty($response_id),
+                'format_used' => 'normal_flow_format',
                 'timestamp' => current_time('timestamp')
             ));
             
