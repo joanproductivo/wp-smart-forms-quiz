@@ -1218,6 +1218,7 @@
 
         initCharts: function() {
             if (typeof Chart === 'undefined') {
+                console.warn('Chart.js no está disponible. Los gráficos no se pueden inicializar.');
                 return;
             }
 
@@ -1229,7 +1230,9 @@
                 ChartManager.initFormsChart();
                 ChartManager.initCountriesChart();
                 
+                console.log('Gráficos inicializados correctamente');
             } catch (error) {
+                console.error('Error al inicializar gráficos:', error);
                 NotificationManager.show('Error al inicializar gráficos', 'warning');
             }
         },

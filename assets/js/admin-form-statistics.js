@@ -160,6 +160,7 @@
                     `);
                 }
             } catch (error) {
+                console.error('Error loading statistics:', error);
                 $('#sfq-questions-container').html(`
                     <div class="sfq-no-data">
                         <span class="dashicons dashicons-warning"></span>
@@ -508,6 +509,7 @@
                     }
                 });
             } catch (error) {
+                console.error('Error creating chart:', error);
                 canvas.parentElement.innerHTML = '<p style="text-align: center; color: #dc3232;">Error al crear gráfico</p>';
             }
         }
@@ -532,6 +534,7 @@
                     this.updateCountriesDisplay(response.data);
                 }
             } catch (error) {
+                console.error('Error loading countries data:', error);
             }
         }
 
@@ -639,6 +642,7 @@
                     this.displayCountryResponses(response.data.questions, countryCode);
                 }
             } catch (error) {
+                console.error('Error loading country statistics:', error);
             }
         }
 
@@ -817,6 +821,7 @@
                 });
                 
             } catch (error) {
+                console.error('Error creating timeline chart:', error);
                 canvas.parentElement.innerHTML = '<p style="text-align: center; color: #dc3232; padding: 40px;">Error al crear el gráfico de timeline</p>';
             }
         }
@@ -853,6 +858,7 @@
                     this.displayResponses(response.data);
                 }
             } catch (error) {
+                console.error('Error loading responses:', error);
             }
         }
 
@@ -948,6 +954,7 @@
                     this.showNotice('Estadísticas exportadas correctamente', 'success');
                 }
             } catch (error) {
+                console.error('Error exporting statistics:', error);
                 this.showNotice('Error al exportar estadísticas', 'error');
             }
         }
@@ -1670,9 +1677,11 @@
                 if (response.success) {
                     this.updateAbandonmentDisplay(response.data);
                 } else {
+                    console.error('Error loading abandonment analytics:', response.data);
                     this.showAbandonmentError(response.data);
                 }
             } catch (error) {
+                console.error('Error loading abandonment analytics:', error);
                 this.showAbandonmentError('Error de conexión');
             }
         }
@@ -1918,8 +1927,10 @@
                 if (response.success) {
                     this.displayPartialResponsesTable(response.data);
                 } else {
+                    console.error('Error loading partial responses:', response.data);
                 }
             } catch (error) {
+                console.error('Error loading partial responses:', error);
             }
         }
 
@@ -2198,9 +2209,11 @@
                 if (response.success) {
                     this.updateVisitorsDisplay(response.data);
                 } else {
+                    console.error('Error loading visitors analytics:', response.data);
                     this.showVisitorsError(response.data);
                 }
             } catch (error) {
+                console.error('Error loading visitors analytics:', error);
                 this.showVisitorsError('Error de conexión');
             }
         }
@@ -2490,6 +2503,7 @@
                     this.showNotice('Error al exportar datos de visitantes: ' + (response.data || 'Error desconocido'), 'error');
                 }
             } catch (error) {
+                console.error('Error exporting visitors data:', error);
                 this.showNotice('Error al exportar datos de visitantes', 'error');
             }
         }

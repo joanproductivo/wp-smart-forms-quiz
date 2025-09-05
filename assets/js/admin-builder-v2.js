@@ -514,6 +514,7 @@
                     throw new Error(response.data?.message || 'Error loading form data');
                 }
             } catch (error) {
+                console.error('SFQ Builder v2: Error loading form data:', error);
                 this.uiRenderer.showNotice('Error al cargar el formulario: ' + error.message, 'error');
             } finally {
                 this.uiRenderer.showLoading(false);
@@ -803,8 +804,12 @@
             const formData = this.collectFormData();
             
             // Debug: Log form data being sent to server
+            console.log('SFQ: === SAVING FORM DATA ===');
+            console.log('SFQ: Questions data being sent:', formData.questions);
             formData.questions.forEach((question, index) => {
+                console.log(`SFQ: Question ${index + 1} conditions:`, question.conditions);
             });
+            console.log('SFQ: === END FORM DATA ===');
             
             try {
                 const response = await $.ajax({
@@ -834,6 +839,7 @@
                     throw new Error(response.data?.message || 'Error al guardar');
                 }
             } catch (error) {
+                console.error('SFQ Builder v2: Save error:', error);
                 this.uiRenderer.showNotice('Error al guardar: ' + error.message, 'error');
             } finally {
                 this.isSaving = false; // Reset saving flag
@@ -925,14 +931,17 @@
                 // ✅ NUEVO: Configuración de imagen de fondo con logging detallado
                 background_image_url: (() => {
                     const value = $('#background-image-url').val() || '';
+                    console.log('SFQ: Collecting background_image_url:', value);
                     return value;
                 })(),
                 background_image_id: (() => {
                     const value = $('#background-image-id').val() || '';
+                    console.log('SFQ: Collecting background_image_id:', value);
                     return value;
                 })(),
                 background_image_data: (() => {
                     const value = $('#background-image-data').val() || '';
+                    console.log('SFQ: Collecting background_image_data:', value);
                     return value;
                 })(),
                 background_size: $('#background-size').val() || 'cover',
@@ -1461,16 +1470,20 @@
         }
         
         renderVariables() {
+            console.log('SFQ: === RENDERING VARIABLES ===');
             
             const variables = this.getGlobalVariables();
+            console.log('SFQ: Variables to render:', variables);
             
             const $container = $('#sfq-global-variables-list');
             
             if (!$container.length) {
+                console.warn('SFQ: Variables container #sfq-global-variables-list not found');
                 return;
             }
             
             if (variables.length === 0) {
+                console.log('SFQ: No variables found, showing empty state');
                 $container.html(`
                     <div class="sfq-variables-empty">
                         <span class="dashicons dashicons-admin-settings"></span>
@@ -1481,12 +1494,14 @@
                 return;
             }
             
+            console.log('SFQ: Rendering', variables.length, 'variables');
             const variablesHtml = variables.map(variable => this.renderVariable(variable)).join('');
             $container.html(variablesHtml);
             
             // Bind events para cada variable
             this.bindVariableEvents();
             
+            console.log('SFQ: Variables rendered successfully');
         }
         
         renderVariable(variable) {
@@ -1669,6 +1684,7 @@
 
         this.mediaUploader.on('select', () => {
             const attachment = this.mediaUploader.state().get('selection').first().toJSON();
+            console.log('Selected background:', attachment);
 
             if (!this.isValidImageAttachment(attachment)) {
                 alert('Error: El archivo seleccionado no es una imagen válida');
@@ -1678,9 +1694,11 @@
             this.setBackgroundImage(attachment);
 
             this.mediaUploader.close();
+           
         });
     }
-    
+ // limpiar selección para la próxima vez
+           
     this.mediaUploader.open();
 }
         
@@ -2045,6 +2063,7 @@
                 }
             }
             
+            console.log('SFQ: Updated preview styles dynamically with improved specificity');
         }
     }
 
@@ -2122,6 +2141,7 @@
                 const type = $button.data('type');
                 const isFinalScreen = $button.data('final-screen') === true;
                 
+                console.log('SFQ: Add question button clicked:', {
                     type: type,
                     isFinalScreen: isFinalScreen,
                     buttonData: $button.data()
@@ -2193,10 +2213,13 @@
                     },
                     // ✅ NUEVO: Eventos adicionales para debugging
                     over: function(event, ui) {
+                        console.log('SFQ: Question sortable over event triggered');
                     },
                     out: function(event, ui) {
+                        console.log('SFQ: Question sortable out event triggered');
                     },
                     beforeStop: function(event, ui) {
+                        console.log('SFQ: Question sortable beforeStop - current position:', ui.item.index());
                     }
                 });
                 
@@ -2267,11 +2290,13 @@
                     // CRÍTICO: Crear mapeo de ID temporal a ID real
                     if (question.originalId) {
                         this.idMapping.set(question.id, question.originalId);
+                        console.log('SFQ: Created ID mapping:', question.id, '->', question.originalId);
                     }
                     
                     // Separar según si es pantalla final o no
                     if (question.type === 'freestyle' && question.pantallaFinal) {
                         finalScreenQuestions.push(question);
+                        console.log('SFQ: Question marked as final screen:', question.id, question.text);
                     } else {
                         normalQuestions.push(question);
                     }
@@ -2324,6 +2349,7 @@
                     }
                 });
                 
+                console.log('SFQ: Loaded', finalScreenQuestions.length, 'final screen questions');
             } else {
                 // Mostrar estado vacío para pantallas finales
                 $finalScreensContainer.html(`
@@ -2335,6 +2361,7 @@
                 `);
             }
             
+            console.log('SFQ: Loaded questions summary:', {
                 total: this.questions.length,
                 normal: normalQuestions.length,
                 finalScreens: finalScreenQuestions.length
@@ -2358,6 +2385,9 @@
                     pantallaFinal = this.formBuilder.dataValidator.normalizeBoolean(data.settings.pantallaFinal);
                 }
                 
+                console.log('SFQ: Processing freestyle question:', data.question_text);
+                console.log('SFQ: pantallaFinal value found:', pantallaFinal);
+                console.log('SFQ: Original data.settings:', data.settings);
                 
                 return {
                     id: questionId,
@@ -2429,6 +2459,7 @@
         processFreestyleElements(elements) {
             if (!Array.isArray(elements)) return [];
             
+            console.log('SFQ: Processing freestyle elements from database:', elements);
             
             return elements.map((element, index) => {
                 // ✅ CRÍTICO: Validar que el tipo de elemento sea válido
@@ -2441,6 +2472,7 @@
                 const elementType = element.type || 'text';
                 
                 if (!validTypes.includes(elementType)) {
+                    console.warn('SFQ: Invalid element type found:', elementType, 'defaulting to text');
                 }
                 
                 const processedElement = {
@@ -2452,6 +2484,7 @@
                     value: element.value || ''
                 };
                 
+                console.log('SFQ: Processed element:', processedElement);
                 
                 return processedElement;
             });
@@ -2492,6 +2525,7 @@
                     // Marcar como pantalla final si se especifica
                     if (isFinalScreen) {
                         question.pantallaFinal = true;
+                        console.log('SFQ: Creating freestyle question as final screen:', questionId);
                     } else {
                         question.pantallaFinal = false;
                     }
@@ -2512,6 +2546,7 @@
                     const $finalScreensContainer = $('#sfq-final-screens-container');
                     if ($finalScreensContainer.length > 0) {
                         $finalScreensContainer.append(element);
+                        console.log('SFQ: Added final screen question to final screens section:', questionId);
                     } else {
                         // Fallback: añadir al contenedor normal
                         this.container.append(element);
@@ -2593,6 +2628,10 @@
                 this.formBuilder.isDirty = true;
                 
                 // Debug logging
+                console.log('SFQ: hide_title setting updated for question', question.id, ':', question.settings.hide_title);
+                console.log('SFQ: Full settings object:', question.settings);
+                console.log('SFQ: Settings is array?', Array.isArray(question.settings));
+                console.log('SFQ: Settings type:', typeof question.settings);
             });
             
             // Update block question
@@ -2622,16 +2661,22 @@
                 this.formBuilder.isDirty = true;
                 
                 // Debug logging
+                console.log('SFQ: block_question setting updated for question', question.id, ':', question.settings.block_question);
+                console.log('SFQ: Full settings object:', question.settings);
             });
             
             // ✅ CRÍTICO: Inicializar el estado del checkbox según los settings guardados
             // SOLUCIÓN: Asegurar que settings existe como objeto antes de acceder a hide_title
             if (!question.settings || typeof question.settings !== 'object' || Array.isArray(question.settings)) {
+                console.log('SFQ: FIXING INVALID SETTINGS - was:', typeof question.settings, Array.isArray(question.settings) ? '(array)' : '', question.settings);
                 question.settings = {};
+                console.log('SFQ: Initialized empty settings object for question', question.id);
             }
             
             const hideTitle = question.settings.hide_title === true;
             $question.find('.sfq-hide-title-checkbox').prop('checked', hideTitle);
+            console.log('SFQ: Initialized hide_title checkbox for question', question.id, 'to:', hideTitle);
+            console.log('SFQ: Question settings:', question.settings);
             
             // ELIMINADO: Lógica del checkbox para convertir a pantalla final
             // Solo se usará el botón "Pantalla Final" para crear pantallas finales
@@ -2708,6 +2753,7 @@
             const $elementsContainer = $(`#freestyle-elements-${questionId}`);
             
             if ($elementsContainer.length === 0 || !$.fn.sortable) {
+                console.log('SFQ: Sortable container not found or jQuery UI not available for question:', questionId);
                 return;
             }
             
@@ -2748,6 +2794,7 @@
                         </div>
                     `);
                     
+                    console.log('SFQ: Started dragging freestyle element:', ui.item.data('element-id'));
                 },
                 stop: function(event, ui) {
                     // Remover clase visual
@@ -2759,6 +2806,7 @@
                     // Mostrar feedback visual
                     self.showFreestyleReorderFeedback(ui.item);
                     
+                    console.log('SFQ: Finished dragging freestyle element:', ui.item.data('element-id'));
                 },
                 change: function(event, ui) {
                     // Actualizar placeholder dinámicamente
@@ -2791,13 +2839,17 @@
                 },
                 // ✅ NUEVO: Eventos adicionales para debugging
                 over: function(event, ui) {
+                    console.log('SFQ: Sortable over event triggered');
                 },
                 out: function(event, ui) {
+                    console.log('SFQ: Sortable out event triggered');
                 },
                 beforeStop: function(event, ui) {
+                    console.log('SFQ: Sortable beforeStop - current position:', ui.item.index());
                 }
             });
             
+            console.log('SFQ: Initialized sortable for freestyle elements in question:', questionId);
         }
 
         /**
@@ -2806,6 +2858,7 @@
         updateFreestyleElementsOrder(questionId) {
             const question = this.questions.find(q => q.id === questionId);
             if (!question || !question.freestyle_elements) {
+                console.error('SFQ: Question or freestyle elements not found for order update:', questionId);
                 return;
             }
             
@@ -2822,6 +2875,7 @@
                     freestyleElement.order = index;
                     newOrder.push(freestyleElement);
                     
+                    console.log(`SFQ: Updated element ${elementId} to order ${index}`);
                 }
             });
             
@@ -2831,6 +2885,8 @@
             // Marcar formulario como modificado
             this.formBuilder.isDirty = true;
             
+            console.log('SFQ: Updated freestyle elements order for question:', questionId);
+            console.log('SFQ: New order:', newOrder.map(el => ({ id: el.id, type: el.type, order: el.order })));
         }
 
         /**
@@ -3026,10 +3082,12 @@
             
             // ✅ CRÍTICO: Validar que el elemento existe y el tipo coincide
             if (!element) {
+                console.error('SFQ: Element not found for config panel:', elementId);
                 return;
             }
             
             if (element.type !== elementType) {
+                console.error('SFQ: Element type mismatch:', element.type, 'vs', elementType);
                 return;
             }
             
@@ -3076,6 +3134,7 @@
             
             // ✅ NUEVO: Validación de tipo de elemento para prevenir interferencias
             if (element.type !== elementType) {
+                console.error('SFQ: Element type mismatch in config panel creation:', element.type, 'vs', elementType);
                 return '<div class="sfq-config-error">Error: Tipo de elemento no coincide</div>';
             }
             
@@ -4005,6 +4064,7 @@
             // ✅ NUEVO: Validar tipo de elemento
             const panelElementType = $panel.data('element-type');
             if (panelElementType && panelElementType !== element.type) {
+                console.error('SFQ: Element type mismatch in config panel:', panelElementType, 'vs', element.type);
                 return;
             }
             
@@ -4025,6 +4085,7 @@
             $panel.find('.sfq-config-save').on('click' + eventNamespace, function() {
                 // ✅ NUEVO: Validación adicional de tipo
                 if ($panel.data('element-type') && $panel.data('element-type') !== element.type) {
+                    console.warn('SFQ: Type validation failed during save');
                     return;
                 }
                 
@@ -4053,12 +4114,15 @@
                     
                     // ✅ CRÍTICO: Log para debugging del problema con variable_name
                     if (setting === 'variable_name') {
+                        console.log('SFQ: Saving variable_name setting:', value);
+                        console.log('SFQ: Field type:', $field.prop('tagName'), 'Value:', $field.val());
                     }
                     
                     element.settings[setting] = value;
                     
                     // ✅ VERIFICACIÓN: Log después del guardado
                     if (setting === 'variable_name') {
+                        console.log('SFQ: variable_name saved in element.settings:', element.settings[setting]);
                     }
                 });
                 
@@ -4364,9 +4428,11 @@
             // Verificar que wp.media esté disponible
             if (typeof wp === 'undefined' || !wp.media) {
                 alert('Error: WordPress Media Library no está disponible. Asegúrate de que wp_enqueue_media() esté cargado.');
+                console.error('SFQ: wp.media is not available. Make sure wp_enqueue_media() is called.');
                 return;
             }
             
+            console.log('SFQ: Opening Media Library for option', optionIndex);
             
             // Crear instancia del media uploader
             const mediaUploader = wp.media({
@@ -4384,6 +4450,7 @@
             mediaUploader.on('select', () => {
                 const attachment = mediaUploader.state().get('selection').first().toJSON();
                 
+                console.log('SFQ: Selected attachment:', attachment);
                 
                 // ✅ VALIDACIÓN: Verificar que sea una imagen válida
                 if (!this.isValidAttachment(attachment)) {
@@ -4408,6 +4475,7 @@
             
             // Verificar tipo MIME
             if (!validTypes.includes(attachment.mime)) {
+                console.error('SFQ: Invalid MIME type:', attachment.mime);
                 return false;
             }
             
@@ -4415,12 +4483,14 @@
             if (attachment.filename) {
                 const extension = attachment.filename.split('.').pop().toLowerCase();
                 if (!validExtensions.includes(extension)) {
+                    console.error('SFQ: Invalid file extension:', extension);
                     return false;
                 }
             }
             
             // Verificar que tenga URL
             if (!attachment.url) {
+                console.error('SFQ: No URL found in attachment');
                 return false;
             }
             
@@ -4447,6 +4517,7 @@
          * ✅ NUEVO: Actualizar opción con imagen seleccionada
          */
         updateImageOption($optionItem, attachment, question, optionIndex) {
+            console.log('SFQ: Updating image option', optionIndex, 'with attachment:', attachment);
             
             // Actualizar input de URL
             $optionItem.find('.sfq-image-url-input').val(attachment.url).removeClass('invalid').addClass('valid');
@@ -4460,6 +4531,7 @@
             question.options[optionIndex].image_id = attachment.id || '';
             question.options[optionIndex].image_alt = attachment.alt || attachment.title || '';
             
+            console.log('SFQ: Updated option data:', question.options[optionIndex]);
             
             // Mostrar preview
             this.updateImagePreview($optionItem, {
@@ -4475,10 +4547,12 @@
          * ✅ CORREGIDO: Mostrar preview de imagen con verificaciones robustas
          */
         updateImagePreview($optionItem, imageData) {
+            console.log('SFQ: Updating image preview with data:', imageData);
             
             const $previewContainer = $optionItem.find('.sfq-image-preview-container');
             
             if ($previewContainer.length === 0) {
+                console.error('SFQ: Preview container not found, creating it...');
                 // ✅ NUEVO: Crear contenedor de preview si no existe
                 this._createImagePreviewContainer($optionItem);
                 return this.updateImagePreview($optionItem, imageData); // Recursión para intentar de nuevo
@@ -4488,6 +4562,7 @@
             
             // ✅ NUEVO: Crear imagen de preview si no existe
             if ($previewImage.length === 0) {
+                console.log('SFQ: Preview image element not found, creating it...');
                 $previewContainer.find('.sfq-image-preview').html(`
                     <img src="" alt="Vista previa" class="sfq-preview-image">
                     <button type="button" class="sfq-remove-image" title="Eliminar imagen">
@@ -4504,12 +4579,15 @@
                 
                 // ✅ NUEVO: Manejar errores de carga de imagen
                 $previewImage.off('error').on('error', function() {
+                    console.warn('SFQ: Failed to load image:', imageData.url);
                     $(this).attr('src', 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+SW1hZ2VuPC90ZXh0Pjwvc3ZnPg==');
                     $(this).attr('alt', 'Error al cargar imagen');
                 });
                 
                 $previewContainer.show();
+                console.log('SFQ: Successfully updated image preview for URL:', imageData.url);
             } else {
+                console.error('SFQ: Could not create or find preview image element');
             }
         }
         
@@ -4517,6 +4595,7 @@
          * ✅ NUEVO: Crear contenedor de preview de imagen si no existe
          */
         _createImagePreviewContainer($optionItem) {
+            console.log('SFQ: Creating image preview container');
             
             const previewHtml = `
                 <div class="sfq-image-preview-container" style="display: none;">
@@ -4542,6 +4621,7 @@
             // Añadir el contenedor de preview si no existe
             if ($imageSection.find('.sfq-image-preview-container').length === 0) {
                 $imageSection.find('.sfq-image-controls').after(previewHtml);
+                console.log('SFQ: Created image preview container');
             }
         }
 
@@ -4556,6 +4636,7 @@
          * ✅ NUEVO: Eliminar imagen de opción
          */
         removeImage($optionItem, question, optionIndex) {
+            console.log('SFQ: Removing image from option', optionIndex);
             
             // Limpiar input de URL
             $optionItem.find('.sfq-image-url-input').val('').removeClass('valid invalid');
@@ -4573,6 +4654,7 @@
             // Marcar formulario como modificado
             this.formBuilder.isDirty = true;
             
+            console.log('SFQ: Image removed from option', optionIndex);
         }
 
         addOption(questionId) {
@@ -4600,6 +4682,7 @@
             if (question.type === 'image_choice') {
                 const $question = $(`#${questionId}`);
                 this.bindImageChoiceEvents($question, question);
+                console.log('SFQ: Bound image choice events for new option in question:', questionId);
             }
             
             this.formBuilder.isDirty = true;
@@ -4663,6 +4746,7 @@
             
             this.formBuilder.isDirty = true;
             
+            console.log('SFQ: Updated questions order:', this.questions.map(q => ({ 
                 id: q.id, 
                 text: q.text.substring(0, 30) + '...', 
                 order: q.order,
@@ -4689,6 +4773,7 @@
             
             this.formBuilder.isDirty = true;
             
+            console.log('SFQ: Updated final screens order:', finalScreenQuestions.map(q => ({ 
                 id: q.id, 
                 text: q.text.substring(0, 30) + '...', 
                 order: q.order 
@@ -4726,12 +4811,18 @@
             const $finalScreensContainer = $('#sfq-final-screens-container');
             const $questionsContainer = $('#sfq-questions-container');
             
+            console.log('SFQ: === MOVING FINAL SCREEN QUESTION ===');
+            console.log('SFQ: Question ID:', questionId);
+            console.log('SFQ: Is final screen:', isFinaleScreen);
+            console.log('SFQ: Questions array before move:', this.questions.map(q => ({ id: q.id, text: q.text, pantallaFinal: q.pantallaFinal })));
             
             // CRÍTICO: Actualizar la referencia en el array ANTES de mover el DOM
             const question = this.questions.find(q => q.id === questionId);
             if (question) {
                 question.pantallaFinal = isFinaleScreen;
+                console.log('SFQ: Updated question pantallaFinal property:', question.pantallaFinal);
             } else {
+                console.error('SFQ: Question not found in array:', questionId);
                 return;
             }
             
@@ -4744,6 +4835,7 @@
                     // Mover la pregunta
                     $question.appendTo($finalScreensContainer);
                     
+                    console.log('SFQ: Moved question to final screens section:', questionId);
                 }
             } else {
                 // Mover de vuelta a la sección de preguntas normales
@@ -4754,6 +4846,7 @@
                     // Mover la pregunta
                     $question.appendTo($questionsContainer);
                     
+                    console.log('SFQ: Moved question back to normal questions section:', questionId);
                 }
                 
                 // Si no quedan pantallas finales, mostrar estado vacío
@@ -4774,9 +4867,13 @@
             // Actualizar el orden de las preguntas
             this.updateQuestionsOrder();
             
+            console.log('SFQ: Questions array after move:', this.questions.map(q => ({ id: q.id, text: q.text, pantallaFinal: q.pantallaFinal })));
+            console.log('SFQ: === END MOVING FINAL SCREEN QUESTION ===');
         }
 
         getQuestionsData() {
+            console.log('SFQ: === GETTING QUESTIONS DATA FOR SAVE ===');
+            console.log('SFQ: Questions array state:', this.questions.map(q => ({ 
                 id: q.id, 
                 text: q.text, 
                 pantallaFinal: q.pantallaFinal,
@@ -4785,11 +4882,13 @@
             
             // CRÍTICO: Verificar que todas las preguntas del DOM estén en el array
             const $allQuestions = $('.sfq-question-item');
+            console.log('SFQ: DOM questions found:', $allQuestions.length);
             
             $allQuestions.each((index, element) => {
                 const questionId = $(element).attr('id');
                 const questionInArray = this.questions.find(q => q.id === questionId);
                 if (!questionInArray) {
+                    console.error('SFQ: Question found in DOM but not in array:', questionId);
                 }
             });
             
@@ -4797,6 +4896,7 @@
                 // CRÍTICO: Obtener condiciones del ConditionEngine
                 const conditionsData = this.formBuilder.conditionEngine.getConditionsData(question.id);
                 
+                console.log(`SFQ: Question ${index + 1} (${question.id}):`, {
                     text: question.text,
                     conditions: conditionsData,
                     originalId: question.originalId,
@@ -4814,13 +4914,22 @@
                 };
 
                 // ✅ CRÍTICO: Debug logging para verificar settings
+                console.log(`SFQ: Question ${index + 1} settings being saved:`, question.settings);
+                console.log(`SFQ: Question ${index + 1} settings type:`, typeof question.settings);
+                console.log(`SFQ: Question ${index + 1} settings is array:`, Array.isArray(question.settings));
+                console.log(`SFQ: Question ${index + 1} settings keys:`, question.settings ? Object.keys(question.settings) : 'NO SETTINGS');
                 
                 if (question.settings && question.settings.hide_title !== undefined) {
+                    console.log(`SFQ: Question ${index + 1} hide_title value:`, question.settings.hide_title);
+                    console.log(`SFQ: Question ${index + 1} hide_title type:`, typeof question.settings.hide_title);
                 } else {
+                    console.log(`SFQ: Question ${index + 1} NO hide_title setting found`);
                 }
                 
                 // ✅ VERIFICACIÓN ADICIONAL: Comprobar si settings se está convirtiendo en array
                 if (Array.isArray(question.settings)) {
+                    console.error(`SFQ: CRITICAL ERROR - Question ${index + 1} settings is an array instead of object!`);
+                    console.error(`SFQ: Array contents:`, question.settings);
                     // Convertir array vacío a objeto vacío
                     question.settings = {};
                 }
@@ -4842,9 +4951,19 @@
                         // ✅ CRÍTICO: Preservar todos los datos del elemento incluyendo settings
                         
                         // ✅ DEBUGGING TEMPORAL: Log detallado del elemento
+                        console.log('SFQ: === PROCESSING FREESTYLE ELEMENT ===');
+                        console.log('SFQ: Element ID:', element.id);
+                        console.log('SFQ: Element type:', element.type);
+                        console.log('SFQ: Element label:', element.label);
+                        console.log('SFQ: Element settings (original):', element.settings);
+                        console.log('SFQ: Element settings type:', typeof element.settings);
+                        console.log('SFQ: Element settings keys:', element.settings ? Object.keys(element.settings) : 'NO SETTINGS');
                         
                         // Verificar específicamente variable_name si es variable_display
                         if (element.type === 'variable_display') {
+                            console.log('SFQ: VARIABLE_DISPLAY ELEMENT DETECTED');
+                            console.log('SFQ: variable_name setting:', element.settings?.variable_name);
+                            console.log('SFQ: All settings for variable_display:', JSON.stringify(element.settings, null, 2));
                         }
                         
                         const processedElement = {
@@ -4856,6 +4975,8 @@
                             value: element.value || ''
                         };
                         
+                        console.log('SFQ: Processed element settings:', processedElement.settings);
+                        console.log('SFQ: === END PROCESSING ELEMENT ===');
                         
                         return processedElement;
                     });
@@ -4884,6 +5005,10 @@
          * ✅ CORREGIDO: Repoblar previews de imagen después de cargar datos con timing mejorado
          */
         repopulateImagePreviews(questionId, question) {
+            console.log('SFQ: === STARTING IMAGE REPOPULATION ===');
+            console.log('SFQ: Question ID:', questionId);
+            console.log('SFQ: Question type:', question.type);
+            console.log('SFQ: Options count:', question.options ? question.options.length : 0);
             
             // ✅ CORREGIDO: Usar setTimeout para asegurar que el DOM esté completamente renderizado
             setTimeout(() => {
@@ -4895,6 +5020,7 @@
          * ✅ NUEVO: Función interna para realizar la repoblación con verificaciones robustas
          */
         _performImageRepopulation(questionId, question) {
+            console.log('SFQ: Performing delayed image repopulation for question:', questionId);
             
             // ✅ CORREGIDO: Múltiples selectores para encontrar el elemento
             let $question = $(`#${questionId}`);
@@ -4902,28 +5028,37 @@
             // Si no se encuentra con el ID directo, buscar por atributo data
             if ($question.length === 0) {
                 $question = $(`.sfq-question-item[data-question-id="${questionId}"]`);
+                console.log('SFQ: Trying alternative selector with data-question-id');
             }
             
             // Si aún no se encuentra, buscar en ambos contenedores
             if ($question.length === 0) {
                 $question = $(`#sfq-questions-container #${questionId}, #sfq-final-screens-container #${questionId}`);
+                console.log('SFQ: Trying container-specific selectors');
             }
             
             if ($question.length === 0) {
+                console.error('SFQ: Question element not found after all attempts:', questionId);
+                console.log('SFQ: Available question elements:', $('.sfq-question-item').map(function() { return this.id; }).get());
                 return;
             }
             
+            console.log('SFQ: Found question element:', $question.attr('id'));
             
             // Verificar que tenga opciones con imágenes
             if (!question.options || question.options.length === 0) {
+                console.log('SFQ: No options found for question:', questionId);
                 return;
             }
             
             // ✅ CORREGIDO: Verificar que existan elementos de opción en el DOM
             const $optionItems = $question.find('.sfq-option-item');
+            console.log('SFQ: Found option items in DOM:', $optionItems.length);
             
             if ($optionItems.length === 0) {
+                console.error('SFQ: No option items found in DOM for question:', questionId);
                 // ✅ NUEVO: Intentar re-renderizar la pregunta si no hay opciones en el DOM
+                console.log('SFQ: Attempting to re-render question options...');
                 this._reRenderQuestionOptions(questionId, question);
                 return;
             }
@@ -4931,15 +5066,18 @@
             // Procesar cada opción que tenga imagen
             question.options.forEach((option, index) => {
                 if (option.image && option.image.trim() !== '') {
+                    console.log(`SFQ: Processing option ${index} with image:`, option.image);
                     
                     const $optionItem = $optionItems.eq(index);
                     
                     if ($optionItem.length > 0) {
+                        console.log('SFQ: Found option item for index', index);
                         
                         // ✅ CORREGIDO: Verificar que exista la sección de imagen
                         let $imageSection = $optionItem.find('.sfq-image-upload-section');
                         
                         if ($imageSection.length === 0) {
+                            console.warn('SFQ: Image upload section not found, creating it...');
                             this._createImageUploadSection($optionItem, index);
                             $imageSection = $optionItem.find('.sfq-image-upload-section');
                         }
@@ -4949,7 +5087,9 @@
                             const $urlInput = $imageSection.find('.sfq-image-url-input');
                             if ($urlInput.length > 0) {
                                 $urlInput.val(option.image).removeClass('invalid').addClass('valid');
+                                console.log('SFQ: Updated URL input for option', index);
                             } else {
+                                console.warn('SFQ: URL input not found for option', index);
                             }
                             
                             // Mostrar el preview de la imagen
@@ -4958,28 +5098,35 @@
                                 alt: option.image_alt || 'Imagen cargada'
                             });
                             
+                            console.log('SFQ: Successfully repopulated image preview for option', index);
                         } else {
+                            console.error('SFQ: Could not create image upload section for option', index);
                         }
                     } else {
+                        console.warn('SFQ: Option element not found for index:', index);
                     }
                 } else {
+                    console.log(`SFQ: Option ${index} has no image, skipping`);
                 }
             });
             
             // ✅ NUEVO: Re-vincular eventos después de la repoblación
             this.bindImageChoiceEvents($question, question);
             
+            console.log('SFQ: === FINISHED IMAGE REPOPULATION ===');
         }
         
         /**
          * ✅ NUEVO: Re-renderizar opciones de pregunta si no existen en el DOM
          */
         _reRenderQuestionOptions(questionId, question) {
+            console.log('SFQ: Re-rendering options for question:', questionId);
             
             const $question = $(`#${questionId}`);
             const $optionsContainer = $question.find(`#options-${questionId}`);
             
             if ($optionsContainer.length === 0) {
+                console.error('SFQ: Options container not found for question:', questionId);
                 return;
             }
             
@@ -4995,6 +5142,7 @@
             // Re-vincular eventos
             this.bindOptionEvents(questionId);
             
+            console.log('SFQ: Re-rendered', question.options.length, 'options for question:', questionId);
             
             // ✅ NUEVO: Intentar repoblación nuevamente después de re-renderizar
             setTimeout(() => {
@@ -5006,6 +5154,7 @@
          * ✅ NUEVO: Crear sección de subida de imagen si no existe
          */
         _createImageUploadSection($optionItem, index) {
+            console.log('SFQ: Creating image upload section for option', index);
             
             const imageUploadHtml = `
                 <div class="sfq-image-upload-section">
@@ -5038,6 +5187,7 @@
             // Insertar después del input de texto de la opción
             $optionItem.find('.sfq-option-input').after(imageUploadHtml);
             
+            console.log('SFQ: Created image upload section for option', index);
         }
 
         destroy() {
@@ -5080,6 +5230,7 @@
                 const conditionId = $condition.attr('id');
                 
                 if (!conditionId) {
+                    console.error('SFQ: No condition ID found for deletion');
                     return;
                 }
                 
@@ -5088,17 +5239,21 @@
                 const questionId = $questionContainer.attr('id');
                 
                 if (!questionId) {
+                    console.error('SFQ: No question ID found for condition deletion');
                     return;
                 }
                 
+                console.log('SFQ: Deleting condition', conditionId, 'from question', questionId);
                 self.deleteCondition(conditionId, questionId);
             });
             
+            console.log('SFQ: Event delegation for condition deletion set up');
         }
 
         loadConditions(questionId, conditionsData) {
             if (!conditionsData || !Array.isArray(conditionsData)) return;
             
+            console.log('SFQ: Loading conditions for question', questionId, ':', conditionsData);
             
             this.conditions[questionId] = conditionsData.map((cond, index) => {
                 // ✅ CRÍTICO: Usar campos separados para variable_amount y comparison_value
@@ -5113,10 +5268,12 @@
                     comparisonValue: cond.comparison_value || ''  // Para condiciones de variables
                 };
                 
+                console.log('SFQ: Restored condition with separate fields:', condition);
                 
                 return condition;
             });
             
+            console.log('SFQ: Processed conditions for question', questionId, ':', this.conditions[questionId]);
             
             // Render conditions
             this.renderConditions(questionId);
@@ -5131,11 +5288,13 @@
             const $container = $(`#conditions-${questionId}`);
             if (!$container.length) return;
             
+            console.log('SFQ: Rendering conditions for question', questionId);
             
             // Clear existing conditions (keep add button)
             $container.find('.sfq-condition-item').remove();
             
             const conditions = this.conditions[questionId] || [];
+            console.log('SFQ: Conditions to render:', conditions);
             
             conditions.forEach(condition => {
                 const html = this.formBuilder.uiRenderer.renderCondition(condition);
@@ -5143,6 +5302,7 @@
                 this.bindConditionEvents(condition.id, questionId);
             });
             
+            console.log('SFQ: Rendered', conditions.length, 'conditions for question', questionId);
         }
 
         addCondition(questionId) {
@@ -5161,6 +5321,7 @@
                 comparisonValue: 0  // ✅ CRÍTICO: Inicializar comparisonValue
             };
             
+            console.log('SFQ: Creating new condition with unified ID format:', condition);
             
             if (!this.conditions[questionId]) {
                 this.conditions[questionId] = [];
@@ -5253,6 +5414,7 @@
             $condition.find('.sfq-action-value').off('input change keyup').on('input change keyup', function() {
                 condition.actionValue = $(this).val();
                 self.formBuilder.isDirty = true;
+                console.log('SFQ: Updated action value for condition', condition.id, 'to:', condition.actionValue);
             });
             
             // Handle select events for dropdowns - MEJORADO con más eventos
@@ -5261,6 +5423,7 @@
                 if (newValue !== condition.actionValue) {
                     condition.actionValue = newValue;
                     self.formBuilder.isDirty = true;
+                    console.log('SFQ: Updated dropdown value for condition', condition.id, 'to:', condition.actionValue);
                 }
             });
             
@@ -5268,6 +5431,7 @@
             const $actionValue = $condition.find('.sfq-action-value, .sfq-question-dropdown, .sfq-variable-dropdown');
             if ($actionValue.length > 0 && condition.actionValue) {
                 $actionValue.val(condition.actionValue);
+                console.log('SFQ: Set initial value for condition', condition.id, 'to:', condition.actionValue);
             }
         }
 
@@ -5281,18 +5445,21 @@
             $condition.find('.sfq-condition-value').off('input').on('input', function() {
                 condition.value = $(this).val();
                 self.formBuilder.isDirty = true;
+                console.log('SFQ: Updated condition value for condition', condition.id, 'to:', condition.value);
             });
             
             // Para condiciones de variables (campos compuestos)
             $condition.find('.sfq-condition-variable-name').off('change').on('change', function() {
                 condition.value = $(this).val(); // El nombre de la variable va en 'value'
                 self.formBuilder.isDirty = true;
+                console.log('SFQ: Updated variable name for condition', condition.id, 'to:', condition.value);
             });
             
             // ✅ CRÍTICO: Event binding para el campo de valor de comparación
             $condition.find('.sfq-condition-comparison-value').off('input').on('input', function() {
                 condition.comparisonValue = $(this).val(); // El valor de comparación va en 'comparisonValue'
                 self.formBuilder.isDirty = true;
+                console.log('SFQ: Updated comparison value for condition', condition.id, 'to:', condition.comparisonValue);
             });
         }
 
@@ -5301,12 +5468,14 @@
          * CRÍTICO: Re-poblar dropdowns de condiciones después de cargar
          */
         repopulateConditionDropdowns(questionId) {
+            console.log('SFQ: Re-populating condition dropdowns for question', questionId);
             
             const conditions = this.conditions[questionId] || [];
             
             conditions.forEach(condition => {
                 const $conditionElement = $(`#${condition.id}`);
                 if ($conditionElement.length === 0) {
+                    console.warn('SFQ: Condition element not found:', condition.id);
                     return;
                 }
                 
@@ -5318,6 +5487,7 @@
                     // Re-bind events para el nuevo dropdown
                     this.bindActionValueEvents($conditionElement, condition);
                     
+                    console.log('SFQ: Re-populated question dropdown for condition', condition.id, 'with value', condition.actionValue);
                 } else if (condition.action === 'add_variable' || condition.action === 'set_variable') {
                     const newVariableField = this.formBuilder.uiRenderer.generateVariableField(condition.actionValue);
                     $conditionElement.find('.sfq-action-value-container').html(newVariableField);
@@ -5325,22 +5495,30 @@
                     // Re-bind events para el nuevo campo
                     this.bindActionValueEvents($conditionElement, condition);
                     
+                    console.log('SFQ: Re-populated variable field for condition', condition.id, 'with value', condition.actionValue);
                 }
             });
             
+            console.log('SFQ: Finished re-populating dropdowns for question', questionId);
         }
 
         /**
          * Eliminar una condición específica - MEJORADO CON LOGGING DETALLADO
          */
         deleteCondition(conditionId, questionId) {
+            console.log('🗑️ SFQ: === STARTING CONDITION DELETION ===');
+            console.log('🗑️ SFQ: Condition ID to delete:', conditionId);
+            console.log('🗑️ SFQ: Question ID:', questionId);
             
             // Verificar que existe el array de condiciones para esta pregunta
             if (!this.conditions[questionId]) {
+                console.error('❌ SFQ: No conditions array found for question', questionId);
+                console.log('🔍 SFQ: Available question IDs:', Object.keys(this.conditions));
                 return;
             }
             
             const conditions = this.conditions[questionId];
+            console.log('📋 SFQ: Current conditions array before deletion:');
             console.table(conditions.map((c, index) => ({
                 index: index,
                 id: c.id,
@@ -5352,43 +5530,68 @@
             const conditionIndex = conditions.findIndex(c => c.id === conditionId);
             
             if (conditionIndex === -1) {
+                console.error('❌ SFQ: Condition not found for deletion:', conditionId);
+                console.log('🔍 SFQ: Available condition IDs:', conditions.map(c => c.id));
+                console.log('🔍 SFQ: Searching for exact matches...');
                 conditions.forEach((c, index) => {
+                    console.log(`   Index ${index}: "${c.id}" === "${conditionId}" ? ${c.id === conditionId}`);
                 });
                 return;
             }
             
+            console.log('✅ SFQ: Found condition at index', conditionIndex);
             
             // Mostrar el estado antes de la eliminación
+            console.log('📊 SFQ: Array state before splice:');
+            console.log('   - Array length:', conditions.length);
+            console.log('   - Condition to remove:', conditions[conditionIndex]);
             
             // Eliminar la condición del array
             const removedCondition = conditions.splice(conditionIndex, 1)[0];
+            console.log('✂️ SFQ: Spliced condition:', removedCondition);
             
             // Mostrar el estado después de la eliminación
+            console.log('📊 SFQ: Array state after splice:');
+            console.log('   - New array length:', conditions.length);
+            console.log('   - Remaining conditions:', conditions.map(c => c.id));
             
             // Actualizar el array de condiciones
             this.conditions[questionId] = conditions;
+            console.log('💾 SFQ: Updated conditions array in this.conditions[' + questionId + ']');
             
             // Verificar que la actualización fue exitosa
             const verifyArray = this.conditions[questionId];
+            console.log('🔍 SFQ: Verification - conditions array now contains:', verifyArray.map(c => c.id));
             
             // Eliminar el elemento del DOM
             const $condition = $(`#${conditionId}`);
             if ($condition.length === 0) {
+                console.error('❌ SFQ: DOM element not found for condition', conditionId);
             } else {
+                console.log('🎭 SFQ: Removing DOM element for condition', conditionId);
                 $condition.fadeOut(300, function() {
                     $(this).remove();
+                    console.log('✅ SFQ: DOM element removed for condition', conditionId);
                 });
             }
             
             // Marcar el formulario como modificado
             this.formBuilder.isDirty = true;
+            console.log('💾 SFQ: Marked form as dirty');
             
+            console.log('🎉 SFQ: === CONDITION DELETION COMPLETED ===');
+            console.log('📈 SFQ: Final summary:');
+            console.log('   - Deleted condition ID:', conditionId);
+            console.log('   - From question:', questionId);
+            console.log('   - Remaining conditions:', this.conditions[questionId].length);
+            console.log('   - Remaining IDs:', this.conditions[questionId].map(c => c.id));
         }
 
         getConditionsData(questionId) {
             const conditions = this.conditions[questionId] || [];
             
             // Debug: Mostrar las condiciones que se van a guardar
+            console.log('SFQ: Getting conditions data for question ' + questionId + ':', conditions);
             
             const conditionsData = conditions.map(cond => {
                 // ✅ CRÍTICO: Normalizar comparison_value según el contexto
@@ -5413,9 +5616,11 @@
                     comparison_value: normalizedComparisonValue  // Normalizado según contexto
                 };
                 
+                console.log('SFQ: Mapped condition with normalized comparison_value:', conditionData);
                 return conditionData;
             });
             
+            console.log('SFQ: Final mapped conditions data for question ' + questionId + ':', conditionsData);
             
             return conditionsData;
         }
@@ -6007,12 +6212,14 @@
                     // que mapea al ID real de esta pregunta
                     else if (question.originalId && selectedValue == question.id) {
                         isSelected = true;
+                        console.log('SFQ: Mapped temporal ID', selectedValue, 'to real ID', question.originalId);
                     }
                     // También verificar el mapeo inverso usando el idMapping del QuestionManager
                     else if (this.formBuilder.questionManager.idMapping.has(selectedValue)) {
                         const mappedId = this.formBuilder.questionManager.idMapping.get(selectedValue);
                         if (mappedId == questionId) {
                             isSelected = true;
+                            console.log('SFQ: Used ID mapping', selectedValue, '->', mappedId);
                         }
                     }
                 }
@@ -6089,6 +6296,9 @@
             const variableName = condition.value || '';
             const comparisonValue = condition.comparisonValue || '';
             
+            console.log('SFQ: Generating variable condition fields for condition:', condition.id);
+            console.log('SFQ: Variable name:', variableName);
+            console.log('SFQ: Comparison value:', comparisonValue);
             
             if (variables.length === 0) {
                 return `<div class="sfq-variable-condition-fields">

@@ -6,14 +6,18 @@
     'use strict';
 
     // Debugging inicial
+    console.log('SFQ Webhooks JS loaded');
+    console.log('sfq_webhook_ajax object:', typeof sfq_webhook_ajax !== 'undefined' ? sfq_webhook_ajax : 'NOT DEFINED');
 
     // Verificar que jQuery está disponible
     if (typeof $ === 'undefined') {
+        console.error('jQuery no está disponible');
         return;
     }
 
     // Verificar que el objeto AJAX está disponible
     if (typeof sfq_webhook_ajax === 'undefined') {
+        console.error('sfq_webhook_ajax no está definido - el script no se localizó correctamente');
         return;
     }
 
@@ -21,12 +25,14 @@
     const SFQWebhooks = {
         
         init: function() {
+            console.log('SFQWebhooks.init() called');
             this.bindEvents();
             this.loadWebhooks();
             this.initSecuritySettings();
         },
 
         bindEvents: function() {
+            console.log('bindEvents() called');
             
             // ✅ CRÍTICO: Desregistrar eventos anteriores para evitar duplicados
             $(document).off('.sfq-webhooks');
@@ -36,6 +42,7 @@
             
             // Botón para guardar webhook
             $(document).on('click.sfq-webhooks', '#sfq-save-webhook', this.saveWebhook);
+            console.log('Event handler for #sfq-save-webhook registered');
             
             // Botón para cancelar
             $(document).on('click.sfq-webhooks', '#sfq-cancel-webhook', this.hideWebhookForm);
@@ -133,21 +140,28 @@
 
         saveWebhook: function(e) {
             e.preventDefault();
+            console.log('saveWebhook function called');
             
             const $button = $(this);
             const $form = $('#sfq-webhook-form');
             
+            console.log('Button:', $button);
+            console.log('Form:', $form);
+            console.log('Form length:', $form.length);
             
             // ✅ CRÍTICO: Prevenir múltiples clics
             if ($button.prop('disabled') || $button.hasClass('saving')) {
+                console.log('Button already disabled or saving, preventing duplicate request');
                 return;
             }
             
             // Validar formulario
             if (!SFQWebhooks.validateWebhookForm($form)) {
+                console.log('Form validation failed');
                 return;
             }
             
+            console.log('Form validation passed, proceeding with save');
             
             // ✅ CRÍTICO: Marcar como guardando para prevenir duplicados
             $button.addClass('saving').prop('disabled', true).text(sfq_webhook_ajax.strings.saving || 'Guardando...');
@@ -204,6 +218,7 @@
                     }
                 },
                 error: function(xhr, status, error) {
+                    console.error('Error AJAX:', xhr.responseText);
                     SFQWebhooks.showNotice('error', 'Error de conexión: ' + error);
                 },
                 complete: function() {
@@ -216,6 +231,7 @@
             e.preventDefault();
             
             const webhookId = $(this).data('webhook-id');
+            console.log('Editing webhook ID:', webhookId);
             
             // Cargar datos del webhook
             $.ajax({
@@ -227,7 +243,9 @@
                     nonce: sfq_webhook_ajax.nonce
                 },
                 success: function(response) {
+                    console.log('Get webhook response:', response);
                     if (response.success) {
+                        console.log('Webhook data received:', response.data.webhook);
                         
                         // ✅ CRÍTICO: Mostrar modal ANTES de poblar datos
                         $('#sfq-webhook-modal').show();
@@ -243,6 +261,7 @@
                     }
                 },
                 error: function(xhr, status, error) {
+                    console.error('Error loading webhook:', xhr.responseText);
                     SFQWebhooks.showNotice('error', 'Error de conexión: ' + error);
                 }
             });
@@ -460,6 +479,7 @@
         },
 
         populateWebhookForm: function(webhook) {
+            console.log('populateWebhookForm called with:', webhook);
             
             // ✅ CRÍTICO: Limpiar errores anteriores
             $('.field-error').remove();
@@ -475,6 +495,9 @@
             $('#webhook-retry-delay').val(webhook.retry_delay || 300);
             $('#webhook-verify-ssl').prop('checked', webhook.verify_ssl == 1 || webhook.verify_ssl === true);
             
+            console.log('Basic fields populated');
+            console.log('Auth type:', webhook.auth_type);
+            console.log('Auth data:', webhook.auth_data);
             
             // ✅ CRÍTICO: Manejar tipo de autenticación
             const authType = webhook.auth_type || 'none';
@@ -487,18 +510,22 @@
                 // Poblar datos de autenticación después de mostrar campos
                 setTimeout(function() {
                     if (webhook.auth_data && typeof webhook.auth_data === 'object') {
+                        console.log('Populating auth data for type:', authType);
                         
                         switch (authType) {
                             case 'bearer':
                                 $('#bearer-token').val(webhook.auth_data.token || '');
+                                console.log('Bearer token set:', webhook.auth_data.token);
                                 break;
                             case 'basic':
                                 $('#basic-username').val(webhook.auth_data.username || '');
                                 $('#basic-password').val(webhook.auth_data.password || '');
+                                console.log('Basic auth set:', webhook.auth_data.username);
                                 break;
                             case 'api_key':
                                 $('#api-key-name').val(webhook.auth_data.key || '');
                                 $('#api-key-value').val(webhook.auth_data.value || '');
+                                console.log('API key set:', webhook.auth_data.key);
                                 break;
                         }
                     }
@@ -510,43 +537,57 @@
             $('input[name="form_ids[]"]').prop('checked', false);
             
             if (webhook.form_filters && webhook.form_filters.form_ids && Array.isArray(webhook.form_filters.form_ids)) {
+                console.log('Form filters found:', webhook.form_filters.form_ids);
                 webhook.form_filters.form_ids.forEach(function(formId) {
                     const $checkbox = $('input[name="form_ids[]"][value="' + formId + '"]');
                     if ($checkbox.length) {
                         $checkbox.prop('checked', true);
+                        console.log('Checked form ID:', formId);
                     } else {
+                        console.log('Form ID checkbox not found:', formId);
                     }
                 });
             } else {
+                console.log('No form filters or invalid format');
             }
             
             // ✅ CRÍTICO: Poblar headers personalizados
+            console.log('Headers data:', webhook.headers);
             SFQWebhooks.populateCustomHeaders(webhook.headers || '');
             
+            console.log('populateWebhookForm completed');
         },
 
         validateWebhookForm: function($form) {
+            console.log('validateWebhookForm called');
             let isValid = true;
             
             // Validar nombre
             const name = $('#webhook-name').val().trim();
+            console.log('Validating name:', name);
             if (!name) {
+                console.log('Name validation failed: empty');
                 SFQWebhooks.showFieldError('#webhook-name', 'El nombre es requerido');
                 isValid = false;
             } else if (name.length > 255) {
+                console.log('Name validation failed: too long');
                 SFQWebhooks.showFieldError('#webhook-name', 'El nombre no puede exceder 255 caracteres');
                 isValid = false;
             }
             
             // Validar URL
             const url = $('#webhook-url').val().trim();
+            console.log('Validating URL:', url);
             if (!url) {
+                console.log('URL validation failed: empty');
                 SFQWebhooks.showFieldError('#webhook-url', 'La URL es requerida');
                 isValid = false;
             } else if (!SFQWebhooks.isValidUrl(url)) {
+                console.log('URL validation failed: invalid format');
                 SFQWebhooks.showFieldError('#webhook-url', 'La URL no es válida');
                 isValid = false;
             } else if (SFQWebhooks.isDangerousUrl(url)) {
+                console.log('URL validation failed: dangerous URL');
                 SFQWebhooks.showFieldError('#webhook-url', 'URL potencialmente peligrosa detectada');
                 isValid = false;
             }
@@ -600,6 +641,7 @@
                 }
             }
             
+            console.log('Final validation result:', isValid);
             return isValid;
         },
 
@@ -682,6 +724,8 @@
                 const parsedUrl = new URL(url);
                 const hostname = parsedUrl.hostname.toLowerCase();
                 
+                console.log('Checking URL safety for:', url);
+                console.log('Hostname:', hostname);
                 
                 // Solo bloquear localhost y IPs privadas básicas
                 // Las URLs públicas como n8nhook.mimandanga.com son válidas
@@ -693,33 +737,40 @@
                 ];
                 
                 if (dangerousHosts.includes(hostname)) {
+                    console.log('Blocked: localhost/loopback address');
                     return true;
                 }
                 
                 // Solo bloquear IPs privadas reales, no dominios públicos
                 // Clase A: 10.0.0.0/8
                 if (hostname.match(/^10\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/)) {
+                    console.log('Blocked: Private IP range 10.x.x.x');
                     return true;
                 }
                 
                 // Clase B: 172.16.0.0/12
                 if (hostname.match(/^172\.(1[6-9]|2[0-9]|3[01])\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/)) {
+                    console.log('Blocked: Private IP range 172.16-31.x.x');
                     return true;
                 }
                 
                 // Clase C: 192.168.0.0/16
                 if (hostname.match(/^192\.168\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/)) {
+                    console.log('Blocked: Private IP range 192.168.x.x');
                     return true;
                 }
                 
                 // Bloquear esquemas peligrosos
                 const dangerousSchemes = ['file', 'ftp', 'gopher', 'ldap', 'dict'];
                 if (dangerousSchemes.includes(parsedUrl.protocol.replace(':', ''))) {
+                    console.log('Blocked: Dangerous protocol scheme');
                     return true;
                 }
                 
+                console.log('URL is safe');
                 return false;
             } catch (e) {
+                console.log('URL parsing failed:', e);
                 return true; // Si no se puede parsear, considerarlo peligroso
             }
         },
@@ -746,6 +797,7 @@
         },
 
         showNotice: function(type, message) {
+            console.log('showNotice called with:', type, message);
             
             // Remover notices anteriores
             $('.sfq-notice').remove();
@@ -764,6 +816,7 @@
             const dismissButton = $('<button type="button" class="notice-dismiss"><span class="screen-reader-text">Descartar este aviso.</span></button>');
             notice.append(dismissButton);
             
+            console.log('Notice HTML:', notice[0].outerHTML);
             
             // Insertar después del título
             const $target = $('.wrap h1').first();
@@ -807,6 +860,7 @@
             e.preventDefault();
             
             const webhookId = $(this).data('webhook-id');
+            console.log('Viewing logs for webhook ID:', webhookId);
             
             // Guardar el ID del webhook actual para otras funciones
             SFQWebhooks.currentWebhookId = webhookId;
@@ -836,6 +890,7 @@
                     nonce: sfq_webhook_ajax.nonce
                 },
                 success: function(response) {
+                    console.log('Logs response:', response);
                     if (response.success) {
                         SFQWebhooks.renderWebhookLogs(response.data.logs);
                     } else {
@@ -843,6 +898,7 @@
                     }
                 },
                 error: function(xhr, status, error) {
+                    console.error('Error loading logs:', xhr.responseText);
                     $logsContainer.html('<div class="sfq-no-logs">Error de conexión al cargar logs</div>');
                 },
                 complete: function() {
@@ -939,24 +995,38 @@
             e.preventDefault();
             e.stopPropagation();
             
+            console.log('toggleLogDetails called - DEBUGGING');
+            console.log('Event:', e);
+            console.log('Target:', e.target);
+            console.log('CurrentTarget:', e.currentTarget);
             
             const $header = $(e.currentTarget);
             const $details = $header.next('.sfq-log-details');
             const $toggle = $header.find('.sfq-log-toggle');
             
+            console.log('Header:', $header);
+            console.log('Details:', $details);
+            console.log('Details length:', $details.length);
+            console.log('Toggle:', $toggle);
+            console.log('Has expanded class:', $details.hasClass('expanded'));
             
             if ($details.length === 0) {
+                console.error('No details element found!');
                 return;
             }
             
             if ($details.hasClass('expanded')) {
+                console.log('Collapsing...');
                 $details.removeClass('expanded').hide();
                 $toggle.text('▼');
             } else {
+                console.log('Expanding...');
                 $details.addClass('expanded').show();
                 $toggle.text('▲');
             }
             
+            console.log('After toggle - has expanded:', $details.hasClass('expanded'));
+            console.log('After toggle - is visible:', $details.is(':visible'));
         },
 
         refreshLogs: function(e) {
@@ -1201,6 +1271,7 @@
             const jsonString = hasHeaders ? JSON.stringify(headers, null, 2) : '';
             $('#custom-headers-json').val(jsonString);
             
+            console.log('Headers synced to JSON:', jsonString);
         },
 
         syncJSONToHeaders: function() {
@@ -1235,13 +1306,16 @@
                         }
                     });
                     
+                    console.log('Headers synced from JSON:', headers);
                 }
             } catch (e) {
+                console.log('Invalid JSON in headers field:', e);
                 // No hacer nada si el JSON es inválido, dejar que el usuario lo corrija
             }
         },
 
         populateCustomHeaders: function(headersString) {
+            console.log('populateCustomHeaders called with:', headersString);
             
             // Limpiar headers existentes
             $('#sfq-custom-headers-list').empty();
@@ -1274,8 +1348,10 @@
                         }
                     });
                     
+                    console.log('Custom headers populated:', headers);
                 }
             } catch (e) {
+                console.log('Error parsing headers JSON:', e);
                 // Si no es JSON válido, mostrar como texto plano en el textarea
                 $('#custom-headers-json').val(headersString);
             }
@@ -1290,6 +1366,7 @@
                     JSON.parse(jsonString); // Validar que es JSON válido
                     return jsonString;
                 } catch (e) {
+                    console.log('Invalid JSON in textarea, building from individual fields');
                 }
             }
             
