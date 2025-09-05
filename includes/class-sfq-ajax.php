@@ -1194,6 +1194,43 @@ class SFQ_Ajax {
     }
     
     /**
+     * ✅ NUEVO: Función helper para verificar si un formulario está completado usando identificación robusta
+     */
+    private function is_form_completed($form_id) {
+        global $wpdb;
+        
+        $user_ip = $this->get_user_ip();
+        $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $user_id = get_current_user_id();
+        
+        // Construir consulta según si el usuario está logueado o no
+        if ($user_id > 0) {
+            // Para usuarios logueados, usar user_id
+            $completed_submission = $wpdb->get_row($wpdb->prepare(
+                "SELECT id, completed_at FROM {$wpdb->prefix}sfq_submissions 
+                WHERE form_id = %d AND user_id = %d AND status = 'completed'
+                ORDER BY completed_at DESC
+                LIMIT 1",
+                $form_id,
+                $user_id
+            ));
+        } else {
+            // Para usuarios anónimos, usar user_ip + user_agent
+            $completed_submission = $wpdb->get_row($wpdb->prepare(
+                "SELECT id, completed_at FROM {$wpdb->prefix}sfq_submissions 
+                WHERE form_id = %d AND user_id IS NULL AND user_ip = %s AND user_agent = %s AND status = 'completed'
+                ORDER BY completed_at DESC
+                LIMIT 1",
+                $form_id,
+                $user_ip,
+                $user_agent
+            ));
+        }
+        
+        return $completed_submission;
+    }
+    
+    /**
      * Guardar formulario (Admin AJAX) - Optimizado
      */
     public function save_form() {
@@ -3004,15 +3041,34 @@ class SFQ_Ajax {
         
         global $wpdb;
         
-        // ✅ CRÍTICO: Verificar si ya existe un submission completado para esta sesión
-        $completed_submission = $wpdb->get_row($wpdb->prepare(
-            "SELECT id, completed_at FROM {$wpdb->prefix}sfq_submissions 
-            WHERE form_id = %d AND session_id = %s AND status = 'completed'
-            ORDER BY completed_at DESC
-            LIMIT 1",
-            $form_id,
-            $session_id
-        ));
+        // ✅ CORREGIDO: Verificar si ya existe un submission completado usando user_ip + user_agent
+        $user_ip = $this->get_user_ip();
+        $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $user_id = get_current_user_id();
+        
+        // Construir consulta según si el usuario está logueado o no
+        if ($user_id > 0) {
+            // Para usuarios logueados, usar user_id
+            $completed_submission = $wpdb->get_row($wpdb->prepare(
+                "SELECT id, completed_at FROM {$wpdb->prefix}sfq_submissions 
+                WHERE form_id = %d AND user_id = %d AND status = 'completed'
+                ORDER BY completed_at DESC
+                LIMIT 1",
+                $form_id,
+                $user_id
+            ));
+        } else {
+            // Para usuarios anónimos, usar user_ip + user_agent
+            $completed_submission = $wpdb->get_row($wpdb->prepare(
+                "SELECT id, completed_at FROM {$wpdb->prefix}sfq_submissions 
+                WHERE form_id = %d AND user_id IS NULL AND user_ip = %s AND user_agent = %s AND status = 'completed'
+                ORDER BY completed_at DESC
+                LIMIT 1",
+                $form_id,
+                $user_ip,
+                $user_agent
+            ));
+        }
         
         if ($completed_submission) {
             // ✅ NUEVO: Si ya hay un submission completado, no guardar parcial y limpiar existente
@@ -3145,17 +3201,38 @@ class SFQ_Ajax {
         global $wpdb;
         
         try {
-            // ✅ CRÍTICO: Primero verificar si ya existe un submission completado para esta sesión
+            // ✅ CORREGIDO: Verificar si ya existe un submission completado usando user_ip + user_agent
             error_log("SFQ Backend Debug: Checking completion for form_id={$form_id}, session_id={$session_id}");
             
-            $completed_submission = $wpdb->get_row($wpdb->prepare(
-                "SELECT id, completed_at, session_id FROM {$wpdb->prefix}sfq_submissions 
-                WHERE form_id = %d AND session_id = %s AND status = 'completed'
-                ORDER BY completed_at DESC
-                LIMIT 1",
-                $form_id,
-                $session_id
-            ));
+            $user_ip = $this->get_user_ip();
+            $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+            $user_id = get_current_user_id();
+            
+            error_log("SFQ Backend Debug: Using identification - user_id={$user_id}, user_ip={$user_ip}");
+            
+            // Construir consulta según si el usuario está logueado o no
+            if ($user_id > 0) {
+                // Para usuarios logueados, usar user_id
+                $completed_submission = $wpdb->get_row($wpdb->prepare(
+                    "SELECT id, completed_at FROM {$wpdb->prefix}sfq_submissions 
+                    WHERE form_id = %d AND user_id = %d AND status = 'completed'
+                    ORDER BY completed_at DESC
+                    LIMIT 1",
+                    $form_id,
+                    $user_id
+                ));
+            } else {
+                // Para usuarios anónimos, usar user_ip + user_agent
+                $completed_submission = $wpdb->get_row($wpdb->prepare(
+                    "SELECT id, completed_at FROM {$wpdb->prefix}sfq_submissions 
+                    WHERE form_id = %d AND user_id IS NULL AND user_ip = %s AND user_agent = %s AND status = 'completed'
+                    ORDER BY completed_at DESC
+                    LIMIT 1",
+                    $form_id,
+                    $user_ip,
+                    $user_agent
+                ));
+            }
             
             error_log("SFQ Backend Debug: Completed submission query result: " . ($completed_submission ? json_encode($completed_submission) : 'NULL'));
             
@@ -4017,98 +4094,68 @@ class SFQ_Ajax {
             error_log("SFQ Button Click: Form ID {$form_id}, Session {$session_id}");
             error_log("SFQ Button Click: Has Completed Submission: " . ($has_submission ? "YES (ID: {$submission_id})" : 'NO'));
             
-            // ✅ NUEVO: Solo proceder si existe submission completado
-            if (!$has_submission) {
-                error_log("SFQ Button Click: No completed submission found, not saving to responses");
+            // ✅ CORREGIDO: Guardar todos los clics como button_click_immediate
+            // independientemente de si existe submission o no
+            error_log("SFQ Button Click: Processing click - Has Submission: " . ($has_submission ? "YES (ID: {$submission_id})" : 'NO'));
+            
+            $response_id = null;
+            
+            // Solo guardar en sfq_responses si existe un submission completado
+            if ($has_submission) {
+                error_log("SFQ Button Click: Processing with completed submission {$submission_id}");
                 
-                // Guardar solo en analytics para tracking
-                $event_data = array(
-                    'question_id' => $question_id,
-                    'element_id' => $element_id,
-                    'button_text' => $button_text,
-                    'button_url' => $button_url,
-                    'click_timestamp' => $click_timestamp,
-                    'reason' => 'no_completed_submission'
-                );
-                
-                $wpdb->insert(
-                    $wpdb->prefix . 'sfq_analytics',
-                    array(
-                        'form_id' => $form_id,
-                        'event_type' => 'button_click_no_submission',
-                        'event_data' => json_encode($event_data, JSON_UNESCAPED_UNICODE),
-                        'user_ip' => $this->get_user_ip(),
-                        'session_id' => $session_id,
-                        'created_at' => current_time('mysql')
-                    ),
-                    array('%d', '%s', '%s', '%s', '%s', '%s')
-                );
-                
-                wp_send_json_success(array(
-                    'message' => __('Clic registrado en analytics (sin submission)', 'smart-forms-quiz'),
-                    'saved_to_responses' => false,
-                    'reason' => 'no_completed_submission'
+                // Verificar si ya existe una respuesta para esta pregunta
+                $existing_response = $wpdb->get_row($wpdb->prepare(
+                    "SELECT id, answer FROM {$wpdb->prefix}sfq_responses 
+                    WHERE submission_id = %d AND question_id = %d",
+                    $submission_id,
+                    $question_id
                 ));
-                return;
+                
+                if ($existing_response) {
+                    // Actualizar respuesta existente
+                    error_log("SFQ Button Click: Updating existing response {$existing_response->id}");
+                    
+                    $existing_data = json_decode($existing_response->answer, true) ?: array();
+                    $existing_data[$element_id] = 'clicked';
+                    
+                    $update_result = $wpdb->update(
+                        $wpdb->prefix . 'sfq_responses',
+                        array(
+                            'answer' => json_encode($existing_data, JSON_UNESCAPED_UNICODE),
+                            'score' => 0
+                        ),
+                        array('id' => $existing_response->id),
+                        array('%s', '%d'),
+                        array('%d')
+                    );
+                    
+                    $response_id = ($update_result !== false) ? $existing_response->id : null;
+                    
+                } else {
+                    // Crear nueva respuesta
+                    error_log("SFQ Button Click: Creating new response");
+                    
+                    $response_data_json = array(
+                        $element_id => 'clicked'
+                    );
+                    
+                    $response_result = $wpdb->insert(
+                        $wpdb->prefix . 'sfq_responses',
+                        array(
+                            'submission_id' => $submission_id,
+                            'question_id' => $question_id,
+                            'answer' => json_encode($response_data_json, JSON_UNESCAPED_UNICODE),
+                            'score' => 0
+                        ),
+                        array('%d', '%d', '%s', '%d')
+                    );
+                    
+                    $response_id = ($response_result !== false) ? $wpdb->insert_id : null;
+                }
             }
             
-            // ✅ NUEVO: Procesar con submission existente usando formato del flujo normal
-            error_log("SFQ Button Click: Processing with completed submission {$submission_id}");
-            
-            // ✅ NUEVO: Verificar si ya existe una respuesta para esta pregunta
-            $existing_response = $wpdb->get_row($wpdb->prepare(
-                "SELECT id, answer FROM {$wpdb->prefix}sfq_responses 
-                WHERE submission_id = %d AND question_id = %d",
-                $submission_id,
-                $question_id
-            ));
-            
-            if ($existing_response) {
-                // ✅ NUEVO: Actualizar respuesta existente usando formato del flujo normal
-                error_log("SFQ Button Click: Updating existing response {$existing_response->id}");
-                
-                $existing_data = json_decode($existing_response->answer, true) ?: array();
-                
-                // ✅ CRÍTICO: Usar mismo formato que flujo normal: {"element_id": "clicked"}
-                $existing_data[$element_id] = 'clicked';
-                
-                $update_result = $wpdb->update(
-                    $wpdb->prefix . 'sfq_responses',
-                    array(
-                        'answer' => json_encode($existing_data, JSON_UNESCAPED_UNICODE),
-                        'score' => 0
-                    ),
-                    array('id' => $existing_response->id),
-                    array('%s', '%d'),
-                    array('%d')
-                );
-                
-                $response_id = ($update_result !== false) ? $existing_response->id : null;
-                
-            } else {
-                // ✅ NUEVO: Crear nueva respuesta usando formato del flujo normal
-                error_log("SFQ Button Click: Creating new response");
-                
-                // ✅ CRÍTICO: Usar mismo formato que flujo normal: {"element_id": "clicked"}
-                $response_data_json = array(
-                    $element_id => 'clicked'
-                );
-                
-                $response_result = $wpdb->insert(
-                    $wpdb->prefix . 'sfq_responses',
-                    array(
-                        'submission_id' => $submission_id,
-                        'question_id' => $question_id,
-                        'answer' => json_encode($response_data_json, JSON_UNESCAPED_UNICODE),
-                        'score' => 0
-                    ),
-                    array('%d', '%d', '%s', '%d')
-                );
-                
-                $response_id = ($response_result !== false) ? $wpdb->insert_id : null;
-            }
-            
-            // Guardar también en analytics para tracking completo
+            // ✅ CORREGIDO: Guardar TODOS los clics como button_click_immediate en analytics
             $event_data = array(
                 'question_id' => $question_id,
                 'element_id' => $element_id,
@@ -4117,14 +4164,15 @@ class SFQ_Ajax {
                 'click_timestamp' => $click_timestamp,
                 'submission_id' => $submission_id,
                 'response_id' => $response_id,
-                'saved_to_responses' => !empty($response_id)
+                'saved_to_responses' => !empty($response_id),
+                'has_submission' => $has_submission
             );
             
             $analytics_result = $wpdb->insert(
                 $wpdb->prefix . 'sfq_analytics',
                 array(
                     'form_id' => $form_id,
-                    'event_type' => 'button_click_immediate',
+                    'event_type' => 'button_click_immediate', // ✅ SIEMPRE usar button_click_immediate
                     'event_data' => json_encode($event_data, JSON_UNESCAPED_UNICODE),
                     'user_ip' => $this->get_user_ip(),
                     'session_id' => $session_id,
@@ -4136,7 +4184,9 @@ class SFQ_Ajax {
             $analytics_id = ($analytics_result !== false) ? $wpdb->insert_id : null;
             
             wp_send_json_success(array(
-                'message' => __('Clic guardado correctamente en responses', 'smart-forms-quiz'),
+                'message' => $has_submission 
+                    ? __('Clic guardado en responses y analytics', 'smart-forms-quiz')
+                    : __('Clic guardado en analytics', 'smart-forms-quiz'),
                 'form_id' => $form_id,
                 'question_id' => $question_id,
                 'element_id' => $element_id,
@@ -4144,7 +4194,8 @@ class SFQ_Ajax {
                 'response_id' => $response_id,
                 'analytics_id' => $analytics_id,
                 'saved_to_responses' => !empty($response_id),
-                'format_used' => 'normal_flow_format',
+                'has_submission' => $has_submission,
+                'event_type' => 'button_click_immediate',
                 'timestamp' => current_time('timestamp')
             ));
             

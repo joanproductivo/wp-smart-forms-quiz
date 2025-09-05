@@ -310,8 +310,8 @@ class SFQ_Frontend {
                         <div id="sfq-dynamic-questions-container"></div>
                     <?php endif; ?>
                     
-                    <!-- ✅ MODO SEGURO: Pantallas finales ocultas (se cargarán dinámicamente si es necesario) -->
-                    <div id="sfq-dynamic-final-screens-container" style="display: none;"></div>
+                    <!-- ✅ MODO SEGURO: NO renderizar pantallas finales inicialmente -->
+                    <!-- Las pantallas finales se cargarán dinámicamente solo cuando sea necesario -->
                     
                 <?php else : ?>
                     <!-- ✅ MODO NORMAL: Renderizar todas las preguntas como antes -->
@@ -413,46 +413,48 @@ class SFQ_Frontend {
                 
                 <?php endif; ?>
                 
-                <?php // ✅ CRÍTICO: Renderizar pantallas finales por separado (OCULTAS por defecto) ?>
-                <?php foreach ($final_screen_questions as $question) : ?>
-                    <?php 
-                    // Obtener configuración de mostrar botón siguiente (siempre false para pantallas finales)
-                    $question_settings = $question->settings ?? array();
-                    $show_next_button = false; // Las pantallas finales NUNCA muestran botón siguiente
-                    $next_button_text = isset($question_settings['next_button_text']) ? $question_settings['next_button_text'] : '';
-                    ?>
-                    <div class="sfq-screen sfq-question-screen sfq-final-screen-hidden" 
-                         data-question-id="<?php echo $question->id; ?>"
-                         data-question-index="<?php echo count($normal_questions) + array_search($question, $final_screen_questions); ?>"
-                         data-question-type="<?php echo esc_attr($question->question_type); ?>"
-                         data-show-next-button="false"
-                         data-next-button-text="<?php echo esc_attr($next_button_text); ?>"
-                         data-pantalla-final="true">
-                        
-                        <div class="sfq-question-content">
-                            <!-- Texto de la pregunta -->
-                            <?php 
-                            $question_settings = $question->settings ?? array();
-                            $hide_title = isset($question_settings['hide_title']) && $question_settings['hide_title'];
-                            ?>
-                            <?php if (!$hide_title) : ?>
-                                <h3 class="sfq-question-text">
-                                    <?php echo esc_html($question->question_text); ?>
-                                    <?php if ($question->required) : ?>
-                                        <span class="sfq-required">*</span>
-                                    <?php endif; ?>
-                                </h3>
-                            <?php endif; ?>
+                <?php // ✅ CRÍTICO: Solo renderizar pantallas finales en modo normal ?>
+                <?php if (!$secure_loading) : ?>
+                    <?php foreach ($final_screen_questions as $question) : ?>
+                        <?php 
+                        // Obtener configuración de mostrar botón siguiente (siempre false para pantallas finales)
+                        $question_settings = $question->settings ?? array();
+                        $show_next_button = false; // Las pantallas finales NUNCA muestran botón siguiente
+                        $next_button_text = isset($question_settings['next_button_text']) ? $question_settings['next_button_text'] : '';
+                        ?>
+                        <div class="sfq-screen sfq-question-screen sfq-final-screen-hidden" 
+                             data-question-id="<?php echo $question->id; ?>"
+                             data-question-index="<?php echo count($normal_questions) + array_search($question, $final_screen_questions); ?>"
+                             data-question-type="<?php echo esc_attr($question->question_type); ?>"
+                             data-show-next-button="false"
+                             data-next-button-text="<?php echo esc_attr($next_button_text); ?>"
+                             data-pantalla-final="true">
                             
-                            <!-- Renderizar según el tipo de pregunta -->
-                            <div class="sfq-answer-container">
-                                <?php $this->render_question_type($question); ?>
+                            <div class="sfq-question-content">
+                                <!-- Texto de la pregunta -->
+                                <?php 
+                                $question_settings = $question->settings ?? array();
+                                $hide_title = isset($question_settings['hide_title']) && $question_settings['hide_title'];
+                                ?>
+                                <?php if (!$hide_title) : ?>
+                                    <h3 class="sfq-question-text">
+                                        <?php echo esc_html($question->question_text); ?>
+                                        <?php if ($question->required) : ?>
+                                            <span class="sfq-required">*</span>
+                                        <?php endif; ?>
+                                    </h3>
+                                <?php endif; ?>
+                                
+                                <!-- Renderizar según el tipo de pregunta -->
+                                <div class="sfq-answer-container">
+                                    <?php $this->render_question_type($question); ?>
+                                </div>
+                                
+                                <!-- Las pantallas finales NO tienen botones de navegación -->
                             </div>
-                            
-                            <!-- Las pantallas finales NO tienen botones de navegación -->
                         </div>
-                    </div>
-                <?php endforeach; ?>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             <?php endif; ?>
             
             <!-- Pantalla de agradecimiento -->

@@ -18,6 +18,7 @@
 
         init() {
             this.bindEvents();
+            this.loadStatistics();
             this.loadVisitorsAnalytics();
             this.initCharts();
         }
