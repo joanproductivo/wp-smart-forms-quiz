@@ -1678,11 +1678,9 @@
             this.setBackgroundImage(attachment);
 
             this.mediaUploader.close();
-           
         });
     }
- // limpiar selección para la próxima vez
-           
+    
     this.mediaUploader.open();
 }
         

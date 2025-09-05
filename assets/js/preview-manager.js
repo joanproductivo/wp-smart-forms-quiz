@@ -1367,10 +1367,7 @@
         }
 
         forceMinimizePreview() {
-                containerExists: !!this.previewContainer,
-                isMinimized: this.isMinimized,
-                containerVisible: this.previewContainer ? this.previewContainer.is(':visible') : false
-            });
+            // Debug info removed for production
             
             // Cancelar cualquier animación pendiente
             if (this.previewContainer) {
