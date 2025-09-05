@@ -1059,6 +1059,13 @@ class SFQ_Admin {
                             </div>
                         </div>
                         
+                        <div class="sfq-field-group">
+                            <label><?php _e('Altura Mínima del Contenido de Preguntas', 'smart-forms-quiz'); ?></label>
+                            <input type="range" id="question-content-min-height" min="0" max="500" value="0" class="sfq-range">
+                            <span class="sfq-question-content-height-value">0px</span>
+                            <p class="description"><?php _e('Altura mínima para el contenido de preguntas (sfq-question-content). 0 = sin altura mínima', 'smart-forms-quiz'); ?></p>
+                        </div>
+                        
                         <h3><?php _e('🔤 Tipografía', 'smart-forms-quiz'); ?></h3>
                         
                         <div class="sfq-field-group">

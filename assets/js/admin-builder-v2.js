@@ -157,6 +157,14 @@
                 }
             });
             
+            $('#question-content-min-height').on('input' + ns, (e) => {
+                $('.sfq-question-content-height-value').text($(e.target).val() + 'px');
+                if (!this.isDestroyed) {
+                    this.isDirty = true;
+                    this.updatePreviewStyles();
+                }
+            });
+            
             // Event listeners para las nuevas opciones de estilo
             $('#form-container-shadow, #form-container-width, #question-content-width, #question-text-align, #general-text-align, #form-container-custom-width, #question-content-custom-width').on('change input' + ns, () => {
                 if (!this.isDestroyed) {
@@ -604,6 +612,8 @@
             $('.sfq-question-text-size-value').text((styles.question_text_size || '24') + 'px');
             $('#option-text-size').val(styles.option_text_size || '16');
             $('.sfq-option-text-size-value').text((styles.option_text_size || '16') + 'px');
+            $('#question-content-min-height').val(styles.question_content_min_height || '0');
+            $('.sfq-question-content-height-value').text((styles.question_content_min_height || '0') + 'px');
             $('#question-text-align').val(styles.question_text_align || 'left');
             $('#general-text-align').val(styles.general_text_align || 'left');
             
@@ -913,6 +923,7 @@
                 question_content_custom_width: $('#question-content-custom-width').val() || '600',
                 question_text_size: $('#question-text-size').val() || '24',
                 option_text_size: $('#option-text-size').val() || '16',
+                question_content_min_height: $('#question-content-min-height').val() || '0',
                 question_text_align: $('#question-text-align').val() || 'left',
                 general_text_align: $('#general-text-align').val() || 'left',
                 options_border_color: $('#options-border-color').val() || '#e0e0e0',
@@ -2534,6 +2545,37 @@
                 console.log('SFQ: Settings type:', typeof question.settings);
             });
             
+            // Update block question
+            $question.find('.sfq-block-question-checkbox').off('change').on('change', (e) => {
+                // ✅ SOLUCIÓN: Forzar creación de objeto plano
+                if (!question.settings || Array.isArray(question.settings) || typeof question.settings !== 'object') {
+                    question.settings = Object.create(null); // Crear objeto sin prototipo
+                    question.settings = {}; // Luego asignar objeto literal limpio
+                }
+                
+                // ✅ CRÍTICO: Crear nuevo objeto para evitar referencias de array
+                const newSettings = {};
+                
+                // Copiar settings existentes si los hay
+                if (question.settings && typeof question.settings === 'object' && !Array.isArray(question.settings)) {
+                    Object.keys(question.settings).forEach(key => {
+                        newSettings[key] = question.settings[key];
+                    });
+                }
+                
+                // Establecer el nuevo valor
+                newSettings.block_question = $(e.target).is(':checked');
+                
+                // Asignar el nuevo objeto
+                question.settings = newSettings;
+                
+                this.formBuilder.isDirty = true;
+                
+                // Debug logging
+                console.log('SFQ: block_question setting updated for question', question.id, ':', question.settings.block_question);
+                console.log('SFQ: Full settings object:', question.settings);
+            });
+            
             // ✅ CRÍTICO: Inicializar el estado del checkbox según los settings guardados
             // SOLUCIÓN: Asegurar que settings existe como objeto antes de acceder a hide_title
             if (!question.settings || typeof question.settings !== 'object' || Array.isArray(question.settings)) {
@@ -2776,7 +2818,18 @@
             });
             
             const question = this.questions.find(q => q.id === questionId);
-            const element = question.freestyle_elements.find(el => el.id === elementId);
+            const element = question?.freestyle_elements?.find(el => el.id === elementId);
+            
+            // ✅ CRÍTICO: Validar que el elemento existe y el tipo coincide
+            if (!element) {
+                console.error('SFQ: Element not found for config panel:', elementId);
+                return;
+            }
+            
+            if (element.type !== elementType) {
+                console.error('SFQ: Element type mismatch:', element.type, 'vs', elementType);
+                return;
+            }
             
             // Crear panel de configuración inline
             const configPanel = this.createElementConfigPanel(element, elementType, questionId);
@@ -2786,9 +2839,15 @@
             
             // Animar la aparición
             const $panel = $elementContainer.find('.sfq-element-config-panel');
+            
+            // ✅ NUEVO: Añadir identificadores únicos para prevenir interferencias
+            $panel.attr('data-element-id', elementId);
+            $panel.attr('data-element-type', elementType);
+            $panel.attr('data-question-id', questionId);
+            
             $panel.hide().slideDown(300);
             
-            // Bind events del panel
+            // Bind events del panel con validaciones adicionales
             this.bindConfigPanelEvents($panel, questionId, elementId);
             
             // Focus en el primer input
@@ -2812,6 +2871,12 @@
                 'checkbox': 'Opción Check',
                 'legal_text': 'Texto RGPD'
             };
+            
+            // ✅ NUEVO: Validación de tipo de elemento para prevenir interferencias
+            if (element.type !== elementType) {
+                console.error('SFQ: Element type mismatch in config panel creation:', element.type, 'vs', elementType);
+                return '<div class="sfq-config-error">Error: Tipo de elemento no coincide</div>';
+            }
             
             // Configuraciones específicas por tipo de elemento
             let specificConfig = '';
@@ -2864,7 +2929,10 @@
             }
             
             return `
-                <div class="sfq-element-config-panel">
+                <div class="sfq-element-config-panel" 
+                     data-element-id="${element.id}" 
+                     data-element-type="${elementType}" 
+                     data-question-id="${questionId}">
                     <div class="sfq-config-header">
                         <h4>⚙️ Configurar ${elementTypeNames[elementType] || elementType}</h4>
                         <button class="sfq-config-close" type="button" title="Cerrar configuración">
@@ -2879,7 +2947,8 @@
                                 Etiqueta del elemento:
                                 <input type="text" class="sfq-config-input sfq-element-label-config" 
                                        value="${this.formBuilder.uiRenderer.escapeHtml(element.label)}" 
-                                       placeholder="Texto que verá el usuario">
+                                       placeholder="Texto que verá el usuario"
+                                       data-element-id="${element.id}">
                             </label>
                         </div>
                         
@@ -2890,8 +2959,8 @@
                     </div>
                     
                     <div class="sfq-config-actions">
-                        <button class="sfq-config-cancel" type="button">Cancelar</button>
-                        <button class="sfq-config-save" type="button">Guardar cambios</button>
+                        <button class="sfq-config-cancel" type="button" data-element-id="${element.id}">Cancelar</button>
+                        <button class="sfq-config-save" type="button" data-element-id="${element.id}">Guardar cambios</button>
                     </div>
                 </div>
             `;
@@ -3507,6 +3576,40 @@
                     <small>Los títulos tienen mayor peso visual que los párrafos</small>
                 </label>
                 
+                <!-- ✅ NUEVO: Configuración de ancho personalizado -->
+                <h6 style="margin-top: 20px; margin-bottom: 10px;">📏 Ancho del Elemento</h6>
+                
+                <div class="sfq-config-row">
+                    <label class="sfq-config-label">
+                        Ancho:
+                        <select class="sfq-config-input" data-setting="width_type">
+                            <option value="auto" ${settings.width_type === 'auto' || !settings.width_type ? 'selected' : ''}>Automático</option>
+                            <option value="full" ${settings.width_type === 'full' ? 'selected' : ''}>Ancho completo (100%)</option>
+                            <option value="custom" ${settings.width_type === 'custom' ? 'selected' : ''}>Personalizado</option>
+                        </select>
+                    </label>
+                    <label class="sfq-config-label sfq-custom-width-setting" style="display: ${settings.width_type === 'custom' ? 'block' : 'none'};">
+                        Ancho personalizado:
+                        <input type="number" class="sfq-config-input" data-setting="custom_width" 
+                               min="50" max="1200" step="10" 
+                               value="${settings.custom_width || '300'}"
+                               placeholder="300">
+                        <small>Ancho en píxeles (50-1200px)</small>
+                    </label>
+                </div>
+                
+                <div class="sfq-config-row sfq-container-alignment-setting" style="display: ${settings.width_type === 'custom' || settings.width_type === 'full' ? 'block' : 'none'};">
+                    <label class="sfq-config-label">
+                        Alineación del contenedor:
+                        <select class="sfq-config-input" data-setting="container_align">
+                            <option value="left" ${settings.container_align === 'left' ? 'selected' : ''}>Izquierda</option>
+                            <option value="center" ${settings.container_align === 'center' || !settings.container_align ? 'selected' : ''}>Centro</option>
+                            <option value="right" ${settings.container_align === 'right' ? 'selected' : ''}>Derecha</option>
+                        </select>
+                        <small>Controla dónde se posiciona el elemento dentro del contenedor</small>
+                    </label>
+                </div>
+                
                 <!-- Configuración de tipografía -->
                 <h6 style="margin-top: 20px; margin-bottom: 10px;">🔤 Tipografía</h6>
                 
@@ -3638,16 +3741,36 @@
             if (!element) return;
             
             const self = this;
+            const eventNamespace = '.config_' + elementId; // ✅ NUEVO: Namespace único
             
-            // Cerrar panel
-            $panel.find('.sfq-config-close, .sfq-config-cancel').on('click', function() {
+            // ✅ NUEVO: Validar tipo de elemento
+            const panelElementType = $panel.data('element-type');
+            if (panelElementType && panelElementType !== element.type) {
+                console.error('SFQ: Element type mismatch in config panel:', panelElementType, 'vs', element.type);
+                return;
+            }
+            
+            // Limpiar eventos previos con namespace
+            $panel.find('.sfq-config-close, .sfq-config-cancel').off(eventNamespace);
+            
+            // Cerrar panel con namespace específico
+            $panel.find('.sfq-config-close, .sfq-config-cancel').on('click' + eventNamespace, function() {
                 $panel.slideUp(300, function() {
                     $(this).remove();
                 });
             });
             
-            // Guardar cambios
-            $panel.find('.sfq-config-save').on('click', function() {
+            // Limpiar eventos previos con namespace
+            $panel.find('.sfq-config-save').off(eventNamespace);
+            
+            // Guardar cambios con namespace específico
+            $panel.find('.sfq-config-save').on('click' + eventNamespace, function() {
+                // ✅ NUEVO: Validación adicional de tipo
+                if ($panel.data('element-type') && $panel.data('element-type') !== element.type) {
+                    console.warn('SFQ: Type validation failed during save');
+                    return;
+                }
+                
                 // Actualizar etiqueta básica
                 const newLabel = $panel.find('.sfq-element-label-config').val();
                 element.label = newLabel;
@@ -3789,6 +3912,24 @@
             $panel.find('[data-setting="border_opacity"]').on('input', function() {
                 const value = $(this).val();
                 $panel.find('.sfq-border-opacity-display').text(value);
+            });
+            
+            // Evento específico para mostrar/ocultar el campo de ancho personalizado
+            $panel.find('[data-setting="width_type"]').on('change', function() {
+                const $customWidthSetting = $panel.find('.sfq-custom-width-setting');
+                const $containerAlignmentSetting = $panel.find('.sfq-container-alignment-setting');
+                const widthType = $(this).val();
+                
+                if (widthType === 'custom') {
+                    $customWidthSetting.show();
+                    $containerAlignmentSetting.show();
+                } else if (widthType === 'full') {
+                    $customWidthSetting.hide();
+                    $containerAlignmentSetting.show();
+                } else {
+                    $customWidthSetting.hide();
+                    $containerAlignmentSetting.hide();
+                }
             });
             
             // Eventos específicos para button (nuevas opciones de estilo)
@@ -5204,6 +5345,11 @@
                                        ${question.settings?.hide_title ? 'checked' : ''}>
                                 Ocultar título de la pregunta
                             </label>
+                            <label>
+                                <input type="checkbox" class="sfq-block-question-checkbox" 
+                                       ${question.settings?.block_question ? 'checked' : ''}>
+                                Bloquear formulario en esta pregunta
+                            </label>
                         </div>
                         
                         <details class="sfq-conditions-section">
@@ -5266,6 +5412,11 @@
                                 <input type="checkbox" class="sfq-hide-title-checkbox" 
                                        ${question.settings?.hide_title ? 'checked' : ''}>
                                 Ocultar título de la pregunta
+                            </label>
+                            <label>
+                                <input type="checkbox" class="sfq-block-question-checkbox" 
+                                       ${question.settings?.block_question ? 'checked' : ''}>
+                                Bloquear formulario en esta pregunta
                             </label>
                         </div>
                     </div>
@@ -5461,6 +5612,15 @@
                     const tagName = textType === 'title' ? 'h2' : 'p';
                     const styledBgColor = this.hexToRgba(element.settings?.background_color || '#ffffff', element.settings?.background_opacity || 0);
                     const styledBorderColor = this.hexToRgba(element.settings?.border_color || '#e0e0e0', element.settings?.border_opacity || 0);
+                    
+                    // Aplicar ancho personalizado si está configurado
+                    let widthStyle = '';
+                    if (element.settings?.width_type === 'full') {
+                        widthStyle = 'width: 100%;';
+                    } else if (element.settings?.width_type === 'custom' && element.settings?.custom_width) {
+                        widthStyle = `width: ${element.settings.custom_width}px; max-width: 100%;`;
+                    }
+                    
                     return `<${tagName} class="sfq-styled-text-preview" style="
                         font-family: ${element.settings?.font_family || 'inherit'};
                         font-size: ${element.settings?.font_size || '16'}px;
@@ -5473,7 +5633,8 @@
                         border: 2px solid ${styledBorderColor};
                         border-radius: ${element.settings?.border_radius || '0'}px;
                         padding: 12px;
-                        margin: 8px 0;
+                        margin: auto;
+                        ${widthStyle}
                         ${element.settings?.text_shadow ? 'text-shadow: 2px 2px 4px rgba(0,0,0,0.3);' : ''}
                         ${element.settings?.box_shadow ? 'box-shadow: 0 4px 8px rgba(0,0,0,0.1);' : ''}
                     ">

@@ -236,7 +236,7 @@
 /* Contenedor de respuestas */
 .sfq-answer-container {
     flex: 1;
-    margin-bottom: 2rem;
+    margin-bottom: 0;
 }
 
 /* Grid de opciones */
@@ -712,7 +712,7 @@
 .sfq-freestyle-container {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 10px;
 }
 
 .sfq-freestyle-container[data-layout="horizontal"] {

@@ -2760,7 +2760,7 @@
 .sfq-styled-text-preview {
     display: block;
     padding: 12px;
-    margin: 8px 0;
+    margin: auto;
     border: 2px solid transparent;
     border-radius: 0px;
     background: transparent;
@@ -2786,7 +2786,7 @@
 .sfq-styled-text {
     display: block;
     padding: 12px;
-    margin: 8px 0;
+    margin: auto;
     border: 2px solid transparent;
     border-radius: 0px;
     background: transparent;
@@ -2815,7 +2815,7 @@
 .sfq-styled-text.text-type-paragraph {
     font-size: 16px;
     font-weight: normal;
-    margin: 8px 0;
+    margin: auto;
     line-height: 1.4;
 }
 

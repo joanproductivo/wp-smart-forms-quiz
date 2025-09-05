@@ -1256,6 +1256,13 @@
                 return;
             }
 
+            // ✅ NUEVO: Verificar si la pregunta actual tiene bloqueo activado
+            if (this.isQuestionBlocked(currentQuestion)) {
+                console.log('SFQ: Question is blocked, stopping navigation');
+                this.showBlockedMessage(currentQuestion);
+                return;
+            }
+
             // Registrar tiempo en la pregunta
             const timeSpent = Date.now() - this.questionStartTime;
             this.trackEvent('question_answered', {
@@ -1405,6 +1412,14 @@
 
             const nextButton = screen.querySelector('.sfq-next-button');
             if (!nextButton) {
+                return;
+            }
+
+            // ✅ NUEVO: Verificar si la pregunta tiene bloqueo activado
+            const isBlocked = this.isQuestionBlocked(screen);
+            if (isBlocked) {
+                console.log('SFQ: Hiding next button - question is blocked:', screen.dataset.questionId);
+                nextButton.style.display = 'none';
                 return;
             }
 
@@ -3799,6 +3814,132 @@
             
             return false;
         }
+
+        /**
+         * ✅ NUEVO: Verificar si una pregunta tiene bloqueo activado
+         */
+        isQuestionBlocked(questionScreen) {
+            if (!questionScreen) return false;
+            
+            // Verificar atributo data-block-question
+            const blockQuestion = questionScreen.dataset.blockQuestion;
+            if (blockQuestion === 'true' || blockQuestion === '1') {
+                console.log('SFQ: Question is blocked via data-block-question:', questionScreen.dataset.questionId);
+                return true;
+            }
+            
+            // Verificar si hay un elemento con clase de bloqueo
+            const blockIndicator = questionScreen.querySelector('.sfq-question-blocked');
+            if (blockIndicator) {
+                console.log('SFQ: Question is blocked via CSS class:', questionScreen.dataset.questionId);
+                return true;
+            }
+            
+            return false;
+        }
+
+        /**
+         * ✅ NUEVO: Mostrar mensaje de bloqueo del formulario
+         */
+        showBlockedMessage(questionScreen) {
+            console.log('SFQ: Showing blocked message for question:', questionScreen.dataset.questionId);
+            
+            // Ocultar la pregunta actual
+            if (this.currentScreen) {
+                this.currentScreen.classList.remove('active');
+            }
+            
+            // Crear mensaje de bloqueo personalizado
+            const blockedMessage = this.createBlockedMessage();
+            
+            // Insertar el mensaje en el contenedor
+            const container = this.container.querySelector('#sfq-dynamic-questions-container') || this.container;
+            
+            // Limpiar contenedor dinámico si existe
+            const dynamicContainer = this.container.querySelector('#sfq-dynamic-questions-container');
+            if (dynamicContainer) {
+                dynamicContainer.innerHTML = '';
+                dynamicContainer.appendChild(blockedMessage);
+            } else {
+                // Si no hay contenedor dinámico, añadir después de la pregunta actual
+                questionScreen.parentNode.insertBefore(blockedMessage, questionScreen.nextSibling);
+            }
+            
+            // Activar el mensaje de bloqueo
+            blockedMessage.classList.add('active');
+            this.currentScreen = blockedMessage;
+            
+            // Ocultar barra de progreso
+            const progressBar = this.container.querySelector('.sfq-progress-bar');
+            if (progressBar) {
+                progressBar.style.display = 'none';
+            }
+            
+            // Hacer scroll al mensaje
+            if (this.settings.auto_scroll_to_form !== false) {
+                this.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            
+            // Marcar formulario como completado silenciosamente (bloqueado)
+            this.markFormAsCompleted();
+        }
+
+        /**
+         * ✅ NUEVO: Crear mensaje de bloqueo personalizado
+         */
+        createBlockedMessage() {
+            const blockedDiv = document.createElement('div');
+            blockedDiv.className = 'sfq-screen sfq-blocked-screen';
+            
+            // Obtener configuración de bloqueo desde settings
+            const blockIcon = this.settings.block_form_icon || '🔒';
+            const blockTitle = this.settings.block_form_title || 'Formulario Bloqueado';
+            const blockDescription = this.settings.block_form_description || 'Este formulario ha sido bloqueado en esta pregunta.';
+            const blockButtonText = this.settings.block_form_button_text || '';
+            const blockButtonUrl = this.settings.block_form_button_url || '';
+            
+            // Crear contenido del mensaje
+            let content = `
+                <div class="sfq-blocked-content">
+                    <div class="sfq-blocked-icon">${blockIcon}</div>
+                    <h2 class="sfq-blocked-title">${this.escapeHtml(blockTitle)}</h2>
+                    <div class="sfq-blocked-description">
+                        ${this.escapeHtml(blockDescription)}
+                    </div>
+            `;
+            
+            // Añadir botón si está configurado
+            if (blockButtonText && blockButtonUrl) {
+                content += `
+                    <div class="sfq-blocked-actions">
+                        <a href="${this.escapeHtml(blockButtonUrl)}" class="sfq-blocked-button" target="_blank">
+                            ${this.escapeHtml(blockButtonText)}
+                        </a>
+                    </div>
+                `;
+            }
+            
+            content += `</div>`;
+            
+            blockedDiv.innerHTML = content;
+            
+            return blockedDiv;
+        }
+
+        /**
+         * ✅ NUEVO: Función helper para escapar HTML
+         */
+        escapeHtml(text) {
+            if (typeof text !== 'string') return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
     }
 
     // Inicializar cuando el DOM esté listo
@@ -4128,6 +4269,95 @@ style.textContent = `
         }
         
         .sfq-redirect-processing-text {
+            font-size: 0.9rem;
+        }
+    }
+    
+    /* ✅ NUEVOS: Estilos para mensaje de bloqueo */
+    .sfq-blocked-screen {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 400px;
+        padding: 2rem;
+        text-align: center;
+    }
+    
+    .sfq-blocked-content {
+        max-width: 500px;
+        padding: 2rem;
+        background: #f8f9fa;
+        border: 2px solid #e9ecef;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+    
+    .sfq-blocked-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.8;
+    }
+    
+    .sfq-blocked-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #333;
+        margin: 0 0 1rem 0;
+    }
+    
+    .sfq-blocked-description {
+        font-size: 1rem;
+        color: #666;
+        line-height: 1.6;
+        margin-bottom: 1.5rem;
+    }
+    
+    .sfq-blocked-actions {
+        margin-top: 1.5rem;
+    }
+    
+    .sfq-blocked-button {
+        display: inline-block;
+        padding: 12px 24px;
+        background: #007cba;
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: background 0.3s ease;
+    }
+    
+    .sfq-blocked-button:hover {
+        background: #005a87;
+        color: white;
+        text-decoration: none;
+    }
+    
+    /* Responsive para mensaje de bloqueo */
+    @media (max-width: 768px) {
+        .sfq-blocked-screen {
+            padding: 1rem;
+            min-height: 300px;
+        }
+        
+        .sfq-blocked-content {
+            padding: 1.5rem;
+        }
+        
+        .sfq-blocked-icon {
+            font-size: 3rem;
+        }
+        
+        .sfq-blocked-title {
+            font-size: 1.3rem;
+        }
+        
+        .sfq-blocked-description {
+            font-size: 0.9rem;
+        }
+        
+        .sfq-blocked-button {
+            padding: 10px 20px;
             font-size: 0.9rem;
         }
     }

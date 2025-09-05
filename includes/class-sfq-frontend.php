@@ -251,7 +251,8 @@ class SFQ_Frontend {
                              data-question-type="<?php echo esc_attr($first_question->question_type); ?>"
                              data-show-next-button="<?php echo $show_next_button ? 'true' : 'false'; ?>"
                              data-next-button-text="<?php echo esc_attr($next_button_text); ?>"
-                             data-pantalla-final="false">
+                             data-pantalla-final="false"
+                             data-block-question="<?php echo (isset($first_question->settings['block_question']) && $first_question->settings['block_question']) ? 'true' : 'false'; ?>">
                             
                             <div class="sfq-question-content">
                                 <!-- Número de pregunta -->
@@ -334,7 +335,8 @@ class SFQ_Frontend {
                          data-question-type="<?php echo esc_attr($question->question_type); ?>"
                          data-show-next-button="<?php echo $show_next_button ? 'true' : 'false'; ?>"
                          data-next-button-text="<?php echo esc_attr($next_button_text); ?>"
-                         data-pantalla-final="false">
+                         data-pantalla-final="false"
+                         data-block-question="<?php echo (isset($question->settings['block_question']) && $question->settings['block_question']) ? 'true' : 'false'; ?>">
                         
                         <div class="sfq-question-content">
                             <!-- Número de pregunta -->
@@ -526,6 +528,7 @@ class SFQ_Frontend {
                     --sfq-form-container-border-radius: <?php echo esc_attr($styles['form_container_border_radius'] ?? '20'); ?>px;
                     --sfq-question-text-size: <?php echo esc_attr($styles['question_text_size'] ?? '24'); ?>px;
                     --sfq-option-text-size: <?php echo esc_attr($styles['option_text_size'] ?? '16'); ?>px;
+                    --sfq-question-content-min-height: <?php echo esc_attr($styles['question_content_min_height'] ?? '0'); ?>px;
                     --sfq-question-text-align: <?php echo esc_attr($styles['question_text_align'] ?? 'left'); ?>;
                     --sfq-general-text-align: <?php echo esc_attr($styles['general_text_align'] ?? 'left'); ?>;
                     
@@ -691,6 +694,10 @@ class SFQ_Frontend {
                 #sfq-form-<?php echo $form_id; ?> .sfq-option-text {
                     font-size: var(--sfq-option-text-size) !important;
                     text-align: var(--sfq-general-text-align) !important;
+                }
+                
+                #sfq-form-<?php echo $form_id; ?> .sfq-question-content {
+                    min-height: var(--sfq-question-content-min-height) !important;
                 }
                 
                 /* Ancho del contenedor según configuración */
@@ -2848,6 +2855,66 @@ class SFQ_Frontend {
         // Aplicar estilos personalizados desde las configuraciones
         $styles = array();
         
+        // ✅ NUEVO: Configuración de ancho personalizado y alineación del contenedor
+        $width_type = $settings['width_type'] ?? 'auto';
+        $container_align = $settings['container_align'] ?? 'center';
+        
+        // Estilos del contenedor wrapper
+        $wrapper_styles = array();
+        
+        switch ($width_type) {
+            case 'full':
+                $styles['width'] = '100%';
+                $styles['display'] = 'block';
+                // Para ancho completo, aplicar alineación usando margin
+                switch ($container_align) {
+                    case 'center':
+                    default:
+                        $styles['margin-left'] = 'auto !important';
+                        $styles['margin-right'] = 'auto !important';
+                        break;
+                    case 'left':
+                        $styles['margin-left'] = '0 !important';
+                        $styles['margin-right'] = 'auto !important';
+                        break;
+                    case 'right':
+                        $styles['margin-left'] = 'auto !important';
+                        $styles['margin-right'] = '0 !important';
+                        break;
+                }
+                break;
+            case 'custom':
+                $custom_width = intval($settings['custom_width'] ?? 300);
+                // Validar rango de ancho personalizado
+                $custom_width = max(50, min(1200, $custom_width));
+                $styles['width'] = $custom_width . 'px';
+                $styles['max-width'] = '100%';
+                $styles['display'] = 'block';
+                // Para ancho personalizado, aplicar alineación usando margin
+                switch ($container_align) {
+                    case 'left':
+                        $styles['margin-left'] = '0!important';
+                        $styles['margin-right'] = 'auto!important';
+                        break;
+                    case 'right':
+                        $styles['margin-left'] = 'auto!important';
+                        $styles['margin-right'] = '0!important';
+                        break;
+                    case 'center':
+                    default:
+                        $styles['margin-left'] = 'auto!important';
+                        $styles['margin-right'] = 'auto!important';
+                        break;
+                }
+                break;
+            case 'auto':
+            default:
+                $styles['width'] = 'auto!important';
+                $styles['display'] = 'inline-block!important';
+                // Para ancho automático, no aplicar alineación especial
+                break;
+        }
+        
         // Tamaño de fuente
         if (!empty($settings['font_size'])) {
             $styles['font-size'] = intval($settings['font_size']) . 'px';
@@ -2864,12 +2931,12 @@ class SFQ_Frontend {
         }
         
         // Estilo de fuente (cursiva)
-        if (!empty($settings['font_style']) && $settings['font_style'] === 'italic') {
+        if (!empty($settings['italic']) && $settings['italic']) {
             $styles['font-style'] = 'italic';
         }
         
         // Decoración de texto (tachado)
-        if (!empty($settings['text_decoration']) && $settings['text_decoration'] === 'line-through') {
+        if (!empty($settings['strikethrough']) && $settings['strikethrough']) {
             $styles['text-decoration'] = 'line-through';
         }
         
@@ -2886,25 +2953,29 @@ class SFQ_Frontend {
         // Color de fondo con opacidad
         if (!empty($settings['background_color'])) {
             $bg_color = $settings['background_color'];
-            $bg_opacity = $settings['background_opacity'] ?? '1';
+            $bg_opacity = $settings['background_opacity'] ?? '0';
             
-            if ($bg_opacity != '1') {
-                $styles['background-color'] = $this->hex_to_rgba($bg_color, $bg_opacity);
-            } else {
-                $styles['background-color'] = $bg_color;
+            if ($bg_opacity != '0') {
+                if ($bg_opacity != '1') {
+                    $styles['background-color'] = $this->hex_to_rgba($bg_color, $bg_opacity);
+                } else {
+                    $styles['background-color'] = $bg_color;
+                }
             }
         }
         
         // Color de borde con opacidad
         if (!empty($settings['border_color'])) {
             $border_color = $settings['border_color'];
-            $border_opacity = $settings['border_opacity'] ?? '1';
+            $border_opacity = $settings['border_opacity'] ?? '0';
             
-            if ($border_opacity != '1') {
-                $border_rgba = $this->hex_to_rgba($border_color, $border_opacity);
-                $styles['border'] = '2px solid ' . $border_rgba;
-            } else {
-                $styles['border'] = '2px solid ' . $border_color;
+            if ($border_opacity != '0') {
+                if ($border_opacity != '1') {
+                    $border_rgba = $this->hex_to_rgba($border_color, $border_opacity);
+                    $styles['border'] = '2px solid ' . $border_rgba;
+                } else {
+                    $styles['border'] = '2px solid ' . $border_color;
+                }
             }
         }
         
@@ -2925,9 +2996,7 @@ class SFQ_Frontend {
         
         // Padding por defecto para el recuadro
         $styles['padding'] = '16px';
-        $styles['margin'] = '8px 0';
-        $styles['display'] = 'block';
-        $styles['width'] = '100%';
+        $styles['margin'] = 'auto';
         $styles['box-sizing'] = 'border-box';
         
         // Convertir array de estilos a string CSS
@@ -2936,14 +3005,22 @@ class SFQ_Frontend {
             $style_string .= $property . ': ' . $value . '; ';
         }
         
+        // Convertir estilos del wrapper a string CSS
+        $wrapper_style_string = '';
+        foreach ($wrapper_styles as $property => $value) {
+            $wrapper_style_string .= $property . ': ' . $value . '; ';
+        }
+        
         // Determinar el tag HTML según el tipo de texto
         $tag = ($text_type === 'title') ? 'h3' : 'p';
         
         ?>
-        <div class="sfq-freestyle-styled-text-wrapper">
+        <div class="sfq-freestyle-styled-text-wrapper" style="<?php echo esc_attr(trim($wrapper_style_string)); ?>">
             <<?php echo $tag; ?> class="sfq-freestyle-styled-text" 
                  data-element-id="<?php echo esc_attr($element['id']); ?>"
                  data-text-type="<?php echo esc_attr($text_type); ?>"
+                 data-width-type="<?php echo esc_attr($width_type); ?>"
+                 data-container-align="<?php echo esc_attr($container_align); ?>"
                  style="<?php echo esc_attr(trim($style_string)); ?>">
                 <?php echo wp_kses_post($text_content); ?>
             </<?php echo $tag; ?>>
