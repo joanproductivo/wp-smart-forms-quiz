@@ -180,7 +180,6 @@
                     throw new Error(response.data?.message || 'Error al duplicar el formulario');
                 }
             } catch (error) {
-                console.error('Error duplicating form:', error);
                 this.showNotice('Error al duplicar: ' + error.message, 'error');
             } finally {
                 $button.prop('disabled', false).html(originalText);
@@ -229,7 +228,6 @@
                     throw new Error(response.data?.message || 'Error al eliminar el formulario');
                 }
             } catch (error) {
-                console.error('Error deleting form:', error);
                 this.showNotice('Error al eliminar: ' + error.message, 'error');
                 $button.prop('disabled', false).html(originalText);
             }

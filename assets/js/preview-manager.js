@@ -37,12 +37,10 @@
         }
 
         init() {
-            console.log('PreviewManager: Inicializando...');
             this.createPreviewContainer();
             this.bindEvents();
             this.checkIfEnabled();
             this.showRestoreButton(); // Siempre mostrar el botón de restaurar
-            console.log('PreviewManager: Inicialización completa. Habilitado:', this.isEnabled);
         }
 
         createPreviewContainer() {
@@ -376,10 +374,8 @@
             const enabledCheckbox = $('#enable-floating-preview');
             if (enabledCheckbox.length && enabledCheckbox.is(':checked')) {
                 this.isEnabled = true;
-                console.log('PreviewManager: Previsualización habilitada');
             } else {
                 this.isEnabled = false;
-                console.log('PreviewManager: Previsualización deshabilitada');
             }
             
             // IMPORTANTE: El botón de restaurar siempre se muestra, independientemente del estado del checkbox
@@ -388,22 +384,18 @@
 
         togglePreview(enabled) {
             this.isEnabled = enabled;
-            console.log('PreviewManager: Toggle preview to', enabled);
             if (!enabled) {
                 this.hidePreview();
             }
         }
 
         handleQuestionFocus(e) {
-            console.log('PreviewManager: Question focus detected', e.target);
             const input = $(e.target);
             const questionContainer = input.closest('.sfq-question-item');
             
-            console.log('PreviewManager: Question container found:', questionContainer.length > 0);
             
             if (questionContainer.length) {
                 this.currentContext = 'question';
-                console.log('PreviewManager: Showing question preview');
                 this.showQuestionPreview(questionContainer, input);
             }
         }
@@ -431,7 +423,6 @@
         }
 
         handleStyleFocus(e) {
-            console.log('PreviewManager: Style focus detected', e.target);
             const input = $(e.target);
             this.currentContext = 'style';
             this.showStylePreview(input);
@@ -482,7 +473,6 @@
         }
 
         showStylePreview(focusedInput) {
-            console.log('PreviewManager: Showing style preview');
             
             // Crear una pregunta de ejemplo para mostrar los estilos
             const sampleQuestionData = {
@@ -503,21 +493,16 @@
         }
 
         showPreview(content, referenceElement, preferredSide = 'left') {
-            console.log('PreviewManager: showPreview called with content:', content.substring(0, 100) + '...');
-            console.log('PreviewManager: previewContainer exists:', !!this.previewContainer);
             
             if (!this.previewContainer) {
-                console.error('PreviewManager: previewContainer is null!');
                 return;
             }
             
             // Actualizar contenido
             this.previewContainer.find('.sfq-preview-content').html(content);
-            console.log('PreviewManager: Content updated');
             
             // Calcular posición
             const position = this.calculatePosition(referenceElement, preferredSide);
-            console.log('PreviewManager: Position calculated:', position);
             
             // Aplicar posición y mostrar
             this.previewContainer.css({
@@ -1249,7 +1234,6 @@
         updateStylePreview() {
             if (!this.currentPreview) return;
             
-            console.log('PreviewManager: Updating style preview');
             
             // Crear una pregunta de ejemplo para mostrar los estilos actualizados
             const sampleQuestionData = {
@@ -1292,7 +1276,6 @@
             this.previewContainer.find('.sfq-preview-close').on('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('PreviewManager: Close button clicked');
                 this.forceMinimizePreview();
             });
             
@@ -1300,7 +1283,6 @@
             this.previewContainer.find('.sfq-preview-minimize').on('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('PreviewManager: Minimize button clicked');
                 this.forceMinimizePreview();
             });
             
@@ -1308,7 +1290,6 @@
             this.minimizedButton.find('.sfq-preview-restore').on('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('PreviewManager: Restore button clicked');
                 this.restorePreviewAndActivate();
             });
         }
@@ -1386,7 +1367,6 @@
         }
 
         forceMinimizePreview() {
-            console.log('PreviewManager: Force minimize preview - current state:', {
                 containerExists: !!this.previewContainer,
                 isMinimized: this.isMinimized,
                 containerVisible: this.previewContainer ? this.previewContainer.is(':visible') : false
@@ -1406,7 +1386,6 @@
             // Ocultar inmediatamente la ventana de previsualización
             if (this.previewContainer) {
                 this.previewContainer.hide();
-                console.log('PreviewManager: Preview container hidden');
             }
             
             // Mostrar inmediatamente el botón minimizado
@@ -1419,14 +1398,12 @@
                     zIndex: 9999,
                     display: 'block'
                 });
-                console.log('PreviewManager: Minimized button shown');
             }
             
             // Limpiar referencias de previsualización activa
             this.currentPreview = null;
             this.currentContext = null;
             
-            console.log('PreviewManager: Force minimize completed');
         }
 
         restorePreview() {
@@ -1448,7 +1425,6 @@
         }
 
         restorePreviewAndActivate() {
-            console.log('PreviewManager: Restore and activate preview');
             
             // Activar el sistema de previsualización
             this.isEnabled = true;
@@ -1501,7 +1477,6 @@
                 this.currentContext = 'activated';
             }
             
-            console.log('PreviewManager: Preview system activated and restored');
         }
 
         showRestoreButton() {

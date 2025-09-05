@@ -51,7 +51,6 @@
                 try {
                     const globalVariables = JSON.parse(variablesInput.value);
                     this.variables = { ...globalVariables };
-                    console.log('SFQ Frontend Debug: Initialized global variables:', this.variables);
                     
                     // ✅ NUEVO: Actualizar DOM inmediatamente después de inicializar variables
                     setTimeout(() => {
@@ -59,11 +58,9 @@
                     }, 100); // Pequeño delay para asegurar que el DOM esté listo
                     
                 } catch (e) {
-                    console.error('SFQ Frontend Error: Failed to parse global variables:', e);
                     this.variables = {};
                 }
             } else {
-                console.log('SFQ Frontend Debug: No global variables found, using empty object');
                 this.variables = {};
             }
         }
@@ -72,7 +69,6 @@
          * ✅ CRÍTICO: Actualizar variables si las hay
          */
         updateVariablesInDOM() {
-            console.log('SFQ Frontend Debug: Updating variables in DOM:', this.variables);
             
             // Buscar todos los elementos que muestran variables
             const variableElements = this.container.querySelectorAll('.sfq-variable-value[data-variable]');
@@ -81,7 +77,6 @@
                 const variableName = element.dataset.variable;
                 if (this.variables.hasOwnProperty(variableName)) {
                     const newValue = this.variables[variableName];
-                    console.log(`SFQ Frontend Debug: Updating variable ${variableName} from ${element.textContent} to ${newValue}`);
                     
                     // ✅ NUEVO: Añadir animación suave al cambio de valor
                     if (element.textContent !== newValue.toString()) {
@@ -243,7 +238,6 @@
                 if (redirectResult && redirectResult.shouldRedirect) {
                     // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
                     if (redirectResult.markAsCompleted) {
-                        console.log('SFQ: Marking form as completed before redirect to:', redirectResult.redirectUrl);
                         
                         // Mostrar indicador de procesamiento elegante
                         this.showRedirectProcessingIndicator();
@@ -257,7 +251,6 @@
                                 window.location.href = redirectResult.redirectUrl;
                             }, 1500);
                         } catch (error) {
-                            console.error('SFQ: Error marking form as completed before redirect:', error);
                             // Redirigir de todos modos
                             window.location.href = redirectResult.redirectUrl;
                         }
@@ -275,15 +268,12 @@
 
                 // ✅ CRÍTICO: Actualizar variables si las hay
                 if (redirectResult && redirectResult.variables) {
-                    console.log('SFQ Frontend Debug: Updating variables from:', this.variables, 'to:', redirectResult.variables);
                     this.variables = { ...redirectResult.variables };
-                    console.log('SFQ Frontend Debug: Variables updated to:', this.variables);
                     // ✅ NUEVO: Actualizar DOM con nuevos valores
                     this.updateVariablesInDOM();
                 }
 
             } catch (error) {
-                console.error('Error processing conditions:', error);
                 this.showError('Error al procesar las condiciones. Continuando...');
             } finally {
                 // Ocultar indicador de procesamiento
@@ -331,7 +321,6 @@
                 if (redirectResult && redirectResult.shouldRedirect) {
                     // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
                     if (redirectResult.markAsCompleted) {
-                        console.log('SFQ: Marking form as completed before redirect to:', redirectResult.redirectUrl);
                         
                         // Mostrar indicador de procesamiento elegante
                         this.showRedirectProcessingIndicator();
@@ -345,7 +334,6 @@
                                 window.location.href = redirectResult.redirectUrl;
                             }, 1500);
                         } catch (error) {
-                            console.error('SFQ: Error marking form as completed before redirect:', error);
                             // Redirigir de todos modos
                             window.location.href = redirectResult.redirectUrl;
                         }
@@ -363,15 +351,12 @@
 
                 // ✅ CRÍTICO: Actualizar variables si las hay
                 if (redirectResult && redirectResult.variables) {
-                    console.log('SFQ Frontend Debug: Updating variables from:', this.variables, 'to:', redirectResult.variables);
                     this.variables = { ...redirectResult.variables };
-                    console.log('SFQ Frontend Debug: Variables updated to:', this.variables);
                     // ✅ NUEVO: Actualizar DOM con nuevos valores
                     this.updateVariablesInDOM();
                 }
                 
             } catch (error) {
-                console.error('Error processing conditions in multiple choice:', error);
                 this.showError('Error al procesar las condiciones. Continuando...');
             } finally {
                 // Ocultar indicador de procesamiento
@@ -404,7 +389,6 @@
                     if (redirectResult && redirectResult.shouldRedirect) {
                         // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
                         if (redirectResult.markAsCompleted) {
-                            console.log('SFQ: Marking form as completed before redirect to:', redirectResult.redirectUrl);
                             
                             // Mostrar indicador de procesamiento elegante
                             this.showRedirectProcessingIndicator();
@@ -418,7 +402,6 @@
                                     window.location.href = redirectResult.redirectUrl;
                                 }, 1500);
                             } catch (error) {
-                                console.error('SFQ: Error marking form as completed before redirect:', error);
                                 // Redirigir de todos modos
                                 window.location.href = redirectResult.redirectUrl;
                             }
@@ -436,15 +419,12 @@
 
                     // ✅ CRÍTICO: Actualizar variables si las hay
                     if (redirectResult && redirectResult.variables) {
-                        console.log('SFQ Frontend Debug: Updating variables from:', this.variables, 'to:', redirectResult.variables);
                         this.variables = { ...redirectResult.variables };
-                        console.log('SFQ Frontend Debug: Variables updated to:', this.variables);
                         // ✅ NUEVO: Actualizar DOM con nuevos valores
                         this.updateVariablesInDOM();
                     }
                     
                 } catch (error) {
-                    console.error('Error processing conditions in text input:', error);
                     this.showError('Error al procesar las condiciones. Continuando...');
                 } finally {
                     // Ocultar indicador de procesamiento
@@ -500,7 +480,6 @@
                 if (redirectResult && redirectResult.shouldRedirect) {
                     // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
                     if (redirectResult.markAsCompleted) {
-                        console.log('SFQ: Marking form as completed before redirect to:', redirectResult.redirectUrl);
                         
                         // Mostrar indicador de procesamiento elegante
                         this.showRedirectProcessingIndicator();
@@ -514,7 +493,6 @@
                                 window.location.href = redirectResult.redirectUrl;
                             }, 1500);
                         } catch (error) {
-                            console.error('SFQ: Error marking form as completed before redirect:', error);
                             // Redirigir de todos modos
                             window.location.href = redirectResult.redirectUrl;
                         }
@@ -532,13 +510,10 @@
 
                 // ✅ CRÍTICO: Actualizar variables si las hay
                 if (redirectResult && redirectResult.variables) {
-                    console.log('SFQ Frontend Debug: Updating variables from:', this.variables, 'to:', redirectResult.variables);
                     this.variables = { ...redirectResult.variables };
-                    console.log('SFQ Frontend Debug: Variables updated to:', this.variables);
                 }
 
             } catch (error) {
-                console.error('Error processing conditions in rating:', error);
                 this.showError('Error al procesar las condiciones. Continuando...');
             } finally {
                 // Ocultar indicador de procesamiento
@@ -583,7 +558,6 @@
                 if (redirectResult && redirectResult.shouldRedirect) {
                     // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
                     if (redirectResult.markAsCompleted) {
-                        console.log('SFQ: Marking form as completed before redirect to:', redirectResult.redirectUrl);
                         
                         // Mostrar indicador de procesamiento elegante
                         this.showRedirectProcessingIndicator();
@@ -597,7 +571,6 @@
                                 window.location.href = redirectResult.redirectUrl;
                             }, 1500);
                         } catch (error) {
-                            console.error('SFQ: Error marking form as completed before redirect:', error);
                             // Redirigir de todos modos
                             window.location.href = redirectResult.redirectUrl;
                         }
@@ -615,13 +588,10 @@
 
                 // ✅ CRÍTICO: Actualizar variables si las hay
                 if (redirectResult && redirectResult.variables) {
-                    console.log('SFQ Frontend Debug: Updating variables from:', this.variables, 'to:', redirectResult.variables);
                     this.variables = { ...redirectResult.variables };
-                    console.log('SFQ Frontend Debug: Variables updated to:', this.variables);
                 }
 
             } catch (error) {
-                console.error('Error processing conditions in image choice:', error);
                 this.showError('Error al procesar las condiciones. Continuando...');
             } finally {
                 // Ocultar indicador de procesamiento
@@ -644,7 +614,6 @@
                     this.evaluateCondition(condition);
                 });
             } catch (e) {
-                console.error('Error procesando condiciones:', e);
             }
         }
 
@@ -656,19 +625,16 @@
             
             if (conditions !== undefined) {
                 hasConditionsAttribute = true;
-                console.log('SFQ Frontend Debug: Found conditions attribute:', conditions);
                 
                 try {
                     const conditionsList = JSON.parse(conditions);
                     hasLocalConditions = Array.isArray(conditionsList) && conditionsList.length > 0;
                     
                     if (hasLocalConditions) {
-                        console.log('SFQ Frontend Debug: Processing local conditions:', conditionsList);
                         const localResult = this.evaluateConditionsForRedirect(conditionsList, questionId);
                         
                         // ✅ CRÍTICO: Aplicar variables actualizadas al estado global
                         if (localResult.variables) {
-                            console.log('SFQ Frontend Debug: Applying local variables to global state:', localResult.variables);
                             this.variables = { ...localResult.variables };
                         }
                         
@@ -676,31 +642,25 @@
                             return localResult;
                         }
                     } else {
-                        console.log('SFQ Frontend Debug: Local conditions array is empty, checking server conditions');
                     }
                 } catch (e) {
-                    console.error('Error procesando condiciones locales:', e);
                 }
             } else {
-                console.log('SFQ Frontend Debug: No conditions attribute found on element');
             }
             
             // ✅ CORREGIDO: Hacer petición AJAX si hay atributo conditions (aunque esté vacío)
             // El servidor puede tener condiciones adicionales no presentes en el frontend
             if (hasConditionsAttribute) {
-                console.log('SFQ Frontend Debug: Making AJAX call to check server conditions');
                 try {
                     const ajaxResult = await this.checkConditionsViaAjax(questionId, element.dataset.value);
                     
                     // ✅ CRÍTICO: Aplicar variables del servidor al estado global
                     if (ajaxResult && ajaxResult.variables) {
-                        console.log('SFQ Frontend Debug: Applying AJAX variables to global state:', ajaxResult.variables);
                         this.variables = { ...ajaxResult.variables };
                     }
                     
                     return ajaxResult;
                 } catch (error) {
-                    console.error('Error en petición AJAX de condiciones:', error);
                     return { 
                         shouldRedirect: false, 
                         skipToQuestion: null,
@@ -709,7 +669,6 @@
                 }
             } else {
                 // ✅ CORREGIDO: Solo si NO hay atributo conditions, no hacer AJAX
-                console.log('SFQ Frontend Debug: No conditions attribute, skipping AJAX call');
                 return { 
                     shouldRedirect: false, 
                     skipToQuestion: null,
@@ -727,16 +686,10 @@
                 variables: { ...this.variables } // Empezar con variables actuales
             };
             
-            console.log('SFQ Frontend Debug: Evaluating conditions for question', questionId);
-            console.log('SFQ Frontend Debug: Current answer:', answer);
-            console.log('SFQ Frontend Debug: Current variables:', this.variables);
-            console.log('SFQ Frontend Debug: Conditions to evaluate:', conditions);
             
             for (const condition of conditions) {
-                console.log('SFQ Frontend Debug: Evaluating condition:', condition);
                 
                 if (this.evaluateConditionImmediate(condition, answer, questionId)) {
-                    console.log('SFQ Frontend Debug: Condition matched! Executing action:', condition.action_type);
                     
                     // ✅ CRÍTICO: Ejecutar acciones de variables correctamente
                     switch (condition.action_type) {
@@ -744,7 +697,6 @@
                             result.shouldRedirect = true;
                             result.redirectUrl = condition.action_value;
                             result.markAsCompleted = true; // ✅ NUEVO: Marcar para completar antes de redirigir
-                            console.log('SFQ Frontend Debug: Setting redirect to:', condition.action_value);
                             return result; // Retornar inmediatamente para redirección
                             
                         case 'add_variable':
@@ -754,7 +706,6 @@
                             const newValue = currentValue + varAmount;
                             result.variables[varName] = newValue;
                             
-                            console.log(`SFQ Frontend Debug: ADD_VARIABLE - Variable: ${varName}, Current: ${currentValue}, Adding: ${varAmount}, New: ${newValue}`);
                             break;
                             
                         case 'set_variable':
@@ -762,30 +713,24 @@
                             const setValue = condition.variable_amount;
                             result.variables[setVarName] = setValue;
                             
-                            console.log(`SFQ Frontend Debug: SET_VARIABLE - Variable: ${setVarName}, Set to: ${setValue}`);
                             break;
                             
                         case 'goto_question':
                             result.skipToQuestion = condition.action_value;
-                            console.log('SFQ Frontend Debug: Setting skip to question:', condition.action_value);
                             break;
                             
                         case 'skip_to_end':
                             result.skipToQuestion = 'end';
-                            console.log('SFQ Frontend Debug: Skipping to end');
                             break;
                             
                         case 'show_message':
-                            console.log('SFQ Frontend Debug: Show message:', condition.action_value);
                             // Los mensajes se pueden manejar aquí en el futuro
                             break;
                     }
                 } else {
-                    console.log('SFQ Frontend Debug: Condition did not match');
                 }
             }
             
-            console.log('SFQ Frontend Debug: Final result variables:', result.variables);
             return result;
         }
 
@@ -886,9 +831,6 @@
             
             while (retryCount <= maxRetries) {
                 try {
-                    console.log(`SFQ Cache Debug: Starting AJAX conditions check (attempt ${retryCount + 1}/${maxRetries + 1})`);
-                    console.log('SFQ Cache Debug: Current nonce:', this.getCurrentNonce());
-                    console.log('SFQ Cache Debug: Cache compat available:', !!window.sfqCacheCompat);
                     
                     const formData = new FormData();
                     formData.append('action', 'sfq_get_next_question');
@@ -911,21 +853,17 @@
                         }
                     });
 
-                    console.log('SFQ Cache Debug: Response status:', response.status);
-                    console.log('SFQ Cache Debug: Response headers:', response.headers);
 
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
 
                     const ajaxResult = await response.json();
-                    console.log('SFQ Cache Debug: AJAX result:', ajaxResult);
                     
                     if (ajaxResult.success && ajaxResult.data) {
                         // Actualizar variables si las hay
                         if (ajaxResult.data.variables) {
                             result.variables = ajaxResult.data.variables;
-                            console.log('SFQ Cache Debug: Variables updated from server:', ajaxResult.data.variables);
                         }
                         
                         // Verificar redirección
@@ -933,40 +871,33 @@
                             result.shouldRedirect = true;
                             result.redirectUrl = ajaxResult.data.redirect_url;
                             result.markAsCompleted = true; // ✅ CRÍTICO: Marcar para completar antes de redirigir
-                            console.log('SFQ Frontend Debug: Server redirect detected, marking for completion:', ajaxResult.data.redirect_url);
                             return result;
                         }
                         
                         // ✅ CORREGIDO: Solo establecer skipToQuestion si hay navegación condicional real
                         if (ajaxResult.data.next_question_id && ajaxResult.data.has_conditional_navigation) {
                             result.skipToQuestion = ajaxResult.data.next_question_id;
-                            console.log('SFQ Frontend Debug: Server confirmed conditional navigation to:', ajaxResult.data.next_question_id);
                         } else if (ajaxResult.data.next_question_id && !ajaxResult.data.has_conditional_navigation) {
-                            console.log('SFQ Frontend Debug: Server returned next_question_id but no conditional navigation - ignoring for sequential flow');
                         }
                         
                         // ✅ ÉXITO: Petición completada correctamente
                         return result;
                         
                     } else {
-                        console.log('SFQ Cache Debug: AJAX request failed or returned no data:', ajaxResult);
                         
                         // Verificar si es un error de nonce
                         if (ajaxResult && !ajaxResult.success && ajaxResult.data && 
                             (ajaxResult.data.includes && ajaxResult.data.includes('nonce') || 
                              ajaxResult.data.code === 'INVALID_NONCE')) {
-                            console.log('SFQ Cache Debug: Nonce error detected, attempting refresh...');
                             
                             // Intentar refrescar nonce y reintentar
                             if (window.sfqCacheCompat && window.sfqCacheCompat.instance && retryCount < maxRetries) {
                                 try {
                                     await window.sfqCacheCompat.instance.refreshNonce();
-                                    console.log('SFQ Cache Debug: Nonce refreshed, retrying AJAX call...');
                                     
                                     retryCount++;
                                     continue; // Reintentar con nuevo nonce
                                 } catch (nonceError) {
-                                    console.error('SFQ Cache Debug: Failed to refresh nonce:', nonceError);
                                 }
                             }
                         }
@@ -976,28 +907,23 @@
                     }
                     
                 } catch (error) {
-                    console.error(`SFQ Cache Debug: Error in AJAX conditions check (attempt ${retryCount + 1}):`, error);
                     
                     // Verificar si es un error de red o nonce
                     if ((error.message.includes('nonce') || error.message.includes('403') || error.message.includes('401')) && retryCount < maxRetries) {
-                        console.log('SFQ Cache Debug: Possible nonce/auth error, attempting recovery...');
                         
                         if (window.sfqCacheCompat && window.sfqCacheCompat.instance) {
                             try {
                                 await window.sfqCacheCompat.instance.refreshNonce();
-                                console.log('SFQ Cache Debug: Nonce refreshed after error, retrying...');
                                 
                                 retryCount++;
                                 continue; // Reintentar una vez más
                             } catch (recoveryError) {
-                                console.error('SFQ Cache Debug: Recovery failed:', recoveryError);
                             }
                         }
                     }
                     
                     // Si es el último intento o no es un error recuperable, salir del bucle
                     if (retryCount >= maxRetries) {
-                        console.error('SFQ Cache Debug: Max retries reached, activating fallback mode');
                         break;
                     }
                     
@@ -1006,7 +932,6 @@
             }
             
             // ✅ NUEVO: Sistema de fallback cuando AJAX falla completamente
-            console.warn('SFQ Cache Debug: AJAX failed completely, activating fallback conditional logic');
             return this.fallbackConditionalLogic(questionId, answer);
         }
         
@@ -1014,7 +939,6 @@
          * ✅ NUEVO: Sistema de fallback para lógica condicional cuando AJAX falla
          */
         fallbackConditionalLogic(questionId, answer) {
-            console.log('SFQ Fallback: Executing fallback conditional logic for question:', questionId);
             
             const result = {
                 shouldRedirect: false,
@@ -1029,16 +953,13 @@
                 if (questionContainer) {
                     const clickedElement = questionContainer.querySelector(`[data-value="${answer}"]`);
                     if (clickedElement && clickedElement.dataset.conditions) {
-                        console.log('SFQ Fallback: Found conditions in DOM element');
                         
                         try {
                             const conditions = JSON.parse(clickedElement.dataset.conditions);
                             if (Array.isArray(conditions) && conditions.length > 0) {
-                                console.log('SFQ Fallback: Processing DOM conditions:', conditions);
                                 return this.evaluateConditionsForRedirect(conditions, questionId);
                             }
                         } catch (e) {
-                            console.error('SFQ Fallback: Error parsing DOM conditions:', e);
                         }
                     }
                 }
@@ -1046,12 +967,10 @@
                 // ✅ ESTRATEGIA 2: Aplicar lógica condicional básica basada en patrones comunes
                 const fallbackResult = this.applyBasicConditionalPatterns(questionId, answer);
                 if (fallbackResult.shouldRedirect || fallbackResult.skipToQuestion) {
-                    console.log('SFQ Fallback: Basic patterns matched:', fallbackResult);
                     return fallbackResult;
                 }
                 
                 // ✅ ESTRATEGIA 3: Continuar con navegación secuencial normal
-                console.log('SFQ Fallback: No conditions matched, continuing with sequential navigation');
                 
                 // Mostrar notificación discreta al usuario sobre el modo fallback
                 this.showFallbackNotification();
@@ -1059,7 +978,6 @@
                 return result;
                 
             } catch (error) {
-                console.error('SFQ Fallback: Error in fallback logic:', error);
                 
                 // En caso de error total, continuar secuencialmente
                 return result;
@@ -1110,7 +1028,6 @@
             
             for (const pattern of commonPatterns) {
                 if (pattern.pattern.test(answer)) {
-                    console.log('SFQ Fallback: Matched pattern:', pattern.pattern, 'for answer:', answer);
                     
                     // Aplicar actualización de variables
                     if (pattern.variableUpdate) {
@@ -1140,14 +1057,12 @@
                                 const targetQuestion = allQuestions[targetIndex];
                                 if (targetQuestion) {
                                     result.skipToQuestion = targetQuestion.dataset.questionId;
-                                    console.log('SFQ Fallback: Skipping ahead to question:', result.skipToQuestion);
                                 }
                             }
                             break;
                             
                         case 'end_form':
                             result.skipToQuestion = 'end';
-                            console.log('SFQ Fallback: Ending form early');
                             break;
                             
                         case 'continue':
@@ -1261,7 +1176,6 @@
 
             // ✅ NUEVO: Verificar si la pregunta actual tiene bloqueo activado
             if (this.isQuestionBlocked(currentQuestion)) {
-                console.log('SFQ: Question is blocked, stopping navigation');
                 this.showBlockedMessage(currentQuestion);
                 return;
             }
@@ -1281,54 +1195,45 @@
 
             // ✅ NUEVO: Verificar si estamos en modo seguro
             const secureLoading = this.container.dataset.secureLoading === 'true';
-            console.log('SFQ: Secure loading mode:', secureLoading);
 
             let nextQuestion = null;
 
             // ✅ CORREGIDO: Lógica de navegación mejorada con debug adicional
-            console.log('SFQ: Navigation check - skipToQuestion:', this.skipToQuestion);
             
             if (this.skipToQuestion) {
                 // Navegación condicional - puede ir a cualquier pregunta, incluyendo pantallas finales
                 if (secureLoading) {
                     // En modo seguro, cargar pregunta dinámicamente
-                    console.log('SFQ: Conditional navigation in secure mode to question:', this.skipToQuestion);
                     await this.loadQuestionSecurely(this.skipToQuestion);
                     this.skipToQuestion = null;
                     return;
                 } else {
                     // En modo normal, buscar en DOM
                     nextQuestion = this.container.querySelector(`[data-question-id="${this.skipToQuestion}"]`);
-                    console.log('SFQ: Conditional navigation to question:', this.skipToQuestion);
                     this.skipToQuestion = null;
                 }
             } else {
                 // Navegación secuencial
                 if (secureLoading) {
                     // En modo seguro, cargar siguiente pregunta vía AJAX
-                    console.log('SFQ: Sequential navigation in secure mode');
                     await this.loadNextQuestionSecurely();
                     return;
                 } else {
                     // En modo normal, buscar siguiente pregunta en DOM
                     nextQuestion = this.getNextNonFinalQuestion(currentQuestion);
-                    console.log('SFQ: Sequential navigation - looking for next non-final question');
                 }
             }
 
             // Solo para modo normal: verificar si hay más preguntas
             if (!secureLoading) {
                 if (!nextQuestion || !nextQuestion.classList.contains('sfq-question-screen')) {
-                    console.log('SFQ: No more questions found, submitting form');
                     this.submitForm();
                     return;
                 }
 
                 // Verificar si la pregunta encontrada es una pantalla final (solo para debug)
                 if (this.isQuestionPantallaFinal(nextQuestion)) {
-                    console.log('SFQ: Next question is a final screen:', nextQuestion.dataset.questionId);
                 } else {
-                    console.log('SFQ: Next question is normal:', nextQuestion.dataset.questionId);
                 }
 
                 // Cambiar a siguiente pregunta
@@ -1369,7 +1274,6 @@
                 const isPantallaFinal = this.isQuestionPantallaFinal(screen);
                 
                 if (isPantallaFinal) {
-                    console.log('SFQ: Accessing final screen via conditional logic:', screen.dataset.questionId);
                     
                     // ✅ CRÍTICO: Añadir clase para mostrar la pantalla final (override del CSS)
                     screen.classList.add('sfq-conditional-access');
@@ -1421,7 +1325,6 @@
             // ✅ NUEVO: Verificar si la pregunta tiene bloqueo activado
             const isBlocked = this.isQuestionBlocked(screen);
             if (isBlocked) {
-                console.log('SFQ: Hiding next button - question is blocked:', screen.dataset.questionId);
                 nextButton.style.display = 'none';
                 return;
             }
@@ -1458,7 +1361,6 @@
 
             // ✅ CORREGIDO: Si estamos en una pantalla final, completar la barra al 100%
             if (this.currentScreen && this.isQuestionPantallaFinal(this.currentScreen)) {
-                console.log('SFQ: Final screen detected - setting progress to 100%');
                 progressBar.style.width = '100%';
                 
                 // ✅ ELEGANTE: Hacer desaparecer la barra después de completarse
@@ -1723,7 +1625,6 @@
             try {
                 await this.saveButtonClickImmediately(questionId, elementId, button);
             } catch (error) {
-                console.error('SFQ: Error saving button click:', error);
                 // Continuar con el comportamiento normal aunque falle el guardado
             }
 
@@ -1770,10 +1671,6 @@
             const uploadArea = input.closest('.sfq-file-upload-area');
             const preview = uploadArea.querySelector('.sfq-file-preview');
 
-            console.log('SFQ File Upload: Starting file upload process');
-            console.log('SFQ File Upload: Element ID:', elementId);
-            console.log('SFQ File Upload: Question ID:', questionId);
-            console.log('SFQ File Upload: Files selected:', input.files ? input.files.length : 0);
 
             // Inicializar respuesta freestyle si no existe
             if (!this.responses[questionId]) {
@@ -1784,17 +1681,14 @@
             this.hideFileErrors(uploadArea);
 
             if (input.files && input.files.length > 0) {
-                console.log('SFQ File Upload: Processing', input.files.length, 'files');
                 
                 // Validar archivos antes de procesarlos
                 const validFiles = this.validateFiles(input.files, uploadArea);
                 
                 if (validFiles.length > 0) {
-                    console.log('SFQ File Upload: Valid files found:', validFiles.length);
                     // Subir archivos al servidor
                     this.uploadFiles(validFiles, elementId, questionId, uploadArea, preview);
                 } else {
-                    console.log('SFQ File Upload: No valid files found');
                     // Limpiar input si no hay archivos válidos
                     input.value = '';
                     this.responses[questionId][elementId] = [];
@@ -1803,7 +1697,6 @@
                     }
                 }
             } else {
-                console.log('SFQ File Upload: No files selected');
                 this.responses[questionId][elementId] = [];
                 if (preview) {
                     preview.style.display = 'none';
@@ -2013,7 +1906,6 @@
          * Subir archivos al servidor
          */
         async uploadFiles(files, elementId, questionId, uploadArea, preview) {
-            console.log('SFQ File Upload: Starting upload process for', files.length, 'files');
             
             // Mostrar indicador de carga
             this.showUploadProgress(uploadArea, true);
@@ -2024,7 +1916,6 @@
                 // Subir archivos uno por uno (el servidor espera un archivo por petición)
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
-                    console.log('SFQ File Upload: Uploading file', i + 1, 'of', files.length, ':', file.name);
                     
                     const formData = new FormData();
                     formData.append('action', 'sfq_upload_file');
@@ -2043,14 +1934,11 @@
                     }
 
                     const result = await response.json();
-                    console.log('SFQ File Upload: Server response for', file.name, ':', result);
 
                     if (result.success && result.data && result.data.file) {
                         uploadedFiles.push(result.data.file);
-                        console.log('SFQ File Upload: File uploaded successfully:', result.data.file);
                     } else {
                         const errorMessage = result.data?.message || 'Error al subir archivo';
-                        console.error('SFQ File Upload: Upload failed for', file.name, ':', errorMessage);
                         throw new Error(`${file.name}: ${errorMessage}`);
                     }
                 }
@@ -2061,10 +1949,8 @@
                 // Mostrar preview de archivos subidos
                 this.showUploadedFiles(preview, uploadedFiles);
                 
-                console.log('SFQ File Upload: All files uploaded successfully:', uploadedFiles);
                 
             } catch (error) {
-                console.error('SFQ File Upload: Upload error:', error);
                 this.showFileErrors(uploadArea, [error.message]);
                 
                 // Limpiar respuestas en caso de error
@@ -2209,7 +2095,6 @@
         }
 
         async submitForm() {
-            console.log('SFQ: Starting form submission (normal flow)');
             
             // ✅ CRÍTICO: Desactivar sistema de guardado parcial ANTES de procesar
             this.disablePartialSave();
@@ -2243,14 +2128,12 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    console.log('SFQ: Form submitted successfully (normal flow)');
                     
                     // ✅ NUEVO: Verificar si el servidor indica que debe disparar webhook
                     const shouldTriggerWebhook = result.data && result.data.trigger_webhook;
                     const submissionId = result.data && result.data.submission_id;
                     
                     if (shouldTriggerWebhook && submissionId) {
-                        console.log('SFQ: Server indicates webhook should be triggered post-success');
                         
                         // Mostrar pantalla de éxito PRIMERO
                         this.showThankYouScreen();
@@ -2321,7 +2204,6 @@
                     throw new Error(errorMessage);
                 }
             } catch (error) {
-                console.error('Error submitting form:', error);
                 
                 // Mostrar mensaje de error más específico
                 let errorMessage = 'Ha ocurrido un error al enviar el formulario. Por favor, intenta de nuevo.';
@@ -2379,7 +2261,6 @@
                     body: formData
                 });
             } catch (error) {
-                console.error('Error tracking event:', error);
             }
         }
 
@@ -2488,13 +2369,11 @@
          * ✅ NUEVO: Inicializar sistema de guardado parcial con retraso (después de lógica condicional)
          */
         async initializePartialSaveDelayed() {
-            console.log('SFQ Partial Save: Initializing partial save system (delayed)');
             
             // ✅ CRÍTICO: Verificar PRIMERO si el formulario ya está completado
             const isCompleted = await this.checkIfFormCompleted();
             
             if (isCompleted) {
-                console.log('SFQ Partial Save: Form already completed, skipping partial save initialization');
                 return;
             }
             
@@ -2512,13 +2391,11 @@
          * ✅ CORREGIDO: Inicializar sistema de guardado parcial con verificación previa
          */
         async initializePartialSave() {
-            console.log('SFQ Partial Save: Initializing partial save system');
             
             // ✅ CRÍTICO: Verificar PRIMERO si el formulario ya está completado
             const isCompleted = await this.checkIfFormCompleted();
             
             if (isCompleted) {
-                console.log('SFQ Partial Save: Form already completed, skipping partial save initialization');
                 return;
             }
             
@@ -2537,7 +2414,6 @@
          */
         async loadPartialResponse() {
             if (!this.formId || !this.sessionId) {
-                console.log('SFQ Partial Save: Missing form ID or session ID');
                 return;
             }
 
@@ -2560,7 +2436,6 @@
                 const result = await response.json();
 
                 if (result.success && result.data && result.data.has_partial) {
-                    console.log('SFQ Partial Save: Found partial response, restoring...');
                     
                     // Restaurar respuestas
                     if (result.data.responses && typeof result.data.responses === 'object') {
@@ -2578,12 +2453,9 @@
                     // Mostrar notificación de recuperación
                     this.showPartialRestoreNotification(result.data.expires_in_hours);
                     
-                    console.log('SFQ Partial Save: Partial response restored successfully');
                 } else {
-                    console.log('SFQ Partial Save: No partial response found');
                 }
             } catch (error) {
-                console.error('SFQ Partial Save: Error loading partial response:', error);
             }
         }
 
@@ -2872,12 +2744,10 @@
                     const result = await response.json();
                     if (result.success) {
                         this.lastSaveTime = Date.now();
-                        console.log('SFQ Partial Save: Response saved successfully');
                         this.showSaveIndicator();
                     }
                 }
             } catch (error) {
-                console.error('SFQ Partial Save: Error saving partial response:', error);
             }
         }
 
@@ -2970,13 +2840,11 @@
             // 1. Verificar atributo data-pantalla-final
             const pantallaFinalAttr = questionScreen.dataset.pantallaFinal;
             if (pantallaFinalAttr === 'true') {
-                console.log('SFQ: Question detected as final screen via data-pantalla-final:', questionScreen.dataset.questionId);
                 return true;
             }
             
             // 2. Verificar clase CSS específica
             if (questionScreen.classList.contains('sfq-final-screen-hidden')) {
-                console.log('SFQ: Question detected as final screen via CSS class:', questionScreen.dataset.questionId);
                 return true;
             }
             
@@ -2985,7 +2853,6 @@
             if (questionType === 'freestyle') {
                 const freestyleContainer = questionScreen.querySelector('.sfq-freestyle-container');
                 if (freestyleContainer && freestyleContainer.dataset.pantallaFinal === 'true') {
-                    console.log('SFQ: Question detected as final screen via freestyle container:', questionScreen.dataset.questionId);
                     return true;
                 }
             }
@@ -2999,7 +2866,6 @@
         async handlePantallaFinalReached(questionScreen) {
             const questionId = questionScreen.dataset.questionId;
             
-            console.log('SFQ: Reached final screen:', questionId);
             
             // Ocultar botón siguiente si existe
             const nextButton = questionScreen.querySelector('.sfq-next-button');
@@ -3017,7 +2883,6 @@
             // ✅ CORREGIDO: NO ejecutar submitForm() automáticamente
             // La pantalla final personalizada ES la pantalla final definitiva
             // El usuario debe permanecer en esta pantalla sin más navegación
-            console.log('SFQ: Final screen reached - form will be completed when user manually submits or through other means');
             
             // Opcional: Marcar el formulario como completado en el backend sin mostrar la pantalla de agradecimiento
             this.markFormAsCompleted();
@@ -3029,23 +2894,19 @@
         getNextNonFinalQuestion(currentQuestion) {
             let next = currentQuestion.nextElementSibling;
             
-            console.log('SFQ: Starting search for next non-final question from:', currentQuestion.dataset.questionId);
             
             // Buscar la siguiente pregunta que no sea pantalla final
             while (next) {
                 // Solo considerar elementos que sean pantallas de pregunta
                 if (next.classList.contains('sfq-question-screen')) {
-                    console.log('SFQ: Checking question:', next.dataset.questionId);
                     
                     // Verificar si es una pantalla final
                     if (this.isQuestionPantallaFinal(next)) {
-                        console.log('SFQ: Skipping final screen in sequential navigation:', next.dataset.questionId);
                         next = next.nextElementSibling;
                         continue;
                     }
                     
                     // Es una pregunta normal, la devolvemos
-                    console.log('SFQ: Found next non-final question:', next.dataset.questionId);
                     return next;
                 }
                 
@@ -3054,7 +2915,6 @@
             }
             
             // No hay más preguntas normales
-            console.log('SFQ: No more non-final questions found');
             return null;
         }
 
@@ -3068,7 +2928,6 @@
                 if (!this.isQuestionPantallaFinal(question)) {
                     return question;
                 }
-                console.log('SFQ: Skipping final screen in initial navigation:', question.dataset.questionId);
             }
             
             // No hay preguntas normales
@@ -3079,11 +2938,8 @@
          * ✅ MEJORADO: Verificar si el formulario ya está completado con logging detallado
          */
         async checkIfFormCompleted() {
-            console.log('SFQ Partial Save: Starting completion check...');
-            console.log('SFQ Partial Save: Form ID:', this.formId, 'Session ID:', this.sessionId);
             
             if (!this.formId || !this.sessionId) {
-                console.log('SFQ Partial Save: Missing form ID or session ID for completion check');
                 return false;
             }
 
@@ -3094,7 +2950,6 @@
                 formData.append('form_id', this.formId);
                 formData.append('session_id', this.sessionId);
 
-                console.log('SFQ Partial Save: Sending AJAX request to check completion...');
 
                 const response = await fetch(sfq_ajax.ajax_url, {
                     method: 'POST',
@@ -3106,46 +2961,34 @@
                 }
 
                 const result = await response.json();
-                console.log('SFQ Partial Save: Server response:', result);
 
                 // Si la respuesta indica que el formulario ya está completado
                 if (result.success && result.data) {
-                    console.log('SFQ Partial Save: Checking completion indicators...');
-                    console.log('SFQ Partial Save: has_partial:', result.data.has_partial);
-                    console.log('SFQ Partial Save: message:', result.data.message);
-                    console.log('SFQ Partial Save: completed_at:', result.data.completed_at);
-                    console.log('SFQ Partial Save: submission_id:', result.data.submission_id);
                     
                     if (!result.data.has_partial) {
                         // Verificar si el mensaje indica que está completado
                         if (result.data.message && result.data.message.includes('ya está completado')) {
-                            console.log('SFQ Partial Save: ✅ Form completion detected via server message');
                             return true;
                         }
                         
                         // Verificar si hay datos de submission completado
                         if (result.data.completed_at && result.data.submission_id) {
-                            console.log('SFQ Partial Save: ✅ Form completion detected via submission data');
                             return true;
                         }
                         
                         // ✅ NUEVO: Verificar si el mensaje indica que no hay respuesta parcial por estar completado
                         if (result.data.message && result.data.message.includes('No hay respuesta parcial')) {
-                            console.log('SFQ Partial Save: ⚠️ No partial response found - checking if form is completed...');
                             // Hacer una verificación adicional más directa
                             const isCompleted = await this.checkCompletionDirectly();
                             if (isCompleted) {
-                                console.log('SFQ Partial Save: ✅ Form completion confirmed via direct check');
                                 return true;
                             }
                         }
                     }
                 }
 
-                console.log('SFQ Partial Save: ❌ Form not detected as completed');
                 return false;
             } catch (error) {
-                console.error('SFQ Partial Save: Error checking form completion:', error);
                 return false; // En caso de error, asumir que no está completado
             }
         }
@@ -3154,7 +2997,6 @@
          * ✅ NUEVO: Verificación directa de completado usando endpoint específico
          */
         async checkCompletionDirectly() {
-            console.log('SFQ Partial Save: Performing direct completion check...');
             
             try {
                 const formData = new FormData();
@@ -3173,17 +3015,14 @@
                 }
 
                 const result = await response.json();
-                console.log('SFQ Partial Save: Direct completion check result:', result);
 
                 if (result.success && result.data) {
                     const isCompleted = result.data.is_completed || false;
-                    console.log('SFQ Partial Save: Direct check - Form completed:', isCompleted);
                     return isCompleted;
                 }
 
                 return false;
             } catch (error) {
-                console.error('SFQ Partial Save: Error in direct completion check:', error);
                 return false;
             }
         }
@@ -3192,7 +3031,6 @@
          * ✅ CORREGIDO: Marcar formulario como completado Y disparar webhook
          */
         async markFormAsCompleted() {
-            console.log('SFQ: Marking form as completed silently');
             
             // ✅ NUEVO: Desactivar sistema de guardado parcial inmediatamente
             this.disablePartialSave();
@@ -3219,14 +3057,12 @@
                 if (response.ok) {
                     const result = await response.json();
                     if (result.success) {
-                        console.log('SFQ: Form marked as completed successfully');
                         
                         // ✅ CRÍTICO: Verificar si el servidor indica que debe disparar webhook
                         const shouldTriggerWebhook = result.data && result.data.trigger_webhook;
                         const submissionId = result.data && result.data.submission_id;
                         
                         if (shouldTriggerWebhook && submissionId) {
-                            console.log('SFQ: Server indicates webhook should be triggered for silent completion');
                             
                             // ✅ NUEVO: Disparar webhook para completado silencioso también
                             setTimeout(() => {
@@ -3243,7 +3079,6 @@
                     }
                 }
             } catch (error) {
-                console.error('SFQ: Error marking form as completed:', error);
             }
         }
 
@@ -3255,7 +3090,6 @@
                 return;
             }
 
-            console.log('SFQ Partial Save: Cleaning up partial responses explicitly');
 
             try {
                 const formData = new FormData();
@@ -3272,11 +3106,9 @@
                 if (response.ok) {
                     const result = await response.json();
                     if (result.success) {
-                        console.log('SFQ Partial Save: Partial responses cleaned up successfully');
                     }
                 }
             } catch (error) {
-                console.error('SFQ Partial Save: Error cleaning up partial responses:', error);
             }
         }
 
@@ -3284,7 +3116,6 @@
          * ✅ NUEVO: Desactivar sistema de guardado parcial
          */
         disablePartialSave() {
-            console.log('SFQ Partial Save: Disabling partial save system - form completed');
             
             // Limpiar intervalos y timers
             this.cleanupPartialSave();
@@ -3307,7 +3138,6 @@
          * ✅ NUEVO: Cargar siguiente pregunta de forma segura vía AJAX
          */
         async loadNextQuestionSecurely() {
-            console.log('SFQ Secure: Loading next question via AJAX');
             
             try {
                 const formData = new FormData();
@@ -3332,7 +3162,6 @@
                 }
 
                 const result = await response.json();
-                console.log('SFQ Secure: AJAX result:', result);
 
                 if (result.success && result.data) {
                     if (result.data.html) {
@@ -3346,18 +3175,14 @@
                         // Actualizar progreso
                         this.updateProgress();
                         
-                        console.log('SFQ Secure: Question loaded successfully, index:', result.data.question_index);
                     } else if (result.data.is_last_question || result.data.question_index === -1) {
                         // No hay más preguntas, finalizar formulario
-                        console.log('SFQ Secure: No more questions, submitting form');
                         this.submitForm();
                     }
                 } else {
-                    console.error('SFQ Secure: Failed to load question:', result);
                     this.showError('Error al cargar la siguiente pregunta.');
                 }
             } catch (error) {
-                console.error('SFQ Secure: Error loading next question:', error);
                 this.showError('Error de conexión al cargar la siguiente pregunta.');
             }
         }
@@ -3366,7 +3191,6 @@
          * ✅ CORREGIDO: Cargar pregunta específica de forma segura (para navegación condicional)
          */
         async loadQuestionSecurely(questionId) {
-            console.log('SFQ Secure: Loading specific question via AJAX:', questionId);
             
             try {
                 const formData = new FormData();
@@ -3391,12 +3215,10 @@
                 }
 
                 const result = await response.json();
-                console.log('SFQ Secure: AJAX result for specific question:', result);
 
                 if (result.success && result.data && result.data.html) {
                     // ✅ CORREGIDO: Manejar pantallas finales correctamente
                     if (result.data.is_final_screen) {
-                        console.log('SFQ Secure: Loading final screen dynamically:', questionId);
                         
                         // Para pantallas finales, usar método específico
                         this.insertDynamicFinalScreen(result.data.html, questionId);
@@ -3404,7 +3226,6 @@
                         // Marcar como completado silenciosamente
                         await this.markFormAsCompleted();
                         
-                        console.log('SFQ Secure: Final screen loaded and form marked as completed');
                     } else {
                         // Para preguntas normales, usar método estándar
                         this.insertDynamicQuestion(result.data.html, result.data.question_index, questionId);
@@ -3417,14 +3238,11 @@
                         this.questionStartTime = Date.now();
                         this.updateProgress();
                         
-                        console.log('SFQ Secure: Normal question loaded successfully:', questionId);
                     }
                 } else {
-                    console.error('SFQ Secure: Failed to load specific question:', result);
                     this.showError('Error al cargar la pregunta solicitada.');
                 }
             } catch (error) {
-                console.error('SFQ Secure: Error loading specific question:', error);
                 this.showError('Error de conexión al cargar la pregunta.');
             }
         }
@@ -3433,7 +3251,6 @@
          * ✅ NUEVO: Insertar pregunta dinámica en el DOM
          */
         insertDynamicQuestion(questionHtml, questionIndex, specificQuestionId = null) {
-            console.log('SFQ Secure: Inserting dynamic question, index:', questionIndex);
             
             // Ocultar pregunta actual
             if (this.currentScreen) {
@@ -3443,7 +3260,6 @@
             // Obtener contenedor dinámico
             const dynamicContainer = this.container.querySelector('#sfq-dynamic-questions-container');
             if (!dynamicContainer) {
-                console.error('SFQ Secure: Dynamic container not found');
                 return;
             }
 
@@ -3457,7 +3273,6 @@
             // Obtener la pregunta parseada
             const questionElement = tempDiv.querySelector('.sfq-question-screen');
             if (!questionElement) {
-                console.error('SFQ Secure: No question screen found in HTML');
                 return;
             }
 
@@ -3476,7 +3291,6 @@
 
             // ✅ SOLUCIÓN: Actualizar variables en DOM después de insertar la pregunta
             setTimeout(() => {
-                console.log('SFQ Secure: Updating variables in DOM for newly inserted question');
                 this.updateVariablesInDOM();
             }, 100);
 
@@ -3485,15 +3299,12 @@
                 this.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
 
-            console.log('SFQ Secure: Dynamic question inserted and activated');
         }
 
         /**
          * ✅ CORREGIDO: Insertar pantalla final dinámica en el DOM
          */
         insertDynamicFinalScreen(finalScreenHtml, questionId) {
-            console.log('SFQ Secure: Inserting dynamic final screen:', questionId);
-            console.log('SFQ Secure: Final screen HTML received:', finalScreenHtml);
             
             // Ocultar pregunta actual
             if (this.currentScreen) {
@@ -3503,7 +3314,6 @@
             // Obtener contenedor dinámico
             const dynamicContainer = this.container.querySelector('#sfq-dynamic-questions-container');
             if (!dynamicContainer) {
-                console.error('SFQ Secure: Dynamic container not found');
                 return;
             }
 
@@ -3521,11 +3331,8 @@
                 finalScreenElement = dynamicContainer.querySelector('.sfq-screen');
                 
                 if (finalScreenElement) {
-                    console.log('SFQ Secure: Found .sfq-screen, adding final screen class');
                     finalScreenElement.classList.add('sfq-final-screen');
                 } else {
-                    console.error('SFQ Secure: No screen element found in HTML');
-                    console.error('SFQ Secure: Available elements:', dynamicContainer.innerHTML);
                     return;
                 }
             }
@@ -3543,7 +3350,6 @@
 
             // ✅ SOLUCIÓN: Actualizar variables en DOM después de insertar la pantalla final
             setTimeout(() => {
-                console.log('SFQ Secure: Updating variables in DOM for newly inserted final screen');
                 this.updateVariablesInDOM();
             }, 100);
 
@@ -3555,15 +3361,12 @@
                 this.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
 
-            console.log('SFQ Secure: Dynamic final screen inserted and activated');
-            console.log('SFQ Secure: Final screen element:', finalScreenElement);
         }
 
         /**
          * ✅ NUEVO: Vincular eventos para pregunta recién cargada
          */
         bindEventsForNewQuestion(questionElement) {
-            console.log('SFQ Secure: Binding events for new question');
 
             // Opciones de respuesta única
             questionElement.querySelectorAll('.sfq-single-choice .sfq-option-card').forEach(card => {
@@ -3602,7 +3405,6 @@
             // Elementos freestyle si existen
             this.bindFreestyleEventsForElement(questionElement);
 
-            console.log('SFQ Secure: Events bound for new question');
         }
 
         /**
@@ -3739,13 +3541,6 @@
             const backgroundImageAttachment = this.settings.background_image_attachment || 'scroll';
             const backgroundOverlayOpacity = this.settings.background_overlay_opacity || 0;
 
-            console.log('SFQ Background: Applying background image styles');
-            console.log('SFQ Background: URL:', backgroundImageUrl);
-            console.log('SFQ Background: Size:', backgroundImageSize);
-            console.log('SFQ Background: Repeat:', backgroundImageRepeat);
-            console.log('SFQ Background: Position:', backgroundImagePosition);
-            console.log('SFQ Background: Attachment:', backgroundImageAttachment);
-            console.log('SFQ Background: Overlay Opacity:', backgroundOverlayOpacity);
 
             // Solo aplicar si hay una imagen configurada
             if (backgroundImageUrl && backgroundImageUrl.trim() !== '') {
@@ -3757,9 +3552,7 @@
                 this.container.style.setProperty('--sfq-background-image-attachment', backgroundImageAttachment);
                 this.container.style.setProperty('--sfq-background-overlay-opacity', backgroundOverlayOpacity);
 
-                console.log('SFQ Background: Background image styles applied successfully');
             } else {
-                console.log('SFQ Background: No background image URL configured, skipping');
             }
         }
 
@@ -3767,7 +3560,6 @@
          * ✅ MEJORADO: Obtener nonce actual con validación robusta
          */
         getCurrentNonce() {
-            console.log('SFQ Frontend: Getting current nonce...');
             
             let nonce = null;
             
@@ -3775,7 +3567,6 @@
             if (window.sfqCacheCompat && window.sfqCacheCompat.instance) {
                 const cacheCompatNonce = window.sfqCacheCompat.instance.nonce;
                 if (cacheCompatNonce && cacheCompatNonce.trim() !== '') {
-                    console.log('SFQ Frontend: Using cache compat nonce:', cacheCompatNonce.substring(0, 10) + '...');
                     return cacheCompatNonce;
                 }
             }
@@ -3783,13 +3574,11 @@
             // PRIORIDAD 2: Nonce de configuración del formulario
             if (this.config.nonce && this.config.nonce.trim() !== '') {
                 nonce = this.config.nonce;
-                console.log('SFQ Frontend: Using form config nonce:', nonce.substring(0, 10) + '...');
             }
             
             // PRIORIDAD 3: Nonce global de AJAX
             if (!nonce && window.sfq_ajax && window.sfq_ajax.nonce && window.sfq_ajax.nonce.trim() !== '') {
                 nonce = window.sfq_ajax.nonce;
-                console.log('SFQ Frontend: Using global AJAX nonce:', nonce.substring(0, 10) + '...');
             }
             
             // PRIORIDAD 4: Buscar nonce en inputs del DOM
@@ -3797,7 +3586,6 @@
                 const nonceInput = document.querySelector('input[name="nonce"]');
                 if (nonceInput && nonceInput.value && nonceInput.value.trim() !== '') {
                     nonce = nonceInput.value;
-                    console.log('SFQ Frontend: Using DOM input nonce:', nonce.substring(0, 10) + '...');
                 }
             }
             
@@ -3806,13 +3594,11 @@
                 const nonceMeta = document.querySelector('meta[name="sfq-nonce"]');
                 if (nonceMeta && nonceMeta.content && nonceMeta.content.trim() !== '') {
                     nonce = nonceMeta.content;
-                    console.log('SFQ Frontend: Using meta tag nonce:', nonce.substring(0, 10) + '...');
                 }
             }
             
             // ✅ NUEVO: Validar que el nonce no esté obviamente expirado
             if (nonce && this.isNonceObviouslyExpired(nonce)) {
-                console.warn('SFQ Frontend: Nonce appears to be expired, attempting refresh...');
                 
                 // Intentar refrescar nonce si el sistema de cache compat está disponible
                 if (window.sfqCacheCompat && window.sfqCacheCompat.instance && 
@@ -3820,15 +3606,12 @@
                     
                     // Refrescar de forma asíncrona (no bloquear)
                     window.sfqCacheCompat.instance.refreshNonce().then(function(newNonce) {
-                        console.log('SFQ Frontend: Nonce refreshed successfully');
                     }).catch(function(error) {
-                        console.error('SFQ Frontend: Failed to refresh expired nonce:', error);
                     });
                 }
             }
             
             if (!nonce) {
-                console.error('SFQ Frontend: No valid nonce found anywhere!');
                 return '';
             }
             
@@ -3868,14 +3651,12 @@
             // Verificar atributo data-block-question
             const blockQuestion = questionScreen.dataset.blockQuestion;
             if (blockQuestion === 'true' || blockQuestion === '1') {
-                console.log('SFQ: Question is blocked via data-block-question:', questionScreen.dataset.questionId);
                 return true;
             }
             
             // Verificar si hay un elemento con clase de bloqueo
             const blockIndicator = questionScreen.querySelector('.sfq-question-blocked');
             if (blockIndicator) {
-                console.log('SFQ: Question is blocked via CSS class:', questionScreen.dataset.questionId);
                 return true;
             }
             
@@ -3886,7 +3667,6 @@
          * ✅ NUEVO: Mostrar mensaje de bloqueo del formulario
          */
         showBlockedMessage(questionScreen) {
-            console.log('SFQ: Showing blocked message for question:', questionScreen.dataset.questionId);
             
             // Ocultar la pregunta actual
             if (this.currentScreen) {
@@ -3974,7 +3754,6 @@
          * ✅ NUEVO: Guardar clic de botón inmediatamente en el servidor
          */
         async saveButtonClickImmediately(questionId, elementId, button) {
-            console.log('SFQ: Saving button click immediately for element:', elementId);
             
             try {
                 const formData = new FormData();
@@ -4010,13 +3789,10 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    console.log('SFQ: Button click saved successfully');
                 } else {
-                    console.warn('SFQ: Button click save failed:', result.data);
                 }
                 
             } catch (error) {
-                console.error('SFQ: Error saving button click:', error);
                 // No lanzar el error para no interrumpir el flujo normal
             }
         }
@@ -4040,7 +3816,6 @@
          * ✅ NUEVO: Inicializar sistema de seguimiento de vistas de botones
          */
         initializeButtonViewTracking() {
-            console.log('SFQ Button Views: Initializing button view tracking system');
             
             // Configurar observer para detectar cuando aparecen botones en pantalla
             this.setupButtonViewObserver();
@@ -4055,7 +3830,6 @@
         setupButtonViewObserver() {
             // Verificar soporte para Intersection Observer
             if (!window.IntersectionObserver) {
-                console.warn('SFQ Button Views: IntersectionObserver not supported, using fallback');
                 this.setupButtonViewFallback();
                 return;
             }
@@ -4086,14 +3860,12 @@
             // Buscar todos los botones en preguntas freestyle
             const freestyleButtons = this.container.querySelectorAll('.sfq-freestyle-button[href], .sfq-freestyle-button[data-url]');
             
-            console.log('SFQ Button Views: Found', freestyleButtons.length, 'freestyle buttons to observe');
             
             freestyleButtons.forEach(button => {
                 // Solo observar botones que tengan URL
                 const hasUrl = button.href || button.dataset.url;
                 if (hasUrl && this.buttonViewObserver) {
                     this.buttonViewObserver.observe(button);
-                    console.log('SFQ Button Views: Observing button:', button.textContent?.trim() || 'Unnamed button');
                 }
             });
         }
@@ -4107,7 +3879,6 @@
                 return;
             }
 
-            console.log('SFQ Button Views: Button became visible:', button.textContent?.trim() || 'Unnamed button');
 
             // Marcar como vista registrada para evitar duplicados
             button.dataset.viewRegistered = 'true';
@@ -4127,14 +3898,12 @@
             // Encontrar el contenedor de la pregunta
             const questionContainer = button.closest('.sfq-question-screen');
             if (!questionContainer) {
-                console.warn('SFQ Button Views: Button not inside question container');
                 return null;
             }
 
             // Verificar que sea una pregunta estilo libre
             const questionType = questionContainer.dataset.questionType;
             if (questionType !== 'freestyle') {
-                console.log('SFQ Button Views: Skipping non-freestyle question:', questionType);
                 return null;
             }
 
@@ -4144,7 +3913,6 @@
             const buttonUrl = button.href || button.dataset.url || '';
 
             if (!questionId || !elementId || !buttonUrl) {
-                console.warn('SFQ Button Views: Missing required button information', {
                     questionId,
                     elementId,
                     buttonUrl
@@ -4164,7 +3932,6 @@
          * ✅ NUEVO: Registrar vista de botón en el servidor
          */
         async registerButtonView(buttonInfo) {
-            console.log('SFQ Button Views: Registering button view:', buttonInfo);
 
             try {
                 const formData = new FormData();
@@ -4194,13 +3961,10 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    console.log('SFQ Button Views: Button view registered successfully');
                 } else {
-                    console.warn('SFQ Button Views: Failed to register button view:', result.data);
                 }
                 
             } catch (error) {
-                console.error('SFQ Button Views: Error registering button view:', error);
                 // No lanzar el error para no interrumpir el flujo normal
             }
         }
@@ -4235,7 +3999,6 @@
          * ✅ NUEVO: Sistema de fallback para navegadores sin IntersectionObserver
          */
         setupButtonViewFallback() {
-            console.log('SFQ Button Views: Setting up fallback system');
             
             // Usar eventos de scroll y resize para detectar visibilidad
             let scrollTimeout;
@@ -4288,7 +4051,6 @@
          * ✅ NUEVO: Disparar webhook después de mostrar éxito al usuario
          */
         async triggerWebhookPostSuccess(submissionId) {
-            console.log('SFQ: Triggering webhook post-success for submission:', submissionId);
             
             try {
                 const formData = new FormData();
@@ -4314,13 +4076,10 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    console.log('SFQ: Webhook triggered successfully post-success');
                 } else {
-                    console.warn('SFQ: Webhook trigger failed:', result.data);
                 }
                 
             } catch (error) {
-                console.error('SFQ: Error triggering webhook post-success:', error);
                 // No interrumpir el flujo aunque falle el webhook
             }
         }
@@ -4329,7 +4088,6 @@
          * ✅ NUEVO: Manejar redirecciones después del webhook
          */
         handlePostWebhookRedirection(responseData) {
-            console.log('SFQ: Handling post-webhook redirection');
             
             // PRIORITY 1: Verificar si hay redirección condicional desde el resultado del servidor
             if (responseData && responseData.redirect_url) {
@@ -4367,7 +4125,6 @@
             }
             
             // PRIORITY 3: No hay redirección, mantener pantalla de agradecimiento
-            console.log('SFQ: No redirection configured, staying on thank you screen');
         }
     }
 
