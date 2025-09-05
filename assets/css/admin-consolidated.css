@@ -479,6 +479,7 @@
     margin-bottom: 15px;
     transition: var(--sfq-transition);
     box-shadow: var(--sfq-shadow);
+    position: relative;
 }
 
 .sfq-question-item:hover {
@@ -490,6 +491,173 @@
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
     transform: rotate(2deg);
     opacity: 0.9;
+    z-index: 1000;
+}
+
+/* Estados de drag & drop mejorados */
+.sfq-question-item.sfq-dragging {
+    opacity: 0.8;
+    transform: scale(1.02) rotate(1deg);
+    box-shadow: 0 12px 32px rgba(0, 124, 186, 0.2);
+    border-color: var(--sfq-primary);
+    z-index: 1000;
+}
+
+.sfq-question-item.sfq-reordered {
+    animation: sfq-reorder-success 0.8s ease;
+}
+
+@keyframes sfq-reorder-success {
+    0% {
+        background: white;
+        border-color: var(--sfq-border);
+    }
+    50% {
+        background: #e8f5e8;
+        border-color: var(--sfq-success);
+        transform: scale(1.02);
+    }
+    100% {
+        background: white;
+        border-color: var(--sfq-border);
+        transform: scale(1);
+    }
+}
+
+/* Placeholder mejorado para drag & drop */
+.sfq-question-placeholder {
+    height: 120px;
+    background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%);
+    border: 3px dashed var(--sfq-primary);
+    border-radius: var(--sfq-radius);
+    margin: 15px 0;
+    opacity: 0.8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    animation: sfq-placeholder-pulse 2s infinite;
+}
+
+@keyframes sfq-placeholder-pulse {
+    0%, 100% {
+        border-color: var(--sfq-primary);
+        background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%);
+    }
+    50% {
+        border-color: #0056b3;
+        background: linear-gradient(135deg, #e6f3ff 0%, #cce7ff 100%);
+    }
+}
+
+.sfq-placeholder-content {
+    text-align: center;
+    color: var(--sfq-primary);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.sfq-placeholder-icon {
+    font-size: 24px;
+    margin-bottom: 8px;
+    animation: sfq-bounce 1s infinite;
+}
+
+@keyframes sfq-bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-8px);
+    }
+    60% {
+        transform: translateY(-4px);
+    }
+}
+
+.sfq-placeholder-text {
+    font-size: 13px;
+    opacity: 0.9;
+}
+
+/* Estados globales de drag */
+body.sfq-dragging-active {
+    cursor: grabbing !important;
+}
+
+body.sfq-dragging-active * {
+    cursor: grabbing !important;
+}
+
+.sfq-drop-zone-active {
+    background: linear-gradient(135deg, #f8fbff 0%, #f0f8ff 100%);
+    border: 2px dashed rgba(0, 124, 186, 0.3);
+    border-radius: var(--sfq-radius);
+    position: relative;
+}
+
+.sfq-drop-zone-active::before {
+    content: '📋 Zona de reordenamiento activa';
+    position: absolute;
+    top: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--sfq-primary);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    z-index: 10;
+    opacity: 0.9;
+}
+
+/* Mejoras para el header de preguntas (área de agarre) */
+.sfq-question-header {
+    cursor: grab;
+    user-select: none;
+}
+
+.sfq-question-header:active {
+    cursor: grabbing;
+}
+
+.sfq-question-header:hover {
+    background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%);
+}
+
+/* Indicador visual de que es arrastrable */
+.sfq-question-header::before {
+    content: '⋮⋮';
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #ccc;
+    font-size: 16px;
+    line-height: 1;
+    letter-spacing: -2px;
+    transition: var(--sfq-transition);
+}
+
+.sfq-question-header:hover::before {
+    color: var(--sfq-primary);
+}
+
+.sfq-question-item.sfq-dragging .sfq-question-header::before {
+    color: var(--sfq-primary);
+    animation: sfq-drag-indicator 0.5s infinite alternate;
+}
+
+@keyframes sfq-drag-indicator {
+    from { opacity: 0.5; }
+    to { opacity: 1; }
+}
+
+/* Ajustar padding del header para hacer espacio al indicador */
+.sfq-question-header {
+    padding-left: 35px;
 }
 
 .sfq-question-header {
@@ -654,11 +822,99 @@
     border-radius: 6px;
     margin-bottom: 15px;
     transition: all 0.2s ease;
+    position: relative;
 }
 
 .sfq-freestyle-element:hover {
     border-color: #9b59b6;
     box-shadow: 0 2px 8px rgba(155, 89, 182, 0.1);
+}
+
+/* ✅ NUEVO: Estilos para drag & drop de elementos freestyle */
+.sfq-freestyle-element.sfq-dragging-element {
+    opacity: 0.8;
+    transform: scale(1.02) rotate(1deg);
+    box-shadow: 0 12px 32px rgba(155, 89, 182, 0.3);
+    border-color: #9b59b6;
+    z-index: 1000;
+    cursor: grabbing;
+}
+
+.sfq-freestyle-element.sfq-freestyle-reordered {
+    animation: sfq-freestyle-reorder-success 0.8s ease;
+}
+
+@keyframes sfq-freestyle-reorder-success {
+    0% {
+        background: white;
+        border-color: #dee2e6;
+    }
+    50% {
+        background: #e8f5e8;
+        border-color: #9b59b6;
+        transform: scale(1.02);
+    }
+    100% {
+        background: white;
+        border-color: #dee2e6;
+        transform: scale(1);
+    }
+}
+
+/* Placeholder específico para elementos freestyle */
+.sfq-freestyle-element-placeholder {
+    height: 80px;
+    background: linear-gradient(135deg, #f3e5f5 0%, #e8f5e8 100%);
+    border: 3px dashed #9b59b6;
+    border-radius: 6px;
+    margin: 15px 0;
+    opacity: 0.8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    animation: sfq-freestyle-placeholder-pulse 2s infinite;
+}
+
+@keyframes sfq-freestyle-placeholder-pulse {
+    0%, 100% {
+        border-color: #9b59b6;
+        background: linear-gradient(135deg, #f3e5f5 0%, #e8f5e8 100%);
+    }
+    50% {
+        border-color: #8e44ad;
+        background: linear-gradient(135deg, #e8f5e8 0%, #d4edda 100%);
+    }
+}
+
+.sfq-freestyle-placeholder-content {
+    text-align: center;
+    color: #9b59b6;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.sfq-freestyle-placeholder-icon {
+    font-size: 24px;
+    margin-bottom: 8px;
+    animation: sfq-freestyle-bounce 1s infinite;
+}
+
+@keyframes sfq-freestyle-bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-8px);
+    }
+    60% {
+        transform: translateY(-4px);
+    }
+}
+
+.sfq-freestyle-placeholder-text {
+    font-size: 13px;
+    opacity: 0.9;
 }
 
 .sfq-freestyle-element-header {
@@ -669,6 +925,50 @@
     background: #f8f9fa;
     border-bottom: 1px solid #dee2e6;
     border-radius: 6px 6px 0 0;
+    cursor: grab;
+    user-select: none;
+    position: relative;
+}
+
+.sfq-freestyle-element-header:active {
+    cursor: grabbing;
+}
+
+.sfq-freestyle-element-header:hover {
+    background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%);
+}
+
+/* Indicador visual de que es arrastrable */
+.sfq-freestyle-element-header::before {
+    content: '⋮⋮';
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #ccc;
+    font-size: 14px;
+    line-height: 1;
+    letter-spacing: -2px;
+    transition: var(--sfq-transition);
+}
+
+.sfq-freestyle-element-header:hover::before {
+    color: #9b59b6;
+}
+
+.sfq-freestyle-element.sfq-dragging-element .sfq-freestyle-element-header::before {
+    color: #9b59b6;
+    animation: sfq-freestyle-drag-indicator 0.5s infinite alternate;
+}
+
+@keyframes sfq-freestyle-drag-indicator {
+    from { opacity: 0.5; }
+    to { opacity: 1; }
+}
+
+/* Ajustar padding del header para hacer espacio al indicador */
+.sfq-freestyle-element-header {
+    padding-left: 35px;
 }
 
 .sfq-freestyle-element-type {

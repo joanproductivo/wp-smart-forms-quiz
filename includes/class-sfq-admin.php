@@ -256,7 +256,7 @@ class SFQ_Admin {
                                     <?php _e('Reset', 'smart-forms-quiz'); ?>
                                 </button>
                                 <button class="button sfq-delete-form" data-form-id="<?php echo $form->id; ?>">
-                                    <?php _e('Eliminar', 'smart-forms-quiz'); ?>
+                                    <?php _e('X', 'smart-forms-quiz'); ?>
                                 </button>
                             </div>
                         </div>

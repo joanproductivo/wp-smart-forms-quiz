@@ -2166,10 +2166,99 @@
         initSortable() {
             if ($.fn.sortable) {
                 this.container.sortable({
-                    handle: '.sfq-move-handle',
+                    handle: '.sfq-question-header',
                     placeholder: 'sfq-question-placeholder',
-                    update: () => this.updateQuestionsOrder()
+                    cursor: 'grabbing',
+                    opacity: 0.8,
+                    tolerance: 'intersect', // ✅ CORREGIDO: Cambiar de 'pointer' a 'intersect' para mejor detección
+                    distance: 5,
+                    scroll: true,
+                    scrollSensitivity: 100,
+                    scrollSpeed: 20,
+                    containment: false, // ✅ CORREGIDO: Cambiar de 'parent' a false para permitir movimiento libre
+                    helper: 'clone',
+                    axis: false, // ✅ NUEVO: Permitir movimiento en ambas direcciones
+                    forceHelperSize: true, // ✅ NUEVO: Mantener tamaño del helper
+                    forcePlaceholderSize: true, // ✅ NUEVO: Mantener tamaño del placeholder
+                    start: (event, ui) => {
+                        // Añadir clase visual al elemento que se está arrastrando
+                        ui.item.addClass('sfq-dragging');
+                        ui.placeholder.height(ui.item.outerHeight());
+                        ui.placeholder.width(ui.item.outerWidth()); // ✅ NUEVO: Mantener ancho también
+                        
+                        // Mostrar indicador visual
+                        this.showDragIndicator();
+                    },
+                    stop: (event, ui) => {
+                        // Remover clase visual
+                        ui.item.removeClass('sfq-dragging');
+                        
+                        // Ocultar indicador visual
+                        this.hideDragIndicator();
+                        
+                        // Actualizar orden
+                        this.updateQuestionsOrder();
+                        
+                        // Mostrar feedback visual
+                        this.showReorderFeedback(ui.item);
+                    },
+                    change: (event, ui) => {
+                        // Actualizar placeholder dinámicamente
+                        ui.placeholder.html(`
+                            <div class="sfq-placeholder-content">
+                                <div class="sfq-placeholder-icon">↕️</div>
+                                <div class="sfq-placeholder-text">Suelta aquí para reordenar</div>
+                            </div>
+                        `);
+                    },
+                    // ✅ NUEVO: Eventos adicionales para debugging
+                    over: function(event, ui) {
+                        console.log('SFQ: Question sortable over event triggered');
+                    },
+                    out: function(event, ui) {
+                        console.log('SFQ: Question sortable out event triggered');
+                    },
+                    beforeStop: function(event, ui) {
+                        console.log('SFQ: Question sortable beforeStop - current position:', ui.item.index());
+                    }
                 });
+                
+                // También hacer sortable el contenedor de pantallas finales
+                const $finalScreensContainer = $('#sfq-final-screens-container');
+                if ($finalScreensContainer.length > 0) {
+                    $finalScreensContainer.sortable({
+                        handle: '.sfq-question-header',
+                        placeholder: 'sfq-question-placeholder',
+                        cursor: 'grabbing',
+                        opacity: 0.8,
+                        tolerance: 'pointer',
+                        distance: 5,
+                        scroll: true,
+                        scrollSensitivity: 100,
+                        scrollSpeed: 20,
+                        containment: 'parent',
+                        helper: 'clone',
+                        start: (event, ui) => {
+                            ui.item.addClass('sfq-dragging');
+                            ui.placeholder.height(ui.item.outerHeight());
+                            this.showDragIndicator();
+                        },
+                        stop: (event, ui) => {
+                            ui.item.removeClass('sfq-dragging');
+                            this.hideDragIndicator();
+                            this.updateFinalScreensOrder();
+                            this.showReorderFeedback(ui.item);
+                        },
+                        change: (event, ui) => {
+                            ui.placeholder.html(`
+                                <div class="sfq-placeholder-content">
+                                    <div class="sfq-placeholder-icon">🏁</div>
+                                    <div class="sfq-placeholder-text">Suelta aquí para reordenar pantalla final</div>
+                                </div>
+                            `);
+                        }
+                    });
+                }
             }
         }
 
@@ -2652,6 +2741,168 @@
             
             // Bind existing element events
             this.bindFreestyleElementEvents(questionId);
+            
+            // ✅ NUEVO: Inicializar sortable para elementos freestyle
+            this.initFreestyleSortable(questionId);
+        }
+
+        /**
+         * ✅ NUEVO: Inicializar sistema de ordenamiento drag & drop para elementos freestyle
+         */
+        initFreestyleSortable(questionId) {
+            const $elementsContainer = $(`#freestyle-elements-${questionId}`);
+            
+            if ($elementsContainer.length === 0 || !$.fn.sortable) {
+                console.log('SFQ: Sortable container not found or jQuery UI not available for question:', questionId);
+                return;
+            }
+            
+            // Destruir sortable existente si existe
+            if ($elementsContainer.hasClass('ui-sortable')) {
+                $elementsContainer.sortable('destroy');
+            }
+            
+            const self = this;
+            
+            $elementsContainer.sortable({
+                items: '.sfq-freestyle-element',
+                handle: '.sfq-freestyle-element-header',
+                placeholder: 'sfq-freestyle-element-placeholder',
+                cursor: 'grabbing',
+                opacity: 0.8,
+                tolerance: 'intersect', // ✅ CORREGIDO: Cambiar de 'pointer' a 'intersect' para mejor detección
+                distance: 5,
+                scroll: true,
+                scrollSensitivity: 100,
+                scrollSpeed: 20,
+                containment: false, // ✅ CORREGIDO: Cambiar de 'parent' a false para permitir movimiento libre
+                helper: 'clone',
+                axis: false, // ✅ NUEVO: Permitir movimiento en ambas direcciones
+                forceHelperSize: true, // ✅ NUEVO: Mantener tamaño del helper
+                forcePlaceholderSize: true, // ✅ NUEVO: Mantener tamaño del placeholder
+                start: function(event, ui) {
+                    // Añadir clase visual al elemento que se está arrastrando
+                    ui.item.addClass('sfq-dragging-element');
+                    ui.placeholder.height(ui.item.outerHeight());
+                    ui.placeholder.width(ui.item.outerWidth()); // ✅ NUEVO: Mantener ancho también
+                    
+                    // Crear placeholder personalizado para elementos freestyle
+                    ui.placeholder.html(`
+                        <div class="sfq-freestyle-placeholder-content">
+                            <div class="sfq-freestyle-placeholder-icon">🔄</div>
+                            <div class="sfq-freestyle-placeholder-text">Suelta aquí para reordenar elemento</div>
+                        </div>
+                    `);
+                    
+                    console.log('SFQ: Started dragging freestyle element:', ui.item.data('element-id'));
+                },
+                stop: function(event, ui) {
+                    // Remover clase visual
+                    ui.item.removeClass('sfq-dragging-element');
+                    
+                    // Actualizar orden de elementos
+                    self.updateFreestyleElementsOrder(questionId);
+                    
+                    // Mostrar feedback visual
+                    self.showFreestyleReorderFeedback(ui.item);
+                    
+                    console.log('SFQ: Finished dragging freestyle element:', ui.item.data('element-id'));
+                },
+                change: function(event, ui) {
+                    // Actualizar placeholder dinámicamente
+                    const elementType = ui.item.data('element-type');
+                    const elementTypeNames = {
+                        'text': '📝',
+                        'video': '🎥',
+                        'image': '🖼️',
+                        'countdown': '⏰',
+                        'phone': '📞',
+                        'email': '📧',
+                        'file_upload': '📤',
+                        'button': '🔘',
+                        'rating': '⭐',
+                        'dropdown': '📋',
+                        'checkbox': '☑️',
+                        'legal_text': '⚖️',
+                        'variable_display': '🔢',
+                        'styled_text': '✨'
+                    };
+                    
+                    const icon = elementTypeNames[elementType] || '🔄';
+                    
+                    ui.placeholder.html(`
+                        <div class="sfq-freestyle-placeholder-content">
+                            <div class="sfq-freestyle-placeholder-icon">${icon}</div>
+                            <div class="sfq-freestyle-placeholder-text">Reordenando elemento ${elementType}</div>
+                        </div>
+                    `);
+                },
+                // ✅ NUEVO: Eventos adicionales para debugging
+                over: function(event, ui) {
+                    console.log('SFQ: Sortable over event triggered');
+                },
+                out: function(event, ui) {
+                    console.log('SFQ: Sortable out event triggered');
+                },
+                beforeStop: function(event, ui) {
+                    console.log('SFQ: Sortable beforeStop - current position:', ui.item.index());
+                }
+            });
+            
+            console.log('SFQ: Initialized sortable for freestyle elements in question:', questionId);
+        }
+
+        /**
+         * ✅ NUEVO: Actualizar orden de elementos freestyle después del drag & drop
+         */
+        updateFreestyleElementsOrder(questionId) {
+            const question = this.questions.find(q => q.id === questionId);
+            if (!question || !question.freestyle_elements) {
+                console.error('SFQ: Question or freestyle elements not found for order update:', questionId);
+                return;
+            }
+            
+            const $elementsContainer = $(`#freestyle-elements-${questionId}`);
+            const newOrder = [];
+            
+            // Recorrer elementos en el nuevo orden del DOM
+            $elementsContainer.find('.sfq-freestyle-element').each((index, element) => {
+                const elementId = $(element).data('element-id');
+                const freestyleElement = question.freestyle_elements.find(el => el.id === elementId);
+                
+                if (freestyleElement) {
+                    // Actualizar el orden del elemento
+                    freestyleElement.order = index;
+                    newOrder.push(freestyleElement);
+                    
+                    console.log(`SFQ: Updated element ${elementId} to order ${index}`);
+                }
+            });
+            
+            // Actualizar el array de elementos con el nuevo orden
+            question.freestyle_elements = newOrder;
+            
+            // Marcar formulario como modificado
+            this.formBuilder.isDirty = true;
+            
+            console.log('SFQ: Updated freestyle elements order for question:', questionId);
+            console.log('SFQ: New order:', newOrder.map(el => ({ id: el.id, type: el.type, order: el.order })));
+        }
+
+        /**
+         * ✅ NUEVO: Mostrar feedback visual después de reordenar elementos freestyle
+         */
+        showFreestyleReorderFeedback(item) {
+            // Añadir clase de feedback temporal
+            item.addClass('sfq-freestyle-reordered');
+            
+            // Remover clase después de la animación
+            setTimeout(() => {
+                item.removeClass('sfq-freestyle-reordered');
+            }, 800);
+            
+            // Mostrar notificación
+            this.formBuilder.uiRenderer.showNotice('Elemento reordenado correctamente', 'success');
         }
 
         bindFreestyleElementEvents(questionId) {
@@ -4476,8 +4727,74 @@
                     newOrder.push(question);
                 }
             });
-            this.questions = newOrder;
+            
+            // Actualizar el array de preguntas manteniendo las pantallas finales separadas
+            const finalScreenQuestions = this.questions.filter(q => q.pantallaFinal);
+            const normalQuestions = newOrder.filter(q => !q.pantallaFinal);
+            
+            // Combinar manteniendo el orden correcto
+            this.questions = [...normalQuestions, ...finalScreenQuestions];
+            
             this.formBuilder.isDirty = true;
+            
+            console.log('SFQ: Updated questions order:', this.questions.map(q => ({ 
+                id: q.id, 
+                text: q.text.substring(0, 30) + '...', 
+                order: q.order,
+                pantallaFinal: q.pantallaFinal 
+            })));
+        }
+
+        updateFinalScreensOrder() {
+            const $finalScreensContainer = $('#sfq-final-screens-container');
+            const finalScreenQuestions = [];
+            
+            $finalScreensContainer.find('.sfq-question-item').each((index, el) => {
+                const questionId = $(el).attr('id');
+                const question = this.questions.find(q => q.id === questionId);
+                if (question) {
+                    question.order = 1000 + index; // Usar números altos para pantallas finales
+                    finalScreenQuestions.push(question);
+                }
+            });
+            
+            // Actualizar el array principal
+            const normalQuestions = this.questions.filter(q => !q.pantallaFinal);
+            this.questions = [...normalQuestions, ...finalScreenQuestions];
+            
+            this.formBuilder.isDirty = true;
+            
+            console.log('SFQ: Updated final screens order:', finalScreenQuestions.map(q => ({ 
+                id: q.id, 
+                text: q.text.substring(0, 30) + '...', 
+                order: q.order 
+            })));
+        }
+
+        showDragIndicator() {
+            // Añadir clase al body para mostrar que estamos en modo drag
+            $('body').addClass('sfq-dragging-active');
+            
+            // Mostrar indicadores visuales en las áreas de drop
+            $('.sfq-questions-list, #sfq-final-screens-container').addClass('sfq-drop-zone-active');
+        }
+
+        hideDragIndicator() {
+            // Remover clases visuales
+            $('body').removeClass('sfq-dragging-active');
+            $('.sfq-questions-list, #sfq-final-screens-container').removeClass('sfq-drop-zone-active');
+        }
+
+        showReorderFeedback(item) {
+            // Mostrar feedback visual temporal
+            item.addClass('sfq-reordered');
+            
+            setTimeout(() => {
+                item.removeClass('sfq-reordered');
+            }, 1000);
+            
+            // Mostrar notificación
+            this.formBuilder.uiRenderer.showNotice('Pregunta reordenada correctamente', 'success');
         }
         
         moveFinalScreenQuestion(questionId, isFinaleScreen) {
@@ -5354,9 +5671,6 @@
                     <div class="sfq-question-header">
                         <span class="sfq-question-type-label">${typeLabels[question.type] || question.type}</span>
                         <div class="sfq-question-actions">
-                            <button class="sfq-question-action sfq-move-handle" type="button" title="Mover">
-                                <span class="dashicons dashicons-move"></span>
-                            </button>
                             <button class="sfq-question-action sfq-duplicate-question" type="button" title="Duplicar">
                                 <span class="dashicons dashicons-admin-page"></span>
                             </button>
@@ -5435,9 +5749,6 @@
                     <div class="sfq-question-header">
                         <span class="sfq-question-type-label">${isFinaleScreen ? '🏁 Pantalla Final' : 'Estilo Libre'}</span>
                         <div class="sfq-question-actions">
-                            <button class="sfq-question-action sfq-move-handle" type="button" title="Mover">
-                                <span class="dashicons dashicons-move"></span>
-                            </button>
                             <button class="sfq-question-action sfq-duplicate-question" type="button" title="Duplicar">
                                 <span class="dashicons dashicons-admin-page"></span>
                             </button>
