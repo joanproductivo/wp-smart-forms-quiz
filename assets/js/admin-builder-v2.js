@@ -2934,6 +2934,15 @@
                 self.openElementConfigModal(questionId, elementId, elementType);
             });
             
+            // Configure element by clicking on preview (NEW FUNCTIONALITY)
+            $question.find('.sfq-freestyle-element-preview').off('click').on('click', function() {
+                const $element = $(this).closest('.sfq-freestyle-element');
+                const elementId = $element.data('element-id');
+                const elementType = $element.data('element-type');
+                
+                self.openElementConfigModal(questionId, elementId, elementType);
+            });
+            
             // Duplicate element
             $question.find('.sfq-duplicate-element').off('click').on('click', function() {
                 const $element = $(this).closest('.sfq-freestyle-element');
