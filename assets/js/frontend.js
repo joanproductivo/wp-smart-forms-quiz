@@ -3263,8 +3263,7 @@
          * ✅ CORREGIDO: Cargar pregunta específica de forma segura (para navegación condicional)
          */
         async loadQuestionSecurely(questionId) {
-            console.log('SFQ Secure: Loading specific question via AJAX:', questionId);
-            
+
             try {
                 const formData = new FormData();
                 formData.append('action', 'sfq_get_secure_question');
@@ -3293,7 +3292,7 @@
                 if (result.success && result.data && result.data.html) {
                     // ✅ CORREGIDO: Manejar pantallas finales correctamente
                     if (result.data.is_final_screen) {
-                        console.log('SFQ Secure: Loading final screen dynamically:', questionId);
+                      
                         
                         // Para pantallas finales, usar método específico
                         this.insertDynamicFinalScreen(result.data.html, questionId);
@@ -3301,7 +3300,7 @@
                         // Marcar como completado silenciosamente
                         await this.markFormAsCompleted();
                         
-                        console.log('SFQ Secure: Final screen loaded and form marked as completed');
+                        
                     } else {
                         // Para preguntas normales, usar método estándar
                         this.insertDynamicQuestion(result.data.html, result.data.question_index, questionId);
@@ -3314,7 +3313,7 @@
                         this.questionStartTime = Date.now();
                         this.updateProgress();
                         
-                        console.log('SFQ Secure: Normal question loaded successfully:', questionId);
+                       
                     }
                 } else {
                     console.error('SFQ Secure: Failed to load specific question:', result);
@@ -3340,7 +3339,7 @@
             // Obtener contenedor dinámico
             const dynamicContainer = this.container.querySelector('#sfq-dynamic-questions-container');
             if (!dynamicContainer) {
-                console.error('SFQ Secure: Dynamic container not found');
+               
                 return;
             }
 
@@ -3382,7 +3381,7 @@
                 this.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
 
-            console.log('SFQ Secure: Dynamic question inserted and activated');
+           
         }
 
         /**
@@ -3399,7 +3398,7 @@
             // Obtener contenedor dinámico
             const dynamicContainer = this.container.querySelector('#sfq-dynamic-questions-container');
             if (!dynamicContainer) {
-                console.error('SFQ Secure: Dynamic container not found');
+               
                 return;
             }
 
@@ -3497,7 +3496,7 @@
             // Elementos freestyle si existen
             this.bindFreestyleEventsForElement(questionElement);
 
-            console.log('SFQ Secure: Events bound for new question');
+           
         }
 
         /**
