@@ -175,7 +175,7 @@
             });
             
             // Event listeners para actualizar la previsualización en tiempo real
-            $('#primary-color, #secondary-color, #background-color, #options-background-color, #options-border-color, #input-border-color, #text-color, #border-radius, #font-family, #form-container-border-radius, #question-text-size, #option-text-size, #form-container-shadow, #form-container-width, #question-content-width, #question-text-align, #general-text-align, #form-container-custom-width, #question-content-custom-width').on('change input' + ns, () => {
+            $('#primary-color, #secondary-color, #background-color, #options-background-color, #options-border-color, #input-border-color, #text-color, #question-text-color, #intro-title-color, #intro-description-color, #border-radius, #font-family, #form-container-border-radius, #question-text-size, #option-text-size, #form-container-shadow, #form-container-width, #question-content-width, #question-text-align, #general-text-align, #form-container-custom-width, #question-content-custom-width').on('change input' + ns, () => {
                 if (!this.isDestroyed) {
                     this.updatePreviewStyles();
                 }
@@ -595,6 +595,9 @@
             $('#text-color').val(styles.text_color || '#333333').trigger('change');
             $('#text-color-opacity').val(styles.text_color_opacity !== undefined ? styles.text_color_opacity : '1');
             $('.sfq-opacity-value[data-for="text-color"]').text(styles.text_color_opacity !== undefined ? styles.text_color_opacity : '1');
+            $('#question-text-color').val(styles.question_text_color || '#333333').trigger('change');
+            $('#intro-title-color').val(styles.intro_title_color || '#333333').trigger('change');
+            $('#intro-description-color').val(styles.intro_description_color || '#666666').trigger('change');
             $('#input-border-color').val(styles.input_border_color || '#ddd').trigger('change');
             $('#input-border-color-opacity').val(styles.input_border_color_opacity !== undefined ? styles.input_border_color_opacity : '1');
             $('.sfq-opacity-value[data-for="input-border-color"]').text(styles.input_border_color_opacity !== undefined ? styles.input_border_color_opacity : '1');
@@ -912,6 +915,9 @@
                 options_border_color_opacity: $('#options-border-color-opacity').val() !== '' ? $('#options-border-color-opacity').val() : '1',
                 text_color: $('#text-color').val() || '#333333',
                 text_color_opacity: $('#text-color-opacity').val() !== '' ? $('#text-color-opacity').val() : '1',
+                question_text_color: $('#question-text-color').val() || '#333333',
+                intro_title_color: $('#intro-title-color').val() || '#333333',
+                intro_description_color: $('#intro-description-color').val() || '#666666',
                 input_border_color: $('#input-border-color').val() || '#ddd',
                 input_border_color_opacity: $('#input-border-color-opacity').val() !== '' ? $('#input-border-color-opacity').val() : '1',
                 border_radius: $('#border-radius').val() || '8',
@@ -3368,6 +3374,7 @@
                     <label class="sfq-config-label">
                         Familia de fuente:
                         <select class="sfq-config-input" data-setting="font_family">
+                          <option value="Open Sans" ${settings.font_family === 'Open Sans' || !settings.font_family ? 'selected' : ''}>Open Sans</option>
                             <option value="inherit" ${settings.font_family === 'inherit' || !settings.font_family ? 'selected' : ''}>Por defecto</option>
                             <option value="'Asap'" ${settings.font_family === 'Asap' ? 'selected' : ''}>Asap</option>
                             <option value="Arial, sans-serif" ${settings.font_family === 'Arial, sans-serif' ? 'selected' : ''}>Arial</option>
@@ -3942,9 +3949,10 @@
                     <label class="sfq-config-label">
                         Familia de fuente:
                         <select class="sfq-config-input" data-setting="font_family">
+                            <option value="Open Sans" ${settings.font_family === 'Open Sans' ? 'selected' : ''}>Open Sans</option>
                             <option value="inherit" ${settings.font_family === 'inherit' || !settings.font_family ? 'selected' : ''}>Por defecto</option>
                             <option value="'Asap'" ${settings.font_family === 'Asap' ? 'selected' : ''}>Asap</option>
-                            <option value="Arial, sans-serif" ${settings.font_family === 'Arial, sans-serif' ? 'selected' : ''}>Arial</option>
+                            <option value=" Arial, sans-serif" ${settings.font_family === 'Arial, sans-serif' ? 'selected' : ''}>Arial</option>
                             <option value="'Times New Roman', serif" ${settings.font_family === "'Times New Roman', serif" ? 'selected' : ''}>Times New Roman</option>
                             <option value="'Courier New', monospace" ${settings.font_family === "'Courier New', monospace" ? 'selected' : ''}>Courier New</option>
                             <option value="Georgia, serif" ${settings.font_family === 'Georgia, serif' ? 'selected' : ''}>Georgia</option>

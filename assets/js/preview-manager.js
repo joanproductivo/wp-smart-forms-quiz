@@ -1101,7 +1101,7 @@
             const optionsBorderColor = $('#options-border-color').val() || '#e0e0e0';
             const textColor = $('#text-color').val() || '#333333';
             const borderRadius = $('#border-radius').val() || '12';
-            const fontFamily = $('#font-family').val() || 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+            const fontFamily = $('#font-family').val() || 'Open Sans, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
             
             // ✅ NUEVO: Obtener valores de opacidad
             const primaryColorOpacity = $('#primary-color-opacity').val() || '1';

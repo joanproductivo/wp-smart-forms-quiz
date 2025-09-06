@@ -544,8 +544,11 @@ class SFQ_Frontend {
                     --sfq-background-color: <?php echo esc_attr($styles['background_color'] ?? '#ffffff'); ?>;
                     --sfq-options-background-color: <?php echo esc_attr($styles['options_background_color'] ?? '#ffffff'); ?>;
                     --sfq-options-border-color: <?php echo esc_attr($styles['options_border_color'] ?? '#e0e0e0'); ?>;
-                    --sfq-text-color: <?php echo esc_attr($styles['text_color'] ?? '#333333'); ?>;
-                    --sfq-border-radius: <?php echo esc_attr($styles['border_radius'] ?? '12'); ?>px;
+                --sfq-text-color: <?php echo esc_attr($styles['text_color'] ?? '#333333'); ?>;
+                --sfq-question-text-color: <?php echo esc_attr($styles['question_text_color'] ?? '#333333'); ?>;
+                --sfq-intro-title-color: <?php echo esc_attr($styles['intro_title_color'] ?? '#333333'); ?>;
+                --sfq-intro-description-color: <?php echo esc_attr($styles['intro_description_color'] ?? '#666666'); ?>;
+                --sfq-border-radius: <?php echo esc_attr($styles['border_radius'] ?? '12'); ?>px;
                     --sfq-font-family: <?php echo esc_attr($styles['font_family'] ?? 'system-ui, -apple-system, sans-serif'); ?>;
                     
                     /* Nuevas variables CSS para las opciones de estilo */
@@ -714,7 +717,16 @@ class SFQ_Frontend {
                 
                 #sfq-form-<?php echo $form_id; ?> .sfq-question-text {
                     font-size: var(--sfq-question-text-size) !important;
+                    color: var(--sfq-question-text-color) !important;
                     text-align: var(--sfq-question-text-align) !important;
+                }
+                
+                #sfq-form-<?php echo $form_id; ?> .sfq-intro-title {
+                    color: var(--sfq-intro-title-color) !important;
+                }
+                
+                #sfq-form-<?php echo $form_id; ?> .sfq-intro-description {
+                    color: var(--sfq-intro-description-color) !important;
                 }
                 
                 #sfq-form-<?php echo $form_id; ?> .sfq-option-text {
@@ -848,6 +860,10 @@ class SFQ_Frontend {
         if (empty($question->options)) {
             return;
         }
+        
+        // ✅ NUEVO: Obtener condiciones de la pregunta
+        $question_conditions = $this->get_question_conditions_for_frontend($question->id);
+        
         ?>
         <div class="sfq-options-grid sfq-single-choice" data-question-id="<?php echo $question->id; ?>">
             <?php foreach ($question->options as $index => $option) : ?>
@@ -857,11 +873,14 @@ class SFQ_Frontend {
                 $option_text = $option_data['text'] ?? '';
                 $option_value = $option_data['value'] ?? $option_text;
                 $option_icon = $option_data['icon'] ?? '';
-                $option_conditions = $option_data['conditions'] ?? array();
+                
+                // ✅ CORREGIDO: Obtener condiciones que aplican a esta opción específica
+                $option_conditions = $this->get_conditions_for_option_value($question_conditions, $option_value);
                 ?>
                 <div class="sfq-option-card" 
                      data-value="<?php echo esc_attr($option_value); ?>"
-                     data-conditions='<?php echo json_encode($option_conditions); ?>'>
+                     data-conditions='<?php echo json_encode($option_conditions); ?>'
+                     data-has-conditions="<?php echo !empty($option_conditions) ? 'true' : 'false'; ?>">
                     
                     <?php if (!empty($option_icon)) : ?>
                         <span class="sfq-option-icon"><?php echo esc_html($option_icon); ?></span>
@@ -996,6 +1015,10 @@ class SFQ_Frontend {
         if (empty($question->options)) {
             return;
         }
+        
+        // ✅ NUEVO: Obtener condiciones de la pregunta
+        $question_conditions = $this->get_question_conditions_for_frontend($question->id);
+        
         ?>
         <div class="sfq-image-grid" data-question-id="<?php echo $question->id; ?>">
             <?php foreach ($question->options as $index => $option) : ?>
@@ -1006,11 +1029,14 @@ class SFQ_Frontend {
                 $option_text = $option_data['text'] ?? '';
                 $option_value = $option_data['value'] ?? $option_text;
                 $option_alt = $option_data['image_alt'] ?? $option_text;
-                $option_conditions = $option_data['conditions'] ?? array();
+                
+                // ✅ CORREGIDO: Obtener condiciones que aplican a esta opción específica
+                $option_conditions = $this->get_conditions_for_option_value($question_conditions, $option_value);
                 ?>
                 <div class="sfq-image-option" 
                      data-value="<?php echo esc_attr($option_value); ?>"
-                     data-conditions='<?php echo json_encode($option_conditions); ?>'>
+                     data-conditions='<?php echo json_encode($option_conditions); ?>'
+                     data-has-conditions="<?php echo !empty($option_conditions) ? 'true' : 'false'; ?>">
                     
                     <?php if (!empty($option_image)) : ?>
                         <img src="<?php echo esc_url($option_image); ?>" 
@@ -1369,6 +1395,7 @@ class SFQ_Frontend {
             .sfq-button-primary {
                 background: var(--sfq-primary-color);
                 color: white;
+                box-shadow: var(--sfq-shadow);
             }
             
             .sfq-button-primary:hover {
@@ -3217,5 +3244,65 @@ class SFQ_Frontend {
             default:
                 return "display: flex; flex-direction: row; align-items: center; gap: {$spacing};";
         }
+    }
+    
+    /**
+     * ✅ NUEVO: Obtener condiciones de una pregunta para el frontend
+     */
+    private function get_question_conditions_for_frontend($question_id) {
+        global $wpdb;
+        
+        // Cache estático para evitar consultas repetidas
+        static $conditions_cache = array();
+        
+        if (!isset($conditions_cache[$question_id])) {
+            $conditions_cache[$question_id] = $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}sfq_conditions 
+                WHERE question_id = %d 
+                ORDER BY order_position ASC",
+                $question_id
+            ));
+        }
+        
+        return $conditions_cache[$question_id];
+    }
+    
+    /**
+     * ✅ NUEVO: Filtrar condiciones que aplican a un valor de opción específico
+     */
+    private function get_conditions_for_option_value($all_conditions, $option_value) {
+        $matching_conditions = array();
+        
+        foreach ($all_conditions as $condition) {
+            // Incluir condiciones que evalúan respuestas
+            if (in_array($condition->condition_type, ['answer_equals', 'answer_contains', 'answer_not_equals'])) {
+                if ($condition->condition_value === $option_value) {
+                    $matching_conditions[] = array(
+                        'condition_type' => $condition->condition_type,
+                        'condition_value' => $condition->condition_value,
+                        'action_type' => $condition->action_type,
+                        'action_value' => $condition->action_value,
+                        'variable_amount' => $condition->variable_amount,
+                        'comparison_value' => $condition->comparison_value ?? '',
+                        'order_position' => $condition->order_position
+                    );
+                }
+            }
+            // También incluir condiciones de variables que se ejecutan independientemente
+            elseif (in_array($condition->condition_type, ['variable_greater', 'variable_less', 'variable_equals'])) {
+                // Las condiciones de variables se evalúan siempre, no dependen del valor de la opción
+                $matching_conditions[] = array(
+                    'condition_type' => $condition->condition_type,
+                    'condition_value' => $condition->condition_value,
+                    'action_type' => $condition->action_type,
+                    'action_value' => $condition->action_value,
+                    'variable_amount' => $condition->variable_amount,
+                    'comparison_value' => $condition->comparison_value ?? '',
+                    'order_position' => $condition->order_position
+                );
+            }
+        }
+        
+        return $matching_conditions;
     }
 }

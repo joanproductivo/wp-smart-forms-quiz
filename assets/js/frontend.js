@@ -29,6 +29,12 @@
             this.startTime = Date.now();
             this.questionStartTime = Date.now();
             
+            // ✅ NUEVO: Sistema de optimización de condiciones
+            this.conditionsCache = new Map();
+            this.navigationMap = null;
+            this.isSecureMode = container.dataset.secureLoading === 'true';
+            this.optimizationEnabled = true;
+            
             // ✅ NUEVO: Variables para guardado parcial
             this.savePartialEnabled = this.settings.save_partial || false;
             this.savePartialInterval = null;
@@ -101,6 +107,7 @@
             // ✅ NUEVO: Aplicar estilos de imagen de fondo
             this.applyBackgroundImageStyles();
             
+           
             // ✅ CORREGIDO: Retrasar inicialización del guardado parcial
             if (this.savePartialEnabled) {
                 // Retrasar la inicialización para permitir que se ejecute la lógica condicional inicial
@@ -634,7 +641,12 @@
         }
 
         async processConditionsImmediate(element, questionId) {
-            // ✅ CORREGIDO: Verificar si hay atributo conditions (aunque esté vacío)
+            // ✅ OPTIMIZADO: Usar el nuevo sistema de evaluación optimizada
+            if (this.optimizationEnabled) {
+                return await this.processConditionsOptimized(element, questionId);
+            }
+            
+            // ✅ FALLBACK: Mantener lógica original para compatibilidad
             const conditions = element.dataset.conditions;
             let hasLocalConditions = false;
             let hasConditionsAttribute = false;
@@ -657,16 +669,13 @@
                         if (localResult.shouldRedirect || localResult.skipToQuestion) {
                             return localResult;
                         }
-                    } else {
                     }
                 } catch (e) {
                     console.error('Error procesando condiciones locales:', e);
                 }
-            } else {
             }
             
             // ✅ CORREGIDO: Hacer petición AJAX si hay atributo conditions (aunque esté vacío)
-            // El servidor puede tener condiciones adicionales no presentes en el frontend
             if (hasConditionsAttribute) {
                 try {
                     const ajaxResult = await this.checkConditionsViaAjax(questionId, element.dataset.value);
@@ -686,7 +695,6 @@
                     };
                 }
             } else {
-                // ✅ CORREGIDO: Solo si NO hay atributo conditions, no hacer AJAX
                 return { 
                     shouldRedirect: false, 
                     skipToQuestion: null,
@@ -835,6 +843,203 @@
                     return false;
             }
         }
+
+        /**
+         * ✅ NUEVO: Determinar si las condiciones se pueden evaluar completamente en local
+         */
+        canEvaluateLocally(conditions) {
+            if (!Array.isArray(conditions) || conditions.length === 0) {
+                return true; // Sin condiciones = evaluación local
+            }
+
+            // En modo seguro, ser más conservador
+            if (this.isSecureMode) {
+                return conditions.every(condition => {
+                    // Solo condiciones simples en modo seguro
+                    const simpleConditionTypes = ['answer_equals', 'answer_contains', 'answer_not_equals'];
+                    const simpleActionTypes = ['add_variable', 'set_variable', 'goto_question', 'skip_to_end'];
+                    
+                    return simpleConditionTypes.includes(condition.condition_type) && 
+                           simpleActionTypes.includes(condition.action_type);
+                });
+            }
+
+            // En modo normal, evaluar todo localmente
+            return true;
+        }
+
+        /**
+         * ✅ NUEVO: Evaluación optimizada de condiciones según el modo
+         */
+        async processConditionsOptimized(element, questionId) {
+            const startTime = performance.now();
+            
+            if (this.isSecureMode) {
+                const result = await this.processConditionsSecureMode(element, questionId);
+                this.logPerformance('processConditionsSecureMode', startTime);
+                return result;
+            } else {
+                const result = this.processConditionsNormalMode(element, questionId);
+                this.logPerformance('processConditionsNormalMode', startTime);
+                return result;
+            }
+        }
+
+        /**
+         * ✅ CORREGIDO: Procesamiento optimizado para modo normal con detección mejorada
+         */
+        processConditionsNormalMode(element, questionId) {
+            const conditions = element.dataset.conditions;
+           
+            // ✅ NUEVO: Verificar si el elemento DEBERÍA tener condiciones
+            const shouldHaveConditions = this.elementShouldHaveConditions(element);
+            
+            if (!conditions || conditions === 'undefined' || conditions === 'null') {
+                if (shouldHaveConditions) {
+                  
+                    return this.checkConditionsViaAjax(questionId, element.dataset.value);
+                }
+                // Si no debería tener condiciones, continuar normalmente
+                
+                return { shouldRedirect: false, skipToQuestion: null, variables: this.variables };
+            }
+
+            try {
+                const conditionsList = JSON.parse(conditions);
+               
+                // ✅ MEJORADO: Solo hacer AJAX si hay error real de datos
+                if (!Array.isArray(conditionsList)) {
+                  
+                    return this.checkConditionsViaAjax(questionId, element.dataset.value);
+                }
+                
+                // ✅ NUEVO: Si está vacío pero debería tener condiciones, hacer AJAX
+                if (conditionsList.length === 0 && shouldHaveConditions) {
+                   
+                    return this.checkConditionsViaAjax(questionId, element.dataset.value);
+                }
+                
+                // ✅ OPTIMIZADO: Si está vacío y no debería tener condiciones, continuar
+                if (conditionsList.length === 0) {
+                   
+                    return { shouldRedirect: false, skipToQuestion: null, variables: this.variables };
+                }
+
+
+                
+                // En modo normal, evaluar todo localmente (sin AJAX)
+                const localResult = this.evaluateConditionsForRedirect(conditionsList, questionId);
+                
+               
+                
+                // Aplicar variables actualizadas
+                if (localResult.variables) {
+                    this.variables = { ...localResult.variables };
+                   
+                }
+                
+                return localResult;
+                
+            } catch (e) {
+
+                // ✅ CRÍTICO: En caso de error, hacer fallback a AJAX
+                return this.checkConditionsViaAjax(questionId, element.dataset.value);
+            }
+        }
+
+        /**
+         * ✅ MEJORADO: Determinar si un elemento debería tener condiciones con detección más precisa
+         */
+        elementShouldHaveConditions(element) {
+            // 1. Verificar atributo explícito data-has-conditions (más confiable)
+            if (element.dataset.hasConditions === 'true') {
+                return true;
+            }
+            
+            if (element.dataset.hasConditions === 'false') {
+                return false;
+            }
+            
+            // 2. Verificar contenido del atributo data-conditions
+            const conditions = element.dataset.conditions;
+            if (conditions && conditions !== 'undefined' && conditions !== 'null' && conditions !== '[]') {
+                try {
+                    const parsed = JSON.parse(conditions);
+                    return Array.isArray(parsed) && parsed.length > 0;
+                } catch (e) {
+                    return false;
+                }
+            }
+            
+            // 3. Heurística basada en el valor (como fallback)
+            const value = element.dataset.value;
+            if (value) {
+                const conditionalPatterns = [
+                    /^(sí|si|yes|y)$/i,
+                    /^(no|n)$/i,
+                    /^\d+$/,
+                    /^opcion[_\s]*\d+$/i,
+                ];
+                
+                return conditionalPatterns.some(pattern => pattern.test(value));
+            }
+            
+            return false;
+        }
+
+        /**
+         * ✅ NUEVO: Procesamiento híbrido optimizado para modo seguro
+         */
+        async processConditionsSecureMode(element, questionId) {
+            const conditions = element.dataset.conditions;
+            
+            if (!conditions) {
+                return { 
+                    shouldRedirect: false, 
+                    skipToQuestion: null,
+                    variables: this.variables 
+                };
+            }
+
+            try {
+                const conditionsList = JSON.parse(conditions);
+                
+                if (!Array.isArray(conditionsList) || conditionsList.length === 0) {
+                    // En modo seguro, hacer AJAX incluso con condiciones vacías
+                    // (el servidor puede tener condiciones adicionales)
+                    return await this.checkConditionsViaAjax(questionId, element.dataset.value);
+                }
+
+                // Verificar si se puede evaluar localmente
+                if (this.canEvaluateLocally(conditionsList)) {
+                    // Evaluación local optimizada
+                    const localResult = this.evaluateConditionsForRedirect(conditionsList, questionId);
+                    
+                    // Aplicar variables actualizadas
+                    if (localResult.variables) {
+                        this.variables = { ...localResult.variables };
+                    }
+                    
+                    // Si hay redirección o salto, no necesitamos AJAX
+                    if (localResult.shouldRedirect || localResult.skipToQuestion) {
+                        return localResult;
+                    }
+                    
+                    // Para casos simples sin redirección, también evitar AJAX
+                    return localResult;
+                } else {
+                    // Condiciones complejas requieren validación del servidor
+                    return await this.checkConditionsViaAjax(questionId, element.dataset.value);
+                }
+                
+            } catch (e) {
+                console.error('Error procesando condiciones en modo seguro:', e);
+                // Fallback a AJAX en caso de error
+                return await this.checkConditionsViaAjax(questionId, element.dataset.value);
+            }
+        }
+
+       
 
         async checkConditionsViaAjax(questionId, answer) {
             const result = {

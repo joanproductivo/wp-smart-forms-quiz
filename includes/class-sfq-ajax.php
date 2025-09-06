@@ -78,6 +78,14 @@ class SFQ_Ajax {
         add_action('wp_ajax_sfq_trigger_webhook', array($this, 'trigger_webhook_post_success'));
         add_action('wp_ajax_nopriv_sfq_trigger_webhook', array($this, 'trigger_webhook_post_success'));
         
+        // ✅ NUEVO: AJAX handler para mapa de navegación optimizado
+        add_action('wp_ajax_sfq_get_navigation_map', array($this, 'get_navigation_map'));
+        add_action('wp_ajax_nopriv_sfq_get_navigation_map', array($this, 'get_navigation_map'));
+        
+        // ✅ NUEVO: AJAX handler para registrar vistas de botones
+        add_action('wp_ajax_sfq_register_button_view', array($this, 'register_button_view'));
+        add_action('wp_ajax_nopriv_sfq_register_button_view', array($this, 'register_button_view'));
+        
     }
     
     /**
@@ -4609,6 +4617,230 @@ class SFQ_Ajax {
             
             wp_send_json_error(array(
                 'message' => __('Error al disparar webhook', 'smart-forms-quiz'),
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Obtener mapa de navegación optimizado para precarga
+     */
+    public function get_navigation_map() {
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Rate limiting para mapa de navegación
+        if (!SFQ_Security::check_rate_limit('get_navigation_map', 10, 60)) {
+            wp_send_json_error(array(
+                'message' => __('Demasiadas peticiones. Intenta de nuevo en un momento.', 'smart-forms-quiz'),
+                'code' => 'RATE_LIMIT_EXCEEDED'
+            ));
+            return;
+        }
+        
+        $form_id = intval($_POST['form_id'] ?? 0);
+        
+        if (!$form_id) {
+            wp_send_json_error(__('ID de formulario inválido', 'smart-forms-quiz'));
+            return;
+        }
+        
+        try {
+            // Obtener formulario completo con cache
+            $form = $this->database->get_form($form_id);
+            
+            if (!$form) {
+                wp_send_json_error(__('Formulario no encontrado', 'smart-forms-quiz'));
+                return;
+            }
+            
+            // Construir mapa de navegación optimizado
+            $navigation_map = array(
+                'form_id' => $form_id,
+                'total_questions' => 0,
+                'questions' => array(),
+                'conditions_summary' => array(),
+                'final_screens' => array()
+            );
+            
+            if (!empty($form->questions)) {
+                foreach ($form->questions as $index => $question) {
+                    $is_final_screen = (isset($question->pantallaFinal) && $question->pantallaFinal);
+                    
+                    if ($is_final_screen) {
+                        // Pantalla final
+                        $navigation_map['final_screens'][] = array(
+                            'id' => $question->id,
+                            'title' => $question->question_text,
+                            'type' => $question->question_type
+                        );
+                    } else {
+                        // Pregunta normal
+                        $navigation_map['total_questions']++;
+                        $navigation_map['questions'][] = array(
+                            'id' => $question->id,
+                            'index' => $navigation_map['total_questions'] - 1,
+                            'title' => $question->question_text,
+                            'type' => $question->question_type,
+                            'has_conditions' => !empty($question->conditions)
+                        );
+                        
+                        // Resumen de condiciones para optimización
+                        if (!empty($question->conditions)) {
+                            $navigation_map['conditions_summary'][$question->id] = array(
+                                'count' => count($question->conditions),
+                                'has_redirects' => $this->has_redirect_conditions($question->conditions),
+                                'has_variables' => $this->has_variable_conditions($question->conditions)
+                            );
+                        }
+                    }
+                }
+            }
+            
+            wp_send_json_success(array(
+                'navigation_map' => $navigation_map,
+                'cache_timestamp' => current_time('timestamp'),
+                'message' => __('Mapa de navegación generado', 'smart-forms-quiz')
+            ));
+            
+        } catch (Exception $e) {
+            error_log('SFQ Error in get_navigation_map: ' . $e->getMessage());
+            
+            wp_send_json_error(array(
+                'message' => __('Error al generar mapa de navegación', 'smart-forms-quiz'),
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Verificar si las condiciones tienen redirecciones
+     */
+    private function has_redirect_conditions($conditions) {
+        foreach ($conditions as $condition) {
+            if ($condition->action_type === 'redirect_url') {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * ✅ NUEVO: Verificar si las condiciones tienen variables
+     */
+    private function has_variable_conditions($conditions) {
+        foreach ($conditions as $condition) {
+            if (in_array($condition->action_type, ['add_variable', 'set_variable'])) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * ✅ NUEVO: Registrar vista de botón para estadísticas
+     */
+    public function register_button_view() {
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Rate limiting para vistas de botones (más permisivo)
+        if (!SFQ_Security::check_rate_limit('register_button_view', 100, 60)) {
+            wp_send_json_error(array(
+                'message' => __('Demasiadas peticiones. Intenta de nuevo en un momento.', 'smart-forms-quiz'),
+                'code' => 'RATE_LIMIT_EXCEEDED'
+            ));
+            return;
+        }
+        
+        // Validar datos requeridos
+        $form_id = intval($_POST['form_id'] ?? 0);
+        $question_id = intval($_POST['question_id'] ?? 0);
+        $element_id = sanitize_text_field($_POST['element_id'] ?? '');
+        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
+        
+        if (!$form_id || !$question_id || !$element_id || !$session_id) {
+            wp_send_json_error(__('Datos de vista de botón incompletos', 'smart-forms-quiz'));
+            return;
+        }
+        
+        // Datos adicionales opcionales
+        $button_text = sanitize_text_field($_POST['button_text'] ?? '');
+        $button_url = esc_url_raw($_POST['button_url'] ?? '');
+        
+        try {
+            global $wpdb;
+            
+            // Verificar si ya se registró una vista para este botón en esta sesión
+            $existing_view = $wpdb->get_row($wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}sfq_analytics 
+                WHERE form_id = %d AND session_id = %s AND event_type = 'button_view' 
+                AND JSON_EXTRACT(event_data, '$.question_id') = %d 
+                AND JSON_EXTRACT(event_data, '$.element_id') = %s",
+                $form_id,
+                $session_id,
+                $question_id,
+                $element_id
+            ));
+            
+            if ($existing_view) {
+                // Ya se registró, no duplicar
+                wp_send_json_success(array(
+                    'message' => __('Vista ya registrada', 'smart-forms-quiz'),
+                    'duplicate' => true,
+                    'existing_id' => $existing_view->id
+                ));
+                return;
+            }
+            
+            // Registrar nueva vista de botón
+            $event_data = array(
+                'question_id' => $question_id,
+                'element_id' => $element_id,
+                'button_text' => $button_text,
+                'button_url' => $button_url,
+                'view_timestamp' => current_time('timestamp')
+            );
+            
+            $result = $wpdb->insert(
+                $wpdb->prefix . 'sfq_analytics',
+                array(
+                    'form_id' => $form_id,
+                    'event_type' => 'button_view',
+                    'event_data' => json_encode($event_data, JSON_UNESCAPED_UNICODE),
+                    'user_ip' => $this->get_user_ip(),
+                    'session_id' => $session_id,
+                    'created_at' => current_time('mysql')
+                ),
+                array('%d', '%s', '%s', '%s', '%s', '%s')
+            );
+            
+            if ($result === false) {
+                throw new Exception('Error al registrar vista de botón: ' . $wpdb->last_error);
+            }
+            
+            $analytics_id = $wpdb->insert_id;
+            
+            wp_send_json_success(array(
+                'message' => __('Vista de botón registrada', 'smart-forms-quiz'),
+                'analytics_id' => $analytics_id,
+                'form_id' => $form_id,
+                'question_id' => $question_id,
+                'element_id' => $element_id,
+                'duplicate' => false
+            ));
+            
+        } catch (Exception $e) {
+            error_log('SFQ Error in register_button_view: ' . $e->getMessage());
+            
+            wp_send_json_error(array(
+                'message' => __('Error al registrar vista de botón', 'smart-forms-quiz'),
                 'debug' => WP_DEBUG ? $e->getMessage() : null
             ));
         }

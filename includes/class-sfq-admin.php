@@ -889,6 +889,21 @@ class SFQ_Admin {
                             <input type="text" id="intro-button-text" class="sfq-input" 
                                    value="<?php echo $form ? esc_attr($form->intro_button_text) : 'Comenzar'; ?>" 
                                    placeholder="<?php _e('Texto del botón', 'smart-forms-quiz'); ?>">
+                            
+                            <!-- Nuevos selectores de color para intro -->
+                            <div class="sfq-intro-colors" style="margin-top: 15px;">
+                                <h4><?php _e('🎨 Colores de la Pantalla de Introducción', 'smart-forms-quiz'); ?></h4>
+                                <div class="sfq-field-group">
+                                    <label><?php _e('Color del Título de Introducción', 'smart-forms-quiz'); ?></label>
+                                    <input type="text" id="intro-title-color" class="sfq-color-picker" value="#333333">
+                                    <p class="description"><?php _e('Color específico para el título de la pantalla de introducción (sfq-intro-title)', 'smart-forms-quiz'); ?></p>
+                                </div>
+                                <div class="sfq-field-group">
+                                    <label><?php _e('Color de la Descripción de Introducción', 'smart-forms-quiz'); ?></label>
+                                    <input type="text" id="intro-description-color" class="sfq-color-picker" value="#666666">
+                                    <p class="description"><?php _e('Color específico para la descripción de la pantalla de introducción (sfq-intro-description)', 'smart-forms-quiz'); ?></p>
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="sfq-field-group">
@@ -1116,6 +1131,12 @@ class SFQ_Admin {
                                     <span class="sfq-opacity-value">100%</span>
                                 </div>
                             </div>
+                        </div>
+                        
+                        <div class="sfq-field-group">
+                            <label><?php _e('Color del Texto de Preguntas', 'smart-forms-quiz'); ?></label>
+                            <input type="text" id="question-text-color" class="sfq-color-picker" value="#333333">
+                            <p class="description"><?php _e('Color específico para los títulos de preguntas (sfq-question-text)', 'smart-forms-quiz'); ?></p>
                         </div>
                         
                         <div class="sfq-field-group">

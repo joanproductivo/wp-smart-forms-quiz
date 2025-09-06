@@ -207,6 +207,7 @@ if (styleSettings.button_text_color) {
 
 .sfq-button-primary {
     color: var(--sfq-button-text-color);
+    box-shadow: var(--sfq-shadow)
 }
 ```
 

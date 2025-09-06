@@ -11,9 +11,10 @@
     --sfq-options-background-color: #ffffff;
     --sfq-options-border-color: #e0e0e0;
     --sfq-input-border-color: #ddd;
-    --sfq-text-color: #333333;
+    --sfq-text-color: #ffffff;
+    --sfq-question-text-color: #333333;
     --sfq-border-radius: 12px;
-    --sfq-font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --sfq-font-family: Asap, Open Sans, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, verdana;
     --sfq-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     --sfq-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
     --sfq-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);

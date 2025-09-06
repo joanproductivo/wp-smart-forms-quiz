@@ -16,7 +16,7 @@
     --sfq-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     --sfq-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.15);
     --sfq-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --sfq-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --sfq-font-family: Open Sans, Asap, Helvetica, Arial, Verdana, Lucida, sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 /* ==========================================================================
