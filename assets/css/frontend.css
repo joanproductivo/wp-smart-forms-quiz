@@ -7,7 +7,7 @@
 .sfq-form-container {
     --sfq-primary-color: #007cba;
     --sfq-secondary-color: #6c757d;
-    --sfq-background-color: #ffffff;
+    --sfq-background-color: #ffffff00;
     --sfq-options-background-color: #ffffff;
     --sfq-options-border-color: #e0e0e0;
     --sfq-input-border-color: #ddd;
@@ -20,6 +20,7 @@
     
     /* Nuevas variables CSS para las opciones de estilo */
     --sfq-form-container-border-radius: 20px;
+    --sfq-form-container-padding: 2rem;
     --sfq-form-container-shadow: none;
     --sfq-form-container-width: responsive;
     --sfq-question-content-width: responsive;
@@ -44,7 +45,7 @@
     background: var(--sfq-background-color);
     max-width: 720px;
     margin: 0 auto;
-    padding: 2rem;
+    padding: var(--sfq-form-container-padding);
     position: relative;
     
     /* Aplicar nuevas opciones de estilo */
@@ -576,7 +577,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 1rem;
+    margin-top: 0;
     padding-top: 0;
     border-top: 0;
 }
@@ -635,7 +636,7 @@
 /* Responsive */
 @media (max-width: 768px) {
     .sfq-form-container {
-        padding: 1rem;
+        padding: 0.5rem;
     }
     
     .sfq-intro-title,
@@ -911,7 +912,7 @@
 
 /* Botón freestyle */
 .sfq-freestyle-button {
-    padding: 12px 24px;
+    padding: 12px 14px;
     border: none;
     border-radius: var(--sfq-border-radius);
     font-size: 1rem;

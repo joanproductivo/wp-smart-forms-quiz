@@ -113,10 +113,11 @@
             this.initColorPickers();
             
             // ✅ CORREGIDO: Event listeners para controles de opacidad con contexto correcto
-            $('.sfq-opacity-control').off('input' + ns).on('input' + ns, (e) => {
+            $('.sfq-opacity-range').off('input' + ns).on('input' + ns, (e) => {
                 const value = $(e.target).val();
-                const colorFor = $(e.target).data('for');
-                $(`.sfq-opacity-value[data-for="${colorFor}"]`).text(value);
+                const percentage = Math.round(value * 100);
+                const colorFor = $(e.target).attr('id').replace('-opacity', '');
+                $(`.sfq-opacity-value[data-for="${colorFor}"]`).text(percentage + '%');
                 
                 if (!this.isDestroyed) {
                     this.isDirty = true;
@@ -166,7 +167,7 @@
             });
             
             // Event listeners para las nuevas opciones de estilo
-            $('#form-container-shadow, #form-container-width, #question-content-width, #question-text-align, #general-text-align, #form-container-custom-width, #question-content-custom-width').on('change input' + ns, () => {
+            $('#form-container-shadow, #form-container-width, #question-content-width, #question-text-align, #general-text-align, #form-container-custom-width, #question-content-custom-width, #form-container-padding').on('change input' + ns, () => {
                 if (!this.isDestroyed) {
                     this.isDirty = true;
                     this.updatePreviewStyles();
@@ -551,8 +552,8 @@
             
             // Cargar configuraciones de indicadores de carga
             $('#processing-indicator-text').val(settings.processing_indicator_text || '...');
-            $('#processing-indicator-opacity').val(settings.processing_indicator_opacity || '0.7');
-            $('.sfq-processing-opacity-value').text(settings.processing_indicator_opacity || '0.7');
+            $('#processing-indicator-opacity').val(settings.processing_indicator_opacity !== undefined ? settings.processing_indicator_opacity : '0.7');
+            $('.sfq-processing-opacity-value').text(settings.processing_indicator_opacity !== undefined ? settings.processing_indicator_opacity : '0.7');
             $('#processing-indicator-bg-color').val(settings.processing_indicator_bg_color || '#ffffff').trigger('change');
             $('#processing-indicator-text-color').val(settings.processing_indicator_text_color || '#666666').trigger('change');
             $('#processing-indicator-spinner-color').val(settings.processing_indicator_spinner_color || '#007cba').trigger('change');
@@ -577,26 +578,26 @@
             // Style settings
             const styles = formData.style_settings || {};
             $('#primary-color').val(styles.primary_color || '#007cba').trigger('change');
-            $('#primary-color-opacity').val(styles.primary_color_opacity || '1');
-            $('.sfq-opacity-value[data-for="primary-color"]').text(styles.primary_color_opacity || '1');
+            $('#primary-color-opacity').val(styles.primary_color_opacity !== undefined ? styles.primary_color_opacity : '1');
+            $('.sfq-opacity-value[data-for="primary-color"]').text(Math.round((styles.primary_color_opacity !== undefined ? styles.primary_color_opacity : 1) * 100) + '%');
             $('#secondary-color').val(styles.secondary_color || '#6c757d').trigger('change');
-            $('#secondary-color-opacity').val(styles.secondary_color_opacity || '1');
-            $('.sfq-opacity-value[data-for="secondary-color"]').text(styles.secondary_color_opacity || '1');
+            $('#secondary-color-opacity').val(styles.secondary_color_opacity !== undefined ? styles.secondary_color_opacity : '1');
+            $('.sfq-opacity-value[data-for="secondary-color"]').text(styles.secondary_color_opacity !== undefined ? styles.secondary_color_opacity : '1');
             $('#background-color').val(styles.background_color || '#ffffff').trigger('change');
-            $('#background-color-opacity').val(styles.background_color_opacity || '1');
-            $('.sfq-opacity-value[data-for="background-color"]').text(styles.background_color_opacity || '1');
+            $('#background-color-opacity').val(styles.background_color_opacity !== undefined ? styles.background_color_opacity : '1');
+            $('.sfq-opacity-value[data-for="background-color"]').text(styles.background_color_opacity !== undefined ? styles.background_color_opacity : '1');
             $('#options-background-color').val(styles.options_background_color || '#ffffff').trigger('change');
-            $('#options-background-color-opacity').val(styles.options_background_color_opacity || '1');
-            $('.sfq-opacity-value[data-for="options-background-color"]').text(styles.options_background_color_opacity || '1');
+            $('#options-background-color-opacity').val(styles.options_background_color_opacity !== undefined ? styles.options_background_color_opacity : '1');
+            $('.sfq-opacity-value[data-for="options-background-color"]').text(styles.options_background_color_opacity !== undefined ? styles.options_background_color_opacity : '1');
             $('#options-border-color').val(styles.options_border_color || '#e0e0e0').trigger('change');
-            $('#options-border-color-opacity').val(styles.options_border_color_opacity || '1');
-            $('.sfq-opacity-value[data-for="options-border-color"]').text(styles.options_border_color_opacity || '1');
+            $('#options-border-color-opacity').val(styles.options_border_color_opacity !== undefined ? styles.options_border_color_opacity : '1');
+            $('.sfq-opacity-value[data-for="options-border-color"]').text(styles.options_border_color_opacity !== undefined ? styles.options_border_color_opacity : '1');
             $('#text-color').val(styles.text_color || '#333333').trigger('change');
-            $('#text-color-opacity').val(styles.text_color_opacity || '1');
-            $('.sfq-opacity-value[data-for="text-color"]').text(styles.text_color_opacity || '1');
+            $('#text-color-opacity').val(styles.text_color_opacity !== undefined ? styles.text_color_opacity : '1');
+            $('.sfq-opacity-value[data-for="text-color"]').text(styles.text_color_opacity !== undefined ? styles.text_color_opacity : '1');
             $('#input-border-color').val(styles.input_border_color || '#ddd').trigger('change');
-            $('#input-border-color-opacity').val(styles.input_border_color_opacity || '1');
-            $('.sfq-opacity-value[data-for="input-border-color"]').text(styles.input_border_color_opacity || '1');
+            $('#input-border-color-opacity').val(styles.input_border_color_opacity !== undefined ? styles.input_border_color_opacity : '1');
+            $('.sfq-opacity-value[data-for="input-border-color"]').text(styles.input_border_color_opacity !== undefined ? styles.input_border_color_opacity : '1');
             $('#border-radius').val(styles.border_radius || '8');
             $('.sfq-range-value').text((styles.border_radius || '8') + 'px');
             $('#font-family').val(styles.font_family || 'inherit');
@@ -604,7 +605,8 @@
             // Nuevas opciones de estilo
             $('#form-container-border-radius').val(styles.form_container_border_radius || '20');
             $('.sfq-form-container-radius-value').text((styles.form_container_border_radius || '20') + 'px');
-            $('#form-container-shadow').prop('checked', styles.form_container_shadow === false);
+            $('#form-container-shadow').prop('checked', styles.form_container_shadow === true);
+            $('#form-container-padding').val(styles.form_container_padding || '2');
             $('#form-container-width').val(styles.form_container_width || 'responsive');
             $('#question-content-width').val(styles.question_content_width || 'responsive');
             $('#question-content-custom-width').val(styles.question_content_custom_width || '600');
@@ -631,12 +633,12 @@
             $('#background-repeat').val(styles.background_repeat || 'no-repeat');
             $('#background-position').val(styles.background_position || 'center center');
             $('#background-attachment').val(styles.background_attachment || 'scroll');
-            $('#background-opacity').val(styles.background_opacity || '1');
-            $('.sfq-background-opacity-value').text(styles.background_opacity || '1');
+            $('#background-opacity').val(styles.background_opacity !== undefined ? styles.background_opacity : '1');
+            $('.sfq-background-opacity-value').text(styles.background_opacity !== undefined ? styles.background_opacity : '1');
             $('#background-overlay').prop('checked', styles.background_overlay === true);
             $('#background-overlay-color').val(styles.background_overlay_color || '#000000').trigger('change');
-            $('#background-overlay-opacity').val(styles.background_overlay_opacity || '0.3');
-            $('.sfq-background-overlay-opacity-value').text(styles.background_overlay_opacity || '0.3');
+            $('#background-overlay-opacity').val(styles.background_overlay_opacity !== undefined ? styles.background_overlay_opacity : '0.3');
+            $('.sfq-background-overlay-opacity-value').text(styles.background_overlay_opacity !== undefined ? styles.background_overlay_opacity : '0.3');
             
             // Mostrar preview si hay imagen de fondo
             if (styles.background_image_url && styles.background_image_url.trim() !== '') {
@@ -871,7 +873,7 @@
                 show_processing_indicator: $('#show-processing-indicator').is(':checked'),
                 show_submit_loading: $('#show-submit-loading').is(':checked'),
                 processing_indicator_text: $('#processing-indicator-text').val() || '...',
-                processing_indicator_opacity: $('#processing-indicator-opacity').val() || '0.7',
+                processing_indicator_opacity: $('#processing-indicator-opacity').val() !== '' ? $('#processing-indicator-opacity').val() : '0.7',
                 processing_indicator_bg_color: $('#processing-indicator-bg-color').val() || '#ffffff',
                 processing_indicator_text_color: $('#processing-indicator-text-color').val() || '#666666',
                 processing_indicator_spinner_color: $('#processing-indicator-spinner-color').val() || '#007cba',
@@ -899,24 +901,28 @@
             },
             style_settings: {
                 primary_color: $('#primary-color').val() || '#007cba',
-                primary_color_opacity: $('#primary-color-opacity').val() || '1',
+                primary_color_opacity: $('#primary-color-opacity').val() !== '' ? $('#primary-color-opacity').val() : '1',
                 secondary_color: $('#secondary-color').val() || '#6c757d',
-                secondary_color_opacity: $('#secondary-color-opacity').val() || '1',
+                secondary_color_opacity: $('#secondary-color-opacity').val() !== '' ? $('#secondary-color-opacity').val() : '1',
                 background_color: $('#background-color').val() || '#ffffff',
-                background_color_opacity: $('#background-color-opacity').val() || '1',
+                background_color_opacity: $('#background-color-opacity').val() !== '' ? $('#background-color-opacity').val() : '1',
                 options_background_color: $('#options-background-color').val() || '#ffffff',
-                options_background_color_opacity: $('#options-background-color-opacity').val() || '1',
+                options_background_color_opacity: $('#options-background-color-opacity').val() !== '' ? $('#options-background-color-opacity').val() : '1',
                 options_border_color: $('#options-border-color').val() || '#e0e0e0',
-                options_border_color_opacity: $('#options-border-color-opacity').val() || '1',
+                options_border_color_opacity: $('#options-border-color-opacity').val() !== '' ? $('#options-border-color-opacity').val() : '1',
                 text_color: $('#text-color').val() || '#333333',
-                text_color_opacity: $('#text-color-opacity').val() || '1',
+                text_color_opacity: $('#text-color-opacity').val() !== '' ? $('#text-color-opacity').val() : '1',
                 input_border_color: $('#input-border-color').val() || '#ddd',
-                input_border_color_opacity: $('#input-border-color-opacity').val() || '1',
+                input_border_color_opacity: $('#input-border-color-opacity').val() !== '' ? $('#input-border-color-opacity').val() : '1',
                 border_radius: $('#border-radius').val() || '8',
                 font_family: $('#font-family').val() || 'inherit',
                 // Nuevas opciones de estilo
                 form_container_border_radius: $('#form-container-border-radius').val() || '20',
                 form_container_shadow: $('#form-container-shadow').is(':checked'),
+                form_container_padding: (() => {
+                    const value = $('#form-container-padding').val();
+                    return value !== '' ? value : '2';
+                })(),
                 form_container_width: $('#form-container-width').val() || 'responsive',
                 form_container_custom_width: $('#form-container-custom-width').val() || '720',
                 question_content_width: $('#question-content-width').val() || 'responsive',
@@ -948,10 +954,10 @@
                 background_repeat: $('#background-repeat').val() || 'no-repeat',
                 background_position: $('#background-position').val() || 'center center',
                 background_attachment: $('#background-attachment').val() || 'scroll',
-                background_opacity: $('#background-opacity').val() || '1',
+                background_opacity: $('#background-opacity').val() !== '' ? $('#background-opacity').val() : '1',
                 background_overlay: $('#background-overlay').is(':checked'),
                 background_overlay_color: $('#background-overlay-color').val() || '#000000',
-                background_overlay_opacity: $('#background-overlay-opacity').val() || '0.3',
+                background_overlay_opacity: $('#background-overlay-opacity').val() !== '' ? $('#background-overlay-opacity').val() : '0.3',
                 // Personalización de mensajes de límite
                 limit_submission_icon: $('#limit-submission-icon').val() || '',
                 limit_submission_title: $('#limit-submission-title').val() || '',
@@ -1826,18 +1832,18 @@
                 backgroundRepeat: $('#background-repeat').val() || 'no-repeat',
                 backgroundPosition: $('#background-position').val() || 'center center',
                 backgroundAttachment: $('#background-attachment').val() || 'scroll',
-                backgroundOpacity: $('#background-opacity').val() || '1',
+                backgroundOpacity: $('#background-opacity').val() !== '' ? $('#background-opacity').val() : '1',
                 backgroundOverlay: $('#background-overlay').is(':checked'),
                 backgroundOverlayColor: $('#background-overlay-color').val() || '#000000',
-                backgroundOverlayOpacity: $('#background-overlay-opacity').val() || '0.3',
+                backgroundOverlayOpacity: $('#background-overlay-opacity').val() !== '' ? $('#background-overlay-opacity').val() : '0.3',
                 // ✅ NUEVO: Valores de opacidad
-                primaryColorOpacity: $('#primary-color-opacity').val() || '1',
-                secondaryColorOpacity: $('#secondary-color-opacity').val() || '1',
-                backgroundColorOpacity: $('#background-color-opacity').val() || '1',
-                optionsBackgroundColorOpacity: $('#options-background-color-opacity').val() || '1',
-                optionsBorderColorOpacity: $('#options-border-color-opacity').val() || '1',
-                textColorOpacity: $('#text-color-opacity').val() || '1',
-                inputBorderColorOpacity: $('#input-border-color-opacity').val() || '1'
+                primaryColorOpacity: $('#primary-color-opacity').val() !== '' ? $('#primary-color-opacity').val() : '1',
+                secondaryColorOpacity: $('#secondary-color-opacity').val() !== '' ? $('#secondary-color-opacity').val() : '1',
+                backgroundColorOpacity: $('#background-color-opacity').val() !== '' ? $('#background-color-opacity').val() : '1',
+                optionsBackgroundColorOpacity: $('#options-background-color-opacity').val() !== '' ? $('#options-background-color-opacity').val() : '1',
+                optionsBorderColorOpacity: $('#options-border-color-opacity').val() !== '' ? $('#options-border-color-opacity').val() : '1',
+                textColorOpacity: $('#text-color-opacity').val() !== '' ? $('#text-color-opacity').val() : '1',
+                inputBorderColorOpacity: $('#input-border-color-opacity').val() !== '' ? $('#input-border-color-opacity').val() : '1'
             };
             
             // ✅ NUEVO: Aplicar opacidades a los colores
@@ -3363,6 +3369,7 @@
                         Familia de fuente:
                         <select class="sfq-config-input" data-setting="font_family">
                             <option value="inherit" ${settings.font_family === 'inherit' || !settings.font_family ? 'selected' : ''}>Por defecto</option>
+                            <option value="'Asap'" ${settings.font_family === 'Asap' ? 'selected' : ''}>Asap</option>
                             <option value="Arial, sans-serif" ${settings.font_family === 'Arial, sans-serif' ? 'selected' : ''}>Arial</option>
                             <option value="'Times New Roman', serif" ${settings.font_family === "'Times New Roman', serif" ? 'selected' : ''}>Times New Roman</option>
                             <option value="'Courier New', monospace" ${settings.font_family === "'Courier New', monospace" ? 'selected' : ''}>Courier New</option>
@@ -3936,6 +3943,7 @@
                         Familia de fuente:
                         <select class="sfq-config-input" data-setting="font_family">
                             <option value="inherit" ${settings.font_family === 'inherit' || !settings.font_family ? 'selected' : ''}>Por defecto</option>
+                            <option value="'Asap'" ${settings.font_family === 'Asap' ? 'selected' : ''}>Asap</option>
                             <option value="Arial, sans-serif" ${settings.font_family === 'Arial, sans-serif' ? 'selected' : ''}>Arial</option>
                             <option value="'Times New Roman', serif" ${settings.font_family === "'Times New Roman', serif" ? 'selected' : ''}>Times New Roman</option>
                             <option value="'Courier New', monospace" ${settings.font_family === "'Courier New', monospace" ? 'selected' : ''}>Courier New</option>

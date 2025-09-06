@@ -178,7 +178,6 @@ class SFQ_Admin {
             
             <?php if (empty($forms)) : ?>
                 <div class="sfq-empty-state">
-                    <img src="<?php echo SFQ_PLUGIN_URL; ?>assets/images/empty-state.svg" alt="No forms" style="max-width: 200px;">
                     <h2><?php _e('No hay formularios creados', 'smart-forms-quiz'); ?></h2>
                     <p><?php _e('Crea tu primer formulario o quiz para empezar', 'smart-forms-quiz'); ?></p>
                     <a href="<?php echo admin_url('admin.php?page=sfq-new-form'); ?>" class="button button-primary button-hero">
@@ -1052,7 +1051,7 @@ class SFQ_Admin {
                                 <div class="sfq-opacity-control">
                                     <label><?php _e('Opacidad', 'smart-forms-quiz'); ?></label>
                                     <input type="range" id="primary-color-opacity" min="0" max="1" step="0.01" value="1" class="sfq-opacity-range">
-                                    <span class="sfq-opacity-value">100%</span>
+                                    <span class="sfq-opacity-value" data-for="primary-color">100%</span>
                                 </div>
                             </div>
                         </div>
@@ -1154,6 +1153,12 @@ class SFQ_Admin {
                                 <?php _e('Activar sombreado del contenedor', 'smart-forms-quiz'); ?>
                             </label>
                             <p class="description"><?php _e('Añade una sombra sutil al contenedor principal del formulario', 'smart-forms-quiz'); ?></p>
+                        </div>
+                        
+                        <div class="sfq-field-group">
+                            <label><?php _e('Padding del Contenedor (rem)', 'smart-forms-quiz'); ?></label>
+                            <input type="number" id="form-container-padding" min="0" max="10" step="0.1" value="2" class="sfq-input" style="width: 100px;">
+                            <p class="description"><?php _e('Espaciado interno del contenedor principal del formulario en rem (por defecto: 2rem)', 'smart-forms-quiz'); ?></p>
                         </div>
                         
                         <h3><?php _e('📏 Dimensiones y Espaciado', 'smart-forms-quiz'); ?></h3>

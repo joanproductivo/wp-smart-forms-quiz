@@ -281,28 +281,39 @@ class SFQ_Frontend {
                                     <?php $this->render_question_type($first_question); ?>
                                 </div>
                                 
-                                <!-- Botones de navegación -->
-                                <div class="sfq-navigation">
-                                    <?php 
-                                    // Determinar si mostrar el botón "Siguiente" basado en la configuración de la pregunta
-                                    $should_show_next = true;
-                                    
-                                    if (isset($question_settings['show_next_button'])) {
-                                        $should_show_next = $question_settings['show_next_button'];
-                                    } else {
-                                        // Lógica por defecto
-                                        $auto_advance_types = array('single_choice', 'rating', 'image_choice');
-                                        $should_show_next = !($settings['auto_advance'] && in_array($first_question->question_type, $auto_advance_types));
-                                    }
-                                    
-                                    if ($should_show_next) : 
-                                        $button_text = !empty($next_button_text) ? $next_button_text : __('Siguiente', 'smart-forms-quiz');
-                                    ?>
-                                        <button class="sfq-button sfq-button-primary sfq-next-button">
-                                            <?php echo esc_html($button_text); ?>
-                                        </button>
-                                    <?php endif; ?>
-                                </div>
+                <!-- Botones de navegación -->
+                <?php 
+                // ✅ SOLUCIÓN: Verificar si se debe ocultar la navegación
+                $block_question = false;
+                if (isset($first_question->settings) && is_array($first_question->settings)) {
+                    $block_question = !empty($first_question->settings['block_question']);
+                } elseif (isset($first_question->settings) && is_object($first_question->settings)) {
+                    $block_question = !empty($first_question->settings->block_question);
+                }
+                
+                if (!$block_question) : ?>
+                    <div class="sfq-navigation">
+                        <?php 
+                        // Determinar si mostrar el botón "Siguiente" basado en la configuración de la pregunta
+                        $should_show_next = true;
+                        
+                        if (isset($question_settings['show_next_button'])) {
+                            $should_show_next = $question_settings['show_next_button'];
+                        } else {
+                            // Lógica por defecto
+                            $auto_advance_types = array('single_choice', 'rating', 'image_choice');
+                            $should_show_next = !($settings['auto_advance'] && in_array($first_question->question_type, $auto_advance_types));
+                        }
+                        
+                        if ($should_show_next) : 
+                            $button_text = !empty($next_button_text) ? $next_button_text : __('Siguiente', 'smart-forms-quiz');
+                        ?>
+                            <button class="sfq-button sfq-button-primary sfq-next-button">
+                                <?php echo esc_html($button_text); ?>
+                            </button>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
                             </div>
                         </div>
                         
@@ -366,47 +377,58 @@ class SFQ_Frontend {
                             </div>
                             
                             <!-- Botones de navegación -->
-                            <div class="sfq-navigation">
-                                <?php if ($index > 0 && !empty($settings['allow_back'])) : ?>
-                                    <button class="sfq-button sfq-button-secondary sfq-prev-button">
-                                        <?php _e('Anterior', 'smart-forms-quiz'); ?>
-                                    </button>
-                                <?php endif; ?>
-                                
-                                <?php 
-                                // ✅ NUEVO: Verificar si es una pantalla final PRIMERO
-                                $is_pantalla_final = (isset($question->pantallaFinal) && $question->pantallaFinal);
-                                
-                                // Determinar si mostrar el botón "Siguiente" basado en la configuración de la pregunta
-                                $should_show_next = true;
-                                
-                                // ✅ CRÍTICO: Si es una pantalla final, NUNCA mostrar botón siguiente
-                                if ($is_pantalla_final) {
-                                    $should_show_next = false;
-                                } elseif (isset($question_settings['show_next_button'])) {
-                                    // Si la pregunta tiene configuración específica, respetarla
-                                    $should_show_next = $question_settings['show_next_button'];
-                                } else {
-                                    // Lógica por defecto: mostrar siempre para opciones múltiples, texto y email
-                                    // Solo ocultar para opciones únicas, rating e imágenes cuando auto-advance está habilitado
-                                    $auto_advance_types = array('single_choice', 'rating', 'image_choice');
-                                    $should_show_next = !($settings['auto_advance'] && in_array($question->question_type, $auto_advance_types));
-                                }
-                                
-                                if ($should_show_next) : 
-                                    // Determinar el texto del botón
-                                    $button_text = '';
-                                    if (!empty($next_button_text)) {
-                                        $button_text = $next_button_text;
+                            <?php 
+                            // ✅ SOLUCIÓN: Verificar si se debe ocultar la navegación
+                            $block_question = false;
+                            if (isset($question->settings) && is_array($question->settings)) {
+                                $block_question = !empty($question->settings['block_question']);
+                            } elseif (isset($question->settings) && is_object($question->settings)) {
+                                $block_question = !empty($question->settings->block_question);
+                            }
+                            
+                            if (!$block_question) : ?>
+                                <div class="sfq-navigation">
+                                    <?php if ($index > 0 && !empty($settings['allow_back'])) : ?>
+                                        <button class="sfq-button sfq-button-secondary sfq-prev-button">
+                                            <?php _e('Anterior', 'smart-forms-quiz'); ?>
+                                        </button>
+                                    <?php endif; ?>
+                                    
+                                    <?php 
+                                    // ✅ NUEVO: Verificar si es una pantalla final PRIMERO
+                                    $is_pantalla_final = (isset($question->pantallaFinal) && $question->pantallaFinal);
+                                    
+                                    // Determinar si mostrar el botón "Siguiente" basado en la configuración de la pregunta
+                                    $should_show_next = true;
+                                    
+                                    // ✅ CRÍTICO: Si es una pantalla final, NUNCA mostrar botón siguiente
+                                    if ($is_pantalla_final) {
+                                        $should_show_next = false;
+                                    } elseif (isset($question_settings['show_next_button'])) {
+                                        // Si la pregunta tiene configuración específica, respetarla
+                                        $should_show_next = $question_settings['show_next_button'];
                                     } else {
-                                        $button_text = ($index === count($form->questions) - 1) ? __('Finalizar', 'smart-forms-quiz') : __('Siguiente', 'smart-forms-quiz');
+                                        // Lógica por defecto: mostrar siempre para opciones múltiples, texto y email
+                                        // Solo ocultar para opciones únicas, rating e imágenes cuando auto-advance está habilitado
+                                        $auto_advance_types = array('single_choice', 'rating', 'image_choice');
+                                        $should_show_next = !($settings['auto_advance'] && in_array($question->question_type, $auto_advance_types));
                                     }
-                                ?>
-                                    <button class="sfq-button sfq-button-primary sfq-next-button">
-                                        <?php echo esc_html($button_text); ?>
-                                    </button>
-                                <?php endif; ?>
-                            </div>
+                                    
+                                    if ($should_show_next) : 
+                                        // Determinar el texto del botón
+                                        $button_text = '';
+                                        if (!empty($next_button_text)) {
+                                            $button_text = $next_button_text;
+                                        } else {
+                                            $button_text = ($index === count($form->questions) - 1) ? __('Siguiente', 'smart-forms-quiz') : __('Siguiente', 'smart-forms-quiz');
+                                        }
+                                    ?>
+                                        <button class="sfq-button sfq-button-primary sfq-next-button">
+                                            <?php echo esc_html($button_text); ?>
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                     <?php endforeach; ?>
@@ -528,6 +550,7 @@ class SFQ_Frontend {
                     
                     /* Nuevas variables CSS para las opciones de estilo */
                     --sfq-form-container-border-radius: <?php echo esc_attr($styles['form_container_border_radius'] ?? '20'); ?>px;
+                    --sfq-form-container-padding: <?php echo esc_attr($styles['form_container_padding'] ?? '2'); ?>rem;
                     --sfq-question-text-size: <?php echo esc_attr($styles['question_text_size'] ?? '24'); ?>px;
                     --sfq-option-text-size: <?php echo esc_attr($styles['option_text_size'] ?? '16'); ?>px;
                     --sfq-question-content-min-height: <?php echo esc_attr($styles['question_content_min_height'] ?? '0'); ?>px;
@@ -597,8 +620,9 @@ class SFQ_Frontend {
                 <?php endif; ?>
                 
                 /* Aplicar estilos específicos con las variables CSS */
-                #sfq-form-<?php echo $form_id; ?> .sfq-form-container {
+                #sfq-form-<?php echo $form_id; ?> {
                     border-radius: var(--sfq-form-container-border-radius) !important;
+                    padding: var(--sfq-form-container-padding) !important;
                     <?php if (!empty($styles['form_container_shadow'])) : ?>
                     box-shadow: none !important;
                     <?php else : ?>
@@ -2397,18 +2421,24 @@ class SFQ_Frontend {
             $styles['font-family'] = $settings['font_family'];
         }
         
-        // Peso de fuente (negrita)
+        // Peso de fuente (negrita) - CORREGIDO: Verificar tanto font_weight como font_bold
         if (!empty($settings['font_weight'])) {
             $styles['font-weight'] = $settings['font_weight'];
+        } elseif (!empty($settings['font_bold']) && $settings['font_bold']) {
+            $styles['font-weight'] = 'bold';
         }
         
-        // Estilo de fuente (cursiva)
+        // Estilo de fuente (cursiva) - CORREGIDO: Verificar tanto font_style como italic
         if (!empty($settings['font_style']) && $settings['font_style'] === 'italic') {
+            $styles['font-style'] = 'italic';
+        } elseif (!empty($settings['font_italic']) && $settings['font_italic']) {
             $styles['font-style'] = 'italic';
         }
         
-        // Decoración de texto (tachado)
+        // Decoración de texto (tachado) - CORREGIDO: Verificar tanto text_decoration como font_strikethrough
         if (!empty($settings['text_decoration']) && $settings['text_decoration'] === 'line-through') {
+            $styles['text-decoration'] = 'line-through';
+        } elseif (!empty($settings['font_strikethrough']) && $settings['font_strikethrough']) {
             $styles['text-decoration'] = 'line-through';
         }
         

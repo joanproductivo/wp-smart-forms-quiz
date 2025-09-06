@@ -1204,7 +1204,7 @@
 
             // ✅ NUEVO: Verificar si la pregunta actual tiene bloqueo activado
             if (this.isQuestionBlocked(currentQuestion)) {
-                console.log('SFQ: Question is blocked, stopping navigation');
+              
                 this.showBlockedMessage(currentQuestion);
                 return;
             }
@@ -1359,7 +1359,7 @@
             // ✅ NUEVO: Verificar si la pregunta tiene bloqueo activado
             const isBlocked = this.isQuestionBlocked(screen);
             if (isBlocked) {
-                console.log('SFQ: Hiding next button - question is blocked:', screen.dataset.questionId);
+              
                 nextButton.style.display = 'none';
                 return;
             }
@@ -1386,7 +1386,7 @@
                 const totalQuestions = this.container.querySelectorAll('.sfq-question-screen').length;
                 const isLastQuestion = questionIndex === totalQuestions - 1;
                 
-                nextButton.textContent = isLastQuestion ? 'Finalizar' : 'Siguiente';
+                nextButton.textContent = isLastQuestion ? 'Siguiente' : 'Siguiente';
             }
         }
 
@@ -3204,7 +3204,7 @@
          * ✅ NUEVO: Cargar siguiente pregunta de forma segura vía AJAX
          */
         async loadNextQuestionSecurely() {
-            console.log('SFQ Secure: Loading next question via AJAX');
+
             
             try {
                 const formData = new FormData();
@@ -3229,7 +3229,7 @@
                 }
 
                 const result = await response.json();
-                console.log('SFQ Secure: AJAX result:', result);
+              
 
                 if (result.success && result.data) {
                     if (result.data.html) {
@@ -3243,10 +3243,10 @@
                         // Actualizar progreso
                         this.updateProgress();
                         
-                        console.log('SFQ Secure: Question loaded successfully, index:', result.data.question_index);
+                      
                     } else if (result.data.is_last_question || result.data.question_index === -1) {
                         // No hay más preguntas, finalizar formulario
-                        console.log('SFQ Secure: No more questions, submitting form');
+                       
                         this.submitForm();
                     }
                 } else {
@@ -3288,7 +3288,7 @@
                 }
 
                 const result = await response.json();
-                console.log('SFQ Secure: AJAX result for specific question:', result);
+               
 
                 if (result.success && result.data && result.data.html) {
                     // ✅ CORREGIDO: Manejar pantallas finales correctamente
@@ -3330,7 +3330,7 @@
          * ✅ NUEVO: Insertar pregunta dinámica en el DOM
          */
         insertDynamicQuestion(questionHtml, questionIndex, specificQuestionId = null) {
-            console.log('SFQ Secure: Inserting dynamic question, index:', questionIndex);
+
             
             // Ocultar pregunta actual
             if (this.currentScreen) {
@@ -3373,7 +3373,7 @@
 
             // ✅ SOLUCIÓN: Actualizar variables en DOM después de insertar la pregunta
             setTimeout(() => {
-                console.log('SFQ Secure: Updating variables in DOM for newly inserted question');
+             
                 this.updateVariablesInDOM();
             }, 100);
 
@@ -3389,8 +3389,7 @@
          * ✅ CORREGIDO: Insertar pantalla final dinámica en el DOM
          */
         insertDynamicFinalScreen(finalScreenHtml, questionId) {
-            console.log('SFQ Secure: Inserting dynamic final screen:', questionId);
-            console.log('SFQ Secure: Final screen HTML received:', finalScreenHtml);
+           
             
             // Ocultar pregunta actual
             if (this.currentScreen) {
@@ -3440,7 +3439,7 @@
 
             // ✅ SOLUCIÓN: Actualizar variables en DOM después de insertar la pantalla final
             setTimeout(() => {
-                console.log('SFQ Secure: Updating variables in DOM for newly inserted final screen');
+               
                 this.updateVariablesInDOM();
             }, 100);
 
@@ -3452,15 +3451,14 @@
                 this.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
 
-            console.log('SFQ Secure: Dynamic final screen inserted and activated');
-            console.log('SFQ Secure: Final screen element:', finalScreenElement);
+          
         }
 
         /**
          * ✅ NUEVO: Vincular eventos para pregunta recién cargada
          */
         bindEventsForNewQuestion(questionElement) {
-            console.log('SFQ Secure: Binding events for new question');
+            
 
             // Opciones de respuesta única
             questionElement.querySelectorAll('.sfq-single-choice .sfq-option-card').forEach(card => {
@@ -3746,15 +3744,14 @@
             // Verificar atributo data-block-question
             const blockQuestion = questionScreen.dataset.blockQuestion;
             if (blockQuestion === 'true' || blockQuestion === '1') {
-                console.log('SFQ: Question is blocked via data-block-question:', questionScreen.dataset.questionId);
+               
                 return true;
             }
             
             // Verificar si hay un elemento con clase de bloqueo
             const blockIndicator = questionScreen.querySelector('.sfq-question-blocked');
             if (blockIndicator) {
-                console.log('SFQ: Question is blocked via CSS class:', questionScreen.dataset.questionId);
-                return true;
+              
             }
             
             return false;

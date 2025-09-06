@@ -656,34 +656,45 @@ class SFQ_Ajax {
                 </div>
                 
                 <!-- Botones de navegación -->
-                <div class="sfq-navigation">
-                    <?php if ($question_index > 0 && !empty($settings['allow_back'])) : ?>
-                        <button class="sfq-button sfq-button-secondary sfq-prev-button">
-                            <?php _e('Anterior', 'smart-forms-quiz'); ?>
-                        </button>
-                    <?php endif; ?>
-                    
-                    <?php 
-                    // Determinar si mostrar el botón "Siguiente"
-                    $should_show_next = true;
-                    
-                    if (isset($question_settings['show_next_button'])) {
-                        $should_show_next = $question_settings['show_next_button'];
-                    } else {
-                        // Lógica por defecto
-                        $auto_advance_types = array('single_choice', 'rating', 'image_choice');
-                        $should_show_next = !($settings['auto_advance'] && in_array($question->question_type, $auto_advance_types));
-                    }
-                    
-                    if ($should_show_next) : 
-                        $button_text = !empty($next_button_text) ? $next_button_text : 
-                            (($question_index === count($normal_questions) - 1) ? __('Finalizar', 'smart-forms-quiz') : __('Siguiente', 'smart-forms-quiz'));
-                    ?>
-                        <button class="sfq-button sfq-button-primary sfq-next-button">
-                            <?php echo esc_html($button_text); ?>
-                        </button>
-                    <?php endif; ?>
-                </div>
+                <?php 
+                // ✅ SOLUCIÓN: Verificar si se debe ocultar la navegación
+                $block_question = false;
+                if (isset($question->settings) && is_array($question->settings)) {
+                    $block_question = !empty($question->settings['block_question']);
+                } elseif (isset($question->settings) && is_object($question->settings)) {
+                    $block_question = !empty($question->settings->block_question);
+                }
+                
+                if (!$block_question) : ?>
+                    <div class="sfq-navigation">
+                        <?php if ($question_index > 0 && !empty($settings['allow_back'])) : ?>
+                            <button class="sfq-button sfq-button-secondary sfq-prev-button">
+                                <?php _e('Anterior', 'smart-forms-quiz'); ?>
+                            </button>
+                        <?php endif; ?>
+                        
+                        <?php 
+                        // Determinar si mostrar el botón "Siguiente"
+                        $should_show_next = true;
+                        
+                        if (isset($question_settings['show_next_button'])) {
+                            $should_show_next = $question_settings['show_next_button'];
+                        } else {
+                            // Lógica por defecto
+                            $auto_advance_types = array('single_choice', 'rating', 'image_choice');
+                            $should_show_next = !($settings['auto_advance'] && in_array($question->question_type, $auto_advance_types));
+                        }
+                        
+                        if ($should_show_next) : 
+                            $button_text = !empty($next_button_text) ? $next_button_text : 
+                                (($question_index === count($normal_questions) - 1) ? __('Siguiente', 'smart-forms-quiz') : __('Siguiente', 'smart-forms-quiz'));
+                        ?>
+                            <button class="sfq-button sfq-button-primary sfq-next-button">
+                                <?php echo esc_html($button_text); ?>
+                            </button>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
         <?php
