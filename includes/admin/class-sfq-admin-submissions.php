@@ -726,10 +726,8 @@ class SFQ_Admin_Submissions {
         $params = array_merge($query_parts['params'], [$per_page, $offset]);
         $submissions = $this->wpdb->get_results($this->wpdb->prepare($submissions_query, $params));
         
-        // Formatear datos
-        foreach ($submissions as &$submission) {
-            $submission = $this->format_submission_data($submission);
-        }
+        // Formatear datos usando el método batch optimizado (elimina N+1 queries)
+        $submissions = $this->format_submissions_batch($submissions);
         
         wp_send_json_success(array(
             'submissions' => $submissions,
@@ -929,7 +927,7 @@ class SFQ_Admin_Submissions {
     }
     
     /**
-     * Formatear datos de submission
+     * Formatear datos de submission (OPTIMIZADO - sin consultas N+1)
      */
     private function format_submission_data($submission) {
         // Formatear fecha
@@ -953,19 +951,14 @@ class SFQ_Admin_Submissions {
             $submission->user_type = 'anonymous';
         }
         
-        // Obtener información del país basada en IP
-        if (!empty($submission->user_ip)) {
-            $country_info = $this->get_country_from_ip($submission->user_ip);
-            
-            // Si no obtenemos información válida, usar datos de fallback
-            if (!$country_info || !is_array($country_info) || $country_info['country_code'] === 'XX') {
-                $country_info = $this->get_fallback_country_info($submission->user_ip);
+        // NOTA: La información del país se asigna en batch en format_submissions_batch()
+        // para evitar consultas N+1. Si no está presente, usar datos por defecto.
+        if (!isset($submission->country_info)) {
+            if (!empty($submission->user_ip)) {
+                $submission->country_info = $this->get_fallback_country_info($submission->user_ip);
+            } else {
+                $submission->country_info = $this->get_default_country_info();
             }
-            
-            $submission->country_info = $country_info;
-        } else {
-            // Si no hay IP, usar datos por defecto
-            $submission->country_info = $this->get_default_country_info();
         }
         
         // Calcular puntuación si es quiz
@@ -974,6 +967,52 @@ class SFQ_Admin_Submissions {
         }
         
         return $submission;
+    }
+    
+    /**
+     * NUEVO: Formatear múltiples submissions en lote (OPTIMIZADO)
+     * Elimina el problema N+1 obteniendo información de países en batch
+     */
+    private function format_submissions_batch($submissions) {
+        if (empty($submissions)) {
+            return $submissions;
+        }
+        
+        // Extraer todas las IPs únicas de los submissions
+        $ips_to_process = array();
+        foreach ($submissions as $submission) {
+            if (!empty($submission->user_ip) && !in_array($submission->user_ip, $ips_to_process)) {
+                $ips_to_process[] = $submission->user_ip;
+            }
+        }
+        
+        // Obtener información de países para todas las IPs de una vez
+        $countries_info = array();
+        if (!empty($ips_to_process)) {
+            $countries_info = $this->get_countries_info_batch($ips_to_process);
+        }
+        
+        // Formatear cada submission y asignar información del país
+        foreach ($submissions as &$submission) {
+            // Formatear datos básicos
+            $submission = $this->format_submission_data($submission);
+            
+            // Asignar información del país desde el batch
+            if (!empty($submission->user_ip) && isset($countries_info[$submission->user_ip])) {
+                $country_info = $countries_info[$submission->user_ip];
+                
+                // Validar que la información sea válida
+                if ($country_info && is_array($country_info) && $country_info['country_code'] !== 'XX') {
+                    $submission->country_info = $country_info;
+                } else {
+                    $submission->country_info = $this->get_fallback_country_info($submission->user_ip);
+                }
+            } else {
+                $submission->country_info = $this->get_default_country_info();
+            }
+        }
+        
+        return $submissions;
     }
     
     /**

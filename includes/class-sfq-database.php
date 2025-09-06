@@ -271,47 +271,199 @@ class SFQ_Database {
     }
     
     /**
-     * Obtener un formulario por ID con cache optimizado
+     * Obtener un formulario por ID con cache optimizado y consulta única
      */
     public function get_form($form_id) {
         // Verificar cache primero
-        $cache_key = "sfq_form_{$form_id}";
+        $cache_key = "sfq_form_complete_{$form_id}";
         $cached_form = wp_cache_get($cache_key, 'sfq_forms');
         
         if ($cached_form !== false) {
             return $cached_form;
         }
         
-        global $wpdb;
-        
-        $form = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$this->forms_table} WHERE id = %d",
-            $form_id
-        ));
+        // Usar consulta optimizada
+        $form = $this->get_form_optimized($form_id);
         
         if ($form) {
-            // Decodificar configuraciones JSON
-            $form->settings = json_decode($form->settings, true) ?: array();
-            $form->style_settings = json_decode($form->style_settings, true) ?: array();
-            
-            // ✅ CRÍTICO: Extraer variables globales de las configuraciones
-            $form->global_variables = isset($form->settings['global_variables']) && is_array($form->settings['global_variables']) 
-                ? $form->settings['global_variables'] 
-                : array();
-            
-            // Obtener preguntas
-            $form->questions = $this->get_questions($form_id);
-            
-            // Ensure questions is always an array
-            if (!is_array($form->questions)) {
-                $form->questions = array();
-            }
-            
-            // Cachear el resultado por 5 minutos
-            wp_cache_set($cache_key, $form, 'sfq_forms', 300);
+            // Cache por 1 hora
+            wp_cache_set($cache_key, $form, 'sfq_forms', 3600);
         }
         
         return $form;
+    }
+    
+    /**
+     * ✅ OPTIMIZADO: Obtener formulario completo con una sola consulta (elimina N+1)
+     */
+    private function get_form_optimized($form_id) {
+        global $wpdb;
+        
+        $query = "
+            SELECT 
+                f.id as form_id,
+                f.title as form_title,
+                f.description as form_description,
+                f.settings as form_settings,
+                f.style_settings as form_style_settings,
+                f.intro_title,
+                f.intro_description,
+                f.intro_button_text,
+                f.thank_you_message,
+                f.redirect_url,
+                f.status as form_status,
+                f.type as form_type,
+                f.created_at as form_created_at,
+                f.updated_at as form_updated_at,
+                
+                q.id as question_id,
+                q.question_text,
+                q.question_type,
+                q.options,
+                q.required,
+                q.order_position,
+                q.settings as question_settings,
+                q.variable_name,
+                q.variable_value,
+                
+                c.id as condition_id,
+                c.condition_type,
+                c.condition_value,
+                c.action_type,
+                c.action_value,
+                c.variable_operation,
+                c.variable_amount,
+                c.comparison_value,
+                c.order_position as condition_order
+                
+            FROM {$this->forms_table} f
+            LEFT JOIN {$this->questions_table} q ON f.id = q.form_id
+            LEFT JOIN {$this->conditions_table} c ON q.id = c.question_id
+            WHERE f.id = %d
+            ORDER BY q.order_position ASC, c.order_position ASC
+        ";
+        
+        $results = $wpdb->get_results($wpdb->prepare($query, $form_id));
+        
+        if (empty($results)) {
+            return null;
+        }
+        
+        return $this->process_form_results_optimized($results);
+    }
+    
+    /**
+     * ✅ OPTIMIZADO: Procesar resultados de la consulta única
+     */
+    private function process_form_results_optimized($results) {
+        $form = null;
+        $questions = array();
+        
+        foreach ($results as $row) {
+            // Construir objeto formulario (solo una vez)
+            if (!$form) {
+                $form = (object) array(
+                    'id' => $row->form_id,
+                    'title' => $row->form_title,
+                    'description' => $row->form_description,
+                    'settings' => json_decode($row->form_settings, true) ?: array(),
+                    'style_settings' => json_decode($row->form_style_settings, true) ?: array(),
+                    'intro_title' => $row->intro_title,
+                    'intro_description' => $row->intro_description,
+                    'intro_button_text' => $row->intro_button_text,
+                    'thank_you_message' => $row->thank_you_message,
+                    'redirect_url' => $row->redirect_url,
+                    'status' => $row->form_status,
+                    'type' => $row->form_type,
+                    'created_at' => $row->form_created_at,
+                    'updated_at' => $row->form_updated_at
+                );
+                
+                // ✅ CRÍTICO: Extraer variables globales de las configuraciones
+                $form->global_variables = isset($form->settings['global_variables']) && is_array($form->settings['global_variables']) 
+                    ? $form->settings['global_variables'] 
+                    : array();
+            }
+            
+            // Construir preguntas (evitar duplicados)
+            if ($row->question_id && !isset($questions[$row->question_id])) {
+                $question = (object) array(
+                    'id' => $row->question_id,
+                    'question_text' => $row->question_text,
+                    'question_type' => $row->question_type,
+                    'required' => $row->required,
+                    'order_position' => $row->order_position,
+                    'variable_name' => $row->variable_name,
+                    'variable_value' => $row->variable_value,
+                    'conditions' => array()
+                );
+                
+                // Procesar datos de la pregunta usando métodos existentes
+                $question = $this->process_question_data_optimized($question, $row);
+                
+                $questions[$row->question_id] = $question;
+            }
+            
+            // Añadir condiciones a las preguntas
+            if ($row->condition_id && isset($questions[$row->question_id])) {
+                $questions[$row->question_id]->conditions[] = (object) array(
+                    'id' => $row->condition_id,
+                    'condition_type' => $row->condition_type,
+                    'condition_value' => $row->condition_value,
+                    'action_type' => $row->action_type,
+                    'action_value' => $row->action_value,
+                    'variable_operation' => $row->variable_operation,
+                    'variable_amount' => $row->variable_amount,
+                    'comparison_value' => $row->comparison_value,
+                    'order_position' => $row->condition_order
+                );
+            }
+        }
+        
+        // Convertir a array ordenado
+        $form->questions = array_values($questions);
+        
+        // Ensure questions is always an array
+        if (!is_array($form->questions)) {
+            $form->questions = array();
+        }
+        
+        return $form;
+    }
+    
+    /**
+     * ✅ OPTIMIZADO: Procesar datos de pregunta sin consultas adicionales
+     */
+    private function process_question_data_optimized($question, $row) {
+        // Procesar configuraciones primero para tener acceso a todos los datos
+        $settings = $this->process_question_settings($row->question_settings);
+        $question->settings = $settings;
+        
+        // Procesar según el tipo de pregunta
+        if ($question->question_type === 'freestyle') {
+            // Para preguntas freestyle, los elementos están en el campo options
+            $question->freestyle_elements = $this->process_freestyle_elements($row->options);
+            $question->options = []; // Las preguntas freestyle no tienen opciones tradicionales
+            
+            // Procesar configuraciones globales de freestyle
+            $question->global_settings = $settings['global_settings'] ?? [];
+            
+            // CRÍTICO: Extraer el campo pantallaFinal de las configuraciones procesadas
+            $question->pantallaFinal = isset($settings['pantallaFinal']) ? (bool) $settings['pantallaFinal'] : false;
+        } else {
+            // Para preguntas regulares, procesar opciones normalmente
+            $question->options = $this->process_question_options($row->options);
+        }
+        
+        // Procesar campo required
+        $question->required = $this->process_required_field($question->required);
+        
+        // Asegurar campos necesarios
+        $question->question_text = $question->question_text ?? '';
+        $question->question_type = $question->question_type ?? 'text';
+        $question->order_position = $question->order_position ?? 0;
+        
+        return $question;
     }
     
     /**
@@ -1875,10 +2027,14 @@ class SFQ_Database {
      */
     public function clear_form_cache($form_id = null) {
         if ($form_id) {
-            // Limpiar cache específico del formulario
+            // Limpiar cache específico del formulario (incluyendo cache optimizado)
             wp_cache_delete("sfq_form_{$form_id}", 'sfq_forms');
+            wp_cache_delete("sfq_form_complete_{$form_id}", 'sfq_forms'); // ✅ NUEVO: Cache optimizado
             wp_cache_delete("sfq_form_data_{$form_id}", 'sfq_forms');
             wp_cache_delete("sfq_form_stats_{$form_id}", 'sfq_stats');
+            
+            // También limpiar transients relacionados
+            delete_transient("sfq_form_complete_{$form_id}");
         } else {
             // Limpiar todo el cache de formularios
             wp_cache_flush_group('sfq_forms');

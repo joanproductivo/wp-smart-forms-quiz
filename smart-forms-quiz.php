@@ -46,6 +46,9 @@ if (is_admin()) {
     require_once SFQ_PLUGIN_DIR . 'includes/admin/class-sfq-webhook-admin.php';
 }
 
+// Cargar migraciones de base de datos
+require_once SFQ_PLUGIN_DIR . 'includes/migrations/add-post-content-index.php';
+
 // Activación del plugin
 register_activation_hook(__FILE__, 'sfq_activate');
 function sfq_activate() {

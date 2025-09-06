@@ -13,9 +13,16 @@ if (!defined('ABSPATH')) {
 class SFQ_WP_Rocket_Compat {
     
     private static $instance = null;
+    private static $static_form_pages_cache = null; // Cache estático para la petición actual
     private $wp_rocket_active = false;
     private $cache_plugins = array();
-    private $form_pages_cache = array(); // ✅ CORREGIDO: Declarar propiedad explícitamente
+    private $form_pages_cache = array(); // Cache en memoria para la sesión actual
+    private $cache_key = 'sfq_form_pages_cache'; // Clave para transients
+    private $cache_duration = 604800; // 7 días en segundos (más agresivo)
+    private $lazy_load_enabled = true; // Lazy loading activado
+    private $cache_loaded = false; // Flag para saber si el cache ya se cargó
+    private $object_cache_key = 'sfq_form_pages_object_cache'; // Cache de objeto
+    private $cache_version = '1.3'; // Versión del cache para invalidación (incrementada)
     
     /**
      * Singleton instance
@@ -105,6 +112,11 @@ class SFQ_WP_Rocket_Compat {
         add_action('sfq_form_submitted', array($this, 'maybe_clear_cache'));
         add_action('sfq_form_updated', array($this, 'clear_form_cache'));
         
+        // Hooks para invalidar cache de páginas con formularios (optimizados)
+        add_action('save_post', array($this, 'maybe_clear_form_cache_on_save'));
+        add_action('delete_post', array($this, 'maybe_clear_form_cache_on_delete'));
+        add_action('wp_update_nav_menu', array($this, 'clear_form_pages_cache'));
+        
         // AJAX para nonces dinámicos
         add_action('wp_ajax_sfq_refresh_nonce', array($this, 'refresh_nonce'));
         add_action('wp_ajax_nopriv_sfq_refresh_nonce', array($this, 'refresh_nonce'));
@@ -168,42 +180,213 @@ class SFQ_WP_Rocket_Compat {
     }
     
     /**
-     * Obtener páginas que contienen formularios
+     * Obtener páginas que contienen formularios (con cache optimizado y lazy loading)
      */
     private function get_pages_with_forms() {
-        global $wpdb;
+        // CRÍTICO: Cache estático para la petición actual - evita consultas repetitivas
+        if (self::$static_form_pages_cache !== null) {
+            return self::$static_form_pages_cache;
+        }
         
+        // Lazy loading: solo cargar si es absolutamente necesario
+        if ($this->lazy_load_enabled && !$this->should_load_form_pages()) {
+            self::$static_form_pages_cache = array();
+            return array();
+        }
+        
+        // Verificar cache en memoria primero (más agresivo)
+        if (!empty($this->form_pages_cache) && $this->cache_loaded) {
+            self::$static_form_pages_cache = $this->form_pages_cache;
+            return $this->form_pages_cache;
+        }
+        
+        // Verificar cache de objeto (más rápido que transients)
+        $object_cache_key = $this->object_cache_key . '_' . $this->cache_version;
+        $cached_pages = wp_cache_get($object_cache_key, 'sfq_form_pages');
+        if ($cached_pages !== false && is_array($cached_pages)) {
+            $this->form_pages_cache = $cached_pages;
+            $this->cache_loaded = true;
+            self::$static_form_pages_cache = $cached_pages;
+            return $cached_pages;
+        }
+        
+        // Verificar cache persistente (transients) como fallback
+        $cached_pages = get_transient($this->cache_key);
+        if ($cached_pages !== false && is_array($cached_pages)) {
+            $this->form_pages_cache = $cached_pages;
+            $this->cache_loaded = true;
+            // Guardar también en object cache para próximas consultas
+            wp_cache_set($object_cache_key, $cached_pages, 'sfq_form_pages', $this->cache_duration);
+            self::$static_form_pages_cache = $cached_pages;
+            return $cached_pages;
+        }
+        
+        // Si no hay cache, ejecutar consulta optimizada
+        $form_pages = $this->execute_optimized_query();
+        
+        // Guardar en todos los niveles de cache
+        $this->form_pages_cache = $form_pages;
+        $this->cache_loaded = true;
+        wp_cache_set($object_cache_key, $form_pages, 'sfq_form_pages', $this->cache_duration);
+        set_transient($this->cache_key, $form_pages, $this->cache_duration);
+        self::$static_form_pages_cache = $form_pages;
+        
+        return $form_pages;
+    }
+    
+    /**
+     * Ejecutar consulta optimizada para encontrar formularios
+     */
+    private function execute_optimized_query() {
+        global $wpdb;
         $form_pages = array();
         
-        // Buscar shortcodes en posts y páginas
-        $posts_with_shortcodes = $wpdb->get_results(
-            "SELECT ID, post_name, post_type 
-            FROM {$wpdb->posts} 
-            WHERE post_content LIKE '%[smart_form%' 
-            AND post_status = 'publish'"
+        // CRÍTICO: Verificar que WordPress esté completamente inicializado
+        if (!did_action('wp_loaded') || !function_exists('get_permalink')) {
+            // Si WordPress no está listo, devolver array vacío y cachear por menos tiempo
+            error_log('SFQ: WordPress no está completamente inicializado, posponiendo consulta de formularios');
+            return array();
+        }
+        
+        // Verificar que las rewrite rules estén disponibles
+        global $wp_rewrite;
+        if (!$wp_rewrite || !is_object($wp_rewrite)) {
+            error_log('SFQ: WP Rewrite no está disponible, posponiendo consulta de formularios');
+            return array();
+        }
+        
+        // Consulta optimizada con filtro temporal y mejor rendimiento
+        $posts_with_forms = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT DISTINCT ID, post_name, post_type 
+                FROM {$wpdb->posts} 
+                WHERE post_status = %s
+                AND post_type IN ('post', 'page')
+                AND (post_content LIKE %s OR post_content LIKE %s)
+                AND post_date > DATE_SUB(NOW(), INTERVAL 6 MONTH)
+                ORDER BY post_date DESC
+                LIMIT 500",
+                'publish',
+                '%[smart_form%',
+                '%wp:shortcode%smart_form%'
+            )
         );
         
-        foreach ($posts_with_shortcodes as $post) {
-            $permalink = get_permalink($post->ID);
-            if ($permalink && is_string($permalink)) {
-                $parsed_url = parse_url($permalink, PHP_URL_PATH);
-                if ($parsed_url && is_string($parsed_url)) {
-                    $form_pages[] = $parsed_url;
+        // Si no encontramos nada en los últimos 6 meses, buscar en todo el historial
+        if (empty($posts_with_forms)) {
+            $posts_with_forms = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT DISTINCT ID, post_name, post_type 
+                    FROM {$wpdb->posts} 
+                    WHERE post_status = %s
+                    AND post_type IN ('post', 'page')
+                    AND (post_content LIKE %s OR post_content LIKE %s)
+                    ORDER BY post_modified DESC
+                    LIMIT 200",
+                    'publish',
+                    '%[smart_form%',
+                    '%wp:shortcode%smart_form%'
+                )
+            );
+        }
+        
+        foreach ($posts_with_forms as $post) {
+            try {
+                // CRÍTICO: Verificar que get_permalink esté disponible y funcional
+                if (!function_exists('get_permalink')) {
+                    continue;
                 }
+                
+                $permalink = get_permalink($post->ID);
+                if ($permalink && is_string($permalink) && $permalink !== false) {
+                    $parsed_url = parse_url($permalink, PHP_URL_PATH);
+                    if ($parsed_url && is_string($parsed_url)) {
+                        $form_pages[] = $parsed_url;
+                    }
+                }
+            } catch (Exception $e) {
+                error_log('SFQ: Error obteniendo permalink para post ' . $post->ID . ': ' . $e->getMessage());
+                continue;
             }
         }
         
-        // Buscar en widgets y bloques de Gutenberg
-        $this->find_forms_in_widgets_and_blocks($form_pages);
+        // Buscar en widgets solo si WordPress está completamente cargado
+        if (did_action('wp_loaded')) {
+            $this->find_forms_in_widgets($form_pages);
+        }
         
+        // Eliminar duplicados
         return array_unique($form_pages);
     }
     
     /**
-     * Buscar formularios en widgets y bloques
+     * Determinar si realmente necesitamos cargar las páginas con formularios
      */
-    private function find_forms_in_widgets_and_blocks(&$form_pages) {
-        // Buscar en widgets
+    private function should_load_form_pages() {
+        // CRÍTICO: No cargar si WordPress no está completamente inicializado
+        if (!did_action('wp_loaded')) {
+            return false;
+        }
+        
+        // Solo cargar si estamos en contextos donde realmente se necesita
+        if (is_admin()) {
+            return false; // No necesario en admin
+        }
+        
+        if (wp_doing_ajax()) {
+            return false; // No necesario en AJAX (a menos que sea específico)
+        }
+        
+        if (wp_doing_cron()) {
+            return false; // No necesario en cron
+        }
+        
+        // NUEVO: No cargar durante la instalación/activación
+        if (defined('WP_INSTALLING') && WP_INSTALLING) {
+            return false;
+        }
+        
+        // NUEVO: No cargar en peticiones de recursos estáticos
+        if (isset($_SERVER['REQUEST_URI'])) {
+            $request_uri = $_SERVER['REQUEST_URI'];
+            if (preg_match('/\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|pdf|zip|mp4|mp3)$/i', $request_uri)) {
+                return false;
+            }
+        }
+        
+        // NUEVO: No cargar en REST API requests
+        if (defined('REST_REQUEST') && REST_REQUEST) {
+            return false;
+        }
+        
+        // NUEVO: No cargar en XML-RPC requests
+        if (defined('XMLRPC_REQUEST') && XMLRPC_REQUEST) {
+            return false;
+        }
+        
+        // NUEVO: No cargar en wp-login.php
+        if (isset($GLOBALS['pagenow']) && $GLOBALS['pagenow'] === 'wp-login.php') {
+            return false;
+        }
+        
+        // Solo cargar si hay plugins de cache activos
+        if (empty($this->cache_plugins)) {
+            return false;
+        }
+        
+        // CRÍTICO: Verificar que las funciones necesarias estén disponibles
+        if (!function_exists('get_permalink') || !function_exists('parse_url')) {
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Buscar formularios en widgets (método optimizado)
+     */
+    private function find_forms_in_widgets(&$form_pages) {
+        // Buscar en widgets de texto
         $widget_options = get_option('widget_text', array());
         foreach ($widget_options as $widget) {
             if (is_array($widget) && isset($widget['text']) && 
@@ -211,29 +394,97 @@ class SFQ_WP_Rocket_Compat {
                 strpos($widget['text'], '[smart_form') !== false) {
                 // Si hay formularios en widgets, excluir todo el sitio de cache dinámico
                 $form_pages[] = '/*';
-                break;
+                return; // No necesitamos seguir buscando
             }
         }
         
-        // Buscar en bloques de Gutenberg (posts recientes)
-        global $wpdb;
-        $recent_posts = $wpdb->get_results(
-            "SELECT ID, post_content 
-            FROM {$wpdb->posts} 
-            WHERE post_content LIKE '%wp:shortcode%smart_form%' 
-            AND post_status = 'publish' 
-            AND post_date > DATE_SUB(NOW(), INTERVAL 30 DAY)"
-        );
-        
-        foreach ($recent_posts as $post) {
-            $permalink = get_permalink($post->ID);
-            if ($permalink && is_string($permalink)) {
-                $parsed_url = parse_url($permalink, PHP_URL_PATH);
-                if ($parsed_url && is_string($parsed_url)) {
-                    $form_pages[] = $parsed_url;
+        // Buscar en otros tipos de widgets que puedan contener shortcodes
+        $widget_types = array('widget_custom_html', 'widget_block');
+        foreach ($widget_types as $widget_type) {
+            $widgets = get_option($widget_type, array());
+            foreach ($widgets as $widget) {
+                if (is_array($widget)) {
+                    $content = isset($widget['content']) ? $widget['content'] : 
+                              (isset($widget['text']) ? $widget['text'] : '');
+                    
+                    if (is_string($content) && strpos($content, '[smart_form') !== false) {
+                        $form_pages[] = '/*';
+                        return; // No necesitamos seguir buscando
+                    }
                 }
             }
         }
+    }
+    
+    /**
+     * Limpiar cache de páginas con formularios
+     */
+    public function clear_form_pages_cache() {
+        // CRÍTICO: Limpiar cache estático para la petición actual
+        self::$static_form_pages_cache = null;
+        
+        // Limpiar cache en memoria
+        $this->form_pages_cache = array();
+        $this->cache_loaded = false;
+        
+        // Limpiar cache de objeto
+        $object_cache_key = $this->object_cache_key . '_' . $this->cache_version;
+        wp_cache_delete($object_cache_key, 'sfq_form_pages');
+        
+        // Limpiar cache persistente
+        delete_transient($this->cache_key);
+        
+        // Limpiar cache de plugins si es necesario
+        if (!empty($this->cache_plugins)) {
+            $this->clear_all_caches();
+        }
+    }
+    
+    /**
+     * Limpiar cache solo si el post contiene formularios (optimizado)
+     */
+    public function maybe_clear_form_cache_on_save($post_id) {
+        // Evitar ejecución en auto-saves y revisiones
+        if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) {
+            return;
+        }
+        
+        $post = get_post($post_id);
+        if (!$post || $post->post_status !== 'publish') {
+            return;
+        }
+        
+        // Solo limpiar cache si el post contiene formularios
+        if ($this->post_contains_forms($post)) {
+            $this->clear_form_pages_cache();
+        }
+    }
+    
+    /**
+     * Limpiar cache solo si el post eliminado contiene formularios
+     */
+    public function maybe_clear_form_cache_on_delete($post_id) {
+        $post = get_post($post_id);
+        if (!$post) {
+            return;
+        }
+        
+        // Solo limpiar cache si el post contiene formularios
+        if ($this->post_contains_forms($post)) {
+            $this->clear_form_pages_cache();
+        }
+    }
+    
+    /**
+     * Verificar si un post contiene formularios
+     */
+    private function post_contains_forms($post) {
+        if (!$post || !isset($post->post_content)) {
+            return false;
+        }
+        
+        return (strpos($post->post_content, '[smart_form') !== false || 
+                strpos($post->post_content, 'wp:shortcode%smart_form') !== false);
     }
     
     /**
@@ -262,7 +513,12 @@ class SFQ_WP_Rocket_Compat {
             $excluded_uris = array();
         }
         
-        $form_pages = $this->get_pages_with_forms();
+        // Usar cache en memoria si está disponible, evitar consulta repetitiva
+        if (!empty($this->form_pages_cache)) {
+            $form_pages = $this->form_pages_cache;
+        } else {
+            $form_pages = $this->get_pages_with_forms();
+        }
         
         foreach ($form_pages as $page) {
             if (!in_array($page, $excluded_uris)) {
@@ -437,8 +693,13 @@ class SFQ_WP_Rocket_Compat {
         }
         
         if ($form_id) {
-            // Limpiar cache específico del formulario
-            $form_pages = $this->get_pages_with_forms();
+            // Limpiar cache específico del formulario - usar cache en memoria si está disponible
+            if (!empty($this->form_pages_cache)) {
+                $form_pages = $this->form_pages_cache;
+            } else {
+                $form_pages = $this->get_pages_with_forms();
+            }
+            
             foreach ($form_pages as $page) {
                 if (function_exists('rocket_clean_files')) {
                     rocket_clean_files($page);

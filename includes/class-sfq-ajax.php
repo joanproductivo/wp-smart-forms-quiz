@@ -437,9 +437,11 @@ class SFQ_Ajax {
     }
     
     /**
-     * ✅ CORREGIDO: Obtener pregunta específica para modo de carga segura
+     * ✅ OPTIMIZADO: Obtener pregunta específica para modo de carga segura con cache estático
      */
     public function get_secure_question() {
+        $start_time = microtime(true);
+        
         // Verificar nonce
         if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
             wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
@@ -475,133 +477,169 @@ class SFQ_Ajax {
             return;
         }
         
-        // Verificar que el formulario tenga habilitado el modo seguro
-        $form = $this->database->get_form($form_id);
-        if (!$form || empty($form->settings['secure_loading'])) {
+        // ✅ OPTIMIZACIÓN: Cache estático para evitar consultas repetidas
+        static $forms_cache = array();
+        
+        if (!isset($forms_cache[$form_id])) {
+            // Solo la primera vez: carga completa optimizada
+            $forms_cache[$form_id] = $this->get_cached_complete_form($form_id);
+        }
+        
+        $form = $forms_cache[$form_id];
+        
+        if (!$form) {
             wp_send_json_error(array(
-                'message' => __('El modo de carga segura no está habilitado para este formulario', 'smart-forms-quiz'),
+                'message' => __('Formulario no encontrado', 'smart-forms-quiz'),
+                'code' => 'FORM_NOT_FOUND'
+            ));
+            return;
+        }
+        
+        // Verificar modo seguro (sin consultas adicionales)
+        if (empty($form->settings['secure_loading'])) {
+            wp_send_json_error(array(
+                'message' => __('Modo seguro no habilitado', 'smart-forms-quiz'),
                 'code' => 'SECURE_MODE_DISABLED'
             ));
             return;
         }
         
-        // Separar preguntas normales de pantallas finales
+        // ✅ OPTIMIZACIÓN: Separar preguntas en memoria (sin consultas)
+        $separated_questions = $this->separate_questions_in_memory($form);
+        
+        // ✅ OPTIMIZACIÓN: Búsqueda en memoria (sin consultas)
+        $target_question = $this->find_question_in_memory(
+            $separated_questions, 
+            $question_id, 
+            $question_index
+        );
+        
+        if (!$target_question) {
+            wp_send_json_error(array(
+                'message' => __('Pregunta no encontrada', 'smart-forms-quiz'),
+                'code' => 'QUESTION_NOT_FOUND'
+            ));
+            return;
+        }
+        
+        // Renderizar (sin consultas adicionales)
+        $question_html = $this->render_secure_question_from_cache(
+            $target_question, 
+            $separated_questions,
+            $form->settings
+        );
+        
+        if (empty($question_html)) {
+            wp_send_json_error(array(
+                'message' => __('No se pudo renderizar la pregunta', 'smart-forms-quiz'),
+                'code' => 'RENDER_ERROR'
+            ));
+            return;
+        }
+        
+        // Log de rendimiento
+        $this->log_secure_mode_performance($form_id, $start_time);
+        
+        // Respuesta optimizada
+        wp_send_json_success(array(
+            'html' => $question_html,
+            'question_id' => $target_question->id,
+            'question_index' => $target_question->computed_index ?? null,
+            'question_type' => $target_question->question_type,
+            'is_final_screen' => $target_question->is_final_screen ?? false,
+            'is_last_question' => $target_question->is_last_question ?? false,
+            'total_questions' => count($separated_questions['normal']),
+            'message' => __('Pregunta cargada correctamente', 'smart-forms-quiz')
+        ));
+    }
+    
+    /**
+     * ✅ OPTIMIZADO: Obtener formulario completo usando cache de SFQ_Database
+     */
+    private function get_cached_complete_form($form_id) {
+        // Usar el método optimizado de SFQ_Database
+        return $this->database->get_form($form_id);
+    }
+    
+    /**
+     * ✅ OPTIMIZADO: Separar preguntas en memoria sin consultas adicionales
+     */
+    private function separate_questions_in_memory($form) {
         $normal_questions = array();
         $final_screen_questions = array();
         $all_questions_by_id = array();
         
-        if (!empty($form->questions)) {
-            foreach ($form->questions as $question) {
-                $all_questions_by_id[$question->id] = $question;
-                
-                $is_final_screen = (isset($question->pantallaFinal) && $question->pantallaFinal);
-                if ($is_final_screen) {
-                    $final_screen_questions[] = $question;
-                } else {
-                    $normal_questions[] = $question;
-                }
+        foreach ($form->questions as $index => $question) {
+            $all_questions_by_id[$question->id] = $question;
+            
+            $is_final_screen = (isset($question->pantallaFinal) && $question->pantallaFinal);
+            if ($is_final_screen) {
+                $question->is_final_screen = true;
+                $question->computed_index = -1;
+                $final_screen_questions[] = $question;
+            } else {
+                $question->is_final_screen = false;
+                $question->computed_index = count($normal_questions);
+                $question->is_last_question = false; // Se calculará después
+                $normal_questions[] = $question;
             }
         }
         
-        $settings = $form->settings ?: array();
-        $target_question = null;
-        $target_question_index = null;
-        $is_final_screen = false;
+        // Marcar la última pregunta normal
+        if (!empty($normal_questions)) {
+            $last_index = count($normal_questions) - 1;
+            $normal_questions[$last_index]->is_last_question = true;
+        }
         
-        try {
-            // ✅ NUEVO: Lógica de búsqueda mejorada
-            if ($question_id !== null) {
-                // Búsqueda por ID (navegación condicional)
-                if (!isset($all_questions_by_id[$question_id])) {
-                    wp_send_json_error(array(
-                        'message' => __('Pregunta no encontrada', 'smart-forms-quiz'),
-                        'code' => 'QUESTION_NOT_FOUND'
-                    ));
-                    return;
-                }
-                
-                $target_question = $all_questions_by_id[$question_id];
-                $is_final_screen = (isset($target_question->pantallaFinal) && $target_question->pantallaFinal);
-                
-                // Determinar índice si es pregunta normal
-                if (!$is_final_screen) {
-                    foreach ($normal_questions as $index => $normal_question) {
-                        if ($normal_question->id == $question_id) {
-                            $target_question_index = $index;
-                            break;
-                        }
-                    }
-                } else {
-                    // Para pantallas finales, usar índice especial
-                    $target_question_index = -1;
-                }
-                
-            } else {
-                // Búsqueda por índice (navegación secuencial)
-                if ($question_index < 0) {
-                    wp_send_json_error(array(
-                        'message' => __('Índice de pregunta inválido', 'smart-forms-quiz'),
-                        'code' => 'INVALID_QUESTION_INDEX'
-                    ));
-                    return;
-                }
-                
-                // ✅ CORREGIDO: Manejar final de formulario correctamente
-                if ($question_index >= count($normal_questions)) {
-                    // No hay más preguntas normales - finalizar formulario
-                    wp_send_json_success(array(
-                        'html' => null,
-                        'question_id' => null,
-                        'question_index' => -1,
-                        'is_last_question' => true,
-                        'form_completed' => true,
-                        'total_questions' => count($normal_questions),
-                        'message' => __('Formulario completado - no hay más preguntas', 'smart-forms-quiz')
-                    ));
-                    return;
-                }
-                
-                $target_question = $normal_questions[$question_index];
-                $target_question_index = $question_index;
-                $is_final_screen = false;
+        return array(
+            'normal' => $normal_questions,
+            'final_screens' => $final_screen_questions,
+            'by_id' => $all_questions_by_id
+        );
+    }
+    
+    /**
+     * ✅ OPTIMIZADO: Buscar pregunta en memoria sin consultas
+     */
+    private function find_question_in_memory($separated_questions, $question_id, $question_index) {
+        if ($question_id !== null) {
+            // Búsqueda por ID
+            return $separated_questions['by_id'][$question_id] ?? null;
+        } elseif ($question_index !== null) {
+            // Búsqueda por índice
+            if ($question_index < 0 || $question_index >= count($separated_questions['normal'])) {
+                return null;
             }
-            
-            // ✅ NUEVO: Renderizar según el tipo de pregunta
-            if ($is_final_screen) {
-                // Renderizar pantalla final
-                $question_html = $this->render_secure_final_screen($target_question, $final_screen_questions, $settings);
-            } else {
-                // Renderizar pregunta normal
-                $question_html = $this->render_secure_question($target_question, $target_question_index, $normal_questions, $settings);
-            }
-            
-            if (empty($question_html)) {
-                wp_send_json_error(array(
-                    'message' => __('No se pudo renderizar la pregunta', 'smart-forms-quiz'),
-                    'code' => 'RENDER_ERROR'
-                ));
-                return;
-            }
-            
-            wp_send_json_success(array(
-                'html' => $question_html,
-                'question_id' => $target_question->id,
-                'question_index' => $target_question_index,
-                'question_type' => $target_question->question_type,
-                'is_final_screen' => $is_final_screen,
-                'is_last_question' => (!$is_final_screen && $target_question_index === count($normal_questions) - 1),
-                'total_questions' => count($normal_questions),
-                'message' => __('Pregunta cargada correctamente', 'smart-forms-quiz')
-            ));
-            
-        } catch (Exception $e) {
-            error_log('SFQ Error in get_secure_question: ' . $e->getMessage());
-            
-            wp_send_json_error(array(
-                'message' => __('Error al cargar la pregunta', 'smart-forms-quiz'),
-                'code' => 'INTERNAL_ERROR',
-                'debug' => WP_DEBUG ? $e->getMessage() : null
-            ));
+            return $separated_questions['normal'][$question_index];
+        }
+        
+        return null;
+    }
+    
+    /**
+     * ✅ OPTIMIZADO: Renderizar pregunta desde cache sin consultas adicionales
+     */
+    private function render_secure_question_from_cache($question, $separated_questions, $settings) {
+        if ($question->is_final_screen ?? false) {
+            return $this->render_secure_final_screen($question, $separated_questions['final_screens'], $settings);
+        } else {
+            return $this->render_secure_question($question, $question->computed_index, $separated_questions['normal'], $settings);
+        }
+    }
+    
+    /**
+     * ✅ OPTIMIZADO: Log de rendimiento para modo seguro
+     */
+    private function log_secure_mode_performance($form_id, $start_time) {
+        $execution_time = (microtime(true) - $start_time) * 1000; // en milisegundos
+        
+        if ($execution_time > 100) { // Solo log si toma más de 100ms
+            error_log("SFQ Secure Mode Performance: Form {$form_id} took {$execution_time}ms");
+        }
+        
+        // Estadísticas opcionales para debugging
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log("SFQ Secure Mode: Form {$form_id} rendered in {$execution_time}ms");
         }
     }
     
