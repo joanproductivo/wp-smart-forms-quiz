@@ -876,11 +876,9 @@
             
             if (this.isSecureMode) {
                 const result = await this.processConditionsSecureMode(element, questionId);
-                this.logPerformance('processConditionsSecureMode', startTime);
                 return result;
             } else {
                 const result = this.processConditionsNormalMode(element, questionId);
-                this.logPerformance('processConditionsNormalMode', startTime);
                 return result;
             }
         }
