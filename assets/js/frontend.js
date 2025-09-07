@@ -703,24 +703,32 @@
             }
         }
 
-        evaluateConditionsForRedirect(conditions, questionId) {
+        evaluateConditionsForRedirect(conditions, questionId, customVariables = null) {
             const answer = this.responses[questionId];
+            const currentVariables = customVariables || this.variables;
             const result = {
                 shouldRedirect: false,
                 redirectUrl: null,
                 skipToQuestion: null,
-                variables: { ...this.variables } // Empezar con variables actuales
+                variables: { ...currentVariables } // Empezar con variables actuales o personalizadas
             };
             
-            console.log('SFQ Frontend: Evaluating conditions for question:', questionId, 'with answer:', answer);
+            console.log('🔍 SFQ DEBUG: Evaluating conditions for redirect');
+            console.log('🔍 Question ID:', questionId);
+            console.log('🔍 Answer:', answer);
+            console.log('🔍 Current variables:', JSON.stringify(this.variables));
+            console.log('🔍 Conditions to evaluate:', conditions);
             
             // ✅ CORREGIDO: Usar for loop con índice para poder hacer break correctamente
             for (let i = 0; i < conditions.length; i++) {
                 const condition = conditions[i];
-                console.log('SFQ Frontend: Evaluating condition', (i + 1), 'of', conditions.length, ':', condition);
+                console.log('🔍 SFQ DEBUG: Evaluating condition', i + 1, ':', condition);
                 
-                if (this.evaluateConditionImmediate(condition, answer, questionId)) {
-                    console.log('SFQ Frontend: Condition matched! Executing action:', condition.action_type, '(stopping evaluation)');
+                const conditionResult = this.evaluateConditionImmediate(condition, answer, questionId);
+                console.log('🔍 SFQ DEBUG: Condition', i + 1, 'result:', conditionResult);
+                
+                if (conditionResult) {
+                    console.log('🔍 SFQ DEBUG: Condition matched! Executing action:', condition.action_type);
                     
                     // ✅ CRÍTICO: Ejecutar acciones de variables correctamente
                     switch (condition.action_type) {
@@ -728,6 +736,7 @@
                             result.shouldRedirect = true;
                             result.redirectUrl = condition.action_value;
                             result.markAsCompleted = true; // ✅ NUEVO: Marcar para completar antes de redirigir
+                            console.log('🔍 SFQ DEBUG: Setting redirect to:', condition.action_value);
                             return result; // Retornar inmediatamente para redirección
                             
                         case 'add_variable':
@@ -736,73 +745,93 @@
                             const currentValue = result.variables[varName] || 0;
                             const newValue = currentValue + varAmount;
                             result.variables[varName] = newValue;
-                            console.log('SFQ Frontend: Added', varAmount, 'to variable', varName, '(', currentValue, '->', newValue, ')');
+                            console.log('🔍 SFQ DEBUG: Added', varAmount, 'to variable', varName, '- new value:', newValue);
                             break;
                             
                         case 'set_variable':
                             const setVarName = condition.action_value;
                             const setValue = condition.variable_amount;
                             result.variables[setVarName] = setValue;
-                            console.log('SFQ Frontend: Set variable', setVarName, 'to', setValue);
+                            console.log('🔍 SFQ DEBUG: Set variable', setVarName, 'to:', setValue);
                             break;
                             
                         case 'goto_question':
                             result.skipToQuestion = condition.action_value;
-                            console.log('SFQ Frontend: Will skip to question:', condition.action_value);
+                            console.log('🔍 SFQ DEBUG: Setting skip to question:', condition.action_value);
                             break;
                             
                         case 'skip_to_end':
                             result.skipToQuestion = 'end';
-                            console.log('SFQ Frontend: Will skip to end');
+                            console.log('🔍 SFQ DEBUG: Setting skip to end');
                             break;
                             
                         case 'show_message':
                             // Los mensajes se pueden manejar aquí en el futuro
-                            console.log('SFQ Frontend: Show message action:', condition.action_value);
+                            console.log('🔍 SFQ DEBUG: Show message action (not implemented)');
                             break;
                     }
                     
                     // ✅ CRÍTICO: Salir del bucle después de la primera condición que coincida
                     break;
                 } else {
-                    console.log('SFQ Frontend: Condition', (i + 1), 'did not match, continuing...');
+                    console.log('🔍 SFQ DEBUG: Condition', i + 1, 'did not match');
                 }
             }
             
-            console.log('SFQ Frontend: Final result:', result);
+            console.log('🔍 SFQ DEBUG: Final result:', result);
             return result;
         }
 
         evaluateConditionImmediate(condition, answer, questionId) {
+            console.log('🔍 SFQ DEBUG: Evaluating individual condition:', condition);
+            console.log('🔍 SFQ DEBUG: Condition type:', condition.condition_type);
+            console.log('🔍 SFQ DEBUG: Answer for comparison:', answer);
+            
             switch (condition.condition_type) {
                 case 'answer_equals':
-                    return answer === condition.condition_value;
+                    const answerEqualsResult = answer === condition.condition_value;
+                    console.log('🔍 SFQ DEBUG: answer_equals -', answer, '===', condition.condition_value, '=', answerEqualsResult);
+                    return answerEqualsResult;
                     
                 case 'answer_contains':
-                    return answer && answer.toString().includes(condition.condition_value);
+                    const answerContainsResult = answer && answer.toString().includes(condition.condition_value);
+                    console.log('🔍 SFQ DEBUG: answer_contains -', answer, 'includes', condition.condition_value, '=', answerContainsResult);
+                    return answerContainsResult;
                     
                 case 'answer_not_equals':
-                    return answer !== condition.condition_value;
+                    const answerNotEqualsResult = answer !== condition.condition_value;
+                    console.log('🔍 SFQ DEBUG: answer_not_equals -', answer, '!==', condition.condition_value, '=', answerNotEqualsResult);
+                    return answerNotEqualsResult;
                     
                 case 'variable_greater':
                     const varName = condition.condition_value;
                     const comparisonValue = this.getComparisonValue(condition);
                     const varValue = this.variables[varName] || 0;
-                    return this.smartCompare(varValue, comparisonValue, '>');
+                    const greaterResult = this.smartCompare(varValue, comparisonValue, '>');
+                    console.log('🔍 SFQ DEBUG: variable_greater - Variable:', varName, 'Value:', varValue, '>', comparisonValue, '=', greaterResult);
+                    console.log('🔍 SFQ DEBUG: All variables available:', JSON.stringify(this.variables));
+                    return greaterResult;
                     
                 case 'variable_less':
                     const varName2 = condition.condition_value;
                     const comparisonValue2 = this.getComparisonValue(condition);
                     const varValue2 = this.variables[varName2] || 0;
-                    return this.smartCompare(varValue2, comparisonValue2, '<');
+                    const lessResult = this.smartCompare(varValue2, comparisonValue2, '<');
+                    console.log('🔍 SFQ DEBUG: variable_less - Variable:', varName2, 'Value:', varValue2, '<', comparisonValue2, '=', lessResult);
+                    console.log('🔍 SFQ DEBUG: All variables available:', JSON.stringify(this.variables));
+                    return lessResult;
                     
                 case 'variable_equals':
                     const varName3 = condition.condition_value;
                     const comparisonValue3 = this.getComparisonValue(condition);
                     const varValue3 = this.variables[varName3] || 0;
-                    return this.smartCompare(varValue3, comparisonValue3, '==');
+                    const equalsResult = this.smartCompare(varValue3, comparisonValue3, '==');
+                    console.log('🔍 SFQ DEBUG: variable_equals - Variable:', varName3, 'Value:', varValue3, '==', comparisonValue3, '=', equalsResult);
+                    console.log('🔍 SFQ DEBUG: All variables available:', JSON.stringify(this.variables));
+                    return equalsResult;
                     
                 default:
+                    console.log('🔍 SFQ DEBUG: Unknown condition type:', condition.condition_type);
                     return false;
             }
         }
@@ -1170,6 +1199,130 @@
         }
         
         /**
+         * ✅ CORREGIDO: Procesar condiciones para navegación siguiendo el orden correcto
+         * SOLO procesa condiciones basadas en variables globales (no duplicar condiciones de respuesta)
+         */
+        async processConditionsForNavigation(questionId) {
+            console.log('🔍 SFQ DEBUG: Processing navigation conditions for question:', questionId);
+            
+            const result = {
+                shouldRedirect: false,
+                redirectUrl: null,
+                skipToQuestion: null,
+                variables: { ...this.variables }
+            };
+            
+            try {
+                const questionContainer = this.container.querySelector(`[data-question-id="${questionId}"]`);
+                if (!questionContainer) {
+                    console.log('🔍 SFQ DEBUG: No question container found for navigation conditions');
+                    return result;
+                }
+                
+                // ✅ SOLO PROCESAR: Condiciones basadas en variables globales que NO dependan de respuestas
+                console.log('🔍 SFQ DEBUG: Processing variable-based conditions only');
+                const conditionsElements = questionContainer.querySelectorAll('[data-conditions]');
+                let foundVariableConditions = false;
+                
+                for (const element of conditionsElements) {
+                    const conditionsAttr = element.dataset.conditions;
+                    if (!conditionsAttr || conditionsAttr === '[]') continue;
+                    
+                    try {
+                        const conditions = JSON.parse(conditionsAttr);
+                        if (!Array.isArray(conditions) || conditions.length === 0) continue;
+                        
+                        // ✅ FILTRAR: Solo condiciones que NO dependan de respuestas específicas
+                        const variableOnlyConditions = conditions.filter(condition => {
+                            return condition.condition_type && 
+                                   condition.condition_type.startsWith('variable_');
+                        });
+                        
+                        if (variableOnlyConditions.length > 0) {
+                            console.log('🔍 SFQ DEBUG: Found variable-only conditions:', variableOnlyConditions);
+                            
+                            const conditionResult = this.evaluateConditionsForRedirect(variableOnlyConditions, questionId, result.variables);
+                            
+                            if (conditionResult.shouldRedirect || conditionResult.skipToQuestion) {
+                                console.log('🔍 SFQ DEBUG: Variable conditions triggered action:', conditionResult);
+                                return conditionResult;
+                            }
+                            
+                            // Actualizar variables acumuladas
+                            if (conditionResult.variables) {
+                                result.variables = { ...conditionResult.variables };
+                                foundVariableConditions = true;
+                            }
+                        }
+                        
+                    } catch (e) {
+                        console.error('🔍 SFQ DEBUG: Error parsing conditions:', e);
+                    }
+                }
+                
+                // ✅ CONSULTAR SERVIDOR: Solo si no hay respuesta Y no hay condiciones locales
+                const currentAnswer = this.responses[questionId];
+                if (!foundVariableConditions && currentAnswer === undefined) {
+                    console.log('🔍 SFQ DEBUG: No local conditions found and no answer, checking server');
+                    
+                    try {
+                        const ajaxResult = await this.checkConditionsViaAjax(questionId, null);
+                        
+                        if (ajaxResult && (ajaxResult.shouldRedirect || ajaxResult.skipToQuestion)) {
+                            console.log('🔍 SFQ DEBUG: Server conditions triggered action:', ajaxResult);
+                            return ajaxResult;
+                        }
+                        
+                        // Actualizar variables del servidor
+                        if (ajaxResult && ajaxResult.variables) {
+                            result.variables = { ...ajaxResult.variables };
+                        }
+                    } catch (error) {
+                        console.error('🔍 SFQ DEBUG: Error in server conditions:', error);
+                    }
+                }
+                
+                console.log('🔍 SFQ DEBUG: Navigation conditions completed, final result:', result);
+                return result;
+                
+            } catch (error) {
+                console.error('🔍 SFQ DEBUG: Error in processConditionsForNavigation:', error);
+                return result;
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Encontrar el elemento DOM que corresponde a una respuesta específica
+         */
+        findElementForAnswer(questionContainer, answer) {
+            // Buscar por valor exacto en elementos con data-value
+            let element = questionContainer.querySelector(`[data-value="${answer}"]`);
+            if (element) return element;
+            
+            // Para respuestas múltiples, buscar cualquier elemento que contenga el valor
+            if (Array.isArray(answer)) {
+                for (const value of answer) {
+                    element = questionContainer.querySelector(`[data-value="${value}"]`);
+                    if (element) return element;
+                }
+            }
+            
+            // Para inputs de texto, buscar el input que tenga ese valor
+            const textInputs = questionContainer.querySelectorAll('input[type="text"], input[type="email"], textarea');
+            for (const input of textInputs) {
+                if (input.value === answer) return input;
+            }
+            
+            // Para elementos freestyle, buscar por ID del elemento
+            const freestyleElements = questionContainer.querySelectorAll('[id^="element_"]');
+            for (const el of freestyleElements) {
+                if (el.value === answer || el.textContent === answer) return el;
+            }
+            
+            return null;
+        }
+
+        /**
          * ✅ NUEVO: Sistema de fallback para lógica condicional cuando AJAX falla
          */
         fallbackConditionalLogic(questionId, answer) {
@@ -1423,6 +1576,79 @@
               
                 this.showBlockedMessage(currentQuestion);
                 return;
+            }
+
+            // ✅ CORREGIDO: SOLO procesar condiciones si NO hay respuesta específica
+            // Si hay respuesta, las condiciones ya se procesaron en handleSingleChoice/handleMultipleChoice/etc.
+            const questionId = currentQuestion.dataset.questionId;
+            const hasCurrentAnswer = this.responses[questionId] !== undefined;
+            
+            console.log('🔍 SFQ DEBUG: Processing conditional logic in nextQuestion for question:', questionId);
+            console.log('🔍 SFQ DEBUG: Has current answer:', hasCurrentAnswer);
+            console.log('🔍 SFQ DEBUG: Current variables before processing:', JSON.stringify(this.variables));
+            
+            // ✅ SOLUCIÓN: Solo procesar condiciones de navegación si NO hay respuesta específica
+            // Esto evita duplicar el procesamiento que ya se hizo en los handlers de respuesta
+            if (!hasCurrentAnswer) {
+                console.log('🔍 SFQ DEBUG: No answer found, processing navigation conditions');
+                
+                try {
+                    // Mostrar indicador de procesamiento
+                    this.showProcessingIndicator(currentQuestion);
+                    
+                    const redirectResult = await this.processConditionsForNavigation(questionId);
+                    
+                    console.log('🔍 SFQ DEBUG: Navigation conditions result:', redirectResult);
+                    
+                    if (redirectResult && redirectResult.shouldRedirect) {
+                        // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
+                        if (redirectResult.markAsCompleted) {
+                            // Mostrar indicador de procesamiento elegante
+                            this.showRedirectProcessingIndicator();
+                            
+                            try {
+                                // Marcar como completado silenciosamente
+                                await this.markFormAsCompleted();
+                                
+                                // Pequeña pausa para que el usuario vea el indicador
+                                setTimeout(() => {
+                                    window.location.href = redirectResult.redirectUrl;
+                                }, 1500);
+                            } catch (error) {
+                                console.error('SFQ: Error marking form as completed before redirect:', error);
+                                // Redirigir de todos modos
+                                window.location.href = redirectResult.redirectUrl;
+                            }
+                        } else {
+                            // Redirección inmediata sin marcar como completado
+                            window.location.href = redirectResult.redirectUrl;
+                        }
+                        return;
+                    }
+
+                    // Si hay salto de pregunta, configurarlo
+                    if (redirectResult && redirectResult.skipToQuestion) {
+                        this.skipToQuestion = redirectResult.skipToQuestion;
+                        console.log('🔍 SFQ DEBUG: Skip to question set from navigation conditions:', this.skipToQuestion);
+                    }
+
+                    // ✅ CRÍTICO: Actualizar variables si las hay
+                    if (redirectResult && redirectResult.variables) {
+                        this.variables = { ...redirectResult.variables };
+                        console.log('🔍 SFQ DEBUG: Variables updated from navigation conditions:', JSON.stringify(this.variables));
+                        // ✅ NUEVO: Actualizar DOM con nuevos valores
+                        this.updateVariablesInDOM();
+                    }
+                    
+                } catch (error) {
+                    console.error('Error processing navigation conditions:', error);
+                    this.showError('Error al procesar las condiciones. Continuando...');
+                } finally {
+                    // Ocultar indicador de procesamiento
+                    this.hideProcessingIndicator(currentQuestion);
+                }
+            } else {
+                console.log('🔍 SFQ DEBUG: Answer found, skipping navigation conditions (already processed)');
             }
 
             // Registrar tiempo en la pregunta
@@ -1758,11 +1984,17 @@
         /**
          * Manejar input de texto freestyle
          */
-        handleFreestyleInput(e) {
+        async handleFreestyleInput(e) {
             const input = e.target;
             const elementId = input.id.replace('element_', '');
             const questionContainer = input.closest('.sfq-freestyle-container');
             const questionId = questionContainer.dataset.questionId;
+
+            console.log('🔍 SFQ DEBUG: Freestyle input changed');
+            console.log('🔍 Element ID:', elementId);
+            console.log('🔍 Question ID:', questionId);
+            console.log('🔍 Input value:', input.value);
+            console.log('🔍 Current variables before processing:', JSON.stringify(this.variables));
 
             // Inicializar respuesta freestyle si no existe
             if (!this.responses[questionId]) {
@@ -1770,12 +2002,80 @@
             }
 
             this.responses[questionId][elementId] = input.value;
+
+            // ✅ SOLUCIÓN: Procesar condiciones usando el elemento real en lugar de temporal
+            clearTimeout(this.freestyleInputTimeout);
+            this.freestyleInputTimeout = setTimeout(async () => {
+                try {
+                    // Mostrar indicador de procesamiento
+                    const questionScreen = input.closest('.sfq-question-screen');
+                    if (questionScreen) {
+                        this.showProcessingIndicator(questionScreen);
+                    }
+
+                    console.log('🔍 SFQ DEBUG: About to process conditions for freestyle input');
+                    console.log('🔍 Element conditions:', input.dataset.conditions);
+
+                    // ✅ SOLUCIÓN: Usar elemento real en lugar de temporal
+                    const redirectResult = await this.processConditionsImmediate(input, questionId);
+                    
+                    console.log('🔍 SFQ DEBUG: Conditions processing result:', redirectResult);
+                    
+                    if (redirectResult && redirectResult.shouldRedirect) {
+                        // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
+                        if (redirectResult.markAsCompleted) {
+                            // Mostrar indicador de procesamiento elegante
+                            this.showRedirectProcessingIndicator();
+                            
+                            try {
+                                // Marcar como completado silenciosamente
+                                await this.markFormAsCompleted();
+                                
+                                // Pequeña pausa para que el usuario vea el indicador
+                                setTimeout(() => {
+                                    window.location.href = redirectResult.redirectUrl;
+                                }, 1500);
+                            } catch (error) {
+                                console.error('SFQ: Error marking form as completed before redirect:', error);
+                                // Redirigir de todos modos
+                                window.location.href = redirectResult.redirectUrl;
+                            }
+                        } else {
+                            // Redirección inmediata sin marcar como completado
+                            window.location.href = redirectResult.redirectUrl;
+                        }
+                        return;
+                    }
+
+                    // Si hay salto de pregunta, configurarlo
+                    if (redirectResult && redirectResult.skipToQuestion) {
+                        this.skipToQuestion = redirectResult.skipToQuestion;
+                    }
+
+                    // ✅ CRÍTICO: Actualizar variables si las hay
+                    if (redirectResult && redirectResult.variables) {
+                        this.variables = { ...redirectResult.variables };
+                        // ✅ NUEVO: Actualizar DOM con nuevos valores
+                        this.updateVariablesInDOM();
+                    }
+                    
+                } catch (error) {
+                    console.error('Error processing conditions in freestyle input:', error);
+                    this.showError('Error al procesar las condiciones. Continuando...');
+                } finally {
+                    // Ocultar indicador de procesamiento
+                    const questionScreen = input.closest('.sfq-question-screen');
+                    if (questionScreen) {
+                        this.hideProcessingIndicator(questionScreen);
+                    }
+                }
+            }, 500); // Esperar 500ms después de que el usuario deje de escribir
         }
 
         /**
          * Manejar select freestyle
          */
-        handleFreestyleSelect(e) {
+        async handleFreestyleSelect(e) {
             const select = e.target;
             const elementId = select.id.replace('element_', '');
             const questionContainer = select.closest('.sfq-freestyle-container');
@@ -1787,12 +2087,76 @@
             }
 
             this.responses[questionId][elementId] = select.value;
+
+            // ✅ AÑADIR: Procesar condiciones inmediatamente
+            try {
+                // Mostrar indicador de procesamiento
+                const questionScreen = select.closest('.sfq-question-screen');
+                if (questionScreen) {
+                    this.showProcessingIndicator(questionScreen);
+                }
+
+                // Crear un elemento temporal con las condiciones para evaluar
+                const tempElement = document.createElement('div');
+                tempElement.dataset.conditions = select.dataset.conditions || '[]';
+                tempElement.dataset.value = select.value;
+                
+                const redirectResult = await this.processConditionsImmediate(tempElement, questionId);
+                
+                if (redirectResult && redirectResult.shouldRedirect) {
+                    // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
+                    if (redirectResult.markAsCompleted) {
+                        // Mostrar indicador de procesamiento elegante
+                        this.showRedirectProcessingIndicator();
+                        
+                        try {
+                            // Marcar como completado silenciosamente
+                            await this.markFormAsCompleted();
+                            
+                            // Pequeña pausa para que el usuario vea el indicador
+                            setTimeout(() => {
+                                window.location.href = redirectResult.redirectUrl;
+                            }, 1500);
+                        } catch (error) {
+                            console.error('SFQ: Error marking form as completed before redirect:', error);
+                            // Redirigir de todos modos
+                            window.location.href = redirectResult.redirectUrl;
+                        }
+                    } else {
+                        // Redirección inmediata sin marcar como completado
+                        window.location.href = redirectResult.redirectUrl;
+                    }
+                    return;
+                }
+
+                // Si hay salto de pregunta, configurarlo
+                if (redirectResult && redirectResult.skipToQuestion) {
+                    this.skipToQuestion = redirectResult.skipToQuestion;
+                }
+
+                // ✅ CRÍTICO: Actualizar variables si las hay
+                if (redirectResult && redirectResult.variables) {
+                    this.variables = { ...redirectResult.variables };
+                    // ✅ NUEVO: Actualizar DOM con nuevos valores
+                    this.updateVariablesInDOM();
+                }
+                
+            } catch (error) {
+                console.error('Error processing conditions in freestyle select:', error);
+                this.showError('Error al procesar las condiciones. Continuando...');
+            } finally {
+                // Ocultar indicador de procesamiento
+                const questionScreen = select.closest('.sfq-question-screen');
+                if (questionScreen) {
+                    this.hideProcessingIndicator(questionScreen);
+                }
+            }
         }
 
         /**
          * Manejar checkbox freestyle
          */
-        handleFreestyleCheckbox(e) {
+        async handleFreestyleCheckbox(e) {
             const checkbox = e.target;
             const elementId = checkbox.id.replace('element_', '');
             const questionContainer = checkbox.closest('.sfq-freestyle-container');
@@ -1804,12 +2168,76 @@
             }
 
             this.responses[questionId][elementId] = checkbox.checked ? checkbox.value : '';
+
+            // ✅ AÑADIR: Procesar condiciones inmediatamente
+            try {
+                // Mostrar indicador de procesamiento
+                const questionScreen = checkbox.closest('.sfq-question-screen');
+                if (questionScreen) {
+                    this.showProcessingIndicator(questionScreen);
+                }
+
+                // Crear un elemento temporal con las condiciones para evaluar
+                const tempElement = document.createElement('div');
+                tempElement.dataset.conditions = checkbox.dataset.conditions || '[]';
+                tempElement.dataset.value = checkbox.checked ? checkbox.value : '';
+                
+                const redirectResult = await this.processConditionsImmediate(tempElement, questionId);
+                
+                if (redirectResult && redirectResult.shouldRedirect) {
+                    // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
+                    if (redirectResult.markAsCompleted) {
+                        // Mostrar indicador de procesamiento elegante
+                        this.showRedirectProcessingIndicator();
+                        
+                        try {
+                            // Marcar como completado silenciosamente
+                            await this.markFormAsCompleted();
+                            
+                            // Pequeña pausa para que el usuario vea el indicador
+                            setTimeout(() => {
+                                window.location.href = redirectResult.redirectUrl;
+                            }, 1500);
+                        } catch (error) {
+                            console.error('SFQ: Error marking form as completed before redirect:', error);
+                            // Redirigir de todos modos
+                            window.location.href = redirectResult.redirectUrl;
+                        }
+                    } else {
+                        // Redirección inmediata sin marcar como completado
+                        window.location.href = redirectResult.redirectUrl;
+                    }
+                    return;
+                }
+
+                // Si hay salto de pregunta, configurarlo
+                if (redirectResult && redirectResult.skipToQuestion) {
+                    this.skipToQuestion = redirectResult.skipToQuestion;
+                }
+
+                // ✅ CRÍTICO: Actualizar variables si las hay
+                if (redirectResult && redirectResult.variables) {
+                    this.variables = { ...redirectResult.variables };
+                    // ✅ NUEVO: Actualizar DOM con nuevos valores
+                    this.updateVariablesInDOM();
+                }
+                
+            } catch (error) {
+                console.error('Error processing conditions in freestyle checkbox:', error);
+                this.showError('Error al procesar las condiciones. Continuando...');
+            } finally {
+                // Ocultar indicador de procesamiento
+                const questionScreen = checkbox.closest('.sfq-question-screen');
+                if (questionScreen) {
+                    this.hideProcessingIndicator(questionScreen);
+                }
+            }
         }
 
         /**
          * Manejar rating freestyle
          */
-        handleFreestyleRating(e) {
+        async handleFreestyleRating(e) {
             e.preventDefault();
             const button = e.currentTarget;
             const wrapper = button.closest('.sfq-freestyle-rating-wrapper');
@@ -1849,6 +2277,70 @@
             }
 
             this.responses[questionId][elementId] = value;
+
+            // ✅ AÑADIR: Procesar condiciones inmediatamente
+            try {
+                // Mostrar indicador de procesamiento
+                const questionScreen = wrapper.closest('.sfq-question-screen');
+                if (questionScreen) {
+                    this.showProcessingIndicator(questionScreen);
+                }
+
+                // Crear un elemento temporal con las condiciones para evaluar
+                const tempElement = document.createElement('div');
+                tempElement.dataset.conditions = button.dataset.conditions || '[]';
+                tempElement.dataset.value = value;
+                
+                const redirectResult = await this.processConditionsImmediate(tempElement, questionId);
+                
+                if (redirectResult && redirectResult.shouldRedirect) {
+                    // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
+                    if (redirectResult.markAsCompleted) {
+                        // Mostrar indicador de procesamiento elegante
+                        this.showRedirectProcessingIndicator();
+                        
+                        try {
+                            // Marcar como completado silenciosamente
+                            await this.markFormAsCompleted();
+                            
+                            // Pequeña pausa para que el usuario vea el indicador
+                            setTimeout(() => {
+                                window.location.href = redirectResult.redirectUrl;
+                            }, 1500);
+                        } catch (error) {
+                            console.error('SFQ: Error marking form as completed before redirect:', error);
+                            // Redirigir de todos modos
+                            window.location.href = redirectResult.redirectUrl;
+                        }
+                    } else {
+                        // Redirección inmediata sin marcar como completado
+                        window.location.href = redirectResult.redirectUrl;
+                    }
+                    return;
+                }
+
+                // Si hay salto de pregunta, configurarlo
+                if (redirectResult && redirectResult.skipToQuestion) {
+                    this.skipToQuestion = redirectResult.skipToQuestion;
+                }
+
+                // ✅ CRÍTICO: Actualizar variables si las hay
+                if (redirectResult && redirectResult.variables) {
+                    this.variables = { ...redirectResult.variables };
+                    // ✅ NUEVO: Actualizar DOM con nuevos valores
+                    this.updateVariablesInDOM();
+                }
+                
+            } catch (error) {
+                console.error('Error processing conditions in freestyle rating:', error);
+                this.showError('Error al procesar las condiciones. Continuando...');
+            } finally {
+                // Ocultar indicador de procesamiento
+                const questionScreen = wrapper.closest('.sfq-question-screen');
+                if (questionScreen) {
+                    this.hideProcessingIndicator(questionScreen);
+                }
+            }
         }
 
         /**
@@ -1872,6 +2364,70 @@
             }
 
             this.responses[questionId][elementId] = 'clicked';
+
+            // ✅ AÑADIR: Procesar condiciones inmediatamente
+            try {
+                // Mostrar indicador de procesamiento
+                const questionScreen = button.closest('.sfq-question-screen');
+                if (questionScreen) {
+                    this.showProcessingIndicator(questionScreen);
+                }
+
+                // Crear un elemento temporal con las condiciones para evaluar
+                const tempElement = document.createElement('div');
+                tempElement.dataset.conditions = button.dataset.conditions || '[]';
+                tempElement.dataset.value = 'clicked';
+                
+                const redirectResult = await this.processConditionsImmediate(tempElement, questionId);
+                
+                if (redirectResult && redirectResult.shouldRedirect) {
+                    // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
+                    if (redirectResult.markAsCompleted) {
+                        // Mostrar indicador de procesamiento elegante
+                        this.showRedirectProcessingIndicator();
+                        
+                        try {
+                            // Marcar como completado silenciosamente
+                            await this.markFormAsCompleted();
+                            
+                            // Pequeña pausa para que el usuario vea el indicador
+                            setTimeout(() => {
+                                window.location.href = redirectResult.redirectUrl;
+                            }, 1500);
+                        } catch (error) {
+                            console.error('SFQ: Error marking form as completed before redirect:', error);
+                            // Redirigir de todos modos
+                            window.location.href = redirectResult.redirectUrl;
+                        }
+                    } else {
+                        // Redirección inmediata sin marcar como completado
+                        window.location.href = redirectResult.redirectUrl;
+                    }
+                    return;
+                }
+
+                // Si hay salto de pregunta, configurarlo
+                if (redirectResult && redirectResult.skipToQuestion) {
+                    this.skipToQuestion = redirectResult.skipToQuestion;
+                }
+
+                // ✅ CRÍTICO: Actualizar variables si las hay
+                if (redirectResult && redirectResult.variables) {
+                    this.variables = { ...redirectResult.variables };
+                    // ✅ NUEVO: Actualizar DOM con nuevos valores
+                    this.updateVariablesInDOM();
+                }
+                
+            } catch (error) {
+                console.error('Error processing conditions in freestyle button:', error);
+                this.showError('Error al procesar las condiciones. Continuando...');
+            } finally {
+                // Ocultar indicador de procesamiento
+                const questionScreen = button.closest('.sfq-question-screen');
+                if (questionScreen) {
+                    this.hideProcessingIndicator(questionScreen);
+                }
+            }
 
             // ✅ NUEVO: Guardar el clic inmediatamente en el servidor
             try {

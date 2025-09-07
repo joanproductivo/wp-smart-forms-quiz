@@ -5813,6 +5813,15 @@
                                 Bloquear formulario en esta pregunta
                             </label>
                         </div>
+                        
+                        <details class="sfq-conditions-section">
+                            <summary>Lógica condicional</summary>
+                            <div class="sfq-conditions-container" id="conditions-${question.id}">
+                                <button class="sfq-add-condition" type="button">
+                                    + Añadir condición
+                                </button>
+                            </div>
+                        </details>
                     </div>
                 </div>
             `;

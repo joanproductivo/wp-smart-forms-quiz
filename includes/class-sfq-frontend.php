@@ -2239,6 +2239,9 @@ class SFQ_Frontend {
         $placeholder = $settings['placeholder'] ?? __('Escribe aquí...', 'smart-forms-quiz');
         $max_length = $settings['max_length'] ?? '';
         $multiline = $settings['multiline'] ?? false;
+        
+        // ✅ SOLUCIÓN: Obtener condiciones del elemento
+        $element_conditions = $element['conditions'] ?? array();
         ?>
         <div class="sfq-freestyle-text-wrapper">
             <?php if ($multiline) : ?>
@@ -2246,6 +2249,7 @@ class SFQ_Frontend {
                           id="element_<?php echo $element['id']; ?>"
                           class="sfq-freestyle-textarea"
                           placeholder="<?php echo esc_attr($placeholder); ?>"
+                          data-conditions='<?php echo json_encode($element_conditions); ?>'
                           <?php echo $max_length ? 'maxlength="' . esc_attr($max_length) . '"' : ''; ?>
                           rows="<?php echo esc_attr($settings['rows'] ?? 3); ?>"></textarea>
             <?php else : ?>
@@ -2254,6 +2258,7 @@ class SFQ_Frontend {
                        id="element_<?php echo $element['id']; ?>"
                        class="sfq-freestyle-input"
                        placeholder="<?php echo esc_attr($placeholder); ?>"
+                       data-conditions='<?php echo json_encode($element_conditions); ?>'
                        <?php echo $max_length ? 'maxlength="' . esc_attr($max_length) . '"' : ''; ?>>
             <?php endif; ?>
             <div class="sfq-input-line"></div>

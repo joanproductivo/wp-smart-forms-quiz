@@ -348,6 +348,50 @@ Cada elemento tiene un **panel de configuración inline** que se despliega al ha
 
 ## 🌐 Integración Frontend
 
+### Sistema de Procesamiento de Condiciones Mejorado
+
+#### **Orden de Procesamiento de Condiciones** ⚡
+El sistema ahora procesa las condiciones siguiendo un orden específico para garantizar la lógica correcta:
+
+1. **PRIORIDAD 1**: Condiciones de la respuesta actual (si existe)
+2. **PRIORIDAD 2**: Condiciones basadas en variables globales
+3. **PRIORIDAD 3**: Consulta al servidor si es necesario
+
+```javascript
+// En assets/js/frontend.js - Función principal
+async processConditionsForNavigation(questionId) {
+    const result = {
+        shouldRedirect: false,
+        redirectUrl: null,
+        skipToQuestion: null,
+        variables: { ...this.variables }
+    };
+    
+    // PRIORIDAD 1: Procesar condiciones de respuesta actual
+    const currentAnswer = this.responses[questionId];
+    if (currentAnswer !== undefined) {
+        const answerElement = this.findElementForAnswer(questionContainer, currentAnswer);
+        if (answerElement) {
+            const answerResult = await this.processConditionsOptimized(answerElement, questionId);
+            if (answerResult && (answerResult.shouldRedirect || answerResult.skipToQuestion)) {
+                return answerResult;
+            }
+        }
+    }
+    
+    // PRIORIDAD 2: Procesar condiciones basadas en variables
+    // ... resto de la lógica
+}
+```
+
+#### **Procesamiento Sin Respuesta** 🔄
+Cuando el usuario hace clic en "Siguiente" sin responder, el sistema ahora:
+
+- ✅ Evalúa condiciones basadas en variables globales
+- ✅ Considera cambios de variables desde preguntas anteriores
+- ✅ Aplica la primera condición verdadera encontrada
+- ✅ Actualiza variables antes de la navegación
+
 ### Renderizado de Elementos
 
 El sistema debe renderizar cada tipo de elemento en el frontend:
@@ -368,34 +412,125 @@ switch ($element['type']) {
 ### Procesamiento de Condiciones
 
 ```php
-// En class-sfq-ajax.php
+// En class-sfq-ajax.php - Procesamiento mejorado
 public function process_conditions($question_id, $answer, $variables) {
     $conditions = $this->get_question_conditions($question_id);
     
+    // Procesar condiciones en orden de prioridad
     foreach ($conditions as $condition) {
         if ($this->evaluate_condition($condition, $answer, $variables)) {
-            return $this->execute_action($condition, $variables);
+            $result = $this->execute_action($condition, $variables);
+            
+            // ✅ NUEVO: Marcar si hay navegación condicional
+            $result['has_conditional_navigation'] = true;
+            
+            return $result;
         }
     }
     
-    return null; // No hay condiciones que se cumplan
+    return [
+        'has_conditional_navigation' => false,
+        'variables' => $variables
+    ];
 }
 ```
 
 ### Gestión de Variables
 
 ```php
-// Actualizar variables según las acciones
+// Actualizar variables según las acciones - Versión mejorada
 private function execute_action($condition, &$variables) {
     switch ($condition['action_type']) {
         case 'add_variable':
-            $variables[$condition['action_variable']] += floatval($condition['action_value']);
+            $current = isset($variables[$condition['action_variable']]) 
+                ? floatval($variables[$condition['action_variable']]) 
+                : 0;
+            $variables[$condition['action_variable']] = $current + floatval($condition['action_value']);
             break;
+            
         case 'set_variable':
             $variables[$condition['action_variable']] = $condition['action_value'];
             break;
-        // ... otras acciones
+            
+        case 'redirect_url':
+            return [
+                'redirect_url' => $condition['action_value'],
+                'variables' => $variables
+            ];
+            
+        case 'goto_question':
+            return [
+                'next_question_id' => $condition['action_value'],
+                'has_conditional_navigation' => true,
+                'variables' => $variables
+            ];
+            
+        case 'skip_to_end':
+            return [
+                'form_completed' => true,
+                'variables' => $variables
+            ];
     }
+    
+    return ['variables' => $variables];
+}
+```
+
+### Funciones de Utilidad Frontend
+
+```javascript
+// En assets/js/frontend.js - Nuevas funciones de utilidad
+
+/**
+ * Encontrar elemento DOM correspondiente a una respuesta
+ */
+findElementForAnswer(questionContainer, answer) {
+    // Buscar por valor exacto
+    let element = questionContainer.querySelector(`[data-value="${answer}"]`);
+    if (element) return element;
+    
+    // Para respuestas múltiples
+    if (Array.isArray(answer)) {
+        for (const value of answer) {
+            element = questionContainer.querySelector(`[data-value="${value}"]`);
+            if (element) return element;
+        }
+    }
+    
+    // Para inputs de texto
+    const textInputs = questionContainer.querySelectorAll('input[type="text"], input[type="email"], textarea');
+    for (const input of textInputs) {
+        if (input.value === answer) return input;
+    }
+    
+    return null;
+}
+
+/**
+ * Evaluación de condiciones con variables personalizadas
+ */
+evaluateConditionsForRedirect(conditions, questionId, customVariables = null) {
+    const currentVariables = customVariables || this.variables;
+    const result = {
+        shouldRedirect: false,
+        redirectUrl: null,
+        skipToQuestion: null,
+        variables: { ...currentVariables }
+    };
+    
+    // Procesar condiciones en orden - la primera verdadera se ejecuta
+    for (let i = 0; i < conditions.length; i++) {
+        const condition = conditions[i];
+        const conditionResult = this.evaluateConditionImmediate(condition, answer, questionId);
+        
+        if (conditionResult) {
+            // Ejecutar acción y salir del bucle
+            this.executeConditionAction(condition, result);
+            break;
+        }
+    }
+    
+    return result;
 }
 ```
 
@@ -593,6 +728,67 @@ try {
 ```javascript
 // Usar debounce para eventos frecuentes
 const debouncedSave = this.debounce(() => this.saveForm(), 500);
+```
+
+#### 5. **⚠️ CRÍTICO: Prevención de Procesamiento Duplicado**
+```javascript
+// ✅ REGLA FUNDAMENTAL: Evitar procesar las mismas condiciones múltiples veces
+async nextQuestion() {
+    const questionId = currentQuestion.dataset.questionId;
+    const hasCurrentAnswer = this.responses[questionId] !== undefined;
+    
+    // ✅ SOLUCIÓN: Solo procesar condiciones si NO hay respuesta específica
+    if (!hasCurrentAnswer) {
+        // Las condiciones ya se procesaron en handleSingleChoice/handleMultipleChoice/etc.
+        const redirectResult = await this.processConditionsForNavigation(questionId);
+        // ... resto de la lógica
+    } else {
+        console.log('Answer found, skipping navigation conditions (already processed)');
+    }
+}
+```
+
+**Problema común**: Las condiciones se procesan múltiples veces causando:
+- ❌ Variables que se incrementan incorrectamente (ej: 0→50→100→150)
+- ❌ Acciones duplicadas (redirecciones, saltos de pregunta)
+- ❌ Comportamiento impredecible del formulario
+
+**Solución implementada**:
+- ✅ Verificar si ya existe una respuesta antes de procesar condiciones
+- ✅ Separar condiciones de respuesta vs. condiciones de navegación
+- ✅ Procesar condiciones solo una vez por interacción del usuario
+
+#### 6. **Separación de Responsabilidades en Condiciones**
+```javascript
+// ✅ CORRECTO: Condiciones de respuesta se procesan en handlers específicos
+async handleSingleChoice(e) {
+    // Procesar condiciones inmediatamente después de la respuesta
+    const redirectResult = await this.processConditionsImmediate(card, questionId);
+    // ... manejar resultado
+}
+
+// ✅ CORRECTO: Condiciones de navegación solo para casos sin respuesta
+async processConditionsForNavigation(questionId) {
+    // Solo procesar condiciones basadas en variables globales
+    const variableOnlyConditions = conditions.filter(condition => {
+        return condition.condition_type && 
+               condition.condition_type.startsWith('variable_');
+    });
+    // ... procesar solo condiciones de variables
+}
+```
+
+#### 7. **Logging y Debug para Condiciones**
+```javascript
+// ✅ RECOMENDADO: Logging detallado para debug
+console.log('🔍 SFQ DEBUG: Processing conditional logic for question:', questionId);
+console.log('🔍 SFQ DEBUG: Has current answer:', hasCurrentAnswer);
+console.log('🔍 SFQ DEBUG: Current variables:', JSON.stringify(this.variables));
+
+// ✅ ÚTIL: Marcar cuándo se saltan condiciones duplicadas
+if (hasCurrentAnswer) {
+    console.log('🔍 SFQ DEBUG: Answer found, skipping navigation conditions (already processed)');
+}
 ```
 
 ---
