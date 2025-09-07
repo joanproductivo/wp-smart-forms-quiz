@@ -6,6 +6,379 @@
 (function() {
     'use strict';
 
+    /**
+     * ✅ NUEVO: Motor Unificado de Lógica Condicional
+     * Centraliza todo el procesamiento de condiciones para evitar duplicación
+     */
+    class ConditionalLogicEngine {
+        constructor(formInstance) {
+            this.form = formInstance;
+            this.cache = new Map();
+            this.debugEnabled = true;
+        }
+
+        /**
+         * Punto de entrada principal para procesar condiciones
+         * @param {string} questionId - ID de la pregunta
+         * @param {Object} trigger - Información del trigger que activó el procesamiento
+         * @returns {Promise<Object>} Resultado del procesamiento
+         */
+        async processConditions(questionId, trigger) {
+            const startTime = performance.now();
+            
+            if (this.debugEnabled) {
+                console.log('🔧 ConditionalEngine: Processing conditions', {
+                    questionId,
+                    triggerType: trigger.type,
+                    hasAnswer: trigger.hasAnswer,
+                    answer: trigger.answer
+                });
+            }
+
+            try {
+                // Construir contexto para evaluación
+                const context = this.buildContext(questionId, trigger);
+                
+                // Obtener condiciones aplicables
+                const conditions = await this.getApplicableConditions(questionId, trigger);
+                
+                if (!conditions || conditions.length === 0) {
+                    return this.getDefaultResult(context);
+                }
+
+                // Evaluar condiciones en orden de prioridad
+                for (const condition of conditions) {
+                    if (this.shouldEvaluateCondition(condition, trigger)) {
+                        const result = await this.evaluateCondition(condition, context);
+                        
+                        if (result.shouldExecute) {
+                            const actionResult = await this.executeAction(result.action, context);
+                            
+                            if (this.debugEnabled) {
+                                const duration = performance.now() - startTime;
+                                console.log('🔧 ConditionalEngine: Action executed', {
+                                    condition: condition.condition_type,
+                                    action: result.action.type,
+                                    duration: `${duration.toFixed(2)}ms`
+                                });
+                            }
+                            
+                            return actionResult;
+                        }
+                    }
+                }
+
+                // No se ejecutó ninguna acción
+                return this.getDefaultResult(context);
+
+            } catch (error) {
+                console.error('🔧 ConditionalEngine: Error processing conditions:', error);
+                return this.getErrorResult(context, error);
+            }
+        }
+
+        /**
+         * Construir contexto para evaluación de condiciones
+         */
+        buildContext(questionId, trigger) {
+            return {
+                questionId,
+                trigger,
+                answer: trigger.answer,
+                variables: { ...this.form.variables },
+                responses: { ...this.form.responses },
+                isSecureMode: this.form.isSecureMode,
+                timestamp: Date.now()
+            };
+        }
+
+        /**
+         * Obtener condiciones aplicables según el trigger
+         */
+        async getApplicableConditions(questionId, trigger) {
+            // Intentar obtener de cache primero
+            const cacheKey = `${questionId}_${trigger.type}`;
+            if (this.cache.has(cacheKey)) {
+                return this.cache.get(cacheKey);
+            }
+
+            let conditions = [];
+
+            switch (trigger.type) {
+                case 'answer':
+                    conditions = await this.getAnswerConditions(questionId, trigger);
+                    break;
+                    
+                case 'navigation':
+                    conditions = await this.getNavigationConditions(questionId, trigger);
+                    break;
+                    
+                case 'variable_change':
+                    conditions = await this.getVariableConditions(questionId, trigger);
+                    break;
+                    
+                default:
+                    conditions = await this.getAllConditions(questionId);
+            }
+
+            // Cachear resultado
+            this.cache.set(cacheKey, conditions);
+            return conditions;
+        }
+
+        /**
+         * Obtener condiciones de respuesta desde el DOM
+         */
+        async getAnswerConditions(questionId, trigger) {
+            const element = trigger.element;
+            if (!element || !element.dataset.conditions) {
+                return [];
+            }
+
+            try {
+                const conditions = JSON.parse(element.dataset.conditions);
+                return Array.isArray(conditions) ? conditions : [];
+            } catch (e) {
+                console.error('🔧 ConditionalEngine: Error parsing answer conditions:', e);
+                return [];
+            }
+        }
+
+        /**
+         * Obtener condiciones de navegación (solo variables)
+         */
+        async getNavigationConditions(questionId, trigger) {
+            const questionContainer = this.form.container.querySelector(`[data-question-id="${questionId}"]`);
+            if (!questionContainer) return [];
+
+            const allConditions = [];
+            const conditionsElements = questionContainer.querySelectorAll('[data-conditions]');
+
+            for (const element of conditionsElements) {
+                try {
+                    const conditions = JSON.parse(element.dataset.conditions || '[]');
+                    if (Array.isArray(conditions)) {
+                        // Filtrar solo condiciones basadas en variables
+                        const variableConditions = conditions.filter(condition => 
+                            condition.condition_type && condition.condition_type.startsWith('variable_')
+                        );
+                        allConditions.push(...variableConditions);
+                    }
+                } catch (e) {
+                    console.error('🔧 ConditionalEngine: Error parsing navigation conditions:', e);
+                }
+            }
+
+            return allConditions;
+        }
+
+        /**
+         * Obtener todas las condiciones (fallback)
+         */
+        async getAllConditions(questionId) {
+            // Implementación para obtener todas las condiciones
+            // Combina condiciones del DOM y del servidor si es necesario
+            return [];
+        }
+
+        /**
+         * Determinar si una condición debe evaluarse según el trigger
+         */
+        shouldEvaluateCondition(condition, trigger) {
+            switch (trigger.type) {
+                case 'answer':
+                    // Para triggers de respuesta, evaluar condiciones de respuesta
+                    return ['answer_equals', 'answer_contains', 'answer_not_equals', 
+                           'answer_greater', 'answer_less'].includes(condition.condition_type);
+                    
+                case 'navigation':
+                    // Para triggers de navegación, solo condiciones de variables
+                    return condition.condition_type && condition.condition_type.startsWith('variable_');
+                    
+                default:
+                    return true;
+            }
+        }
+
+        /**
+         * Evaluar una condición específica
+         */
+        async evaluateCondition(condition, context) {
+            const result = {
+                shouldExecute: false,
+                action: null,
+                variables: { ...context.variables }
+            };
+
+            try {
+                const conditionMet = this.evaluateConditionLogic(condition, context);
+                
+                if (conditionMet) {
+                    result.shouldExecute = true;
+                    result.action = {
+                        type: condition.action_type,
+                        value: condition.action_value,
+                        variable: condition.action_variable || condition.action_value,
+                        amount: condition.variable_amount,
+                        condition: condition
+                    };
+                }
+
+                return result;
+                
+            } catch (error) {
+                console.error('🔧 ConditionalEngine: Error evaluating condition:', error);
+                return result;
+            }
+        }
+
+        /**
+         * Lógica de evaluación de condiciones (extraída y unificada)
+         */
+        evaluateConditionLogic(condition, context) {
+            const { answer, variables } = context;
+
+            switch (condition.condition_type) {
+                case 'answer_equals':
+                    return answer === condition.condition_value;
+                    
+                case 'answer_contains':
+                    return answer && answer.toString().includes(condition.condition_value);
+                    
+                case 'answer_not_equals':
+                    return answer !== condition.condition_value;
+                    
+                case 'variable_greater':
+                    const varValue1 = variables[condition.condition_value] || 0;
+                    const compareValue1 = this.getComparisonValue(condition);
+                    return this.smartCompare(varValue1, compareValue1, '>');
+                    
+                case 'variable_less':
+                    const varValue2 = variables[condition.condition_value] || 0;
+                    const compareValue2 = this.getComparisonValue(condition);
+                    return this.smartCompare(varValue2, compareValue2, '<');
+                    
+                case 'variable_equals':
+                    const varValue3 = variables[condition.condition_value] || 0;
+                    const compareValue3 = this.getComparisonValue(condition);
+                    return this.smartCompare(varValue3, compareValue3, '==');
+                    
+                default:
+                    console.warn('🔧 ConditionalEngine: Unknown condition type:', condition.condition_type);
+                    return false;
+            }
+        }
+
+        /**
+         * Ejecutar acción basada en el resultado de la condición
+         */
+        async executeAction(action, context) {
+            const result = {
+                shouldRedirect: false,
+                redirectUrl: null,
+                skipToQuestion: null,
+                variables: { ...context.variables },
+                markAsCompleted: false
+            };
+
+            try {
+                switch (action.type) {
+                    case 'redirect_url':
+                        result.shouldRedirect = true;
+                        result.redirectUrl = action.value;
+                        result.markAsCompleted = true;
+                        break;
+                        
+                    case 'add_variable':
+                        const currentValue = result.variables[action.variable] || 0;
+                        const addAmount = parseInt(action.amount) || 0;
+                        result.variables[action.variable] = currentValue + addAmount;
+                        break;
+                        
+                    case 'set_variable':
+                        result.variables[action.variable] = action.amount;
+                        break;
+                        
+                    case 'goto_question':
+                        result.skipToQuestion = action.value;
+                        break;
+                        
+                    case 'skip_to_end':
+                        result.skipToQuestion = 'end';
+                        break;
+                        
+                    default:
+                        console.warn('🔧 ConditionalEngine: Unknown action type:', action.type);
+                }
+
+                // Actualizar variables en el formulario
+                this.form.variables = { ...result.variables };
+
+                return result;
+                
+            } catch (error) {
+                console.error('🔧 ConditionalEngine: Error executing action:', error);
+                return result;
+            }
+        }
+
+        /**
+         * Funciones de utilidad (reutilizadas del código existente)
+         */
+        getComparisonValue(condition) {
+            if (condition.comparison_value !== undefined && condition.comparison_value !== '') {
+                return condition.comparison_value;
+            }
+            return condition.variable_amount || 0;
+        }
+
+        smartCompare(value1, value2, operator) {
+            if (!isNaN(value1) && !isNaN(value2)) {
+                const num1 = parseFloat(value1);
+                const num2 = parseFloat(value2);
+                
+                switch (operator) {
+                    case '>': return num1 > num2;
+                    case '<': return num1 < num2;
+                    case '==': return num1 === num2;
+                    default: return false;
+                }
+            }
+            
+            const str1 = String(value1);
+            const str2 = String(value2);
+            
+            switch (operator) {
+                case '>': return str1.localeCompare(str2) > 0;
+                case '<': return str1.localeCompare(str2) < 0;
+                case '==': return str1 === str2;
+                default: return false;
+            }
+        }
+
+        getDefaultResult(context) {
+            return {
+                shouldRedirect: false,
+                redirectUrl: null,
+                skipToQuestion: null,
+                variables: { ...context.variables },
+                markAsCompleted: false
+            };
+        }
+
+        getErrorResult(context, error) {
+            console.error('🔧 ConditionalEngine: Returning error result:', error);
+            return this.getDefaultResult(context);
+        }
+
+        /**
+         * Limpiar cache (útil para testing o cambios dinámicos)
+         */
+        clearCache() {
+            this.cache.clear();
+        }
+    }
+
     class SmartFormQuiz {
         constructor(container) {
             this.container = container;
@@ -28,6 +401,9 @@
             this.variables = {};
             this.startTime = Date.now();
             this.questionStartTime = Date.now();
+            
+            // ✅ NUEVO: Motor unificado de lógica condicional
+            this.conditionalEngine = new ConditionalLogicEngine(this);
             
             // ✅ NUEVO: Sistema de optimización de condiciones
             this.conditionsCache = new Map();
@@ -239,14 +615,19 @@
             this.showProcessingIndicator(questionContainer);
 
             try {
-                // Procesar condiciones inmediatamente (ahora es async)
-                const redirectResult = await this.processConditionsImmediate(card, questionId);
+                // ✅ REFACTORIZADO: Usar motor unificado de lógica condicional
+                const trigger = {
+                    type: 'answer',
+                    hasAnswer: true,
+                    answer: card.dataset.value,
+                    element: card
+                };
+
+                const redirectResult = await this.conditionalEngine.processConditions(questionId, trigger);
                 
                 if (redirectResult && redirectResult.shouldRedirect) {
                     // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
                     if (redirectResult.markAsCompleted) {
-                      
-                        
                         // Mostrar indicador de procesamiento elegante
                         this.showRedirectProcessingIndicator();
                         
@@ -703,187 +1084,110 @@
             }
         }
 
+        /**
+         * ✅ REFACTORIZADO: Usar motor unificado para evaluación de condiciones
+         * Mantener como wrapper para compatibilidad hacia atrás
+         */
         evaluateConditionsForRedirect(conditions, questionId, customVariables = null) {
-            const answer = this.responses[questionId];
-            const currentVariables = customVariables || this.variables;
+            console.log('🔧 Legacy: Using legacy wrapper for condition evaluation');
+            
+            // Crear trigger temporal para el motor unificado
+            const trigger = {
+                type: 'answer',
+                hasAnswer: true,
+                answer: this.responses[questionId],
+                element: null
+            };
+
+            // Crear contexto temporal
+            const context = {
+                questionId,
+                trigger,
+                answer: this.responses[questionId],
+                variables: customVariables || this.variables,
+                responses: this.responses,
+                isSecureMode: this.isSecureMode,
+                timestamp: Date.now()
+            };
+
             const result = {
                 shouldRedirect: false,
                 redirectUrl: null,
                 skipToQuestion: null,
-                variables: { ...currentVariables } // Empezar con variables actuales o personalizadas
+                variables: { ...context.variables }
             };
-            
-            console.log('🔍 SFQ DEBUG: Evaluating conditions for redirect');
-            console.log('🔍 Question ID:', questionId);
-            console.log('🔍 Answer:', answer);
-            console.log('🔍 Current variables:', JSON.stringify(this.variables));
-            console.log('🔍 Conditions to evaluate:', conditions);
-            
-            // ✅ CORREGIDO: Usar for loop con índice para poder hacer break correctamente
-            for (let i = 0; i < conditions.length; i++) {
-                const condition = conditions[i];
-                console.log('🔍 SFQ DEBUG: Evaluating condition', i + 1, ':', condition);
+
+            // Evaluar condiciones usando la lógica del motor unificado
+            for (const condition of conditions) {
+                const conditionMet = this.conditionalEngine.evaluateConditionLogic(condition, context);
                 
-                const conditionResult = this.evaluateConditionImmediate(condition, answer, questionId);
-                console.log('🔍 SFQ DEBUG: Condition', i + 1, 'result:', conditionResult);
-                
-                if (conditionResult) {
-                    console.log('🔍 SFQ DEBUG: Condition matched! Executing action:', condition.action_type);
-                    
-                    // ✅ CRÍTICO: Ejecutar acciones de variables correctamente
+                if (conditionMet) {
+                    // Ejecutar acciones usando la lógica del motor unificado
                     switch (condition.action_type) {
                         case 'redirect_url':
                             result.shouldRedirect = true;
                             result.redirectUrl = condition.action_value;
-                            result.markAsCompleted = true; // ✅ NUEVO: Marcar para completar antes de redirigir
-                            console.log('🔍 SFQ DEBUG: Setting redirect to:', condition.action_value);
-                            return result; // Retornar inmediatamente para redirección
+                            result.markAsCompleted = true;
+                            return result;
                             
                         case 'add_variable':
-                            const varName = condition.action_value;
-                            const varAmount = parseInt(condition.variable_amount) || 0;
-                            const currentValue = result.variables[varName] || 0;
-                            const newValue = currentValue + varAmount;
-                            result.variables[varName] = newValue;
-                            console.log('🔍 SFQ DEBUG: Added', varAmount, 'to variable', varName, '- new value:', newValue);
+                            const currentValue = result.variables[condition.action_value] || 0;
+                            const addAmount = parseInt(condition.variable_amount) || 0;
+                            result.variables[condition.action_value] = currentValue + addAmount;
                             break;
                             
                         case 'set_variable':
-                            const setVarName = condition.action_value;
-                            const setValue = condition.variable_amount;
-                            result.variables[setVarName] = setValue;
-                            console.log('🔍 SFQ DEBUG: Set variable', setVarName, 'to:', setValue);
+                            result.variables[condition.action_value] = condition.variable_amount;
                             break;
                             
                         case 'goto_question':
                             result.skipToQuestion = condition.action_value;
-                            console.log('🔍 SFQ DEBUG: Setting skip to question:', condition.action_value);
                             break;
                             
                         case 'skip_to_end':
                             result.skipToQuestion = 'end';
-                            console.log('🔍 SFQ DEBUG: Setting skip to end');
-                            break;
-                            
-                        case 'show_message':
-                            // Los mensajes se pueden manejar aquí en el futuro
-                            console.log('🔍 SFQ DEBUG: Show message action (not implemented)');
                             break;
                     }
                     
-                    // ✅ CRÍTICO: Salir del bucle después de la primera condición que coincida
-                    break;
-                } else {
-                    console.log('🔍 SFQ DEBUG: Condition', i + 1, 'did not match');
+                    break; // Solo ejecutar la primera condición que coincida
                 }
             }
             
-            console.log('🔍 SFQ DEBUG: Final result:', result);
             return result;
         }
 
+        /**
+         * ✅ REFACTORIZADO: Usar motor unificado para evaluación inmediata
+         * Mantener como wrapper para compatibilidad hacia atrás
+         */
         evaluateConditionImmediate(condition, answer, questionId) {
-            console.log('🔍 SFQ DEBUG: Evaluating individual condition:', condition);
-            console.log('🔍 SFQ DEBUG: Condition type:', condition.condition_type);
-            console.log('🔍 SFQ DEBUG: Answer for comparison:', answer);
+            console.log('🔧 Legacy: Using legacy wrapper for immediate evaluation');
             
-            switch (condition.condition_type) {
-                case 'answer_equals':
-                    const answerEqualsResult = answer === condition.condition_value;
-                    console.log('🔍 SFQ DEBUG: answer_equals -', answer, '===', condition.condition_value, '=', answerEqualsResult);
-                    return answerEqualsResult;
-                    
-                case 'answer_contains':
-                    const answerContainsResult = answer && answer.toString().includes(condition.condition_value);
-                    console.log('🔍 SFQ DEBUG: answer_contains -', answer, 'includes', condition.condition_value, '=', answerContainsResult);
-                    return answerContainsResult;
-                    
-                case 'answer_not_equals':
-                    const answerNotEqualsResult = answer !== condition.condition_value;
-                    console.log('🔍 SFQ DEBUG: answer_not_equals -', answer, '!==', condition.condition_value, '=', answerNotEqualsResult);
-                    return answerNotEqualsResult;
-                    
-                case 'variable_greater':
-                    const varName = condition.condition_value;
-                    const comparisonValue = this.getComparisonValue(condition);
-                    const varValue = this.variables[varName] || 0;
-                    const greaterResult = this.smartCompare(varValue, comparisonValue, '>');
-                    console.log('🔍 SFQ DEBUG: variable_greater - Variable:', varName, 'Value:', varValue, '>', comparisonValue, '=', greaterResult);
-                    console.log('🔍 SFQ DEBUG: All variables available:', JSON.stringify(this.variables));
-                    return greaterResult;
-                    
-                case 'variable_less':
-                    const varName2 = condition.condition_value;
-                    const comparisonValue2 = this.getComparisonValue(condition);
-                    const varValue2 = this.variables[varName2] || 0;
-                    const lessResult = this.smartCompare(varValue2, comparisonValue2, '<');
-                    console.log('🔍 SFQ DEBUG: variable_less - Variable:', varName2, 'Value:', varValue2, '<', comparisonValue2, '=', lessResult);
-                    console.log('🔍 SFQ DEBUG: All variables available:', JSON.stringify(this.variables));
-                    return lessResult;
-                    
-                case 'variable_equals':
-                    const varName3 = condition.condition_value;
-                    const comparisonValue3 = this.getComparisonValue(condition);
-                    const varValue3 = this.variables[varName3] || 0;
-                    const equalsResult = this.smartCompare(varValue3, comparisonValue3, '==');
-                    console.log('🔍 SFQ DEBUG: variable_equals - Variable:', varName3, 'Value:', varValue3, '==', comparisonValue3, '=', equalsResult);
-                    console.log('🔍 SFQ DEBUG: All variables available:', JSON.stringify(this.variables));
-                    return equalsResult;
-                    
-                default:
-                    console.log('🔍 SFQ DEBUG: Unknown condition type:', condition.condition_type);
-                    return false;
-            }
+            // Crear contexto temporal para el motor unificado
+            const context = {
+                questionId,
+                answer,
+                variables: this.variables,
+                responses: this.responses,
+                isSecureMode: this.isSecureMode,
+                timestamp: Date.now()
+            };
+
+            return this.conditionalEngine.evaluateConditionLogic(condition, context);
         }
 
         /**
-         * Obtener valor de comparación con fallback para compatibilidad
+         * ✅ DELEGADO: Usar funciones del motor unificado
          */
         getComparisonValue(condition) {
-            // Priorizar comparison_value si existe y no está vacío
-            if (condition.comparison_value !== undefined && condition.comparison_value !== '') {
-                return condition.comparison_value;
-            }
-            
-            // Fallback a variable_amount para compatibilidad con datos existentes
-            return condition.variable_amount || 0;
+            return this.conditionalEngine.getComparisonValue(condition);
         }
 
         /**
-         * Comparación inteligente que maneja números y texto automáticamente
+         * ✅ DELEGADO: Usar funciones del motor unificado
          */
         smartCompare(value1, value2, operator) {
-            // Si ambos valores parecen números, comparar como números
-            if (!isNaN(value1) && !isNaN(value2)) {
-                const num1 = parseFloat(value1);
-                const num2 = parseFloat(value2);
-                
-                switch (operator) {
-                    case '>':
-                        return num1 > num2;
-                    case '<':
-                        return num1 < num2;
-                    case '==':
-                        return num1 === num2;
-                    default:
-                        return false;
-                }
-            }
-            
-            // Si alguno no es numérico, comparar como strings
-            const str1 = String(value1);
-            const str2 = String(value2);
-            
-            switch (operator) {
-                case '>':
-                    return str1.localeCompare(str2) > 0;
-                case '<':
-                    return str1.localeCompare(str2) < 0;
-                case '==':
-                    return str1 === str2;
-                default:
-                    return false;
-            }
+            return this.conditionalEngine.smartCompare(value1, value2, operator);
         }
 
         /**
@@ -1199,95 +1503,62 @@
         }
         
         /**
-         * ✅ CORREGIDO: Procesar condiciones para navegación siguiendo el orden correcto
+         * ✅ REFACTORIZADO: Procesar condiciones para navegación usando el motor unificado
          * SOLO procesa condiciones basadas en variables globales (no duplicar condiciones de respuesta)
          */
         async processConditionsForNavigation(questionId) {
-            console.log('🔍 SFQ DEBUG: Processing navigation conditions for question:', questionId);
-            
-            const result = {
-                shouldRedirect: false,
-                redirectUrl: null,
-                skipToQuestion: null,
-                variables: { ...this.variables }
-            };
+            console.log('🔧 Navigation: Processing conditions for navigation', { questionId });
             
             try {
-                const questionContainer = this.container.querySelector(`[data-question-id="${questionId}"]`);
-                if (!questionContainer) {
-                    console.log('🔍 SFQ DEBUG: No question container found for navigation conditions');
-                    return result;
-                }
+                // ✅ REFACTORIZADO: Usar motor unificado con trigger de navegación
+                const trigger = {
+                    type: 'navigation',
+                    hasAnswer: false,
+                    answer: null,
+                    element: null
+                };
+
+                const result = await this.conditionalEngine.processConditions(questionId, trigger);
                 
-                // ✅ SOLO PROCESAR: Condiciones basadas en variables globales que NO dependan de respuestas
-                console.log('🔍 SFQ DEBUG: Processing variable-based conditions only');
-                const conditionsElements = questionContainer.querySelectorAll('[data-conditions]');
-                let foundVariableConditions = false;
+                console.log('🔧 Navigation: Engine result', result);
                 
-                for (const element of conditionsElements) {
-                    const conditionsAttr = element.dataset.conditions;
-                    if (!conditionsAttr || conditionsAttr === '[]') continue;
+                // Si el motor unificado no encontró condiciones de navegación, hacer fallback a AJAX
+                if (!result.shouldRedirect && !result.skipToQuestion) {
+                    const currentAnswer = this.responses[questionId];
                     
-                    try {
-                        const conditions = JSON.parse(conditionsAttr);
-                        if (!Array.isArray(conditions) || conditions.length === 0) continue;
+                    // Solo consultar servidor si no hay respuesta específica
+                    if (currentAnswer === undefined) {
+                        console.log('🔧 Navigation: No local navigation conditions, checking server');
                         
-                        // ✅ FILTRAR: Solo condiciones que NO dependan de respuestas específicas
-                        const variableOnlyConditions = conditions.filter(condition => {
-                            return condition.condition_type && 
-                                   condition.condition_type.startsWith('variable_');
-                        });
-                        
-                        if (variableOnlyConditions.length > 0) {
-                            console.log('🔍 SFQ DEBUG: Found variable-only conditions:', variableOnlyConditions);
+                        try {
+                            const ajaxResult = await this.checkConditionsViaAjax(questionId, null);
                             
-                            const conditionResult = this.evaluateConditionsForRedirect(variableOnlyConditions, questionId, result.variables);
-                            
-                            if (conditionResult.shouldRedirect || conditionResult.skipToQuestion) {
-                                console.log('🔍 SFQ DEBUG: Variable conditions triggered action:', conditionResult);
-                                return conditionResult;
+                            if (ajaxResult && (ajaxResult.shouldRedirect || ajaxResult.skipToQuestion)) {
+                                console.log('🔧 Navigation: Server returned navigation result', ajaxResult);
+                                return ajaxResult;
                             }
                             
-                            // Actualizar variables acumuladas
-                            if (conditionResult.variables) {
-                                result.variables = { ...conditionResult.variables };
-                                foundVariableConditions = true;
+                            // Actualizar variables del servidor
+                            if (ajaxResult && ajaxResult.variables) {
+                                result.variables = { ...ajaxResult.variables };
                             }
+                        } catch (error) {
+                            console.error('🔧 Navigation: Server check failed', error);
                         }
-                        
-                    } catch (e) {
-                        console.error('🔍 SFQ DEBUG: Error parsing conditions:', e);
                     }
                 }
                 
-                // ✅ CONSULTAR SERVIDOR: Solo si no hay respuesta Y no hay condiciones locales
-                const currentAnswer = this.responses[questionId];
-                if (!foundVariableConditions && currentAnswer === undefined) {
-                    console.log('🔍 SFQ DEBUG: No local conditions found and no answer, checking server');
-                    
-                    try {
-                        const ajaxResult = await this.checkConditionsViaAjax(questionId, null);
-                        
-                        if (ajaxResult && (ajaxResult.shouldRedirect || ajaxResult.skipToQuestion)) {
-                            console.log('🔍 SFQ DEBUG: Server conditions triggered action:', ajaxResult);
-                            return ajaxResult;
-                        }
-                        
-                        // Actualizar variables del servidor
-                        if (ajaxResult && ajaxResult.variables) {
-                            result.variables = { ...ajaxResult.variables };
-                        }
-                    } catch (error) {
-                        console.error('🔍 SFQ DEBUG: Error in server conditions:', error);
-                    }
-                }
-                
-                console.log('🔍 SFQ DEBUG: Navigation conditions completed, final result:', result);
+                console.log('🔧 Navigation: Final result', result);
                 return result;
                 
             } catch (error) {
-                console.error('🔍 SFQ DEBUG: Error in processConditionsForNavigation:', error);
-                return result;
+                console.error('🔧 Navigation: Error processing navigation conditions', error);
+                return {
+                    shouldRedirect: false,
+                    redirectUrl: null,
+                    skipToQuestion: null,
+                    variables: { ...this.variables }
+                };
             }
         }
 
@@ -1583,14 +1854,11 @@
             const questionId = currentQuestion.dataset.questionId;
             const hasCurrentAnswer = this.responses[questionId] !== undefined;
             
-            console.log('🔍 SFQ DEBUG: Processing conditional logic in nextQuestion for question:', questionId);
-            console.log('🔍 SFQ DEBUG: Has current answer:', hasCurrentAnswer);
-            console.log('🔍 SFQ DEBUG: Current variables before processing:', JSON.stringify(this.variables));
-            
+           
             // ✅ SOLUCIÓN: Solo procesar condiciones de navegación si NO hay respuesta específica
             // Esto evita duplicar el procesamiento que ya se hizo en los handlers de respuesta
             if (!hasCurrentAnswer) {
-                console.log('🔍 SFQ DEBUG: No answer found, processing navigation conditions');
+
                 
                 try {
                     // Mostrar indicador de procesamiento
@@ -1598,7 +1866,7 @@
                     
                     const redirectResult = await this.processConditionsForNavigation(questionId);
                     
-                    console.log('🔍 SFQ DEBUG: Navigation conditions result:', redirectResult);
+                  
                     
                     if (redirectResult && redirectResult.shouldRedirect) {
                         // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
@@ -1615,7 +1883,7 @@
                                     window.location.href = redirectResult.redirectUrl;
                                 }, 1500);
                             } catch (error) {
-                                console.error('SFQ: Error marking form as completed before redirect:', error);
+                              
                                 // Redirigir de todos modos
                                 window.location.href = redirectResult.redirectUrl;
                             }
@@ -1629,26 +1897,26 @@
                     // Si hay salto de pregunta, configurarlo
                     if (redirectResult && redirectResult.skipToQuestion) {
                         this.skipToQuestion = redirectResult.skipToQuestion;
-                        console.log('🔍 SFQ DEBUG: Skip to question set from navigation conditions:', this.skipToQuestion);
+                       
                     }
 
                     // ✅ CRÍTICO: Actualizar variables si las hay
                     if (redirectResult && redirectResult.variables) {
                         this.variables = { ...redirectResult.variables };
-                        console.log('🔍 SFQ DEBUG: Variables updated from navigation conditions:', JSON.stringify(this.variables));
+                       
                         // ✅ NUEVO: Actualizar DOM con nuevos valores
                         this.updateVariablesInDOM();
                     }
                     
                 } catch (error) {
-                    console.error('Error processing navigation conditions:', error);
+                   
                     this.showError('Error al procesar las condiciones. Continuando...');
                 } finally {
                     // Ocultar indicador de procesamiento
                     this.hideProcessingIndicator(currentQuestion);
                 }
             } else {
-                console.log('🔍 SFQ DEBUG: Answer found, skipping navigation conditions (already processed)');
+              
             }
 
             // Registrar tiempo en la pregunta
@@ -1990,12 +2258,7 @@
             const questionContainer = input.closest('.sfq-freestyle-container');
             const questionId = questionContainer.dataset.questionId;
 
-            console.log('🔍 SFQ DEBUG: Freestyle input changed');
-            console.log('🔍 Element ID:', elementId);
-            console.log('🔍 Question ID:', questionId);
-            console.log('🔍 Input value:', input.value);
-            console.log('🔍 Current variables before processing:', JSON.stringify(this.variables));
-
+        
             // Inicializar respuesta freestyle si no existe
             if (!this.responses[questionId]) {
                 this.responses[questionId] = {};
@@ -2013,14 +2276,11 @@
                         this.showProcessingIndicator(questionScreen);
                     }
 
-                    console.log('🔍 SFQ DEBUG: About to process conditions for freestyle input');
-                    console.log('🔍 Element conditions:', input.dataset.conditions);
-
+                   
                     // ✅ SOLUCIÓN: Usar elemento real en lugar de temporal
                     const redirectResult = await this.processConditionsImmediate(input, questionId);
                     
-                    console.log('🔍 SFQ DEBUG: Conditions processing result:', redirectResult);
-                    
+                   
                     if (redirectResult && redirectResult.shouldRedirect) {
                         // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
                         if (redirectResult.markAsCompleted) {

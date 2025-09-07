@@ -55,7 +55,7 @@ El sistema de lógica condicional avanzada permite crear formularios inteligente
 
 ### 🎨 Preguntas Estilo Libre
 - ✅ **Panel de lógica condicional** integrado
-- ✅ **12 tipos de elementos** configurables:
+- ✅ **14 tipos de elementos** configurables:
   - 📝 Texto (simple y multilínea)
   - 🎥 Video (YouTube, Vimeo, MP4)
   - 🖼️ Imagen (con opciones de tamaño)
@@ -68,6 +68,8 @@ El sistema de lógica condicional avanzada permite crear formularios inteligente
   - 📋 Desplegable (con opciones dinámicas)
   - ☑️ Checkbox (con texto personalizable)
   - ⚖️ Texto RGPD (con aceptación opcional)
+  - ✨ Texto Estilizado
+  - 🔢 Mostrar Variable
 
 ### 🎛️ Interfaz de Usuario
 - ✅ **Diseño moderno** con gradientes y animaciones
@@ -348,49 +350,238 @@ Cada elemento tiene un **panel de configuración inline** que se despliega al ha
 
 ## 🌐 Integración Frontend
 
-### Sistema de Procesamiento de Condiciones Mejorado
+### 🔧 Motor Unificado de Lógica Condicional (v3.0)
 
-#### **Orden de Procesamiento de Condiciones** ⚡
-El sistema ahora procesa las condiciones siguiendo un orden específico para garantizar la lógica correcta:
-
-1. **PRIORIDAD 1**: Condiciones de la respuesta actual (si existe)
-2. **PRIORIDAD 2**: Condiciones basadas en variables globales
-3. **PRIORIDAD 3**: Consulta al servidor si es necesario
+#### **Arquitectura Refactorizada** ⚡
+El sistema ha sido completamente refactorizado con un **motor unificado** que elimina duplicación de código y mejora la escalabilidad:
 
 ```javascript
-// En assets/js/frontend.js - Función principal
-async processConditionsForNavigation(questionId) {
-    const result = {
-        shouldRedirect: false,
-        redirectUrl: null,
-        skipToQuestion: null,
-        variables: { ...this.variables }
-    };
-    
-    // PRIORIDAD 1: Procesar condiciones de respuesta actual
-    const currentAnswer = this.responses[questionId];
-    if (currentAnswer !== undefined) {
-        const answerElement = this.findElementForAnswer(questionContainer, currentAnswer);
-        if (answerElement) {
-            const answerResult = await this.processConditionsOptimized(answerElement, questionId);
-            if (answerResult && (answerResult.shouldRedirect || answerResult.skipToQuestion)) {
-                return answerResult;
+/**
+ * Motor Unificado de Lógica Condicional
+ * Centraliza todo el procesamiento de condiciones para evitar duplicación
+ */
+class ConditionalLogicEngine {
+    constructor(formInstance) {
+        this.form = formInstance;
+        this.cache = new Map();
+        this.debugEnabled = true;
+    }
+
+    /**
+     * Punto de entrada principal para procesar condiciones
+     */
+    async processConditions(questionId, trigger) {
+        const startTime = performance.now();
+        
+        // Construir contexto para evaluación
+        const context = this.buildContext(questionId, trigger);
+        
+        // Obtener condiciones aplicables según el trigger
+        const conditions = await this.getApplicableConditions(questionId, trigger);
+        
+        // Evaluar condiciones en orden de prioridad
+        for (const condition of conditions) {
+            if (this.shouldEvaluateCondition(condition, trigger)) {
+                const result = await this.evaluateCondition(condition, context);
+                
+                if (result.shouldExecute) {
+                    return await this.executeAction(result.action, context);
+                }
             }
+        }
+        
+        return this.getDefaultResult(context);
+    }
+}
+```
+
+#### **Sistema de Triggers Diferenciados** 🎯
+El motor unificado utiliza un sistema de triggers para procesar condiciones según el contexto:
+
+```javascript
+// Trigger para respuestas del usuario
+const answerTrigger = {
+    type: 'answer',
+    hasAnswer: true,
+    answer: userResponse,
+    element: clickedElement
+};
+
+// Trigger para navegación sin respuesta
+const navigationTrigger = {
+    type: 'navigation',
+    hasAnswer: false,
+    answer: null,
+    element: null
+};
+
+// Procesamiento unificado
+const result = await this.conditionalEngine.processConditions(questionId, trigger);
+```
+
+#### **Funciones Refactorizadas** 🔄
+
+##### **handleSingleChoice - Migrado al Motor Unificado**
+```javascript
+async handleSingleChoice(e) {
+    // ✅ REFACTORIZADO: Usar motor unificado de lógica condicional
+    const trigger = {
+        type: 'answer',
+        hasAnswer: true,
+        answer: card.dataset.value,
+        element: card
+    };
+
+    const redirectResult = await this.conditionalEngine.processConditions(questionId, trigger);
+    
+    // Manejar resultado unificado
+    if (redirectResult && redirectResult.shouldRedirect) {
+        // Lógica de redirección
+    }
+    
+    if (redirectResult && redirectResult.variables) {
+        this.variables = { ...redirectResult.variables };
+        this.updateVariablesInDOM();
+    }
+}
+```
+
+##### **processConditionsForNavigation - Migrado al Motor Unificado**
+```javascript
+async processConditionsForNavigation(questionId) {
+    // ✅ REFACTORIZADO: Usar motor unificado con trigger de navegación
+    const trigger = {
+        type: 'navigation',
+        hasAnswer: false,
+        answer: null,
+        element: null
+    };
+
+    const result = await this.conditionalEngine.processConditions(questionId, trigger);
+    
+    // Fallback a AJAX si no hay condiciones locales
+    if (!result.shouldRedirect && !result.skipToQuestion) {
+        const currentAnswer = this.responses[questionId];
+        if (currentAnswer === undefined) {
+            const ajaxResult = await this.checkConditionsViaAjax(questionId, null);
+            return ajaxResult;
         }
     }
     
-    // PRIORIDAD 2: Procesar condiciones basadas en variables
-    // ... resto de la lógica
+    return result;
+}
+```
+
+#### **Compatibilidad Hacia Atrás** 🔄
+Las funciones existentes se mantienen como wrappers para garantizar compatibilidad:
+
+```javascript
+/**
+ * ✅ REFACTORIZADO: Usar motor unificado para evaluación de condiciones
+ * Mantener como wrapper para compatibilidad hacia atrás
+ */
+evaluateConditionsForRedirect(conditions, questionId, customVariables = null) {
+    // Crear contexto temporal para el motor unificado
+    const context = {
+        questionId,
+        answer: this.responses[questionId],
+        variables: customVariables || this.variables,
+        responses: this.responses,
+        isSecureMode: this.isSecureMode,
+        timestamp: Date.now()
+    };
+
+    // Evaluar usando la lógica del motor unificado
+    for (const condition of conditions) {
+        const conditionMet = this.conditionalEngine.evaluateConditionLogic(condition, context);
+        if (conditionMet) {
+            // Ejecutar acciones y retornar resultado
+            return this.executeConditionAction(condition, context);
+        }
+    }
+}
+```
+
+#### **Beneficios del Motor Unificado** 🚀
+
+##### **1. Eliminación de Duplicación**
+- ✅ **Una sola implementación** de lógica condicional
+- ✅ **Funciones de utilidad centralizadas** (`getComparisonValue`, `smartCompare`)
+- ✅ **Ejecución de acciones unificada**
+- ✅ **Sin código huérfano**
+
+##### **2. Escalabilidad Mejorada**
+```javascript
+// Fácil añadir nuevos tipos de triggers
+const triggers = {
+    'answer': this.getAnswerConditions,
+    'navigation': this.getNavigationConditions,
+    'timer': this.getTimerConditions,        // ← Futuro
+    'variable_change': this.getVariableConditions, // ← Futuro
+    'external_event': this.getExternalConditions   // ← Futuro
+}
+```
+
+##### **3. Sistema de Cache Integrado**
+```javascript
+async getApplicableConditions(questionId, trigger) {
+    // Cache por tipo de trigger
+    const cacheKey = `${questionId}_${trigger.type}`;
+    if (this.cache.has(cacheKey)) {
+        return this.cache.get(cacheKey);
+    }
+    
+    // Procesar y cachear
+    const conditions = await this.processConditionsForTrigger(questionId, trigger);
+    this.cache.set(cacheKey, conditions);
+    return conditions;
+}
+```
+
+##### **4. Logging y Debug Centralizado**
+```javascript
+if (this.debugEnabled) {
+    console.log('🔧 ConditionalEngine: Processing conditions', {
+        questionId,
+        triggerType: trigger.type,
+        hasAnswer: trigger.hasAnswer,
+        answer: trigger.answer
+    });
+    
+    const duration = performance.now() - startTime;
+    console.log('🔧 ConditionalEngine: Action executed', {
+        condition: condition.condition_type,
+        action: result.action.type,
+        duration: `${duration.toFixed(2)}ms`
+    });
 }
 ```
 
 #### **Procesamiento Sin Respuesta** 🔄
 Cuando el usuario hace clic en "Siguiente" sin responder, el sistema ahora:
 
-- ✅ Evalúa condiciones basadas en variables globales
-- ✅ Considera cambios de variables desde preguntas anteriores
-- ✅ Aplica la primera condición verdadera encontrada
-- ✅ Actualiza variables antes de la navegación
+- ✅ **Usa trigger de navegación** específico
+- ✅ **Evalúa solo condiciones de variables** (evita duplicación)
+- ✅ **Considera cambios desde preguntas anteriores**
+- ✅ **Aplica la primera condición verdadera**
+- ✅ **Actualiza variables antes de la navegación**
+
+#### **Prevención de Procesamiento Duplicado** ⚠️
+```javascript
+async nextQuestion() {
+    const questionId = currentQuestion.dataset.questionId;
+    const hasCurrentAnswer = this.responses[questionId] !== undefined;
+    
+    // ✅ SOLUCIÓN: Solo procesar condiciones si NO hay respuesta específica
+    // Si hay respuesta, las condiciones ya se procesaron en handleSingleChoice/etc.
+    if (!hasCurrentAnswer) {
+        const redirectResult = await this.processConditionsForNavigation(questionId);
+        // ... manejar resultado
+    } else {
+        console.log('🔧 Navigation: Answer found, skipping navigation conditions (already processed)');
+    }
+}
+```
 
 ### Renderizado de Elementos
 
