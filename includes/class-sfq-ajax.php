@@ -375,11 +375,13 @@ class SFQ_Ajax {
         $updated_variables = $variables; // Trabajar con una copia
         $has_conditional_navigation = false; // ✅ NUEVO: Flag para detectar navegación condicional real
         
-        foreach ($conditions as $condition) {
-            error_log('SFQ Debug: Evaluating condition: ' . json_encode($condition));
+        // ✅ CORREGIDO: Usar for loop para detenerse en la primera condición que coincida
+        for ($i = 0; $i < count($conditions); $i++) {
+            $condition = $conditions[$i];
+            error_log('SFQ Debug: Evaluating condition ' . ($i + 1) . ' of ' . count($conditions) . ': ' . json_encode($condition));
             
             if ($this->evaluate_condition($condition, $answer, $updated_variables)) {
-                error_log('SFQ Debug: Condition matched! Executing action: ' . $condition->action_type);
+                error_log('SFQ Debug: Condition matched! Executing action: ' . $condition->action_type . ' (stopping evaluation)');
                 
                 // ✅ CRÍTICO: Ejecutar acciones de variables correctamente
                 switch ($condition->action_type) {
@@ -422,8 +424,11 @@ class SFQ_Ajax {
                         error_log('SFQ Debug: Show message action: ' . $condition->action_value);
                         break;
                 }
+                
+                // ✅ CRÍTICO: Salir del bucle después de la primera condición que coincida
+                break;
             } else {
-                error_log('SFQ Debug: Condition did not match');
+                error_log('SFQ Debug: Condition ' . ($i + 1) . ' did not match, continuing...');
             }
         }
         

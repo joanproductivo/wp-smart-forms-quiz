@@ -712,10 +712,15 @@
                 variables: { ...this.variables } // Empezar con variables actuales
             };
             
+            console.log('SFQ Frontend: Evaluating conditions for question:', questionId, 'with answer:', answer);
             
-            for (const condition of conditions) {
+            // ✅ CORREGIDO: Usar for loop con índice para poder hacer break correctamente
+            for (let i = 0; i < conditions.length; i++) {
+                const condition = conditions[i];
+                console.log('SFQ Frontend: Evaluating condition', (i + 1), 'of', conditions.length, ':', condition);
                 
                 if (this.evaluateConditionImmediate(condition, answer, questionId)) {
+                    console.log('SFQ Frontend: Condition matched! Executing action:', condition.action_type, '(stopping evaluation)');
                     
                     // ✅ CRÍTICO: Ejecutar acciones de variables correctamente
                     switch (condition.action_type) {
@@ -731,32 +736,40 @@
                             const currentValue = result.variables[varName] || 0;
                             const newValue = currentValue + varAmount;
                             result.variables[varName] = newValue;
-                            
+                            console.log('SFQ Frontend: Added', varAmount, 'to variable', varName, '(', currentValue, '->', newValue, ')');
                             break;
                             
                         case 'set_variable':
                             const setVarName = condition.action_value;
                             const setValue = condition.variable_amount;
                             result.variables[setVarName] = setValue;
-                            
+                            console.log('SFQ Frontend: Set variable', setVarName, 'to', setValue);
                             break;
                             
                         case 'goto_question':
                             result.skipToQuestion = condition.action_value;
+                            console.log('SFQ Frontend: Will skip to question:', condition.action_value);
                             break;
                             
                         case 'skip_to_end':
                             result.skipToQuestion = 'end';
+                            console.log('SFQ Frontend: Will skip to end');
                             break;
                             
                         case 'show_message':
                             // Los mensajes se pueden manejar aquí en el futuro
+                            console.log('SFQ Frontend: Show message action:', condition.action_value);
                             break;
                     }
+                    
+                    // ✅ CRÍTICO: Salir del bucle después de la primera condición que coincida
+                    break;
                 } else {
+                    console.log('SFQ Frontend: Condition', (i + 1), 'did not match, continuing...');
                 }
             }
             
+            console.log('SFQ Frontend: Final result:', result);
             return result;
         }
 
