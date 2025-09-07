@@ -522,6 +522,26 @@ class SFQ_Ajax {
             $question_index
         );
         
+        // ✅ SOLUCIÓN CORREGIDA: Si no se encuentra pregunta por índice y se acabaron las preguntas normales,
+        // ir a la pantalla final por defecto del sistema (no a pantallas finales personalizadas)
+        if (!$target_question && $question_index !== null) {
+            // Verificar si el índice está fuera del rango de preguntas normales
+            if ($question_index >= count($separated_questions['normal'])) {
+                // Se acabaron las preguntas normales, ir a pantalla final por defecto del sistema
+                error_log('SFQ Secure: No more normal questions, going to default system final screen');
+                
+                // Finalizar formulario con pantalla por defecto del sistema
+                wp_send_json_success(array(
+                    'html' => null,
+                    'is_last_question' => true,
+                    'form_completed' => true,
+                    'use_default_final_screen' => true, // ✅ NUEVO: Indicar que use la pantalla por defecto
+                    'message' => __('Formulario completado - usar pantalla final por defecto', 'smart-forms-quiz')
+                ));
+                return;
+            }
+        }
+        
         if (!$target_question) {
             wp_send_json_error(array(
                 'message' => __('Pregunta no encontrada', 'smart-forms-quiz'),
@@ -865,13 +885,13 @@ class SFQ_Ajax {
                 if (!empty($element_value)) {
                     echo '<div class="sfq-freestyle-video">';
                     // Detectar si es URL de YouTube/Vimeo o archivo directo
-                    if (strpos($element_value, 'youtube.com') !== false || strpos($element_value, 'youtu.be') !== false) {
+                    if (is_string($element_value) && !empty($element_value) && (strpos($element_value, 'youtube.com') !== false || strpos($element_value, 'youtu.be') !== false)) {
                         // YouTube embed
                         $video_id = $this->extract_youtube_id($element_value);
                         if ($video_id) {
                             echo '<iframe src="https://www.youtube.com/embed/' . esc_attr($video_id) . '" frameborder="0" allowfullscreen></iframe>';
                         }
-                    } elseif (strpos($element_value, 'vimeo.com') !== false) {
+                    } elseif (is_string($element_value) && !empty($element_value) && strpos($element_value, 'vimeo.com') !== false) {
                         // Vimeo embed
                         $video_id = $this->extract_vimeo_id($element_value);
                         if ($video_id) {

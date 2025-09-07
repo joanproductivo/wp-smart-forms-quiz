@@ -554,6 +554,7 @@
     background: var(--sfq-primary-color);
     color: white;
     box-shadow: 0 4px 14px rgba(var(--sfq-primary-color), 0.3);
+    margin-top: 1rem;
 }
 
 .sfq-button-primary:hover {
@@ -928,6 +929,8 @@
 .sfq-button-primary {
     background: var(--sfq-primary-color);
     color: white;
+    margin-top: 1rem;
+    box-shadow: 0 4px 14px rgba(var(--sfq-primary-color), 0.3);
 }
 
 .sfq-button-secondary {

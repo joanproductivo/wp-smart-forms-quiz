@@ -10,9 +10,78 @@ if (!defined('ABSPATH')) {
 class SFQ_Migration {
     
     private $database;
+    private static $migration_cache = array();
+    private static $migration_lock = false;
     
     public function __construct() {
         $this->database = new SFQ_Database();
+    }
+    
+    /**
+     * ✅ NUEVO: Verificar si las migraciones ya están en progreso para evitar ejecuciones múltiples
+     */
+    private function is_migration_locked() {
+        if (self::$migration_lock) {
+            return true;
+        }
+        
+        // Verificar lock en base de datos (para múltiples procesos)
+        $lock_option = get_option('sfq_migration_lock', 0);
+        $lock_time = intval($lock_option);
+        
+        // Si el lock tiene más de 5 minutos, considerarlo expirado
+        if ($lock_time > 0 && (time() - $lock_time) > 300) {
+            delete_option('sfq_migration_lock');
+            return false;
+        }
+        
+        return $lock_time > 0;
+    }
+    
+    /**
+     * ✅ NUEVO: Establecer lock de migración
+     */
+    private function set_migration_lock() {
+        self::$migration_lock = true;
+        update_option('sfq_migration_lock', time());
+    }
+    
+    /**
+     * ✅ NUEVO: Liberar lock de migración
+     */
+    private function release_migration_lock() {
+        self::$migration_lock = false;
+        delete_option('sfq_migration_lock');
+    }
+    
+    /**
+     * ✅ NUEVO: Función helper para validación segura de strings
+     */
+    private function safe_string_check($haystack, $needle) {
+        if (!is_string($haystack) || empty($haystack)) {
+            return false;
+        }
+        
+        if (!is_string($needle) || empty($needle)) {
+            return false;
+        }
+        
+        return strpos($haystack, $needle) !== false;
+    }
+    
+    /**
+     * ✅ NUEVO: Función helper para reemplazo seguro de strings
+     */
+    private function safe_string_replace($search, $replace, $subject) {
+        if (!is_string($subject) || empty($subject)) {
+            return $subject;
+        }
+        
+        if (!is_string($search) || !is_string($replace)) {
+            return $subject;
+        }
+        
+        return str_replace($search, $replace, $subject);
     }
     
     /**
@@ -203,37 +272,116 @@ class SFQ_Migration {
     }
     
     /**
-     * Ejecutar todas las migraciones pendientes
+     * ✅ OPTIMIZADO: Ejecutar todas las migraciones pendientes con sistema de locks
      */
     public function run_all_migrations() {
+        // Verificar si las migraciones ya están en progreso
+        if ($this->is_migration_locked()) {
+            return array(
+                'success' => false,
+                'message' => 'Las migraciones ya están en progreso. Intenta de nuevo en unos minutos.',
+                'locked' => true
+            );
+        }
+        
+        // Verificar si realmente necesitamos ejecutar migraciones
+        if (!$this->is_migration_needed()) {
+            return array(
+                'success' => true,
+                'message' => 'Todas las migraciones ya están aplicadas',
+                'migrated_records' => 0,
+                'skipped' => true
+            );
+        }
+        
+        // Establecer lock para evitar ejecuciones múltiples
+        $this->set_migration_lock();
+        
         $results = array();
         
-        // Migración 1: Añadir campo comparison_value
-        if ($this->is_migration_needed()) {
-            $results['comparison_value'] = $this->migrate_add_comparison_value_field();
-        } else {
-            $results['comparison_value'] = array(
-                'success' => true,
-                'message' => 'Migración comparison_value ya aplicada',
-                'migrated_records' => 0
+        try {
+            // Migración 1: Añadir campo comparison_value
+            $comparison_needed = $this->is_comparison_field_migration_needed();
+            if ($comparison_needed) {
+                $results['comparison_value'] = $this->migrate_add_comparison_value_field();
+            } else {
+                $results['comparison_value'] = array(
+                    'success' => true,
+                    'message' => 'Migración comparison_value ya aplicada',
+                    'migrated_records' => 0
+                );
+            }
+            
+            // Migración 2: Crear tabla de respuestas parciales
+            if ($this->is_partial_table_migration_needed()) {
+                $results['partial_responses_table'] = $this->migrate_create_partial_responses_table();
+            } else {
+                $results['partial_responses_table'] = array(
+                    'success' => true,
+                    'message' => 'Tabla sfq_partial_responses ya existe',
+                    'migrated_records' => 0
+                );
+            }
+            
+            // Verificar que todas las migraciones fueron exitosas
+            $all_successful = true;
+            foreach ($results as $migration_result) {
+                if (!$migration_result['success']) {
+                    $all_successful = false;
+                    break;
+                }
+            }
+            
+            if ($all_successful) {
+                // Actualizar versión de la base de datos solo si todo fue exitoso
+                update_option('sfq_db_version', '1.2.0');
+                update_option('sfq_last_migration_run', time());
+            }
+            
+            return array(
+                'success' => $all_successful,
+                'message' => $all_successful ? 'Todas las migraciones completadas exitosamente' : 'Algunas migraciones fallaron',
+                'results' => $results,
+                'db_version' => $all_successful ? '1.2.0' : get_option('sfq_db_version', '1.0.0')
             );
+            
+        } catch (Exception $e) {
+            error_log('SFQ Migration Error: ' . $e->getMessage());
+            
+            return array(
+                'success' => false,
+                'message' => 'Error durante las migraciones: ' . $e->getMessage(),
+                'results' => $results
+            );
+            
+        } finally {
+            // Siempre liberar el lock
+            $this->release_migration_lock();
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Verificar específicamente si la migración del campo comparison_value es necesaria
+     */
+    private function is_comparison_field_migration_needed() {
+        // Usar cache para evitar consultas repetidas
+        if (isset(self::$migration_cache['comparison_field_needed'])) {
+            return self::$migration_cache['comparison_field_needed'];
         }
         
-        // ✅ NUEVO: Migración 2: Crear tabla de respuestas parciales
-        if ($this->is_partial_table_migration_needed()) {
-            $results['partial_responses_table'] = $this->migrate_create_partial_responses_table();
-        } else {
-            $results['partial_responses_table'] = array(
-                'success' => true,
-                'message' => 'Tabla sfq_partial_responses ya existe',
-                'migrated_records' => 0
-            );
-        }
+        global $wpdb;
+        $conditions_table = $wpdb->prefix . 'sfq_conditions';
         
-        // Actualizar versión de la base de datos
-        update_option('sfq_db_version', '1.2.0');
+        // Verificar si el campo comparison_value existe
+        $column_exists = $wpdb->get_results($wpdb->prepare(
+            "SHOW COLUMNS FROM {$conditions_table} LIKE %s",
+            'comparison_value'
+        ));
         
-        return $results;
+        $needed = empty($column_exists);
+        self::$migration_cache['comparison_field_needed'] = $needed;
+        
+        return $needed;
     }
     
     /**

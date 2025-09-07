@@ -980,7 +980,7 @@ class SFQ_Database {
         }
         
         // Asegurar que empiece con #
-        if (is_string($color) && strpos($color, '#') !== 0) {
+        if (is_string($color) && !empty($color) && strpos($color, '#') !== 0) {
             $color = '#' . $color;
         }
         

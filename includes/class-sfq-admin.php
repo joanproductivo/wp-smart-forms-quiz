@@ -28,7 +28,7 @@ class SFQ_Admin {
      */
     public function enqueue_admin_scripts($hook) {
         // Solo cargar en las páginas del plugin
-        if (!is_string($hook) || (strpos($hook, 'smart-forms-quiz') === false && strpos($hook, 'sfq-') === false)) {
+        if (!is_string($hook) || empty($hook) || (strpos($hook, 'smart-forms-quiz') === false && strpos($hook, 'sfq-') === false)) {
             return;
         }
         

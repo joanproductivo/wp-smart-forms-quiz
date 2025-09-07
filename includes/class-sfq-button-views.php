@@ -189,7 +189,9 @@ class SFQ_Button_Views {
         ));
         
         // Total de clics únicos (sesiones únicas que hicieron clic)
-        $click_conditions = str_replace("event_type = 'button_view'", "event_type = 'button_click_immediate'", $where_clause);
+        $click_conditions = is_string($where_clause) && !empty($where_clause) ? 
+            str_replace("event_type = 'button_view'", "event_type = 'button_click_immediate'", $where_clause) : 
+            "event_type = 'button_click_immediate'";
         $unique_clicks = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(DISTINCT session_id) FROM {$wpdb->prefix}sfq_analytics WHERE {$click_conditions}",
             $params

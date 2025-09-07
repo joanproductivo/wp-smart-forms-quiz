@@ -161,7 +161,7 @@ class SFQ_Webhooks {
             }
             
             // Permitir coincidencia de URL completa
-            if (strpos($url, $trusted_url) === 0) {
+            if (is_string($url) && is_string($trusted_url) && !empty($url) && !empty($trusted_url) && strpos($url, $trusted_url) === 0) {
                 return true;
             }
         }

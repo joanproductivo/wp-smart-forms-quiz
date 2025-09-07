@@ -390,7 +390,7 @@ class SFQ_WP_Rocket_Compat {
         $widget_options = get_option('widget_text', array());
         foreach ($widget_options as $widget) {
             if (is_array($widget) && isset($widget['text']) && 
-                is_string($widget['text']) && 
+                is_string($widget['text']) && !empty($widget['text']) && 
                 strpos($widget['text'], '[smart_form') !== false) {
                 // Si hay formularios en widgets, excluir todo el sitio de cache dinámico
                 $form_pages[] = '/*';
@@ -407,7 +407,7 @@ class SFQ_WP_Rocket_Compat {
                     $content = isset($widget['content']) ? $widget['content'] : 
                               (isset($widget['text']) ? $widget['text'] : '');
                     
-                    if (is_string($content) && strpos($content, '[smart_form') !== false) {
+                    if (is_string($content) && !empty($content) && strpos($content, '[smart_form') !== false) {
                         $form_pages[] = '/*';
                         return; // No necesitamos seguir buscando
                     }
@@ -479,7 +479,7 @@ class SFQ_WP_Rocket_Compat {
      * Verificar si un post contiene formularios
      */
     private function post_contains_forms($post) {
-        if (!$post || !isset($post->post_content)) {
+        if (!$post || !isset($post->post_content) || !is_string($post->post_content) || empty($post->post_content)) {
             return false;
         }
         
@@ -969,7 +969,7 @@ class SFQ_WP_Rocket_Compat {
             foreach ($blocks as $block) {
                 if ($block['blockName'] === 'core/shortcode' && 
                     isset($block['attrs']['text']) && 
-                    is_string($block['attrs']['text']) &&
+                    is_string($block['attrs']['text']) && !empty($block['attrs']['text']) &&
                     strpos($block['attrs']['text'], 'smart_form') !== false) {
                     return true;
                 }

@@ -3436,28 +3436,42 @@
 
                 if (result.success && result.data) {
                     if (result.data.html) {
-                        // Insertar nueva pregunta en el contenedor dinámico
-                        this.insertDynamicQuestion(result.data.html, result.data.question_index);
-                        
-                        // Actualizar índice de pregunta actual
-                        this.currentQuestionIndex = result.data.question_index;
-                        this.questionStartTime = Date.now();
-                        
-                        // Actualizar progreso
-                        this.updateProgress();
-                        
+                        // ✅ SOLUCIÓN: Verificar si es una pantalla final
+                        if (result.data.is_final_screen) {
+                          
+                            
+                            // Para pantallas finales, usar método específico
+                            this.insertDynamicFinalScreen(result.data.html, result.data.question_id);
+                            
+                            // Marcar como completado silenciosamente
+                            await this.markFormAsCompleted();
+                        } else {
+                            // Insertar nueva pregunta normal en el contenedor dinámico
+                            this.insertDynamicQuestion(result.data.html, result.data.question_index);
+                            
+                            // Actualizar índice de pregunta actual
+                            this.currentQuestionIndex = result.data.question_index;
+                            this.questionStartTime = Date.now();
+                            
+                            // Actualizar progreso
+                            this.updateProgress();
+                        }
                       
-                    } else if (result.data.is_last_question || result.data.question_index === -1) {
-                        // No hay más preguntas, finalizar formulario
-                       
+                    } else if (result.data.use_default_final_screen) {
+                        // ✅ NUEVA SOLUCIÓN: Usar pantalla final por defecto del sistema
+
+                        this.submitForm();
+                    } else if (result.data.is_last_question || result.data.form_completed) {
+                        // ✅ SOLUCIÓN: Manejar finalización cuando no hay pantallas finales
+                      
                         this.submitForm();
                     }
                 } else {
-                    console.error('SFQ Secure: Failed to load question:', result);
+
                     this.showError('Error al cargar la siguiente pregunta.');
                 }
             } catch (error) {
-                console.error('SFQ Secure: Error loading next question:', error);
+            
                 this.showError('Error de conexión al cargar la siguiente pregunta.');
             }
         }
@@ -3519,11 +3533,11 @@
                        
                     }
                 } else {
-                    console.error('SFQ Secure: Failed to load specific question:', result);
+            
                     this.showError('Error al cargar la pregunta solicitada.');
                 }
             } catch (error) {
-                console.error('SFQ Secure: Error loading specific question:', error);
+
                 this.showError('Error de conexión al cargar la pregunta.');
             }
         }
@@ -3619,7 +3633,7 @@
                 finalScreenElement = dynamicContainer.querySelector('.sfq-screen');
                 
                 if (finalScreenElement) {
-                    console.log('SFQ Secure: Found .sfq-screen, adding final screen class');
+          
                     finalScreenElement.classList.add('sfq-final-screen');
                 } else {
                     console.error('SFQ Secure: No screen element found in HTML');
