@@ -26,14 +26,7 @@
         async processConditions(questionId, trigger) {
             const startTime = performance.now();
             
-            if (this.debugEnabled) {
-                console.log('🔧 ConditionalEngine: Processing conditions', {
-                    questionId,
-                    triggerType: trigger.type,
-                    hasAnswer: trigger.hasAnswer,
-                    answer: trigger.answer
-                });
-            }
+           
 
             try {
                 // Construir contexto para evaluación
@@ -54,14 +47,7 @@
                         if (result.shouldExecute) {
                             const actionResult = await this.executeAction(result.action, context);
                             
-                            if (this.debugEnabled) {
-                                const duration = performance.now() - startTime;
-                                console.log('🔧 ConditionalEngine: Action executed', {
-                                    condition: condition.condition_type,
-                                    action: result.action.type,
-                                    duration: `${duration.toFixed(2)}ms`
-                                });
-                            }
+                          
                             
                             return actionResult;
                         }

@@ -57,20 +57,14 @@ class SFQ_Admin {
             SFQ_VERSION
         );
         
-        // Cargar JavaScript del builder
-        wp_enqueue_script(
-            'sfq-admin-builder-v2',
-            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2.js',
-            array('jquery', 'jquery-ui-sortable', 'wp-color-picker'),
-            SFQ_VERSION,
-            true
-        );
+        // ✅ ARQUITECTURA MODULAR: Cargar módulos individuales
+        $this->enqueue_modular_scripts();
         
         // Cargar JavaScript del preview manager
         wp_enqueue_script(
             'sfq-preview-manager',
             SFQ_PLUGIN_URL . 'assets/js/preview-manager.js',
-            array('jquery', 'sfq-admin-builder-v2'),
+            array('jquery', 'sfq-form-builder-core'),
             SFQ_VERSION,
             true
         );
@@ -3666,6 +3660,148 @@ class SFQ_Admin {
         add_action('admin_notices', function() {
             echo '<div class="notice notice-success is-dismissible"><p>' . __('Configuración guardada correctamente', 'smart-forms-quiz') . '</p></div>';
         });
+    }
+    
+    /**
+     * ✅ ARQUITECTURA MODULAR: Cargar scripts modulares en orden correcto
+     */
+    private function enqueue_modular_scripts() {
+        // 1. CONFIGURACIÓN Y CONSTANTES (base del sistema)
+        wp_enqueue_script(
+            'sfq-constants',
+            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/config/Constants.js',
+            array('jquery'),
+            SFQ_VERSION,
+            true
+        );
+        
+        wp_enqueue_script(
+            'sfq-element-types',
+            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/config/ElementTypes.js',
+            array('sfq-constants'),
+            SFQ_VERSION,
+            true
+        );
+        
+        // 2. NÚCLEO DEL SISTEMA (clases fundamentales)
+        wp_enqueue_script(
+            'sfq-state-manager',
+            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/core/StateManager.js',
+            array('sfq-element-types'),
+            SFQ_VERSION,
+            true
+        );
+        
+        wp_enqueue_script(
+            'sfq-data-validator',
+            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/components/DataValidator.js',
+            array('sfq-state-manager'),
+            SFQ_VERSION,
+            true
+        );
+        
+        // 3. COMPONENTES ESPECIALIZADOS
+        wp_enqueue_script(
+            'sfq-ui-renderer',
+            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/components/UIRenderer.js',
+            array('sfq-data-validator'),
+            SFQ_VERSION,
+            true
+        );
+        
+        wp_enqueue_script(
+            'sfq-freestyle-elements',
+            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/components/FreestyleElements.js',
+            array('sfq-ui-renderer'),
+            SFQ_VERSION,
+            true
+        );
+        
+        wp_enqueue_script(
+            'sfq-image-manager',
+            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/components/ImageManager.js',
+            array('sfq-freestyle-elements'),
+            SFQ_VERSION,
+            true
+        );
+        
+        wp_enqueue_script(
+            'sfq-variable-manager',
+            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/components/VariableManager.js',
+            array('sfq-image-manager'),
+            SFQ_VERSION,
+            true
+        );
+        
+        wp_enqueue_script(
+            'sfq-style-manager',
+            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/components/StyleManager.js',
+            array('sfq-variable-manager'),
+            SFQ_VERSION,
+            true
+        );
+        
+        // 4. GESTORES DE FUNCIONALIDAD
+        wp_enqueue_script(
+            'sfq-event-manager',
+            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/managers/EventManager.js',
+            array('sfq-style-manager'),
+            SFQ_VERSION,
+            true
+        );
+        
+        wp_enqueue_script(
+            'sfq-condition-engine',
+            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/managers/ConditionEngine.js',
+            array('sfq-event-manager'),
+            SFQ_VERSION,
+            true
+        );
+        
+        wp_enqueue_script(
+            'sfq-question-manager',
+            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/managers/QuestionManager.js',
+            array('sfq-condition-engine'),
+            SFQ_VERSION,
+            true
+        );
+        
+        // 5. CONTROLADOR PRINCIPAL (depende de todos los anteriores)
+        wp_enqueue_script(
+            'sfq-form-builder-core',
+            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/core/FormBuilderCore.js',
+            array('sfq-question-manager'),
+            SFQ_VERSION,
+            true
+        );
+        
+        // 6. PUNTO DE ENTRADA PRINCIPAL (inicializa todo el sistema)
+        wp_enqueue_script(
+            'sfq-main',
+            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/main.js',
+            array('sfq-form-builder-core', 'jquery-ui-sortable', 'wp-color-picker'),
+            SFQ_VERSION,
+            true
+        );
+        
+        // Localizar el script principal con datos AJAX
+        wp_localize_script('sfq-main', 'sfq_ajax', array(
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('sfq_nonce'),
+            'strings' => array(
+                'confirm_delete' => __('¿Estás seguro de eliminar esta pregunta?', 'smart-forms-quiz'),
+                'confirm_delete_form' => __('¿Estás seguro de eliminar este formulario?', 'smart-forms-quiz'),
+                'saving' => __('Guardando...', 'smart-forms-quiz'),
+                'saved' => __('Guardado', 'smart-forms-quiz'),
+                'error' => __('Error', 'smart-forms-quiz'),
+                'loading' => __('Cargando...', 'smart-forms-quiz')
+            )
+        ));
+        
+        // Log para debugging
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('SFQ: Loaded modular architecture scripts successfully');
+        }
     }
     
 }

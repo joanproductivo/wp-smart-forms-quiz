@@ -172,15 +172,8 @@ class SFQ_Loader {
             $admin_css_version
         );
         
-        // JavaScript admin - Arquitectura optimizada - con versionado automático
-        $admin_js_version = $this->get_asset_version('assets/js/admin-builder-v2.js');
-        wp_enqueue_script(
-            'sfq-admin',
-            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2.js',
-            array('jquery', 'jquery-ui-sortable', 'wp-color-picker'),
-            $admin_js_version,
-            true
-        );
+        // JavaScript admin - Los módulos se cargan desde SFQ_Admin
+        // (Eliminado para evitar duplicación - SFQ_Admin maneja la carga de módulos)
         
         // JavaScript para la lista de formularios (página principal) - con versionado automático
         if ($hook === 'toplevel_page_smart-forms-quiz') {
@@ -283,28 +276,11 @@ class SFQ_Loader {
             ));
         }
         
-        // Localización para AJAX en admin - DEBE ir después de enqueue_script
-        wp_localize_script('sfq-admin', 'sfq_ajax', array(
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('sfq_nonce'),
-            'rest_url' => rest_url('sfq/v1/'),
-            'plugin_url' => SFQ_PLUGIN_URL,
-            'strings' => array(
-                'saving' => __('Guardando...', 'smart-forms-quiz'),
-                'saved' => __('Guardado correctamente', 'smart-forms-quiz'),
-                'error' => __('Error al guardar', 'smart-forms-quiz'),
-                'confirm_delete' => __('¿Estás seguro de eliminar esta pregunta?', 'smart-forms-quiz'),
-                'confirm_delete_form' => __('¿Estás seguro de eliminar este formulario?', 'smart-forms-quiz'),
-                'loading' => __('Cargando...', 'smart-forms-quiz'),
-                'preview' => __('Vista previa', 'smart-forms-quiz'),
-                'add_option' => __('Añadir opción', 'smart-forms-quiz'),
-                'required_fields' => __('Por favor completa todos los campos requeridos', 'smart-forms-quiz')
-            )
-        ));
+        // Localización para AJAX en admin - Ahora se maneja desde SFQ_Admin
+        // (Eliminado para evitar duplicación - SFQ_Admin maneja la localización)
         
-        
-        // Añadir estilos inline para loading y notices
-        wp_add_inline_style('sfq-admin', $this->get_admin_inline_styles());
+        // Estilos inline - Ahora se manejan desde SFQ_Admin
+        // (Eliminado para evitar duplicación - SFQ_Admin maneja los estilos inline)
     }
     
     public function register_rest_routes() {
