@@ -1078,7 +1078,7 @@
          * Mantener como wrapper para compatibilidad hacia atrás
          */
         evaluateConditionsForRedirect(conditions, questionId, customVariables = null) {
-            console.log('🔧 Legacy: Using legacy wrapper for condition evaluation');
+            
             
             // Crear trigger temporal para el motor unificado
             const trigger = {

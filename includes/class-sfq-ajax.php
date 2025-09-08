@@ -1955,7 +1955,7 @@ class SFQ_Ajax {
     }
     
     /**
-     * Exportar formulario (Admin AJAX)
+     * Exportar formulario (Admin AJAX) - MEJORADO con nueva clase
      */
     public function export_form() {
         // Verificar permisos
@@ -1970,129 +1970,103 @@ class SFQ_Ajax {
             return;
         }
         
-        $form_id = intval($_POST['form_id']);
-        
-        if (!$form_id) {
-            wp_send_json_error(__('ID de formulario inválido', 'smart-forms-quiz'));
+        // Rate limiting para exportación
+        if (!SFQ_Security::check_rate_limit('export_form', 5, 300)) {
+            wp_send_json_error(array(
+                'message' => __('Demasiadas exportaciones. Intenta de nuevo en unos minutos.', 'smart-forms-quiz'),
+                'code' => 'RATE_LIMIT_EXCEEDED'
+            ));
             return;
         }
         
-        // Obtener formulario completo
-        $form = $this->database->get_form($form_id);
+        $form_id = intval($_POST['form_id'] ?? 0);
         
-        if (!$form) {
-            wp_send_json_error(__('Formulario no encontrado', 'smart-forms-quiz'));
+        if (!$form_id) {
+            wp_send_json_error(array(
+                'message' => __('ID de formulario inválido', 'smart-forms-quiz'),
+                'code' => 'INVALID_FORM_ID'
+            ));
             return;
         }
         
         try {
-            // Preparar datos para exportación
-            $export_data = array(
-                'plugin_version' => SFQ_VERSION ?? '1.0.0',
-                'export_date' => current_time('mysql'),
-                'form_data' => array(
-                    'title' => $form->title,
-                    'description' => $form->description,
-                    'type' => $form->type,
-                    'settings' => $form->settings,
-                    'style_settings' => $form->style_settings,
-                    'intro_title' => $form->intro_title,
-                    'intro_description' => $form->intro_description,
-                    'intro_button_text' => $form->intro_button_text,
-                    'thank_you_message' => $form->thank_you_message,
-                    'redirect_url' => $form->redirect_url,
-                    'questions' => array()
-                )
-            );
+            // Usar la nueva clase de exportación/importación
+            $export_import = new SFQ_Export_Import();
+            $result = $export_import->export_form($form_id);
             
-            // Exportar preguntas con todos sus datos
-            if (!empty($form->questions)) {
-                foreach ($form->questions as $question) {
-                    $question_data = array(
-                        'question_text' => $question->question_text,
-                        'question_type' => $question->question_type,
-                        'options' => $question->options,
-                        'settings' => $question->settings,
-                        'required' => $question->required,
-                        'order_position' => $question->order_position,
-                        'variable_name' => $question->variable_name,
-                        'variable_value' => $question->variable_value
-                    );
-                    
-                    // Incluir elementos freestyle si existen
-                    if ($question->question_type === 'freestyle') {
-                        if (isset($question->freestyle_elements)) {
-                            $question_data['freestyle_elements'] = $question->freestyle_elements;
-                        }
-                        if (isset($question->global_settings)) {
-                            $question_data['global_settings'] = $question->global_settings;
-                        }
-                    }
-                    
-                    // Incluir condiciones si existen
-                    if (!empty($question->conditions)) {
-                        $question_data['conditions'] = array();
-                        foreach ($question->conditions as $condition) {
-                            $question_data['conditions'][] = array(
-                                'condition_type' => $condition->condition_type,
-                                'condition_value' => $condition->condition_value,
-                                'action_type' => $condition->action_type,
-                                'action_value' => $condition->action_value,
-                                'variable_operation' => $condition->variable_operation,
-                                'variable_amount' => $condition->variable_amount,
-                                'comparison_value' => $condition->comparison_value ?? '',
-                                'order_position' => $condition->order_position
-                            );
-                        }
-                    }
-                    
-                    $export_data['form_data']['questions'][] = $question_data;
-                }
+            if ($result['success']) {
+                wp_send_json_success(array(
+                    'form_data' => $result['data'],
+                    'filename' => $result['filename'],
+                    'message' => $result['message'],
+                    'export_stats' => $result['data']['export_stats'] ?? []
+                ));
+            } else {
+                wp_send_json_error(array(
+                    'message' => $result['message'],
+                    'code' => 'EXPORT_FAILED',
+                    'debug' => $result['debug'] ?? null
+                ));
             }
-            
-            // Generar nombre de archivo
-            $filename = sanitize_file_name($form->title) . '_' . date('Y-m-d_H-i-s') . '.json';
-            
-            wp_send_json_success(array(
-                'form_data' => $export_data,
-                'filename' => $filename,
-                'message' => __('Formulario exportado correctamente', 'smart-forms-quiz')
-            ));
             
         } catch (Exception $e) {
             error_log('SFQ Error in export_form: ' . $e->getMessage());
-            wp_send_json_error(__('Error al exportar el formulario', 'smart-forms-quiz'));
+            wp_send_json_error(array(
+                'message' => __('Error interno al exportar el formulario', 'smart-forms-quiz'),
+                'code' => 'INTERNAL_ERROR',
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
         }
     }
     
     /**
-     * Importar formulario (Admin AJAX)
+     * Importar formulario (Admin AJAX) - MEJORADO con nueva clase
      */
     public function import_form() {
+        error_log('SFQ Import AJAX: Function called');
+        error_log('SFQ Import AJAX: POST data keys: ' . json_encode(array_keys($_POST)));
+        
         // Verificar permisos
         if (!current_user_can('manage_options')) {
+            error_log('SFQ Import AJAX: Permission denied');
             wp_send_json_error(__('No tienes permisos para realizar esta acción', 'smart-forms-quiz'));
             return;
         }
         
         // Verificar nonce
         if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            error_log('SFQ Import AJAX: Nonce verification failed');
             wp_send_json_error(__('Error de seguridad', 'smart-forms-quiz'));
             return;
         }
         
-        if (!isset($_POST['form_data'])) {
-            wp_send_json_error(__('Datos del formulario no proporcionados', 'smart-forms-quiz'));
+        // Rate limiting para importación
+        if (!SFQ_Security::check_rate_limit('import_form', 3, 300)) {
+            error_log('SFQ Import AJAX: Rate limit exceeded');
+            wp_send_json_error(array(
+                'message' => __('Demasiadas importaciones. Intenta de nuevo en unos minutos.', 'smart-forms-quiz'),
+                'code' => 'RATE_LIMIT_EXCEEDED'
+            ));
             return;
         }
         
-        $import_data = json_decode(stripslashes($_POST['form_data']), true);
+        if (!isset($_POST['form_data'])) {
+            error_log('SFQ Import AJAX: form_data not provided');
+            wp_send_json_error(array(
+                'message' => __('Datos del formulario no proporcionados', 'smart-forms-quiz'),
+                'code' => 'MISSING_FORM_DATA'
+            ));
+            return;
+        }
         
-        // ✅ NUEVO: Log detallado para debugging
-        error_log('SFQ Import Debug: Raw POST data length: ' . strlen($_POST['form_data'] ?? ''));
+        error_log('SFQ Import AJAX: form_data received, length: ' . strlen($_POST['form_data']));
+        error_log('SFQ Import AJAX: form_data preview: ' . substr($_POST['form_data'], 0, 200) . '...');
+        
+        $import_data = json_decode(stripslashes($_POST['form_data']), true);
         
         if ($import_data === null) {
             $json_error = json_last_error_msg();
+            error_log('SFQ Import AJAX: JSON decode failed: ' . $json_error);
             wp_send_json_error(array(
                 'message' => __('Error al decodificar JSON: ', 'smart-forms-quiz') . $json_error,
                 'code' => 'JSON_DECODE_ERROR'
@@ -2101,7 +2075,7 @@ class SFQ_Ajax {
         }
         
         if (!is_array($import_data)) {
-            error_log('SFQ Import Debug: Import data is not array, type: ' . gettype($import_data));
+            error_log('SFQ Import AJAX: Decoded data is not array, type: ' . gettype($import_data));
             wp_send_json_error(array(
                 'message' => __('Los datos importados no tienen el formato correcto', 'smart-forms-quiz'),
                 'code' => 'INVALID_DATA_TYPE'
@@ -2109,185 +2083,41 @@ class SFQ_Ajax {
             return;
         }
         
-        // ✅ NUEVO: Log de estructura completa
-        error_log('SFQ Import Debug: Import data keys: ' . json_encode(array_keys($import_data)));
+        error_log('SFQ Import AJAX: JSON decoded successfully, keys: ' . json_encode(array_keys($import_data)));
         
         try {
-            // ✅ CORREGIDO: Validación más flexible de estructura del archivo
-            $form_data = null;
-            $detection_log = array();
+            // Usar la nueva clase de exportación/importación
+            error_log('SFQ Import AJAX: Creating SFQ_Export_Import instance');
+            $export_import = new SFQ_Export_Import();
             
-            // Caso 1: Estructura de exportación completa (con metadatos)
-            if (isset($import_data['form_data']) && is_array($import_data['form_data'])) {
-                $form_data = $import_data['form_data'];
-                $detection_log[] = 'Detected: Complete export structure with form_data';
-                error_log('SFQ Import Debug: Using form_data structure');
-            }
-            // Caso 2: Estructura directa de formulario (sin metadatos)
-            elseif (isset($import_data['title']) || isset($import_data['questions'])) {
-                $form_data = $import_data;
-                $detection_log[] = 'Detected: Direct form structure (has title or questions)';
-                error_log('SFQ Import Debug: Using direct structure');
-            }
-            // Caso 3: Intentar detectar automáticamente
-            else {
-                // Buscar indicadores de que es un formulario válido
-                $form_indicators = ['title', 'questions', 'type', 'settings', 'description', 'intro_title', 'thank_you_message'];
-                $found_indicators = 0;
-                $found_fields = array();
-                
-                foreach ($form_indicators as $indicator) {
-                    if (isset($import_data[$indicator])) {
-                        $found_indicators++;
-                        $found_fields[] = $indicator;
-                    }
-                }
-                
-                $detection_log[] = "Auto-detection: Found {$found_indicators} indicators: " . implode(', ', $found_fields);
-                error_log('SFQ Import Debug: Auto-detection found ' . $found_indicators . ' indicators: ' . implode(', ', $found_fields));
-                
-                // Si encontramos al menos 1 indicador, asumir que es un formulario directo
-                if ($found_indicators >= 1) {
-                    $form_data = $import_data;
-                    $detection_log[] = 'Auto-detection: Accepted as direct form structure';
-                    error_log('SFQ Import Debug: Auto-detection accepted');
-                }
-            }
+            error_log('SFQ Import AJAX: Calling import_form method');
+            $result = $export_import->import_form($import_data);
             
-            // ✅ NUEVO: Log de detección
-            error_log('SFQ Import Debug: Detection log: ' . implode(' | ', $detection_log));
+            error_log('SFQ Import AJAX: Import result: ' . json_encode($result));
             
-            // Validar que se pudo extraer datos del formulario
-            if (!$form_data || !is_array($form_data)) {
-                error_log('SFQ Import Debug: VALIDATION FAILED - form_data is null or not array');
-                error_log('SFQ Import Debug: form_data type: ' . gettype($form_data));
-                
-                wp_send_json_error(array(
-                    'message' => __('El archivo no contiene un formulario válido', 'smart-forms-quiz'),
-                    'debug' => array(
-                        'import_data_keys' => array_keys($import_data),
-                        'detection_log' => $detection_log,
-                        'form_data_type' => gettype($form_data),
-                        'raw_structure' => WP_DEBUG ? $import_data : 'Enable WP_DEBUG for full structure'
-                    )
-                ));
-                return;
-            }
-            
-            
-            // ✅ CORREGIDO: Validación más flexible - aceptar formularios con título O preguntas
-            $has_title = !empty($form_data['title']);
-            $has_questions = !empty($form_data['questions']) && is_array($form_data['questions']);
-            
-            // ✅ NUEVO: También verificar si es un archivo de exportación válido con plugin_version
-            $is_export_file = isset($import_data['plugin_version']) && isset($import_data['export_date']);
-            
-            error_log('SFQ Import Debug: Has title: ' . ($has_title ? 'YES' : 'NO'));
-            error_log('SFQ Import Debug: Has questions: ' . ($has_questions ? 'YES (' . count($form_data['questions']) . ')' : 'NO'));
-            error_log('SFQ Import Debug: Is export file: ' . ($is_export_file ? 'YES' : 'NO'));
-            
-            // ✅ CORREGIDO: Aceptar si tiene título O preguntas O es un archivo de exportación válido
-            if (!$has_title && !$has_questions && !$is_export_file) {
-                error_log('SFQ Import Debug: VALIDATION FAILED - No title, no questions, and not export file');
-                
-                wp_send_json_error(array(
-                    'message' => __('El archivo no contiene un formulario válido. Debe tener al menos un título o preguntas.', 'smart-forms-quiz'),
-                    'debug' => array(
-                        'has_title' => $has_title,
-                        'has_questions' => $has_questions,
-                        'is_export_file' => $is_export_file,
-                        'form_data_keys' => array_keys($form_data),
-                        'import_data_keys' => array_keys($import_data),
-                        'title_value' => $form_data['title'] ?? 'NOT_SET',
-                        'questions_count' => is_array($form_data['questions'] ?? null) ? count($form_data['questions']) : 'NOT_ARRAY'
-                    )
-                ));
-                return;
-            }
-            
-            // ✅ CORREGIDO: Preparar datos para guardar con título por defecto si no existe
-            $form_title = !empty($form_data['title']) ? $form_data['title'] : 'Formulario Importado';
-            
-            $new_form_data = array(
-                'title' => sanitize_text_field($form_title) . ' (Importado)',
-                'description' => sanitize_textarea_field($form_data['description'] ?? ''),
-                'type' => in_array($form_data['type'] ?? 'form', ['form', 'quiz']) ? $form_data['type'] : 'form',
-                'settings' => is_array($form_data['settings'] ?? null) ? $form_data['settings'] : array(),
-                'style_settings' => is_array($form_data['style_settings'] ?? null) ? $form_data['style_settings'] : array(),
-                'intro_title' => sanitize_text_field($form_data['intro_title'] ?? ''),
-                'intro_description' => sanitize_textarea_field($form_data['intro_description'] ?? ''),
-                'intro_button_text' => sanitize_text_field($form_data['intro_button_text'] ?? ''),
-                'thank_you_message' => sanitize_textarea_field($form_data['thank_you_message'] ?? ''),
-                'redirect_url' => esc_url_raw($form_data['redirect_url'] ?? ''),
-                'status' => 'active',
-                'questions' => array()
-            );
-            
-            // Importar preguntas
-            if (!empty($form_data['questions']) && is_array($form_data['questions'])) {
-                foreach ($form_data['questions'] as $question_data) {
-                    if (!is_array($question_data)) continue;
-                    
-                    $new_question = array(
-                        'question_text' => sanitize_textarea_field($question_data['question_text'] ?? ''),
-                        'question_type' => sanitize_text_field($question_data['question_type'] ?? 'text'),
-                        'options' => is_array($question_data['options'] ?? null) ? $question_data['options'] : array(),
-                        'settings' => is_array($question_data['settings'] ?? null) ? $question_data['settings'] : array(),
-                        'required' => !empty($question_data['required']),
-                        'order_position' => intval($question_data['order_position'] ?? 0),
-                        'variable_name' => sanitize_text_field($question_data['variable_name'] ?? ''),
-                        'variable_value' => sanitize_text_field($question_data['variable_value'] ?? ''),
-                        'conditions' => array()
-                    );
-                    
-                    // Importar elementos freestyle si existen
-                    if ($question_data['question_type'] === 'freestyle') {
-                        if (isset($question_data['freestyle_elements']) && is_array($question_data['freestyle_elements'])) {
-                            $new_question['freestyle_elements'] = $question_data['freestyle_elements'];
-                        }
-                        if (isset($question_data['global_settings']) && is_array($question_data['global_settings'])) {
-                            $new_question['global_settings'] = $question_data['global_settings'];
-                        }
-                    }
-                    
-                    // Importar condiciones si existen
-                    if (!empty($question_data['conditions']) && is_array($question_data['conditions'])) {
-                        foreach ($question_data['conditions'] as $condition_data) {
-                            if (!is_array($condition_data)) continue;
-                            
-                            $new_question['conditions'][] = array(
-                                'condition_type' => sanitize_text_field($condition_data['condition_type'] ?? ''),
-                                'condition_value' => sanitize_text_field($condition_data['condition_value'] ?? ''),
-                                'action_type' => sanitize_text_field($condition_data['action_type'] ?? ''),
-                                'action_value' => sanitize_text_field($condition_data['action_value'] ?? ''),
-                                'variable_operation' => sanitize_text_field($condition_data['variable_operation'] ?? ''),
-                                'variable_amount' => intval($condition_data['variable_amount'] ?? 0),
-                                'comparison_value' => sanitize_text_field($condition_data['comparison_value'] ?? ''),
-                                'order_position' => intval($condition_data['order_position'] ?? 0)
-                            );
-                        }
-                    }
-                    
-                    $new_form_data['questions'][] = $new_question;
-                }
-            }
-            
-            // Guardar formulario importado
-            $new_form_id = $this->database->save_form($new_form_data);
-            
-            if ($new_form_id) {
+            if ($result['success']) {
                 wp_send_json_success(array(
-                    'form_id' => $new_form_id,
-                    'message' => __('Formulario importado correctamente', 'smart-forms-quiz'),
-                    'form_title' => $new_form_data['title']
+                    'form_id' => $result['form_id'],
+                    'form_title' => $result['form_title'],
+                    'message' => $result['message'],
+                    'import_stats' => $result['stats'] ?? []
                 ));
             } else {
-                wp_send_json_error(__('Error al guardar el formulario importado', 'smart-forms-quiz'));
+                wp_send_json_error(array(
+                    'message' => $result['message'],
+                    'code' => 'IMPORT_FAILED',
+                    'debug' => $result['debug'] ?? null
+                ));
             }
             
         } catch (Exception $e) {
             error_log('SFQ Error in import_form: ' . $e->getMessage());
-            wp_send_json_error(__('Error al importar el formulario: ' . $e->getMessage(), 'smart-forms-quiz'));
+            error_log('SFQ Error stack trace: ' . $e->getTraceAsString());
+            wp_send_json_error(array(
+                'message' => __('Error interno al importar el formulario', 'smart-forms-quiz'),
+                'code' => 'INTERNAL_ERROR',
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
         }
     }
     

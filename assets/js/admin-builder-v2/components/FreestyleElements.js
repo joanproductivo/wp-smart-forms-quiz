@@ -25,6 +25,14 @@
     }
 
     /**
+     * Inicializar el módulo de elementos freestyle
+     */
+    init() {
+        console.log('SFQ FreestyleElements: Initialized');
+        return this;
+    }
+
+    /**
      * Crear nuevo elemento freestyle
      */
     createElement(type, questionId) {

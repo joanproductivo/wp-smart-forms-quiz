@@ -503,14 +503,38 @@ class SFQ_Admin {
                         try {
                             const formData = JSON.parse(event.target.result);
                             
-                            // Validar estructura básica del formulario
-                            if (!formData.title || !formData.questions) {
-                                alert('El archivo no contiene un formulario válido');
+                            // ✅ CORREGIDO: Validar estructura según el nuevo formato de exportación
+                            let isValidStructure = false;
+                            let formTitle = '';
+                            
+                            // Caso 1: Estructura completa con export_info y form_data
+                            if (formData.export_info && formData.form_data && formData.form_data.title) {
+                                isValidStructure = true;
+                                formTitle = formData.form_data.title;
+                            }
+                            // Caso 2: Estructura con form_data pero sin export_info
+                            else if (formData.form_data && formData.form_data.title) {
+                                isValidStructure = true;
+                                formTitle = formData.form_data.title;
+                            }
+                            // Caso 3: Estructura directa (legacy)
+                            else if (formData.title) {
+                                isValidStructure = true;
+                                formTitle = formData.title;
+                            }
+                            // Caso 4: Verificar si tiene al menos questions o form_data
+                            else if (formData.questions || formData.form_data) {
+                                isValidStructure = true;
+                                formTitle = 'Formulario Importado';
+                            }
+                            
+                            if (!isValidStructure) {
+                                alert('El archivo no contiene un formulario válido. Asegúrate de que sea un archivo JSON exportado desde Smart Forms Quiz.');
                                 return;
                             }
                             
                             // Confirmar importación
-                            if (!confirm('¿Estás seguro de que quieres importar el formulario "' + formData.title + '"?')) {
+                            if (!confirm('¿Estás seguro de que quieres importar el formulario "' + formTitle + '"?')) {
                                 return;
                             }
                             
