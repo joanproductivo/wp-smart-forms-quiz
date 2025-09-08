@@ -19,14 +19,21 @@
 
 ### Patrón de Diseño
 
-El plugin utiliza una **arquitectura modular basada en clases** con los siguientes principios:
+El plugin utiliza una **arquitectura modular híbrida** con dos sistemas principales:
 
+#### **1. Backend PHP (Clases WordPress)**
 - **Separación de responsabilidades**: Cada clase tiene una función específica
 - **Inyección de dependencias**: Las clases reciben sus dependencias en el constructor
 - **Singleton pattern**: Para componentes que requieren una única instancia
 - **Observer pattern**: Para hooks y eventos de WordPress
 
-### Estructura de Clases Principales
+#### **2. Frontend JavaScript (Admin Builder v2 - Arquitectura Modular)**
+- **Patrón modular ES6**: 12 módulos especializados independientes
+- **Gestión centralizada de estado**: StateManager con patrón Observer
+- **Event delegation**: EventManager con namespaces únicos
+- **Cleanup automático**: Prevención de memory leaks
+
+### Estructura de Clases Backend (PHP)
 
 ```
 SFQ_Loader (Orquestador principal)
@@ -40,6 +47,44 @@ SFQ_Loader (Orquestador principal)
 ├── SFQ_Analytics (Métricas y estadísticas)
 └── SFQ_Shortcode (Integración con WordPress)
 ```
+
+### Estructura Modular Frontend (JavaScript)
+
+```
+assets/js/admin-builder-v2/
+├── main.js                    # Punto de entrada y orquestador
+├── config/                    # Configuraciones y constantes
+│   ├── Constants.js          # Constantes del sistema
+│   └── ElementTypes.js       # Definiciones de tipos de elementos
+├── core/                     # Módulos fundamentales
+│   ├── FormBuilderCore.js    # Controlador principal
+│   └── StateManager.js       # Gestión centralizada del estado
+├── components/               # Componentes especializados
+│   ├── DataValidator.js      # Validación y sanitización
+│   ├── FreestyleElements.js  # Gestión de elementos freestyle
+│   ├── ImageManager.js       # Gestión de imágenes
+│   ├── StyleManager.js       # Gestión de estilos
+│   ├── UIRenderer.js         # Renderizado de componentes UI
+│   └── VariableManager.js    # Gestión de variables globales
+└── managers/                 # Gestores de funcionalidades
+    ├── ConditionEngine.js    # Motor de lógica condicional
+    ├── EventManager.js       # Gestión centralizada de eventos
+    └── QuestionManager.js    # Gestión de preguntas
+```
+
+### Patrones de Diseño Implementados
+
+#### **Backend PHP**:
+- **MVC Pattern**: Separación modelo-vista-controlador
+- **Factory Pattern**: Creación de objetos especializados
+- **Strategy Pattern**: Diferentes estrategias de procesamiento
+
+#### **Frontend JavaScript**:
+- **Singleton Pattern**: Instancia única del FormBuilderCore
+- **Observer Pattern**: StateManager para cambios de estado
+- **Factory Pattern**: Creación de elementos freestyle
+- **Strategy Pattern**: Renderizado según tipo de elemento
+- **Command Pattern**: Sistema de condiciones y acciones
 
 ### Flujo de Datos
 
@@ -65,6 +110,125 @@ $sfq_global_config = array(
     'cache_timeout' => 300, // 5 minutos
     'rate_limit_window' => 60 // 1 minuto
 );
+```
+
+### Arquitectura Modular del Admin Builder v2
+
+#### **Inicialización y Gestión de Dependencias**
+
+```javascript
+// main.js - Verificación de dependencias antes de inicializar
+const requiredClasses = [
+    'FormBuilderCore', 'StateManager', 'DataValidator',
+    'QuestionManager', 'ConditionEngine', 'UIRenderer',
+    'EventManager', 'FreestyleElements', 'ImageManager',
+    'VariableManager', 'StyleManager'
+];
+
+const missingClasses = requiredClasses.filter(className => {
+    return typeof window[className] === 'undefined' && 
+           typeof window['SFQ_' + className] === 'undefined';
+});
+
+if (missingClasses.length === 0) {
+    window.sfqFormBuilderV2 = new FormBuilderCore();
+}
+```
+
+#### **Gestión Centralizada de Estado**
+
+```javascript
+// StateManager.js - Patrón Observer para cambios de estado
+class StateManager {
+    constructor() {
+        this.state = {};
+        this.listeners = {};
+    }
+    
+    setState(key, value) {
+        this.state[key] = value;
+        this.notifyListeners(key, value);
+    }
+    
+    subscribe(key, callback) {
+        if (!this.listeners[key]) {
+            this.listeners[key] = [];
+        }
+        this.listeners[key].push(callback);
+    }
+}
+```
+
+#### **Gestión de Eventos con Namespaces Únicos**
+
+```javascript
+// EventManager.js - Prevención de memory leaks
+class EventManager {
+    constructor(formBuilder) {
+        this.formBuilder = formBuilder;
+        this.namespace = '.' + formBuilder.instanceId; // Namespace único
+    }
+    
+    bindEvents() {
+        // Todos los eventos usan el namespace único
+        $(document).on('click' + this.namespace, '.sfq-button', this.handleClick.bind(this));
+    }
+    
+    destroy() {
+        // Cleanup completo de eventos
+        $(document).off(this.namespace);
+    }
+}
+```
+
+#### **Patrones de Exportación por Tipo de Módulo**
+
+```javascript
+// Componentes CON jQuery (requieren wrapper IIFE)
+(function($) {
+    'use strict';
+    
+    class StyleManager {
+        updatePreviewStyles() {
+            $('#element').val(); // Usa jQuery
+        }
+    }
+    
+    window.SFQ_StyleManager = StyleManager;
+})(jQuery);
+
+// Componentes SIN jQuery (ES6 puro)
+class DataValidator {
+    validateEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); // No usa jQuery
+    }
+}
+
+window.SFQ_DataValidator = DataValidator;
+```
+
+#### **Sistema de Cleanup y Prevención de Memory Leaks**
+
+```javascript
+// FormBuilderCore.js - Destrucción sistemática
+destroy() {
+    this.isDestroyed = true;
+    
+    // Limpiar intervalos
+    if (this.autoSaveInterval) {
+        clearInterval(this.autoSaveInterval);
+    }
+    
+    // Destruir módulos en orden
+    if (this.eventManager) this.eventManager.destroy();
+    if (this.questionManager) this.questionManager.destroy();
+    if (this.styleManager) this.styleManager.destroy();
+    
+    // Limpiar referencias
+    this.stateManager = null;
+    this.questionManager = null;
+    // ... más cleanup
+}
 ```
 
 ---

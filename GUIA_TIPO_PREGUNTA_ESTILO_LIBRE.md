@@ -43,11 +43,13 @@ El tipo de pregunta **"Estilo Libre"** es una innovación revolucionaria que per
 - **Renderizado**: Integrado en el sistema de tabs existente
 - **Identificador**: `data-type="freestyle"`
 
-#### 2. **JavaScript Core** (`assets/js/admin-builder-v2.js`)
-- **QuestionManager**: Manejo de preguntas freestyle
-- **UIRenderer**: Renderizado de elementos freestyle
-- **Event Handling**: Gestión de eventos específicos
-- **Data Processing**: Procesamiento de elementos freestyle
+#### 2. **JavaScript Core** (Arquitectura Modular v2)
+- **FormBuilderCore** (`assets/js/admin-builder-v2/core/FormBuilderCore.js`): Controlador principal
+- **QuestionManager** (`assets/js/admin-builder-v2/managers/QuestionManager.js`): Manejo de preguntas freestyle
+- **UIRenderer** (`assets/js/admin-builder-v2/components/UIRenderer.js`): Renderizado de elementos freestyle
+- **FreestyleElements** (`assets/js/admin-builder-v2/components/FreestyleElements.js`): Gestión específica de elementos freestyle
+- **EventManager** (`assets/js/admin-builder-v2/managers/EventManager.js`): Gestión de eventos con namespaces únicos
+- **StateManager** (`assets/js/admin-builder-v2/core/StateManager.js`): Gestión centralizada del estado
 
 #### 3. **CSS Styling** (`assets/css/admin-consolidated.css`)
 - **Estilos Específicos**: Diseño único para elementos freestyle
@@ -863,18 +865,26 @@ Elementos:
 - [DOCUMENTACION_VIDEO_YOUTUBE_VIMEO.md](./DOCUMENTACION_VIDEO_YOUTUBE_VIMEO.md)
 - [GUIA_PREVISUALIZACION_FLOTANTE.md](./GUIA_PREVISUALIZACION_FLOTANTE.md)
 
-### Archivos Clave
+### Archivos Clave (Arquitectura Modular v2)
 - `includes/class-sfq-admin.php` - Interface de administración
-- `assets/js/admin-builder-v2.js` - Lógica JavaScript
+- `assets/js/admin-builder-v2/main.js` - Punto de entrada y orquestador
+- `assets/js/admin-builder-v2/core/FormBuilderCore.js` - Controlador principal
+- `assets/js/admin-builder-v2/components/FreestyleElements.js` - Gestión específica de elementos freestyle
+- `assets/js/admin-builder-v2/components/UIRenderer.js` - Renderizado de componentes UI
+- `assets/js/admin-builder-v2/managers/QuestionManager.js` - Gestión de preguntas
+- `assets/js/admin-builder-v2/managers/EventManager.js` - Gestión de eventos con namespaces únicos
+- `assets/js/admin-builder-v2/core/StateManager.js` - Gestión centralizada del estado
 - `assets/css/admin-consolidated.css` - Estilos CSS
 - `includes/class-sfq-ajax.php` - Procesamiento AJAX
 - `includes/class-sfq-frontend.php` - Renderizado frontend
 
-### Patrones de Código
-- **Singleton Pattern**: FormBuilderCore
-- **Observer Pattern**: StateManager
-- **Factory Pattern**: Element creation
-- **Strategy Pattern**: Element rendering
+### Patrones de Código (Arquitectura Modular)
+- **Singleton Pattern**: FormBuilderCore con instancia única
+- **Observer Pattern**: StateManager para cambios de estado
+- **Factory Pattern**: FreestyleElements para creación de elementos
+- **Strategy Pattern**: UIRenderer para renderizado según tipo
+- **Command Pattern**: EventManager para gestión de eventos
+- **Module Pattern**: Cada componente como módulo independiente
 
 ---
 

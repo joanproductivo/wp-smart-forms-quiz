@@ -66,6 +66,7 @@
             this.imageManager = window.SFQ_ImageManager ? new window.SFQ_ImageManager(this) : null;
             this.variableManager = window.SFQ_VariableManager ? new window.SFQ_VariableManager(this) : null;
             this.styleManager = window.SFQ_StyleManager ? new window.SFQ_StyleManager(this) : null;
+            this.previewManager = window.PreviewManager ? new window.PreviewManager(this) : null;
             
             console.log('SFQ: Modules initialized successfully');
         }
@@ -121,6 +122,10 @@
             
             if (this.styleManager) {
                 this.styleManager.init();
+            }
+            
+            if (this.previewManager) {
+                this.previewManager.init();
             }
         }
 
@@ -816,6 +821,10 @@
                 this.styleManager.destroy();
             }
             
+            if (this.previewManager) {
+                this.previewManager.destroy();
+            }
+            
             // Clear references
             this.stateManager = null;
             this.questionManager = null;
@@ -827,6 +836,7 @@
             this.imageManager = null;
             this.variableManager = null;
             this.styleManager = null;
+            this.previewManager = null;
         }
     }
 
