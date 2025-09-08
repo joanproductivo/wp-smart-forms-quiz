@@ -3,7 +3,7 @@
  * Smart Forms & Quiz - Admin Builder v2
  */
 
-class FreestyleElements {
+    class SFQ_FreestyleElements {
     constructor(formBuilder) {
         this.formBuilder = formBuilder;
         this.elementTypes = {
@@ -101,7 +101,21 @@ class FreestyleElements {
                 border_opacity: '1',
                 border_radius: '8',
                 box_shadow: false,
-                css_selector: ''
+                css_selector: '',
+                // ✅ NUEVO: Opciones de gradiente animado
+                gradient_enabled: false,
+                gradient_color_1: '#ee7752',
+                gradient_color_2: '#e73c7e',
+                gradient_color_3: '#23a6d5',
+                gradient_color_4: '#23d5ab',
+                gradient_speed: '15',
+                gradient_angle: '-45',
+                gradient_size: '400',
+                gradient_opacity: '1',
+                gradient_blur: '0',
+                gradient_saturate: '100',
+                gradient_hover_pause: false,
+                gradient_reverse_animation: false
             },
             rating: {
                 rating_type: 'stars',
@@ -320,9 +334,41 @@ class FreestyleElements {
         if (settings.text_align) styles.push(`text-align: ${settings.text_align}`);
         if (settings.text_color) styles.push(`color: ${settings.text_color}`);
         
-        if (settings.background_color && settings.background_opacity) {
-            const bgColor = this.hexToRgba(settings.background_color, settings.background_opacity);
-            styles.push(`background-color: ${bgColor}`);
+        // ✅ NUEVO: Verificar si el gradiente animado está habilitado
+        const gradientEnabled = this.isChecked(settings.gradient_enabled);
+        
+        if (gradientEnabled) {
+            // Aplicar gradiente animado
+            const color1 = settings.gradient_color_1 || '#ee7752';
+            const color2 = settings.gradient_color_2 || '#e73c7e';
+            const color3 = settings.gradient_color_3 || '#23a6d5';
+            const color4 = settings.gradient_color_4 || '#23d5ab';
+            const angle = settings.gradient_angle || '-45';
+            const size = settings.gradient_size || '400';
+            const speed = settings.gradient_speed || '15';
+            const opacity = settings.gradient_opacity || '1';
+            
+            const gradient = `linear-gradient(${angle}deg, ${color1}, ${color2}, ${color3}, ${color4})`;
+            
+            styles.push(`background: ${gradient}`);
+            styles.push(`background-size: ${size}% ${size}%`);
+            styles.push(`animation: sfq-gradient-animation ${speed}s ease infinite`);
+            styles.push(`opacity: ${opacity}`);
+            
+            // Aplicar efectos adicionales si están configurados
+            if (settings.gradient_blur && settings.gradient_blur !== '0') {
+                styles.push(`backdrop-filter: blur(${settings.gradient_blur}px)`);
+            }
+            
+            if (settings.gradient_saturate && settings.gradient_saturate !== '100') {
+                styles.push(`filter: saturate(${settings.gradient_saturate}%)`);
+            }
+        } else {
+            // Aplicar color de fondo normal
+            if (settings.background_color && settings.background_opacity) {
+                const bgColor = this.hexToRgba(settings.background_color, settings.background_opacity);
+                styles.push(`background-color: ${bgColor}`);
+            }
         }
         
         if (settings.border_color && settings.border_opacity) {
@@ -560,6 +606,16 @@ class FreestyleElements {
         return text.replace(/[&<>"']/g, m => map[m]);
     }
 
+    /**
+     * ✅ NUEVO: Helper para verificar valores booleanos correctamente
+     */
+    isChecked(value) {
+        if (value === true || value === 'true' || value === '1' || value === 1) {
+            return true;
+        }
+        return false;
+    }
+
     hexToRgba(hex, opacity = 1) {
         if (!hex || typeof hex !== 'string') return 'rgba(0,0,0,1)';
         
@@ -601,9 +657,9 @@ class FreestyleElements {
     }
 }
 
-// Export para uso en otros módulos
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = FreestyleElements;
-} else {
-    window.SFQ_FreestyleElements = FreestyleElements;
-}
+    // Export para uso en otros módulos
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = SFQ_FreestyleElements;
+    } else {
+        window.SFQ_FreestyleElements = SFQ_FreestyleElements;
+    }

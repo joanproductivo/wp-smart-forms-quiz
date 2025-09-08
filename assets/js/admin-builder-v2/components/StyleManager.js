@@ -6,7 +6,7 @@
 (function($) {
     'use strict';
 
-class StyleManager {
+    class SFQ_StyleManager {
     constructor(formBuilder) {
         this.formBuilder = formBuilder;
     }
@@ -15,7 +15,6 @@ class StyleManager {
      * Inicializar StyleManager
      */
     init() {
-        console.log('SFQ: StyleManager initialized');
         // No hay inicialización específica requerida para StyleManager
         // Los eventos se manejan a través del EventManager
     }
@@ -46,7 +45,6 @@ class StyleManager {
         // Aplicar atributos data para el ancho si hay elementos en la página
         this.applyDataAttributes(processedStyles);
         
-        console.log('SFQ: Updated preview styles dynamically with improved specificity');
     }
 
     /**
@@ -689,11 +687,11 @@ class StyleManager {
     }
 }
 
-// Export para uso en otros módulos
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = StyleManager;
-} else {
-    window.SFQ_StyleManager = StyleManager;
-}
+    // Export para uso en otros módulos
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = SFQ_StyleManager;
+    } else {
+        window.SFQ_StyleManager = SFQ_StyleManager;
+    }
 
 })(jQuery);

@@ -6,7 +6,7 @@
 (function($) {
     'use strict';
 
-    class StateManager {
+    class SFQ_StateManager {
         constructor() {
             this.state = {
                 formData: {},
@@ -45,9 +45,9 @@
 
     // Export para uso en otros módulos
     if (typeof module !== 'undefined' && module.exports) {
-        module.exports = StateManager;
+        module.exports = SFQ_StateManager;
     } else {
-        window.StateManager = StateManager;
+        window.SFQ_StateManager = SFQ_StateManager;
     }
 
 })(jQuery);

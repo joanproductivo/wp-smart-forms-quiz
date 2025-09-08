@@ -32,22 +32,22 @@
             
             // Verificar que todas las clases estén disponibles
             const requiredClasses = [
-                'FormBuilderCore',
-                'StateManager', 
-                'DataValidator',
-                'QuestionManager',
-                'ConditionEngine',
-                'UIRenderer',
-                'EventManager',
-                'FreestyleElements',
-                'ImageManager',
-                'VariableManager',
-                'StyleManager'
+                'SFQ_FormBuilderCore',
+                'SFQ_StateManager', 
+                'SFQ_DataValidator',
+                'SFQ_QuestionManager',
+                'SFQ_ConditionEngine',
+                'SFQ_UIRenderer',
+                'SFQ_EventManager',
+                'SFQ_FreestyleElements',
+                'SFQ_ImageManager',
+                'SFQ_VariableManager',
+                'SFQ_StyleManager',
+                'SFQ_BlockFormTimerManager'
             ];
             
             const missingClasses = requiredClasses.filter(className => {
-                return typeof window[className] === 'undefined' && 
-                       typeof window['SFQ_' + className] === 'undefined';
+                return typeof window[className] === 'undefined';
             });
             
             if (missingClasses.length > 0) {
@@ -59,8 +59,8 @@
             // Small delay to ensure cleanup is complete
             setTimeout(() => {
                 try {
-                    // Inicializar el FormBuilderCore que automáticamente inicializa todos los módulos
-                    window.sfqFormBuilderV2 = new FormBuilderCore();
+                    // Inicializar el SFQ_FormBuilderCore que automáticamente inicializa todos los módulos
+                    window.sfqFormBuilderV2 = new SFQ_FormBuilderCore();
                     
                     console.log('SFQ Builder v2: Successfully initialized with modular architecture');
                     console.log('SFQ Builder v2: Modules loaded:', {
@@ -72,7 +72,8 @@
                         freestyle: !!window.sfqFormBuilderV2.freestyleElements,
                         images: !!window.sfqFormBuilderV2.imageManager,
                         variables: !!window.sfqFormBuilderV2.variableManager,
-                        styles: !!window.sfqFormBuilderV2.styleManager
+                        styles: !!window.sfqFormBuilderV2.styleManager,
+                        blockFormTimer: !!window.sfqFormBuilderV2.blockFormTimerManager
                     });
                     
                 } catch (error) {

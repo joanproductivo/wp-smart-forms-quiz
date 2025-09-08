@@ -6,7 +6,7 @@
 (function($) {
     'use strict';
 
-    class UIRenderer {
+    class SFQ_UIRenderer {
         constructor(formBuilder) {
             this.formBuilder = formBuilder;
         }
@@ -876,31 +876,195 @@
                     <div class="sfq-config-row">
                         <label class="sfq-config-label">
                             <input type="checkbox" class="sfq-config-input" data-setting="gradient_enabled" ${this.isChecked(buttonSettings.gradient_enabled) ? 'checked' : ''}>
-                            Activar degradado
+                            🌈 Activar fondo animado con gradiente
                         </label>
-                        <label class="sfq-config-label sfq-gradient-color-setting" style="display: ${this.isChecked(buttonSettings.gradient_enabled) ? 'block' : 'none'};">
-                            Color del degradado:
-                            <input type="color" class="sfq-config-input" data-setting="gradient_color" 
-                                   value="${buttonSettings.gradient_color || '#005a87'}">
-                        </label>
+                        <p class="description" style="margin-left: 20px; font-size: 11px; color: #666;">
+                            Añade un fondo animado con gradiente de múltiples colores que se mueve suavemente
+                        </p>
                     </div>
                     
-                    <div class="sfq-config-row sfq-gradient-animation-setting" style="display: ${this.isChecked(buttonSettings.gradient_enabled) ? 'block' : 'none'};">
-                        <label class="sfq-config-label">
-                            <input type="checkbox" class="sfq-config-input" data-setting="gradient_animated" ${this.isChecked(buttonSettings.gradient_animated) ? 'checked' : ''}>
-                            Degradado animado
-                        </label>
-                        <label class="sfq-config-label">
-                            Dirección del degradado:
-                            <select class="sfq-config-input" data-setting="gradient_direction">
-                                <option value="to right" ${buttonSettings.gradient_direction === 'to right' || !buttonSettings.gradient_direction ? 'selected' : ''}>Horizontal (izq. a der.)</option>
-                                <option value="to left" ${buttonSettings.gradient_direction === 'to left' ? 'selected' : ''}>Horizontal (der. a izq.)</option>
-                                <option value="to bottom" ${buttonSettings.gradient_direction === 'to bottom' ? 'selected' : ''}>Vertical (arriba a abajo)</option>
-                                <option value="to top" ${buttonSettings.gradient_direction === 'to top' ? 'selected' : ''}>Vertical (abajo a arriba)</option>
-                                <option value="45deg" ${buttonSettings.gradient_direction === '45deg' ? 'selected' : ''}>Diagonal (45°)</option>
-                                <option value="135deg" ${buttonSettings.gradient_direction === '135deg' ? 'selected' : ''}>Diagonal (135°)</option>
-                            </select>
-                        </label>
+                    <!-- Panel avanzado de configuración de gradiente -->
+                    <div class="sfq-gradient-advanced-panel" style="display: ${this.isChecked(buttonSettings.gradient_enabled) ? 'block' : 'none'}; margin-top: 15px; padding: 15px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px;">
+                        
+                        <!-- Colores del gradiente -->
+                        <div class="sfq-gradient-colors-section">
+                            <h6 style="margin: 0 0 15px 0; font-size: 12px; font-weight: 600; color: #495057; text-transform: uppercase; letter-spacing: 0.5px;">
+                                🎨 Colores del Gradiente
+                            </h6>
+                            <div class="sfq-gradient-colors-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 20px;">
+                                <div class="sfq-gradient-color-item">
+                                    <label style="display: block; font-size: 11px; color: #666; margin-bottom: 4px;">Color 1:</label>
+                                    <input type="color" class="sfq-config-input sfq-gradient-color-picker" data-setting="gradient_color_1" 
+                                           value="${buttonSettings.gradient_color_1 || '#ee7752'}" style="width: 100%; height: 35px;">
+                                </div>
+                                <div class="sfq-gradient-color-item">
+                                    <label style="display: block; font-size: 11px; color: #666; margin-bottom: 4px;">Color 2:</label>
+                                    <input type="color" class="sfq-config-input sfq-gradient-color-picker" data-setting="gradient_color_2" 
+                                           value="${buttonSettings.gradient_color_2 || '#e73c7e'}" style="width: 100%; height: 35px;">
+                                </div>
+                                <div class="sfq-gradient-color-item">
+                                    <label style="display: block; font-size: 11px; color: #666; margin-bottom: 4px;">Color 3:</label>
+                                    <input type="color" class="sfq-config-input sfq-gradient-color-picker" data-setting="gradient_color_3" 
+                                           value="${buttonSettings.gradient_color_3 || '#23a6d5'}" style="width: 100%; height: 35px;">
+                                </div>
+                                <div class="sfq-gradient-color-item">
+                                    <label style="display: block; font-size: 11px; color: #666; margin-bottom: 4px;">Color 4:</label>
+                                    <input type="color" class="sfq-config-input sfq-gradient-color-picker" data-setting="gradient_color_4" 
+                                           value="${buttonSettings.gradient_color_4 || '#23d5ab'}" style="width: 100%; height: 35px;">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Opciones de animación -->
+                        <div class="sfq-gradient-animation-section">
+                            <h6 style="margin: 0 0 15px 0; font-size: 12px; font-weight: 600; color: #495057; text-transform: uppercase; letter-spacing: 0.5px;">
+                                ⚡ Configuración de Animación
+                            </h6>
+                            
+                            <div class="sfq-gradient-controls-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                                <div class="sfq-gradient-control-item">
+                                    <label style="display: block; font-size: 11px; color: #666; margin-bottom: 6px;">
+                                        Velocidad (segundos):
+                                    </label>
+                                    <input type="range" class="sfq-config-input" data-setting="gradient_speed" 
+                                           min="5" max="30" step="1" 
+                                           value="${buttonSettings.gradient_speed || '15'}" 
+                                           style="width: 100%;">
+                                    <span class="sfq-gradient-speed-display" style="font-size: 10px; color: #007cba; font-weight: 500;">
+                                        ${buttonSettings.gradient_speed || '15'}s
+                                    </span>
+                                </div>
+                                
+                                <div class="sfq-gradient-control-item">
+                                    <label style="display: block; font-size: 11px; color: #666; margin-bottom: 6px;">
+                                        Ángulo (grados):
+                                    </label>
+                                    <input type="range" class="sfq-config-input" data-setting="gradient_angle" 
+                                           min="-180" max="180" step="1" 
+                                           value="${buttonSettings.gradient_angle || '-45'}" 
+                                           style="width: 100%;">
+                                    <span class="sfq-gradient-angle-display" style="font-size: 10px; color: #007cba; font-weight: 500;">
+                                        ${buttonSettings.gradient_angle || '-45'}°
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <div class="sfq-gradient-controls-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                                <div class="sfq-gradient-control-item">
+                                    <label style="display: block; font-size: 11px; color: #666; margin-bottom: 6px;">
+                                        Tamaño del gradiente (%):
+                                    </label>
+                                    <input type="range" class="sfq-config-input" data-setting="gradient_size" 
+                                           min="200" max="800" step="50" 
+                                           value="${buttonSettings.gradient_size || '400'}" 
+                                           style="width: 100%;">
+                                    <span class="sfq-gradient-size-display" style="font-size: 10px; color: #007cba; font-weight: 500;">
+                                        ${buttonSettings.gradient_size || '400'}%
+                                    </span>
+                                    <small style="display: block; margin-top: 4px; color: #666; font-size: 10px;">
+                                        400% es el valor recomendado para animación suave
+                                    </small>
+                                </div>
+                                
+                                <div class="sfq-gradient-control-item">
+                                    <label style="display: block; font-size: 11px; color: #666; margin-bottom: 6px;">
+                                        Opacidad del gradiente:
+                                    </label>
+                                    <input type="range" class="sfq-config-input" data-setting="gradient_opacity" 
+                                           min="0" max="1" step="0.1" 
+                                           value="${buttonSettings.gradient_opacity || '1'}" 
+                                           style="width: 100%;">
+                                    <span class="sfq-gradient-opacity-display" style="font-size: 10px; color: #007cba; font-weight: 500;">
+                                        ${Math.round((buttonSettings.gradient_opacity || '1') * 100)}%
+                                    </span>
+                                    <small style="display: block; margin-top: 4px; color: #666; font-size: 10px;">
+                                        Controla la transparencia del gradiente animado
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <!-- Efecto de desenfoque de fondo (Glassmorphism) -->
+                            <div class="sfq-gradient-controls-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                                <div class="sfq-gradient-control-item">
+                                    <label style="display: block; font-size: 11px; color: #666; margin-bottom: 6px;">
+                                        Desenfoque de fondo (px):
+                                    </label>
+                                    <input type="range" class="sfq-config-input" data-setting="gradient_blur" 
+                                           min="0" max="30" step="1" 
+                                           value="${buttonSettings.gradient_blur || '0'}" 
+                                           style="width: 100%;">
+                                    <span class="sfq-gradient-blur-display" style="font-size: 10px; color: #007cba; font-weight: 500;">
+                                        ${buttonSettings.gradient_blur || '0'}px
+                                    </span>
+                                    <small style="display: block; margin-top: 4px; color: #666; font-size: 10px;">
+                                        Efecto glassmorphism - desenfoque del contenido detrás
+                                    </small>
+                                </div>
+                                
+                                <div class="sfq-gradient-control-item">
+                                    <label style="display: block; font-size: 11px; color: #666; margin-bottom: 6px;">
+                                        Saturación del fondo (%):
+                                    </label>
+                                    <input type="range" class="sfq-config-input" data-setting="gradient_saturate" 
+                                           min="50" max="200" step="10" 
+                                           value="${buttonSettings.gradient_saturate || '100'}" 
+                                           style="width: 100%;">
+                                    <span class="sfq-gradient-saturate-display" style="font-size: 10px; color: #007cba; font-weight: 500;">
+                                        ${buttonSettings.gradient_saturate || '100'}%
+                                    </span>
+                                    <small style="display: block; margin-top: 4px; color: #666; font-size: 10px;">
+                                        Intensidad de color del fondo desenfocado
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Vista previa del gradiente -->
+                        <div class="sfq-gradient-preview-section">
+                            <h6 style="margin: 0 0 10px 0; font-size: 12px; font-weight: 600; color: #495057; text-transform: uppercase; letter-spacing: 0.5px;">
+                                👁️ Vista Previa
+                            </h6>
+                            <div class="sfq-gradient-preview-button" style="
+                                position: relative;
+                                min-height: 50px;
+                                border-radius: 8px;
+                                overflow: hidden;
+                                background: linear-gradient(${buttonSettings.gradient_angle || '-45'}deg, ${buttonSettings.gradient_color_1 || '#ee7752'}, ${buttonSettings.gradient_color_2 || '#e73c7e'}, ${buttonSettings.gradient_color_3 || '#23a6d5'}, ${buttonSettings.gradient_color_4 || '#23d5ab'});
+                                background-size: ${buttonSettings.gradient_size || '400'}% ${buttonSettings.gradient_size || '400'}%;
+                                animation: sfq-button-gradient-animation ${buttonSettings.gradient_speed || '15'}s ease infinite;
+                                opacity: ${buttonSettings.gradient_opacity || '1'};
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                                border: 1px solid rgba(255,255,255,0.2);
+                            ">
+                                <span style="
+                                    color: white;
+                                    font-weight: 500;
+                                    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+                                    font-size: 14px;
+                                ">
+                                    Vista previa del botón
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- Opciones adicionales -->
+                        <div class="sfq-gradient-additional-options" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e9ecef;">
+                            <div class="sfq-config-row">
+                                <label class="sfq-config-label">
+                                    <input type="checkbox" class="sfq-config-input" data-setting="gradient_hover_pause" ${this.isChecked(buttonSettings.gradient_hover_pause) ? 'checked' : ''}>
+                                    Pausar animación al pasar el ratón
+                                </label>
+                            </div>
+                            <div class="sfq-config-row">
+                                <label class="sfq-config-label">
+                                    <input type="checkbox" class="sfq-config-input" data-setting="gradient_reverse_animation" ${this.isChecked(buttonSettings.gradient_reverse_animation) ? 'checked' : ''}>
+                                    Invertir dirección de la animación
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -997,13 +1161,193 @@
             }
             return false;
         }
+
+        /**
+         * ✅ NUEVO: Inicializar estilos CSS para gradientes animados
+         */
+        initGradientStyles() {
+            // Verificar si ya existen los estilos
+            if (document.getElementById('sfq-gradient-button-styles')) {
+                return;
+            }
+
+            // Crear elemento style
+            const styleElement = document.createElement('style');
+            styleElement.id = 'sfq-gradient-button-styles';
+            styleElement.textContent = `
+                /* Animación para gradientes de botones */
+                @keyframes sfq-button-gradient-animation {
+                    0% {
+                        background-position: 0% 50%;
+                    }
+                    50% {
+                        background-position: 100% 50%;
+                    }
+                    100% {
+                        background-position: 0% 50%;
+                    }
+                }
+
+                /* Estilos para el panel de gradiente */
+                .sfq-gradient-advanced-panel {
+                    transition: all 0.3s ease;
+                }
+
+                .sfq-gradient-colors-grid {
+                    animation: fadeInUp 0.3s ease;
+                }
+
+                .sfq-gradient-color-picker {
+                    border: 2px solid #e9ecef;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                }
+
+                .sfq-gradient-color-picker:hover {
+                    border-color: #007cba;
+                    transform: scale(1.05);
+                }
+
+                .sfq-gradient-preview-button {
+                    transition: all 0.3s ease;
+                    cursor: pointer;
+                }
+
+                .sfq-gradient-preview-button:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
+                }
+
+                /* Animación de aparición */
+                @keyframes fadeInUp {
+                    from {
+                        opacity: 0;
+                        transform: translateY(10px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+
+                /* Estilos para controles de rango */
+                .sfq-gradient-control-item input[type="range"] {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    height: 6px;
+                    background: #ddd;
+                    border-radius: 3px;
+                    outline: none;
+                    transition: background 0.2s ease;
+                }
+
+                .sfq-gradient-control-item input[type="range"]:hover {
+                    background: #bbb;
+                }
+
+                .sfq-gradient-control-item input[type="range"]::-webkit-slider-thumb {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    width: 18px;
+                    height: 18px;
+                    background: #007cba;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                    transition: all 0.2s ease;
+                }
+
+                .sfq-gradient-control-item input[type="range"]::-webkit-slider-thumb:hover {
+                    background: #005a87;
+                    transform: scale(1.1);
+                }
+
+                .sfq-gradient-control-item input[type="range"]::-moz-range-thumb {
+                    width: 18px;
+                    height: 18px;
+                    background: #007cba;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    border: none;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                    transition: all 0.2s ease;
+                }
+
+                .sfq-gradient-control-item input[type="range"]::-moz-range-thumb:hover {
+                    background: #005a87;
+                    transform: scale(1.1);
+                }
+
+                /* Responsive para móviles */
+                @media (max-width: 768px) {
+                    .sfq-gradient-colors-grid {
+                        grid-template-columns: repeat(2, 1fr) !important;
+                    }
+                    
+                    .sfq-gradient-controls-grid {
+                        grid-template-columns: 1fr !important;
+                    }
+                }
+            `;
+
+            // Añadir al head del documento
+            document.head.appendChild(styleElement);
+        }
+
+        /**
+         * ✅ NUEVO: Actualizar vista previa del gradiente en tiempo real
+         */
+        updateGradientPreview(questionId, settings) {
+            const previewElement = document.querySelector(`#${questionId} .sfq-gradient-preview-button`);
+            if (!previewElement) return;
+
+            const color1 = settings.gradient_color_1 || '#ee7752';
+            const color2 = settings.gradient_color_2 || '#e73c7e';
+            const color3 = settings.gradient_color_3 || '#23a6d5';
+            const color4 = settings.gradient_color_4 || '#23d5ab';
+            const angle = settings.gradient_angle || '-45';
+            const size = settings.gradient_size || '400';
+            const speed = settings.gradient_speed || '15';
+
+            const gradient = `linear-gradient(${angle}deg, ${color1}, ${color2}, ${color3}, ${color4})`;
+            
+            previewElement.style.background = gradient;
+            previewElement.style.backgroundSize = `${size}% ${size}%`;
+            previewElement.style.animationDuration = `${speed}s`;
+
+            // Aplicar opciones adicionales
+            if (settings.gradient_hover_pause) {
+                previewElement.style.animationPlayState = 'running';
+                previewElement.addEventListener('mouseenter', () => {
+                    previewElement.style.animationPlayState = 'paused';
+                });
+                previewElement.addEventListener('mouseleave', () => {
+                    previewElement.style.animationPlayState = 'running';
+                });
+            }
+
+            if (settings.gradient_reverse_animation) {
+                previewElement.style.animationDirection = 'reverse';
+            } else {
+                previewElement.style.animationDirection = 'normal';
+            }
+        }
     }
+
+    // Inicializar estilos CSS cuando se carga el módulo
+    jQuery(document).ready(function() {
+        if (window.UIRenderer) {
+            const tempRenderer = new UIRenderer();
+            tempRenderer.initGradientStyles();
+        }
+    });
 
     // Export para uso en otros módulos
     if (typeof module !== 'undefined' && module.exports) {
-        module.exports = UIRenderer;
+        module.exports = SFQ_UIRenderer;
     } else {
-        window.UIRenderer = UIRenderer;
+        window.SFQ_UIRenderer = SFQ_UIRenderer;
     }
 
 })(jQuery);

@@ -6,7 +6,7 @@
 (function($) {
     'use strict';
 
-    class ConditionEngine {
+    class SFQ_ConditionEngine {
         constructor(formBuilder) {
             this.formBuilder = formBuilder;
             this.conditions = {};
@@ -438,9 +438,9 @@
 
     // Export para uso en otros módulos
     if (typeof module !== 'undefined' && module.exports) {
-        module.exports = ConditionEngine;
+        module.exports = SFQ_ConditionEngine;
     } else {
-        window.ConditionEngine = ConditionEngine;
+        window.SFQ_ConditionEngine = SFQ_ConditionEngine;
     }
 
 })(jQuery);

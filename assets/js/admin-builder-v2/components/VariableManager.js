@@ -6,7 +6,7 @@
 (function($) {
     'use strict';
 
-class VariableManager {
+    class SFQ_VariableManager {
     constructor(formBuilder) {
         this.formBuilder = formBuilder;
     }
@@ -531,11 +531,11 @@ class VariableManager {
     }
 }
 
-// Export para uso en otros módulos
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = VariableManager;
-} else {
-    window.SFQ_VariableManager = VariableManager;
-}
+    // Export para uso en otros módulos
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = SFQ_VariableManager;
+    } else {
+        window.SFQ_VariableManager = SFQ_VariableManager;
+    }
 
 })(jQuery);

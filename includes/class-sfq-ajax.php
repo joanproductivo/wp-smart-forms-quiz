@@ -759,8 +759,25 @@ class SFQ_Ajax {
                         if ($should_show_next) : 
                             $button_text = !empty($next_button_text) ? $next_button_text : 
                                 (($question_index === count($normal_questions) - 1) ? __('Siguiente', 'smart-forms-quiz') : __('Siguiente', 'smart-forms-quiz'));
+                            
+                            // ✅ SOLUCIÓN: Aplicar estilos personalizados del botón si están configurados
+                            $button_styles = '';
+                            $button_classes = 'sfq-button sfq-button-primary sfq-next-button';
+                            $button_data_attrs = '';
+                            
+                            if (isset($question->settings['next_button_custom_style']) && $question->settings['next_button_custom_style'] && 
+                                isset($question->settings['next_button_style'])) {
+                                $style_config = $question->settings['next_button_style'];
+                                $button_styles = $this->generate_button_styles($style_config);
+                                $button_classes .= ' sfq-custom-styled-button';
+                                
+                                // Añadir atributos de datos para estilos personalizados
+                                $button_data_attrs = 'data-custom-style="true" data-style-config=\'' . json_encode($style_config) . '\'';
+                            }
                         ?>
-                            <button class="sfq-button sfq-button-primary sfq-next-button">
+                            <button class="<?php echo esc_attr($button_classes); ?>" 
+                                    <?php echo !empty($button_styles) ? 'style="' . esc_attr($button_styles) . '"' : ''; ?>
+                                    <?php echo $button_data_attrs; ?>>
                                 <?php echo esc_html($button_text); ?>
                             </button>
                         <?php endif; ?>
@@ -4869,6 +4886,183 @@ class SFQ_Ajax {
                 'debug' => WP_DEBUG ? $e->getMessage() : null
             ));
         }
+    }
+    
+    /**
+     * ✅ NUEVO: Generar estilos CSS para el botón personalizado (copiado del frontend)
+     */
+    private function generate_button_styles($style_config) {
+        $styles = array();
+        
+        // ✅ CORREGIDO: Color de fondo con opacidad y degradado
+        if (!empty($style_config['background_color'])) {
+            $bg_color = $style_config['background_color'];
+            $bg_opacity = isset($style_config['background_opacity']) ? floatval($style_config['background_opacity']) : 1.0;
+            
+            // ✅ CORREGIDO: Verificar degradado con múltiples condiciones
+            $gradient_enabled = false;
+            if (isset($style_config['gradient_enabled'])) {
+                // Verificar diferentes formas de representar true
+                $gradient_enabled = ($style_config['gradient_enabled'] === true || 
+                                   $style_config['gradient_enabled'] === 'true' || 
+                                   $style_config['gradient_enabled'] === '1' || 
+                                   $style_config['gradient_enabled'] === 1);
+            }
+            
+            if ($gradient_enabled && !empty($style_config['gradient_color'])) {
+                $gradient_color = $style_config['gradient_color'];
+                
+                // ✅ NUEVO: Verificar si el degradado debe ser animado
+                $gradient_animated = false;
+                if (isset($style_config['gradient_animated'])) {
+                    $gradient_animated = ($style_config['gradient_animated'] === true || 
+                                        $style_config['gradient_animated'] === 'true' || 
+                                        $style_config['gradient_animated'] === '1' || 
+                                        $style_config['gradient_animated'] === 1);
+                }
+                
+                // ✅ CRÍTICO: Aplicar opacidad a ambos colores del degradado
+                if ($bg_opacity != 1.0) {
+                    $bg_rgba = $this->hex_to_rgba($bg_color, $bg_opacity);
+                    $gradient_rgba = $this->hex_to_rgba($gradient_color, $bg_opacity);
+                    
+                    if ($gradient_animated) {
+                        // Degradado animado con múltiples paradas de color
+                        $styles['background'] = "linear-gradient(-45deg, {$bg_rgba}, {$gradient_rgba}, {$bg_rgba}, {$gradient_rgba}) !important";
+                        $styles['background-size'] = '400% 400% !important';
+                        $styles['animation'] = 'sfq-gradient-animation 4s ease infinite !important';
+                    } else {
+                        // Degradado estático
+                        $styles['background'] = "linear-gradient(135deg, {$bg_rgba}, {$gradient_rgba}) !important";
+                    }
+                } else {
+                    if ($gradient_animated) {
+                        // Degradado animado con múltiples paradas de color
+                        $styles['background'] = "linear-gradient(-45deg, {$bg_color}, {$gradient_color}, {$bg_color}, {$gradient_color}) !important";
+                        $styles['background-size'] = '400% 400% !important';
+                        $styles['animation'] = 'sfq-gradient-animation 4s ease infinite !important';
+                    } else {
+                        // Degradado estático
+                        $styles['background'] = "linear-gradient(135deg, {$bg_color}, {$gradient_color}) !important";
+                    }
+                }
+                
+                // ✅ CRÍTICO: Asegurar que no se sobrescriba el degradado
+                // No establecer background-color cuando hay degradado activo
+            } else {
+                // Color sólido con opacidad
+                if ($bg_opacity != 1.0) {
+                    $styles['background-color'] = $this->hex_to_rgba($bg_color, $bg_opacity) . ' !important';
+                } else {
+                    $styles['background-color'] = $bg_color . ' !important';
+                }
+            }
+        }
+        
+        // ✅ CORREGIDO: Color y opacidad del borde
+        if (!empty($style_config['border_color'])) {
+            $border_color = $style_config['border_color'];
+            $border_opacity = isset($style_config['border_opacity']) ? floatval($style_config['border_opacity']) : 1.0;
+            
+            if ($border_opacity != 1.0) {
+                $border_rgba = $this->hex_to_rgba($border_color, $border_opacity);
+                $styles['border'] = '2px solid ' . $border_rgba . ' !important';
+            } else {
+                $styles['border'] = '2px solid ' . $border_color . ' !important';
+            }
+        }
+        
+        // ✅ CORREGIDO: Radio del botón
+        if (isset($style_config['border_radius']) && $style_config['border_radius'] !== '') {
+            $styles['border-radius'] = intval($style_config['border_radius']) . 'px !important';
+        }
+        
+        // ✅ CORREGIDO: Sombreado del botón con verificación mejorada
+        $box_shadow_enabled = false;
+        if (isset($style_config['box_shadow'])) {
+            $box_shadow_enabled = ($style_config['box_shadow'] === true || 
+                                 $style_config['box_shadow'] === 'true' || 
+                                 $style_config['box_shadow'] === '1' || 
+                                 $style_config['box_shadow'] === 1);
+        }
+        if ($box_shadow_enabled) {
+            $styles['box-shadow'] = '0 4px 12px rgba(0, 0, 0, 0.15) !important';
+        }
+        
+        // ✅ CORREGIDO: Tamaño del texto
+        if (isset($style_config['font_size']) && $style_config['font_size'] !== '') {
+            $styles['font-size'] = intval($style_config['font_size']) . 'px !important';
+        }
+        
+        // ✅ CORREGIDO: Grosor del texto
+        if (!empty($style_config['font_weight'])) {
+            $styles['font-weight'] = $style_config['font_weight'] . ' !important';
+        }
+        
+        // ✅ CORREGIDO: Color del texto
+        if (!empty($style_config['text_color'])) {
+            $styles['color'] = $style_config['text_color'] . ' !important';
+        }
+        
+        // ✅ CORREGIDO: Sombra del texto con verificación mejorada
+        $text_shadow_enabled = false;
+        if (isset($style_config['text_shadow'])) {
+            $text_shadow_enabled = ($style_config['text_shadow'] === true || 
+                                   $style_config['text_shadow'] === 'true' || 
+                                   $style_config['text_shadow'] === '1' || 
+                                   $style_config['text_shadow'] === 1);
+        }
+        if ($text_shadow_enabled) {
+            $styles['text-shadow'] = '1px 1px 2px rgba(0, 0, 0, 0.3) !important';
+        }
+        
+        // Estilos básicos del botón
+        $styles['padding'] = '12px 24px !important';
+        $styles['cursor'] = 'pointer !important';
+        $styles['transition'] = 'all 0.2s ease !important';
+        $styles['text-decoration'] = 'none !important';
+        $styles['display'] = 'inline-block !important';
+        
+        // ✅ CORREGIDO: Solo establecer border si no se ha establecido ya
+        if (!isset($styles['border'])) {
+            $styles['border'] = 'none !important';
+        }
+        
+        // Convertir array de estilos a string CSS
+        $style_string = '';
+        foreach ($styles as $property => $value) {
+            $style_string .= $property . ': ' . $value . '; ';
+        }
+        
+        return trim($style_string);
+    }
+    
+    /**
+     * ✅ NUEVO: Convertir color hexadecimal a RGBA con opacidad (copiado del frontend)
+     */
+    private function hex_to_rgba($hex, $opacity = 1) {
+        // Limpiar el hex (quitar # si existe)
+        $hex = ltrim($hex, '#');
+        
+        // Validar formato hex
+        if (!preg_match('/^[a-fA-F0-9]{3}$|^[a-fA-F0-9]{6}$/', $hex)) {
+            return $hex; // Devolver original si no es hex válido
+        }
+        
+        // Convertir hex de 3 dígitos a 6 dígitos
+        if (strlen($hex) === 3) {
+            $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+        }
+        
+        // Convertir a RGB
+        $r = hexdec(substr($hex, 0, 2));
+        $g = hexdec(substr($hex, 2, 2));
+        $b = hexdec(substr($hex, 4, 2));
+        
+        // Asegurar que la opacidad esté entre 0 y 1
+        $opacity = max(0, min(1, floatval($opacity)));
+        
+        return "rgba({$r}, {$g}, {$b}, {$opacity})";
     }
     
 }

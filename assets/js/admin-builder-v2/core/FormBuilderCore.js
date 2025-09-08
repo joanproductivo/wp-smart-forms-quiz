@@ -6,7 +6,7 @@
 (function($) {
     'use strict';
 
-    class FormBuilderCore {
+    class SFQ_FormBuilderCore {
         constructor() {
             // Generar ID único para esta instancia
             this.instanceId = 'sfq_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -29,11 +29,11 @@
             
             // Verificar que todas las clases estén disponibles
             const requiredClasses = {
-                StateManager: window.StateManager,
-                DataValidator: window.DataValidator,
-                UIRenderer: window.UIRenderer,
-                ConditionEngine: window.ConditionEngine,
-                EventManager: window.EventManager
+                SFQ_StateManager: window.SFQ_StateManager,
+                SFQ_DataValidator: window.SFQ_DataValidator,
+                SFQ_UIRenderer: window.SFQ_UIRenderer,
+                SFQ_ConditionEngine: window.SFQ_ConditionEngine,
+                SFQ_EventManager: window.SFQ_EventManager
             };
             
             // Verificar clases faltantes
@@ -47,26 +47,27 @@
             }
             
             // Inicializar módulos core
-            this.stateManager = new StateManager();
-            this.dataValidator = new DataValidator();
-            this.uiRenderer = new UIRenderer(this);
-            this.conditionEngine = new ConditionEngine(this);
-            this.eventManager = new EventManager(this);
+            this.stateManager = new SFQ_StateManager();
+            this.dataValidator = new SFQ_DataValidator();
+            this.uiRenderer = new SFQ_UIRenderer(this);
+            this.conditionEngine = new SFQ_ConditionEngine(this);
+            this.eventManager = new SFQ_EventManager(this);
             
             // QuestionManager necesita ser inicializado después porque depende de otros módulos
-            if (window.QuestionManager) {
-                this.questionManager = new QuestionManager(this);
+            if (window.SFQ_QuestionManager) {
+                this.questionManager = new SFQ_QuestionManager(this);
             } else {
-                console.error('SFQ: QuestionManager not available');
-                throw new Error('QuestionManager module is required');
+                console.error('SFQ: SFQ_QuestionManager not available');
+                throw new Error('SFQ_QuestionManager module is required');
             }
             
             // Módulos opcionales (componentes)
-            this.freestyleElements = window.FreestyleElements ? new FreestyleElements(this) : null;
-            this.imageManager = window.SFQ_ImageManager ? new window.SFQ_ImageManager(this) : null;
-            this.variableManager = window.SFQ_VariableManager ? new window.SFQ_VariableManager(this) : null;
-            this.styleManager = window.SFQ_StyleManager ? new window.SFQ_StyleManager(this) : null;
-            this.previewManager = window.PreviewManager ? new window.PreviewManager(this) : null;
+            this.freestyleElements = window.SFQ_FreestyleElements ? new SFQ_FreestyleElements(this) : null;
+            this.imageManager = window.SFQ_ImageManager ? new SFQ_ImageManager(this) : null;
+            this.variableManager = window.SFQ_VariableManager ? new SFQ_VariableManager(this) : null;
+            this.styleManager = window.SFQ_StyleManager ? new SFQ_StyleManager(this) : null;
+            this.blockFormTimerManager = window.SFQ_BlockFormTimerManager ? new SFQ_BlockFormTimerManager(this) : null;
+            this.previewManager = window.SFQ_PreviewManager ? new SFQ_PreviewManager(this) : null;
             
             console.log('SFQ: Modules initialized successfully');
         }
@@ -122,6 +123,10 @@
             
             if (this.styleManager) {
                 this.styleManager.init();
+            }
+            
+            if (this.blockFormTimerManager) {
+                this.blockFormTimerManager.init();
             }
             
             if (this.previewManager) {
@@ -475,6 +480,34 @@
             $('#limit-text-color').val(styles.limit_text_color || '#666666').trigger('change');
             $('#limit-button-bg-color').val(styles.limit_button_bg_color || '#007cba').trigger('change');
             $('#limit-button-text-color').val(styles.limit_button_text_color || '#ffffff').trigger('change');
+            
+            // Block form and timer settings
+            this.populateBlockFormSettings(styles);
+        }
+
+        populateBlockFormSettings(styles) {
+            // Basic block form settings
+            $('#block-form-icon').val(styles.block_form_icon || '');
+            $('#block-form-video-url').val(styles.block_form_video_url || '');
+            $('#block-form-title').val(styles.block_form_title || '');
+            $('#block-form-description').val(styles.block_form_description || '');
+            $('#block-form-button-text').val(styles.block_form_button_text || '');
+            $('#block-form-button-url').val(styles.block_form_button_url || '');
+            
+            // Block form colors
+            $('#block-form-bg-color').val(styles.block_form_bg_color || '#f8f9fa').trigger('change');
+            $('#block-form-border-color').val(styles.block_form_border_color || '#e9ecef').trigger('change');
+            $('#block-form-icon-color').val(styles.block_form_icon_color || '#dc3545').trigger('change');
+            $('#block-form-title-color').val(styles.block_form_title_color || '#333333').trigger('change');
+            $('#block-form-text-color').val(styles.block_form_text_color || '#666666').trigger('change');
+            $('#block-form-button-bg-color').val(styles.block_form_button_bg_color || '#007cba').trigger('change');
+            $('#block-form-button-text-color').val(styles.block_form_button_text_color || '#ffffff').trigger('change');
+            $('#block-form-disable-shadow').prop('checked', styles.block_form_disable_shadow === true);
+            
+            // Timer settings via BlockFormTimerManager
+            if (this.blockFormTimerManager) {
+                this.blockFormTimerManager.populateTimerSettings(styles);
+            }
         }
 
         // Crear versión con debounce del saveForm
@@ -677,8 +710,39 @@
                 intro_screen_gradient_color_4: $('#intro-screen-gradient-color-4').val() || '#23d5ab',
                 intro_screen_gradient_speed: $('#intro-screen-gradient-speed').val() || '15',
                 intro_screen_gradient_angle: $('#intro-screen-gradient-angle').val() || '-45',
-                intro_screen_gradient_size: $('#intro-screen-gradient-size').val() || '400'
+                intro_screen_gradient_size: $('#intro-screen-gradient-size').val() || '400',
+                // Block form and timer settings
+                ...this.collectBlockFormSettings()
             };
+        }
+
+        collectBlockFormSettings() {
+            const blockFormSettings = {
+                // Basic block form settings
+                block_form_icon: $('#block-form-icon').val() || '',
+                block_form_video_url: $('#block-form-video-url').val() || '',
+                block_form_title: $('#block-form-title').val() || '',
+                block_form_description: $('#block-form-description').val() || '',
+                block_form_button_text: $('#block-form-button-text').val() || '',
+                block_form_button_url: $('#block-form-button-url').val() || '',
+                // Block form colors
+                block_form_bg_color: $('#block-form-bg-color').val() || '#f8f9fa',
+                block_form_border_color: $('#block-form-border-color').val() || '#e9ecef',
+                block_form_icon_color: $('#block-form-icon-color').val() || '#dc3545',
+                block_form_title_color: $('#block-form-title-color').val() || '#333333',
+                block_form_text_color: $('#block-form-text-color').val() || '#666666',
+                block_form_button_bg_color: $('#block-form-button-bg-color').val() || '#007cba',
+                block_form_button_text_color: $('#block-form-button-text-color').val() || '#ffffff',
+                block_form_disable_shadow: $('#block-form-disable-shadow').is(':checked')
+            };
+
+            // Timer settings via BlockFormTimerManager
+            if (this.blockFormTimerManager) {
+                const timerSettings = this.blockFormTimerManager.collectTimerSettings();
+                Object.assign(blockFormSettings, timerSettings);
+            }
+
+            return blockFormSettings;
         }
 
         setupAutoSave() {
@@ -1001,6 +1065,10 @@
                 this.styleManager.destroy();
             }
             
+            if (this.blockFormTimerManager) {
+                this.blockFormTimerManager.destroy();
+            }
+            
             if (this.previewManager) {
                 this.previewManager.destroy();
             }
@@ -1022,9 +1090,9 @@
 
     // Export para uso en otros módulos
     if (typeof module !== 'undefined' && module.exports) {
-        module.exports = FormBuilderCore;
+        module.exports = SFQ_FormBuilderCore;
     } else {
-        window.FormBuilderCore = FormBuilderCore;
+        window.SFQ_FormBuilderCore = SFQ_FormBuilderCore;
     }
 
 })(jQuery);

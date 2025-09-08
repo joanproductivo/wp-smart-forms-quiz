@@ -469,6 +469,9 @@
             // ✅ NUEVO: Aplicar estilos de imagen de fondo
             this.applyBackgroundImageStyles();
             
+            // ✅ NUEVO: Aplicar estilos personalizados de botones
+            this.applyCustomButtonStyles();
+            
            
             // ✅ CORREGIDO: Retrasar inicialización del guardado parcial
             if (this.savePartialEnabled) {
@@ -1493,7 +1496,6 @@
          * SOLO procesa condiciones basadas en variables globales (no duplicar condiciones de respuesta)
          */
         async processConditionsForNavigation(questionId) {
-            console.log('🔧 Navigation: Processing conditions for navigation', { questionId });
             
             try {
                 // ✅ REFACTORIZADO: Usar motor unificado con trigger de navegación
@@ -1506,7 +1508,6 @@
 
                 const result = await this.conditionalEngine.processConditions(questionId, trigger);
                 
-                console.log('🔧 Navigation: Engine result', result);
                 
                 // Si el motor unificado no encontró condiciones de navegación, hacer fallback a AJAX
                 if (!result.shouldRedirect && !result.skipToQuestion) {
@@ -1514,13 +1515,11 @@
                     
                     // Solo consultar servidor si no hay respuesta específica
                     if (currentAnswer === undefined) {
-                        console.log('🔧 Navigation: No local navigation conditions, checking server');
                         
                         try {
                             const ajaxResult = await this.checkConditionsViaAjax(questionId, null);
                             
                             if (ajaxResult && (ajaxResult.shouldRedirect || ajaxResult.skipToQuestion)) {
-                                console.log('🔧 Navigation: Server returned navigation result', ajaxResult);
                                 return ajaxResult;
                             }
                             
@@ -1534,7 +1533,6 @@
                     }
                 }
                 
-                console.log('🔧 Navigation: Final result', result);
                 return result;
                 
             } catch (error) {
@@ -4681,6 +4679,326 @@
         }
 
         /**
+         * ✅ NUEVO: Aplicar estilos personalizados de botones con gradiente animado
+         */
+        applyCustomButtonStyles() {
+            // Buscar todos los botones con estilos personalizados
+            const customButtons = this.container.querySelectorAll('.sfq-next-button[data-custom-style="true"]');
+            
+            customButtons.forEach(button => {
+                this.applyButtonCustomStyles(button);
+            });
+
+            // También aplicar a botones que se cargan dinámicamente
+            this.observeForNewButtons();
+        }
+
+        /**
+         * ✅ NUEVO: Observar botones que se cargan dinámicamente
+         */
+        observeForNewButtons() {
+            // Configurar observer para detectar nuevos botones
+            if (window.MutationObserver) {
+                const observer = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                        mutation.addedNodes.forEach((node) => {
+                            if (node.nodeType === Node.ELEMENT_NODE) {
+                                // Buscar botones personalizados en el nodo añadido
+                                const newButtons = node.querySelectorAll ? 
+                                    node.querySelectorAll('.sfq-next-button[data-custom-style="true"]') : [];
+                                
+                                newButtons.forEach(button => {
+                                    this.applyButtonCustomStyles(button);
+                                });
+
+                                // También verificar si el nodo mismo es un botón personalizado
+                                if (node.classList && node.classList.contains('sfq-next-button') && 
+                                    node.dataset.customStyle === 'true') {
+                                    this.applyButtonCustomStyles(node);
+                                }
+                            }
+                        });
+                    });
+                });
+
+                observer.observe(this.container, {
+                    childList: true,
+                    subtree: true
+                });
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Aplicar estilos personalizados a un botón específico
+         */
+        applyButtonCustomStyles(button) {
+            // Obtener configuración de estilos del botón desde data attributes
+            const buttonConfig = this.extractButtonStyleConfig(button);
+            
+            if (!buttonConfig) {
+                return;
+            }
+
+
+            // Aplicar estilos básicos
+            this.applyBasicButtonStyles(button, buttonConfig);
+            
+            // Aplicar gradiente animado si está habilitado
+            if (buttonConfig.gradient_enabled) {
+                this.applyAnimatedGradient(button, buttonConfig);
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Extraer configuración de estilos del botón
+         */
+        extractButtonStyleConfig(button) {
+            try {
+                const configData = button.dataset.styleConfig;
+                if (!configData) {
+                    return null;
+                }
+                
+                const config = JSON.parse(configData);
+               
+                return config;
+            } catch (error) {
+                console.error('SFQ: Error parsing button style config:', error);
+                return null;
+            }
+        }
+
+        /**
+         * ✅ SOLUCIONADO: Aplicar estilos básicos del botón con !important para sobrescribir CSS del tema
+         */
+        applyBasicButtonStyles(button, config) {
+            
+            // ✅ SOLUCIÓN DEFINITIVA: Usar setProperty con !important para sobrescribir estilos del tema
+            if (config.background_color) {
+                // ✅ CORREGIDO: Permitir opacidad 0 usando verificación explícita
+                const bgOpacity = config.background_opacity !== undefined && config.background_opacity !== null && config.background_opacity !== '' 
+                    ? parseFloat(config.background_opacity) 
+                    : 1;
+                
+                // Si no hay gradiente, aplicar color de fondo sólido con opacidad
+                if (!config.gradient_enabled) {
+                    const bgColor = this.hexToRgba(config.background_color, bgOpacity);
+                    button.style.setProperty('background-color', bgColor, 'important');
+                } else {
+                    // Si hay gradiente, el color de fondo se usa como fallback
+                    button.style.setProperty('background-color', config.background_color, 'important');
+                }
+            }
+
+            if (config.text_color) {
+                button.style.setProperty('color', config.text_color, 'important');
+            }
+
+            if (config.border_color) {
+                const borderOpacity = parseFloat(config.border_opacity || 1);
+                const borderColor = this.hexToRgba(config.border_color, borderOpacity);
+                button.style.setProperty('border-color', borderColor, 'important');
+                button.style.setProperty('border-width', '1px', 'important');
+                button.style.setProperty('border-style', 'solid', 'important');
+            }
+
+            // Dimensiones y forma
+            if (config.border_radius) {
+                button.style.setProperty('border-radius', config.border_radius + 'px', 'important');
+            }
+
+            if (config.font_size) {
+                button.style.setProperty('font-size', config.font_size + 'px', 'important');
+            }
+
+            if (config.font_weight) {
+                button.style.setProperty('font-weight', config.font_weight, 'important');
+            }
+
+            // Efectos
+            if (config.text_shadow) {
+                button.style.setProperty('text-shadow', '1px 1px 2px rgba(0,0,0,0.3)', 'important');
+            }
+
+            if (config.box_shadow) {
+                button.style.setProperty('box-shadow', '0 4px 8px rgba(0,0,0,0.1)', 'important');
+            }
+
+            // Alineación
+            if (config.alignment) {
+                const buttonContainer = button.parentElement;
+                if (buttonContainer) {
+                    buttonContainer.style.setProperty('text-align', config.alignment, 'important');
+                }
+            }
+
+            // Asegurar que el botón tenga posición relativa para efectos
+            button.style.setProperty('position', 'relative', 'important');
+            button.style.setProperty('overflow', 'hidden', 'important');
+        }
+
+        /**
+         * ✅ ACTUALIZADO: Aplicar gradiente animado al botón con efectos avanzados
+         */
+        applyAnimatedGradient(button, config) {
+            // Colores del gradiente
+            const color1 = config.gradient_color_1 || '#ee7752';
+            const color2 = config.gradient_color_2 || '#e73c7e';
+            const color3 = config.gradient_color_3 || '#23a6d5';
+            const color4 = config.gradient_color_4 || '#23d5ab';
+            
+            // Configuración de animación
+            const speed = config.gradient_speed || 15;
+            const angle = config.gradient_angle || -45;
+            const size = config.gradient_size || 400;
+            
+            // ✅ NUEVO: Efectos avanzados
+            const opacity = parseFloat(config.gradient_opacity || 1);
+            const blur = config.gradient_blur || 0;
+            const saturate = config.gradient_saturate || 100;
+            
+            // ✅ SOLUCIÓN: Aplicar opacidad a los colores del gradiente individualmente
+            const color1WithOpacity = this.applyOpacityToColor(color1, opacity);
+            const color2WithOpacity = this.applyOpacityToColor(color2, opacity);
+            const color3WithOpacity = this.applyOpacityToColor(color3, opacity);
+            const color4WithOpacity = this.applyOpacityToColor(color4, opacity);
+            
+            // Crear gradiente CSS con colores que incluyen opacidad
+            const gradient = `linear-gradient(${angle}deg, ${color1WithOpacity}, ${color2WithOpacity}, ${color3WithOpacity}, ${color4WithOpacity})`;
+            
+            // Aplicar estilos del gradiente
+            button.style.background = gradient;
+            button.style.backgroundSize = `${size}% ${size}%`;
+            button.style.position = 'relative';
+            button.style.overflow = 'hidden';
+            
+            // ✅ CRÍTICO: NO aplicar opacidad al botón completo (mantener texto opaco)
+            // La opacidad se aplica directamente a los colores del gradiente
+            
+            // ✅ NUEVO: Aplicar efectos de glassmorphism
+            if (parseInt(blur) > 0 || parseInt(saturate) !== 100) {
+                const filters = [];
+                
+                if (parseInt(blur) > 0) {
+                    filters.push(`blur(${blur}px)`);
+                }
+                
+                if (parseInt(saturate) !== 100) {
+                    filters.push(`saturate(${saturate}%)`);
+                }
+                
+                const backdropFilter = filters.join(' ');
+                button.style.backdropFilter = backdropFilter;
+                button.style.webkitBackdropFilter = backdropFilter; // Safari support
+                
+            }
+            
+            // Crear animación CSS única para este botón
+            const animationName = `sfq-gradient-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            this.createGradientAnimation(animationName);
+            
+            // ✅ CORREGIDO: Aplicar animación con !important para sobrescribir CSS del tema
+            button.style.setProperty('animation', `${animationName} ${speed}s ease infinite`, 'important');
+            
+            
+            // Configuraciones adicionales
+            if (config.gradient_hover_pause) {
+                button.addEventListener('mouseenter', () => {
+                    button.style.animationPlayState = 'paused';
+                });
+                
+                button.addEventListener('mouseleave', () => {
+                    button.style.animationPlayState = 'running';
+                });
+            }
+            
+            if (config.gradient_reverse_animation) {
+                button.style.animationDirection = 'reverse';
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Crear animación CSS para gradiente
+         */
+        createGradientAnimation(animationName) {
+            // Verificar si ya existe una hoja de estilos para animaciones
+            let styleSheet = document.getElementById('sfq-gradient-animations');
+            if (!styleSheet) {
+                styleSheet = document.createElement('style');
+                styleSheet.id = 'sfq-gradient-animations';
+                document.head.appendChild(styleSheet);
+            }
+            
+            // Crear regla de animación
+            const animationRule = `
+                @keyframes ${animationName} {
+                    0% {
+                        background-position: 0% 50%;
+                    }
+                    50% {
+                        background-position: 100% 50%;
+                    }
+                    100% {
+                        background-position: 0% 50%;
+                    }
+                }
+            `;
+            
+            // Añadir la regla a la hoja de estilos
+            try {
+                if (styleSheet.sheet) {
+                    styleSheet.sheet.insertRule(animationRule, styleSheet.sheet.cssRules.length);
+                } else {
+                    // Fallback para navegadores que no soportan sheet.insertRule inmediatamente
+                    styleSheet.textContent += animationRule;
+                }
+            } catch (error) {
+                console.error('SFQ: Error creating gradient animation:', error);
+                // Fallback: añadir al textContent
+                styleSheet.textContent += animationRule;
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Convertir hex a rgba (helper function)
+         */
+        hexToRgba(hex, opacity = 1) {
+            if (!hex || typeof hex !== 'string') return 'rgba(0,0,0,1)';
+            
+            // Remover el # si existe
+            hex = hex.replace('#', '');
+            
+            // Manejar formato corto (#RGB)
+            if (hex.length === 3) {
+                hex = hex.split('').map(char => char + char).join('');
+            }
+            
+            // Validar formato
+            if (hex.length !== 6 || !/^[0-9A-Fa-f]{6}$/.test(hex)) {
+                return 'rgba(0,0,0,1)';
+            }
+            
+            const r = parseInt(hex.substr(0, 2), 16);
+            const g = parseInt(hex.substr(2, 2), 16);
+            const b = parseInt(hex.substr(4, 2), 16);
+            
+            return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+        }
+
+        /**
+         * ✅ NUEVO: Aplicar opacidad a un color individual del gradiente
+         */
+        applyOpacityToColor(color, opacity) {
+            // Si la opacidad es 1, devolver el color original
+            if (opacity >= 1) {
+                return color;
+            }
+            
+            // Convertir el color a RGBA con la opacidad especificada
+            return this.hexToRgba(color, opacity);
+        }
+
+        /**
          * ✅ MEJORADO: Obtener nonce actual con validación robusta
          */
         getCurrentNonce() {
@@ -4792,7 +5110,6 @@
          * ✅ NUEVO: Mostrar mensaje de bloqueo del formulario
          */
         showBlockedMessage(questionScreen) {
-            console.log('SFQ: Showing blocked message for question:', questionScreen.dataset.questionId);
             
             // Ocultar la pregunta actual
             if (this.currentScreen) {
@@ -5318,7 +5635,7 @@ style.textContent = `
     .sfq-processing-spinner {
         width: 20px;
         height: 20px;
-        border: 2px solid #f3f3f3;
+        border: none;
         border-top: 2px solid #007cba;
         border-radius: 50%;
         animation: spin 1s linear infinite;

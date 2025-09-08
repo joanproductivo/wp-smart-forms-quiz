@@ -6,7 +6,7 @@
 (function($) {
     'use strict';
 
-class ImageManager {
+    class SFQ_ImageManager {
     constructor(formBuilder) {
         this.formBuilder = formBuilder;
         this.mediaUploader = null;
@@ -16,7 +16,6 @@ class ImageManager {
      * Inicializar ImageManager
      */
     init() {
-        console.log('SFQ: ImageManager initialized');
         // No hay inicialización específica requerida para ImageManager
         // Los eventos se manejan a través del EventManager
     }
@@ -67,7 +66,6 @@ class ImageManager {
             return;
         }
 
-        console.log('SFQ: Opening Media Library for option', optionIndex);
 
         // Crear instancia del media uploader
         const mediaUploader = wp.media({
@@ -85,7 +83,6 @@ class ImageManager {
         mediaUploader.on('select', () => {
             const attachment = mediaUploader.state().get('selection').first().toJSON();
 
-            console.log('SFQ: Selected attachment:', attachment);
 
             // ✅ VALIDACIÓN: Verificar que sea una imagen válida
             if (!this.isValidAttachment(attachment)) {
@@ -539,11 +536,11 @@ class ImageManager {
     }
 }
 
-// Export para uso en otros módulos
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = ImageManager;
-} else {
-    window.SFQ_ImageManager = ImageManager;
-}
+    // Export para uso en otros módulos
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = SFQ_ImageManager;
+    } else {
+        window.SFQ_ImageManager = SFQ_ImageManager;
+    }
 
 })(jQuery);

@@ -55,8 +55,8 @@ class SFQ_Frontend {
                     if (isset($styles['block_form_timer_show_form']) && $styles['block_form_timer_show_form']) {
                         // Verificar si debe ocultar todo completamente
                         if (isset($styles['block_form_timer_hide_all']) && $styles['block_form_timer_hide_all']) {
-                            // No renderizar nada - devolver cadena vacía
-                            return '';
+                            // ✅ SOLUCIÓN: Renderizar script para limpiar localStorage y luego ocultar
+                            return $this->render_timer_cleanup_script($form_id);
                         }
                         
                         // Renderizar contador en estado expirado (mantener solo timer visible)
@@ -353,6 +353,7 @@ class SFQ_Frontend {
                         // ✅ NUEVO: Aplicar estilos personalizados del botón si están configurados
                         $button_styles = '';
                         $button_classes = 'sfq-button sfq-button-primary sfq-next-button';
+                        $button_data_attrs = '';
                         
                         if (isset($first_question->settings['next_button_custom_style']) && $first_question->settings['next_button_custom_style'] && 
                             isset($first_question->settings['next_button_style'])) {
@@ -360,16 +361,13 @@ class SFQ_Frontend {
                             $button_styles = $this->generate_button_styles($style_config);
                             $button_classes .= ' sfq-custom-styled-button';
                             
-                            // ✅ NUEVO: Añadir clase específica para degradado animado
-                            if (isset($style_config['gradient_animated']) && 
-                                ($style_config['gradient_animated'] === true || $style_config['gradient_animated'] === 'true' || 
-                                 $style_config['gradient_animated'] === '1' || $style_config['gradient_animated'] === 1)) {
-                                $button_classes .= ' sfq-gradient-animated';
-                            }
+                            // ✅ NUEVO: Añadir atributos de datos para estilos personalizados
+                            $button_data_attrs = 'data-custom-style="true" data-style-config=\'' . json_encode($style_config) . '\'';
                         }
                         ?>
                             <button class="<?php echo esc_attr($button_classes); ?>" 
-                                    <?php echo !empty($button_styles) ? 'style="' . esc_attr($button_styles) . '"' : ''; ?>>
+                                    <?php echo !empty($button_styles) ? 'style="' . esc_attr($button_styles) . '"' : ''; ?>
+                                    <?php echo $button_data_attrs; ?>>
                                 <?php echo esc_html($button_text); ?>
                             </button>
                         <?php endif; ?>
@@ -488,12 +486,16 @@ class SFQ_Frontend {
                                         $button_styles = '';
                                         $button_classes = 'sfq-button sfq-button-primary sfq-next-button';
                                         $navigation_styles = '';
+                                        $button_data_attrs = '';
                                         
                                         if (isset($question->settings['next_button_custom_style']) && $question->settings['next_button_custom_style'] && 
                                             isset($question->settings['next_button_style'])) {
                                             $style_config = $question->settings['next_button_style'];
                                             $button_styles = $this->generate_button_styles($style_config);
                                             $button_classes .= ' sfq-custom-styled-button';
+                                            
+                                            // ✅ NUEVO: Añadir atributos de datos para estilos personalizados
+                                            $button_data_attrs = 'data-custom-style="true" data-style-config=\'' . json_encode($style_config) . '\'';
                                             
                                             // Aplicar alineación al contenedor de navegación
                                             if (!empty($style_config['alignment'])) {
@@ -513,7 +515,8 @@ class SFQ_Frontend {
                                     ?>
                                         <div class="sfq-button-container" <?php echo !empty($navigation_styles) ? 'style="' . esc_attr($navigation_styles) . '"' : ''; ?>>
                                             <button class="<?php echo esc_attr($button_classes); ?>" 
-                                                    <?php echo !empty($button_styles) ? 'style="' . esc_attr($button_styles) . '"' : ''; ?>>
+                                                    <?php echo !empty($button_styles) ? 'style="' . esc_attr($button_styles) . '"' : ''; ?>
+                                                    <?php echo $button_data_attrs; ?>>
                                                 <?php echo esc_html($button_text); ?>
                                             </button>
                                         </div>
@@ -2087,6 +2090,43 @@ class SFQ_Frontend {
     }
     
     /**
+     * ✅ NUEVO: Renderizar script para limpiar localStorage del timer hide-all
+     */
+    private function render_timer_cleanup_script($form_id) {
+        ob_start();
+        ?>
+        <div class="sfq-timer-cleanup-container" id="sfq-form-<?php echo $form_id; ?>">
+            <script>
+            (function() {
+                'use strict';
+                
+                const formId = <?php echo intval($form_id); ?>;
+                
+                // Limpiar todos los estados relacionados con el timer de este formulario
+                localStorage.removeItem('sfq_timer_expired_' + formId);
+                localStorage.removeItem('sfq_timer_expired_hide_all_' + formId);
+                
+                // Ocultar el contenedor inmediatamente
+                const container = document.getElementById('sfq-form-' + formId);
+                if (container) {
+                    container.style.display = 'none';
+                    container.style.visibility = 'hidden';
+                    container.style.opacity = '0';
+                    container.style.height = '0';
+                    container.style.overflow = 'hidden';
+                    container.style.margin = '0';
+                    container.style.padding = '0';
+                }
+                
+                console.log('SFQ Timer: Cleaned up localStorage and hid container for form', formId);
+            })();
+            </script>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+    
+    /**
      * Verificar si es una petición de timer expirado (GET o AJAX/POST)
      */
     private function is_timer_expired_request($form_id) {
@@ -2602,15 +2642,42 @@ class SFQ_Frontend {
             $styles['color'] = $settings['text_color'];
         }
         
-        // Color de fondo con opacidad
-        if (!empty($settings['background_color'])) {
-            $bg_color = $settings['background_color'];
-            $bg_opacity = $settings['background_opacity'] ?? '1';
+        // ✅ NUEVO: Verificar si el gradiente animado está habilitado
+        $gradient_enabled = false;
+        if (isset($settings['gradient_enabled'])) {
+            $gradient_enabled = ($settings['gradient_enabled'] === true || 
+                               $settings['gradient_enabled'] === 'true' || 
+                               $settings['gradient_enabled'] === '1' || 
+                               $settings['gradient_enabled'] === 1);
+        }
+        
+        if ($gradient_enabled) {
+            // ✅ CORREGIDO: No aplicar opacidad directamente al botón para evitar afectar el texto
+            // El gradiente se aplicará mediante pseudo-elemento en el CSS
             
-            if ($bg_opacity != '1') {
-                $styles['background-color'] = $this->hex_to_rgba($bg_color, $bg_opacity);
-            } else {
-                $styles['background-color'] = $bg_color;
+            // ✅ NUEVO: Aplicar efectos adicionales si están configurados
+            if (!empty($settings['gradient_blur']) && intval($settings['gradient_blur']) > 0) {
+                $blur = intval($settings['gradient_blur']);
+                $styles['backdrop-filter'] = "blur({$blur}px)";
+                $styles['-webkit-backdrop-filter'] = "blur({$blur}px)";
+            }
+            
+            if (!empty($settings['gradient_saturate']) && $settings['gradient_saturate'] !== '100') {
+                $saturate = intval($settings['gradient_saturate']);
+                $styles['filter'] = "saturate({$saturate}%)";
+            }
+            
+        } else {
+            // Color de fondo sólido con opacidad (comportamiento original)
+            if (!empty($settings['background_color'])) {
+                $bg_color = $settings['background_color'];
+                $bg_opacity = $settings['background_opacity'] ?? '1';
+                
+                if ($bg_opacity != '1') {
+                    $styles['background-color'] = $this->hex_to_rgba($bg_color, $bg_opacity);
+                } else {
+                    $styles['background-color'] = $bg_color;
+                }
             }
         }
         
@@ -2649,6 +2716,8 @@ class SFQ_Frontend {
         $styles['transition'] = 'all 0.2s ease';
         $styles['text-decoration'] = $styles['text-decoration'] ?? 'none';
         $styles['display'] = 'inline-block';
+        $styles['position'] = 'relative';
+        $styles['overflow'] = 'hidden';
         
         // Convertir array de estilos a string CSS
         $style_string = '';
@@ -2661,21 +2730,38 @@ class SFQ_Frontend {
         if (!empty($css_selector)) {
             $css_classes .= ' ' . esc_attr($css_selector);
         }
+        if ($gradient_enabled) {
+            $css_classes .= ' sfq-gradient-button';
+        }
+        
+        // ✅ NUEVO: Generar ID único para el botón si tiene gradiente
+        $unique_id = '';
+        if ($gradient_enabled) {
+            $unique_id = 'sfq-gradient-btn-' . $element['id'] . '-' . substr(md5($question_id . $element['id']), 0, 8);
+        }
         
         ?>
         <div class="sfq-freestyle-button-wrapper" style="text-align: <?php echo esc_attr($settings['text_align'] ?? 'left'); ?>;">
             <?php if (!empty($button_url)) : ?>
                 <a href="<?php echo esc_url($button_url); ?>" 
                    class="<?php echo esc_attr($css_classes); ?>"
+                   <?php echo $unique_id ? 'id="' . esc_attr($unique_id) . '"' : ''; ?>
                    <?php echo $open_new_tab ? 'target="_blank" rel="noopener"' : ''; ?>
                    data-element-id="<?php echo esc_attr($element['id']); ?>"
+                   <?php if ($gradient_enabled && !empty($settings['gradient_hover_pause']) && $settings['gradient_hover_pause']) : ?>
+                   data-hover-pause="true"
+                   <?php endif; ?>
                    style="<?php echo esc_attr(trim($style_string)); ?>">
                     <?php echo esc_html($button_text); ?>
                 </a>
             <?php else : ?>
                 <button type="button" 
                         class="<?php echo esc_attr($css_classes); ?>"
+                        <?php echo $unique_id ? 'id="' . esc_attr($unique_id) . '"' : ''; ?>
                         data-element-id="<?php echo esc_attr($element['id']); ?>"
+                        <?php if ($gradient_enabled && !empty($settings['gradient_hover_pause']) && $settings['gradient_hover_pause']) : ?>
+                        data-hover-pause="true"
+                        <?php endif; ?>
                         style="<?php echo esc_attr(trim($style_string)); ?>">
                     <?php echo esc_html($button_text); ?>
                 </button>
@@ -2686,6 +2772,84 @@ class SFQ_Frontend {
                    value=""
                    class="sfq-button-click-tracker">
         </div>
+        
+        <?php if ($gradient_enabled) : ?>
+        <!-- ✅ CORREGIDO: CSS específico para este botón con gradiente -->
+        <?php
+        // ✅ CORREGIDO: Definir variables del gradiente aquí
+        $color1 = $settings['gradient_color_1'] ?? '#ee7752';
+        $color2 = $settings['gradient_color_2'] ?? '#e73c7e';
+        $color3 = $settings['gradient_color_3'] ?? '#23a6d5';
+        $color4 = $settings['gradient_color_4'] ?? '#23d5ab';
+        $angle = $settings['gradient_angle'] ?? '-45';
+        $size = $settings['gradient_size'] ?? '400';
+        $speed = $settings['gradient_speed'] ?? '15';
+        $opacity = $settings['gradient_opacity'] ?? '1';
+        
+        // Crear gradiente lineal con múltiples colores
+        $gradient = "linear-gradient({$angle}deg, {$color1}, {$color2}, {$color3}, {$color4})";
+        ?>
+        <style>
+            /* Animación de gradiente para el botón específico */
+            @keyframes sfq-button-gradient-animation {
+                0% {
+                    background-position: 0% 50%;
+                }
+                50% {
+                    background-position: 100% 50%;
+                }
+                100% {
+                    background-position: 0% 50%;
+                }
+            }
+            
+            <?php if ($unique_id) : ?>
+            /* ✅ CORREGIDO: Usar pseudo-elemento para el gradiente sin !important en animación */
+            #<?php echo esc_attr($unique_id); ?> {
+                position: relative;
+                overflow: hidden;
+                z-index: 1;
+            }
+            
+            #<?php echo esc_attr($unique_id); ?>::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: <?php echo esc_attr($gradient); ?>;
+                background-size: <?php echo esc_attr($size); ?>% <?php echo esc_attr($size); ?>%;
+                animation: sfq-button-gradient-animation <?php echo esc_attr($speed); ?>s ease infinite;
+                opacity: <?php echo esc_attr($opacity); ?>;
+                z-index: -1;
+                border-radius: inherit;
+                <?php if (!empty($settings['gradient_reverse_animation']) && $settings['gradient_reverse_animation']) : ?>
+                animation-direction: reverse;
+                <?php endif; ?>
+            }
+            
+            <?php if (!empty($settings['gradient_hover_pause']) && $settings['gradient_hover_pause']) : ?>
+            /* Pausar animación al hover */
+            #<?php echo esc_attr($unique_id); ?>:hover::before {
+                animation-play-state: paused;
+            }
+            <?php endif; ?>
+            
+            /* Efectos hover adicionales */
+            #<?php echo esc_attr($unique_id); ?>:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+            }
+            
+            /* Asegurar que el texto esté por encima del gradiente */
+            #<?php echo esc_attr($unique_id); ?> * {
+                position: relative;
+                z-index: 2;
+            }
+            <?php endif; ?>
+        </style>
+        <?php endif; ?>
         <?php
     }
     

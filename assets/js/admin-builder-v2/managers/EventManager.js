@@ -6,7 +6,7 @@
 (function($) {
     'use strict';
 
-    class EventManager {
+    class SFQ_EventManager {
     constructor(formBuilder) {
         this.formBuilder = formBuilder;
         this.eventNamespace = '.' + this.formBuilder.instanceId;
@@ -106,6 +106,9 @@
                 console.error('SFQ: VariableManager not available');
             }
         });
+        
+        // ✅ NUEVO: Eventos para timer de bloqueo de formulario
+        this.bindBlockFormTimerEvents();
         
         // ✅ NUEVO: Eventos para configuración del botón siguiente en preguntas freestyle
         this.bindFreestyleButtonEvents();
@@ -778,6 +781,141 @@
     }
 
     /**
+     * ✅ NUEVO: Vincular eventos para timer de bloqueo de formulario
+     */
+    bindBlockFormTimerEvents() {
+        const ns = this.eventNamespace;
+        
+        // Delegar al BlockFormTimerManager si está disponible
+        if (this.formBuilder.blockFormTimerManager) {
+            // ✅ CORREGIDO: Usar bindEvents() que es el método correcto en BlockFormTimerManager
+            this.formBuilder.blockFormTimerManager.bindEvents();
+            console.log('SFQ EventManager: Block form timer events delegated to BlockFormTimerManager');
+        } else {
+            console.warn('SFQ EventManager: BlockFormTimerManager not available, binding basic events');
+            
+            // Fallback básico para el checkbox principal
+            $('#block-form-enable-timer').off('change' + ns).on('change' + ns, (e) => {
+                if ($(e.target).is(':checked')) {
+                    $('#block-form-timer-settings').slideDown();
+                    $('#block-form-timer-available-section').slideDown();
+                    
+                    // Mostrar la sección de colores del mensaje de disponibilidad
+                    $('.sfq-message-config-section').each(function() {
+                        const $section = $(this);
+                        const titleText = $section.find('h4').text();
+                        // Buscar específicamente la sección que NO incluye "Bloqueo" en el título
+                        if (titleText.includes('🎨 Colores del Mensaje') && !titleText.includes('Bloqueo')) {
+                            $section.slideDown();
+                        }
+                    });
+                } else {
+                    $('#block-form-timer-settings').slideUp();
+                    $('#block-form-timer-available-section').slideUp();
+                    
+                    // Ocultar la sección de colores del mensaje de disponibilidad
+                    $('.sfq-message-config-section').each(function() {
+                        const $section = $(this);
+                        const titleText = $section.find('h4').text();
+                        // Buscar específicamente la sección que NO incluye "Bloqueo" en el título
+                        if (titleText.includes('🎨 Colores del Mensaje') && !titleText.includes('Bloqueo')) {
+                            $section.slideUp();
+                        }
+                    });
+                }
+                
+                if (!this.formBuilder.isDestroyed) {
+                    this.formBuilder.isDirty = true;
+                }
+            });
+            
+            // Fallback para mostrar/ocultar opción de desaparecer completamente
+            $('#block-form-timer-show-form').off('change' + ns).on('change' + ns, (e) => {
+                if ($(e.target).is(':checked')) {
+                    $('#block-form-timer-hide-all-container').slideDown();
+                } else {
+                    $('#block-form-timer-hide-all-container').slideUp();
+                }
+                
+                if (!this.formBuilder.isDestroyed) {
+                    this.formBuilder.isDirty = true;
+                }
+            });
+            
+            // ✅ NUEVO: Fallback para campos del timer
+            const timerFields = [
+                '#block-form-timer-date',
+                '#block-form-timer-text', 
+                '#block-form-timer-opened-text',
+                '#block-form-timer-show-form',
+                '#block-form-timer-hide-all'
+            ];
+            
+            $(timerFields.join(', ')).off('change input' + ns).on('change input' + ns, () => {
+                if (!this.formBuilder.isDestroyed) {
+                    this.formBuilder.isDirty = true;
+                }
+            });
+            
+            // ✅ NUEVO: Fallback para campos del mensaje de disponibilidad del timer
+            const availabilityFields = [
+                '#block-form-timer-available-icon',
+                '#block-form-timer-available-title',
+                '#block-form-timer-available-description',
+                '#block-form-timer-available-button-text',
+                '#block-form-timer-available-button-url'
+            ];
+            
+            $(availabilityFields.join(', ')).off('change input' + ns).on('change input' + ns, () => {
+                if (!this.formBuilder.isDestroyed) {
+                    this.formBuilder.isDirty = true;
+                }
+            });
+            
+            // ✅ NUEVO: Fallback para colores del timer de bloqueo
+            const timerColorFields = [
+                '#block-form-bg-color',
+                '#block-form-border-color', 
+                '#block-form-icon-color',
+                '#block-form-title-color',
+                '#block-form-text-color',
+                '#block-form-button-bg-color',
+                '#block-form-button-text-color',
+                '#block-form-timer-unit-bg-color',
+                '#block-form-timer-container-bg-color',
+                '#block-form-timer-container-border-color',
+                '#block-form-timer-unit-border-color',
+                '#block-form-disable-shadow'
+            ];
+            
+            $(timerColorFields.join(', ')).off('change' + ns).on('change' + ns, () => {
+                if (!this.formBuilder.isDestroyed) {
+                    this.formBuilder.isDirty = true;
+                }
+            });
+            
+            // ✅ NUEVO: Fallback para colores del mensaje de disponibilidad
+            const availabilityColorFields = [
+                '#block-form-timer-available-bg-color',
+                '#block-form-timer-available-border-color',
+                '#block-form-timer-available-icon-color',
+                '#block-form-timer-available-title-color',
+                '#block-form-timer-available-text-color',
+                '#block-form-timer-available-button-bg-color',
+                '#block-form-timer-available-button-text-color'
+            ];
+            
+            $(availabilityColorFields.join(', ')).off('change' + ns).on('change' + ns, () => {
+                if (!this.formBuilder.isDestroyed) {
+                    this.formBuilder.isDirty = true;
+                }
+            });
+        }
+        
+        console.log('SFQ EventManager: Block form timer events bound');
+    }
+
+    /**
      * ✅ NUEVO: Vincular eventos para configuración del botón siguiente en preguntas freestyle
      */
     bindFreestyleButtonEvents() {
@@ -841,19 +979,143 @@
             const $question = $checkbox.closest('.sfq-question-item');
             const $gradientSetting = $question.find('.sfq-gradient-color-setting');
             const $gradientAnimationSetting = $question.find('.sfq-gradient-animation-setting');
+            const $gradientAdvancedPanel = $question.find('.sfq-gradient-advanced-panel');
             
             console.log('SFQ: Gradient checkbox changed:', $checkbox.is(':checked'));
             
             if ($checkbox.is(':checked')) {
+                // Mostrar tanto el panel básico como el avanzado
                 $gradientSetting.slideDown(300);
                 $gradientAnimationSetting.slideDown(300);
+                $gradientAdvancedPanel.slideDown(300);
                 console.log('SFQ: Showing gradient settings');
+                
+                // Actualizar vista previa después de mostrar el panel
+                setTimeout(() => {
+                    this.updateButtonGradientPreview($question);
+                }, 350);
             } else {
                 $gradientSetting.slideUp(300);
                 $gradientAnimationSetting.slideUp(300);
+                $gradientAdvancedPanel.slideUp(300);
                 console.log('SFQ: Hiding gradient settings');
             }
             
+            this.updateQuestionButtonSettings($question);
+        });
+        
+        // ✅ NUEVO: Eventos específicos para el panel avanzado de gradiente
+        $(document).off('change input' + ns, '.sfq-gradient-color-picker').on('change input' + ns, '.sfq-gradient-color-picker', (e) => {
+            const $input = $(e.currentTarget);
+            const $question = $input.closest('.sfq-question-item');
+            
+            console.log('SFQ: Gradient color changed:', $input.data('setting'), $input.val());
+            
+            // Actualizar vista previa en tiempo real
+            this.updateButtonGradientPreview($question);
+            this.updateQuestionButtonSettings($question);
+        });
+        
+        // Eventos para controles de rango del gradiente
+        $(document).off('input' + ns, 'input[data-setting="gradient_speed"]').on('input' + ns, 'input[data-setting="gradient_speed"]', (e) => {
+            const $input = $(e.currentTarget);
+            const $question = $input.closest('.sfq-question-item');
+            const value = $input.val();
+            
+            // Actualizar display del valor
+            $input.siblings('.sfq-gradient-speed-display').text(value + 's');
+            
+            // Actualizar vista previa
+            this.updateButtonGradientPreview($question);
+            this.updateQuestionButtonSettings($question);
+        });
+        
+        $(document).off('input' + ns, 'input[data-setting="gradient_angle"]').on('input' + ns, 'input[data-setting="gradient_angle"]', (e) => {
+            const $input = $(e.currentTarget);
+            const $question = $input.closest('.sfq-question-item');
+            const value = $input.val();
+            
+            // Actualizar display del valor
+            $input.siblings('.sfq-gradient-angle-display').text(value + '°');
+            
+            // Actualizar vista previa
+            this.updateButtonGradientPreview($question);
+            this.updateQuestionButtonSettings($question);
+        });
+        
+        $(document).off('input' + ns, 'input[data-setting="gradient_size"]').on('input' + ns, 'input[data-setting="gradient_size"]', (e) => {
+            const $input = $(e.currentTarget);
+            const $question = $input.closest('.sfq-question-item');
+            const value = $input.val();
+            
+            // Actualizar display del valor
+            $input.siblings('.sfq-gradient-size-display').text(value + '%');
+            
+            // Actualizar vista previa
+            this.updateButtonGradientPreview($question);
+            this.updateQuestionButtonSettings($question);
+        });
+        
+        // ✅ NUEVO: Evento para opacidad del gradiente
+        $(document).off('input' + ns, 'input[data-setting="gradient_opacity"]').on('input' + ns, 'input[data-setting="gradient_opacity"]', (e) => {
+            const $input = $(e.currentTarget);
+            const $question = $input.closest('.sfq-question-item');
+            const value = parseFloat($input.val());
+            
+            // Actualizar display del valor (convertir a porcentaje)
+            $input.siblings('.sfq-gradient-opacity-display').text(Math.round(value * 100) + '%');
+            
+            // Actualizar vista previa
+            this.updateButtonGradientPreview($question);
+            this.updateQuestionButtonSettings($question);
+        });
+        
+        // ✅ NUEVO: Evento para desenfoque de fondo (glassmorphism)
+        $(document).off('input' + ns, 'input[data-setting="gradient_blur"]').on('input' + ns, 'input[data-setting="gradient_blur"]', (e) => {
+            const $input = $(e.currentTarget);
+            const $question = $input.closest('.sfq-question-item');
+            const value = $input.val();
+            
+            // Actualizar display del valor
+            $input.siblings('.sfq-gradient-blur-display').text(value + 'px');
+            
+            // Actualizar vista previa
+            this.updateButtonGradientPreview($question);
+            this.updateQuestionButtonSettings($question);
+        });
+        
+        // ✅ NUEVO: Evento para saturación del fondo
+        $(document).off('input' + ns, 'input[data-setting="gradient_saturate"]').on('input' + ns, 'input[data-setting="gradient_saturate"]', (e) => {
+            const $input = $(e.currentTarget);
+            const $question = $input.closest('.sfq-question-item');
+            const value = $input.val();
+            
+            // Actualizar display del valor
+            $input.siblings('.sfq-gradient-saturate-display').text(value + '%');
+            
+            // Actualizar vista previa
+            this.updateButtonGradientPreview($question);
+            this.updateQuestionButtonSettings($question);
+        });
+        
+        // Eventos para opciones adicionales del gradiente
+        $(document).off('change' + ns, 'input[data-setting="gradient_hover_pause"]').on('change' + ns, 'input[data-setting="gradient_hover_pause"]', (e) => {
+            const $checkbox = $(e.currentTarget);
+            const $question = $checkbox.closest('.sfq-question-item');
+            
+            console.log('SFQ: Gradient hover pause changed:', $checkbox.is(':checked'));
+            
+            this.updateButtonGradientPreview($question);
+            this.updateQuestionButtonSettings($question);
+        });
+        
+        $(document).off('change' + ns, 'input[data-setting="gradient_reverse_animation"]').on('change' + ns, 'input[data-setting="gradient_reverse_animation"]', (e) => {
+            const $checkbox = $(e.currentTarget);
+            const $question = $checkbox.closest('.sfq-question-item');
+            
+            console.log('SFQ: Gradient reverse animation changed:', $checkbox.is(':checked'));
+            
+            this.updateButtonGradientPreview($question);
             this.updateQuestionButtonSettings($question);
         });
         
@@ -982,8 +1244,194 @@
             case 'font_size':
                 $input.siblings('.sfq-font-size-display').text(value + 'px');
                 break;
+            case 'gradient_speed':
+                $input.siblings('.sfq-gradient-speed-display').text(value + 's');
+                break;
+            case 'gradient_angle':
+                $input.siblings('.sfq-gradient-angle-display').text(value + '°');
+                break;
+            case 'gradient_size':
+                $input.siblings('.sfq-gradient-size-display').text(value + '%');
+                break;
         }
     }
+    
+        /**
+         * ✅ NUEVO: Actualizar vista previa del gradiente del botón
+         */
+        updateButtonGradientPreview($question) {
+            if (!$question.length) return;
+            
+            const $previewButton = $question.find('.sfq-gradient-preview-button');
+            if (!$previewButton.length) return;
+            
+            // Recoger configuraciones del gradiente
+            const settings = {};
+            $question.find('.sfq-config-input').each((index, input) => {
+                const $input = $(input);
+                const setting = $input.data('setting');
+                
+                if (setting && setting.startsWith('gradient_')) {
+                    if ($input.attr('type') === 'checkbox') {
+                        settings[setting] = $input.is(':checked');
+                    } else if ($input.attr('type') === 'range') {
+                        settings[setting] = parseFloat($input.val()) || 0;
+                    } else {
+                        settings[setting] = $input.val() || '';
+                    }
+                }
+            });
+            
+            // Valores por defecto
+            const color1 = settings.gradient_color_1 || '#ee7752';
+            const color2 = settings.gradient_color_2 || '#e73c7e';
+            const color3 = settings.gradient_color_3 || '#23a6d5';
+            const color4 = settings.gradient_color_4 || '#23d5ab';
+            const angle = settings.gradient_angle || '-45';
+            const size = settings.gradient_size || '400';
+            const speed = settings.gradient_speed || '15';
+            const opacity = settings.gradient_opacity || '1';
+            
+            // Crear gradiente CSS
+            const gradient = `linear-gradient(${angle}deg, ${color1}, ${color2}, ${color3}, ${color4})`;
+            
+            // ✅ NUEVO: Crear efectos de glassmorphism
+            const blur = settings.gradient_blur || '0';
+            const saturate = settings.gradient_saturate || '100';
+            
+            let backdropFilter = '';
+            if (parseInt(blur) > 0 || parseInt(saturate) !== 100) {
+                const filters = [];
+                if (parseInt(blur) > 0) {
+                    filters.push(`blur(${blur}px)`);
+                }
+                if (parseInt(saturate) !== 100) {
+                    filters.push(`saturate(${saturate}%)`);
+                }
+                backdropFilter = filters.join(' ');
+            }
+            
+            // Aplicar estilos a la vista previa
+            const styles = {
+                'background': gradient,
+                'background-size': `${size}% ${size}%`,
+                'animation-duration': `${speed}s`,
+                'opacity': opacity
+            };
+            
+            // Añadir backdrop-filter si hay efectos de glassmorphism
+            if (backdropFilter) {
+                styles['-webkit-backdrop-filter'] = backdropFilter;
+                styles['backdrop-filter'] = backdropFilter;
+            }
+            
+            $previewButton.css(styles);
+            
+            // Aplicar opciones adicionales
+            if (settings.gradient_hover_pause) {
+                $previewButton.off('mouseenter.gradient mouseleave.gradient');
+                $previewButton.on('mouseenter.gradient', function() {
+                    $(this).css('animation-play-state', 'paused');
+                }).on('mouseleave.gradient', function() {
+                    $(this).css('animation-play-state', 'running');
+                });
+            } else {
+                $previewButton.off('mouseenter.gradient mouseleave.gradient');
+                $previewButton.css('animation-play-state', 'running');
+            }
+            
+            if (settings.gradient_reverse_animation) {
+                $previewButton.css('animation-direction', 'reverse');
+            } else {
+                $previewButton.css('animation-direction', 'normal');
+            }
+            
+            console.log('SFQ: Updated button gradient preview with settings:', settings);
+        }
+
+        /**
+         * ✅ NUEVO: Aplicar estilos de gradiente al botón en el frontend
+         */
+        applyGradientToFrontendButton(buttonConfig, $button) {
+            if (!buttonConfig.gradient_enabled || !$button.length) {
+                return;
+            }
+
+            // Valores por defecto
+            const color1 = buttonConfig.gradient_color_1 || '#ee7752';
+            const color2 = buttonConfig.gradient_color_2 || '#e73c7e';
+            const color3 = buttonConfig.gradient_color_3 || '#23a6d5';
+            const color4 = buttonConfig.gradient_color_4 || '#23d5ab';
+            const angle = buttonConfig.gradient_angle || '-45';
+            const size = buttonConfig.gradient_size || '400';
+            const speed = buttonConfig.gradient_speed || '15';
+
+            // Crear gradiente CSS
+            const gradient = `linear-gradient(${angle}deg, ${color1}, ${color2}, ${color3}, ${color4})`;
+
+            // Crear animación CSS única para este botón
+            const animationName = `sfq-gradient-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            this.createGradientAnimationCSS(animationName);
+
+            // Aplicar estilos al botón
+            $button.css({
+                'background': gradient,
+                'background-size': `${size}% ${size}%`,
+                'animation': `${animationName} ${speed}s ease infinite`,
+                'position': 'relative',
+                'overflow': 'hidden'
+            });
+
+            // Aplicar opciones adicionales
+            if (buttonConfig.gradient_hover_pause) {
+                $button.on('mouseenter.gradient', function() {
+                    $(this).css('animation-play-state', 'paused');
+                }).on('mouseleave.gradient', function() {
+                    $(this).css('animation-play-state', 'running');
+                });
+            }
+
+            if (buttonConfig.gradient_reverse_animation) {
+                $button.css('animation-direction', 'reverse');
+            }
+
+            console.log('SFQ: Applied gradient to frontend button:', buttonConfig);
+        }
+
+        /**
+         * ✅ NUEVO: Crear animación CSS para gradiente
+         */
+        createGradientAnimationCSS(animationName) {
+            // Verificar si ya existe una hoja de estilos para animaciones
+            let styleSheet = document.getElementById('sfq-gradient-animations');
+            if (!styleSheet) {
+                styleSheet = document.createElement('style');
+                styleSheet.id = 'sfq-gradient-animations';
+                document.head.appendChild(styleSheet);
+            }
+
+            // Crear regla de animación
+            const animationRule = `
+                @keyframes ${animationName} {
+                    0% {
+                        background-position: 0% 50%;
+                    }
+                    50% {
+                        background-position: 100% 50%;
+                    }
+                    100% {
+                        background-position: 0% 50%;
+                    }
+                }
+            `;
+
+            // Añadir la regla a la hoja de estilos
+            try {
+                styleSheet.sheet.insertRule(animationRule, styleSheet.sheet.cssRules.length);
+            } catch (error) {
+                console.error('SFQ: Error creating gradient animation:', error);
+            }
+        }
 
     /**
      * Desvincular eventos específicos
@@ -1030,9 +1478,9 @@
 
     // Export para uso en otros módulos
     if (typeof module !== 'undefined' && module.exports) {
-        module.exports = EventManager;
+        module.exports = SFQ_EventManager;
     } else {
-        window.EventManager = EventManager;
+        window.SFQ_EventManager = SFQ_EventManager;
     }
 
 })(jQuery);

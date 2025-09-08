@@ -313,7 +313,7 @@
             display: inline-block;
             width: 14px;
             height: 14px;
-            border: 2px solid #f3f3f3;
+            border: none;
             border-top: 2px solid #007cba;
             border-radius: 50%;
             animation: sfq-spin 1s linear infinite;

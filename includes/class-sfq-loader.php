@@ -553,7 +553,7 @@ class SFQ_Loader {
                 display: inline-block;
                 width: 20px;
                 height: 20px;
-                border: 2px solid #f3f3f3;
+                border: none;
                 border-top: 2px solid #007cba;
                 border-radius: 50%;
                 animation: sfq-spin 1s linear infinite;

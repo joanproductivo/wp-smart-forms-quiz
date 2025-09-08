@@ -4207,6 +4207,14 @@ class SFQ_Admin {
             true
         );
         
+        wp_enqueue_script(
+            'sfq-block-form-timer-manager',
+            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/components/BlockFormTimerManager.js',
+            array('sfq-style-manager'),
+            SFQ_VERSION,
+            true
+        );
+        
         // 4. GESTORES DE FUNCIONALIDAD
         wp_enqueue_script(
             'sfq-event-manager',

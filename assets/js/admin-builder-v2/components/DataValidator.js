@@ -3,7 +3,7 @@
  * Smart Forms & Quiz - Admin Builder v2
  */
 
-class DataValidator {
+class SFQ_DataValidator {
         normalizeBoolean(value) {
             if (typeof value === 'boolean') return value;
             if (typeof value === 'number') return value !== 0;
@@ -56,7 +56,7 @@ class DataValidator {
 
 // Export para uso en otros módulos
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = DataValidator;
+    module.exports = SFQ_DataValidator;
 } else {
-    window.DataValidator = DataValidator;
+    window.SFQ_DataValidator = SFQ_DataValidator;
 }
