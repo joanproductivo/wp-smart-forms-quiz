@@ -577,6 +577,11 @@
             console.log('SFQ: Initialized hide_title checkbox for question', question.id, 'to:', hideTitle);
             console.log('SFQ: Question settings:', question.settings);
             
+            // ✅ NUEVO: Inicializar estado de configuración del botón siguiente para preguntas freestyle
+            if (question.type === 'freestyle') {
+                this.initializeFreestyleButtonSettings($question, question);
+            }
+            
             // ELIMINADO: Lógica del checkbox para convertir a pantalla final
             // Solo se usará el botón "Pantalla Final" para crear pantallas finales
             
@@ -3091,6 +3096,117 @@
             $optionItem.find('.sfq-option-input').after(imageUploadHtml);
             
             console.log('SFQ: Created image upload section for option', index);
+        }
+
+        /**
+         * ✅ NUEVO: Inicializar configuración del botón siguiente para preguntas freestyle
+         */
+        initializeFreestyleButtonSettings($question, question) {
+            if (!question.settings || typeof question.settings !== 'object' || Array.isArray(question.settings)) {
+                console.log('SFQ: FIXING INVALID SETTINGS for freestyle button - was:', typeof question.settings, Array.isArray(question.settings) ? '(array)' : '', question.settings);
+                question.settings = {};
+                console.log('SFQ: Initialized empty settings object for freestyle question', question.id);
+            }
+            
+            // Inicializar checkbox de mostrar botón siguiente
+            const showNextButton = question.settings.show_next_button !== false; // Por defecto true
+            $question.find('.sfq-show-next-button-checkbox').prop('checked', showNextButton);
+            
+            // Inicializar texto del botón
+            const buttonText = question.settings.next_button_text || '';
+            $question.find('.sfq-next-button-text-input').val(buttonText);
+            
+            // Inicializar radio buttons de estilo
+            const customStyle = question.settings.next_button_custom_style === true;
+            const $styleRadios = $question.find('input[name^="button_style_"]');
+            if (customStyle) {
+                $styleRadios.filter('[value="custom"]').prop('checked', true);
+                $question.find('.sfq-custom-button-panel').show();
+            } else {
+                $styleRadios.filter('[value="global"]').prop('checked', true);
+                $question.find('.sfq-custom-button-panel').hide();
+            }
+            
+            // Inicializar configuraciones de estilo personalizado si existen
+            if (customStyle && question.settings.next_button_style) {
+                const buttonStyle = question.settings.next_button_style;
+                
+                // Inicializar todos los controles de configuración
+                $question.find('.sfq-config-input').each((index, input) => {
+                    const $input = $(input);
+                    const setting = $input.data('setting');
+                    
+                    if (setting && buttonStyle[setting] !== undefined) {
+                        if ($input.attr('type') === 'checkbox') {
+                            $input.prop('checked', buttonStyle[setting] === true);
+                            
+                            // ✅ CRÍTICO: Manejar checkbox de degradado específicamente
+                            if (setting === 'gradient_enabled') {
+                                const $gradientSetting = $question.find('.sfq-gradient-color-setting');
+                                const $gradientAnimationSetting = $question.find('.sfq-gradient-animation-setting');
+                                if (buttonStyle[setting]) {
+                                    $gradientSetting.show();
+                                    $gradientAnimationSetting.show();
+                                } else {
+                                    $gradientSetting.hide();
+                                    $gradientAnimationSetting.hide();
+                                }
+                                console.log('SFQ: Initialized gradient checkbox to:', buttonStyle[setting]);
+                            }
+                        } else {
+                            $input.val(buttonStyle[setting]);
+                        }
+                    }
+                });
+                
+                // Actualizar displays de valores
+                this.updateButtonConfigDisplaysForQuestion($question, buttonStyle);
+            }
+            
+            // Mostrar/ocultar secciones según el estado del checkbox principal
+            const $textSetting = $question.find('.sfq-next-button-text-setting');
+            const $styleSetting = $question.find('.sfq-next-button-style-setting');
+            
+            if (showNextButton) {
+                $textSetting.show();
+                $styleSetting.show();
+            } else {
+                $textSetting.hide();
+                $styleSetting.hide();
+            }
+            
+            console.log('SFQ: Initialized freestyle button settings for question:', question.id);
+            console.log('SFQ: Show next button:', showNextButton);
+            console.log('SFQ: Custom style:', customStyle);
+            console.log('SFQ: Button style settings:', question.settings.next_button_style);
+        }
+        
+        /**
+         * ✅ NUEVO: Actualizar displays de valores para configuración del botón
+         */
+        updateButtonConfigDisplaysForQuestion($question, buttonStyle) {
+            // Actualizar displays de opacidad
+            if (buttonStyle.background_opacity !== undefined) {
+                $question.find('.sfq-bg-opacity-display').text(buttonStyle.background_opacity);
+            }
+            if (buttonStyle.border_opacity !== undefined) {
+                $question.find('.sfq-border-opacity-display').text(buttonStyle.border_opacity);
+            }
+            
+            // Actualizar displays de tamaño
+            if (buttonStyle.border_radius !== undefined) {
+                $question.find('.sfq-border-radius-display').text(buttonStyle.border_radius + 'px');
+            }
+            if (buttonStyle.font_size !== undefined) {
+                $question.find('.sfq-font-size-display').text(buttonStyle.font_size + 'px');
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Obtener pregunta por ID
+         */
+        getQuestion(questionId) {
+            return this.questions.find(q => q.id === questionId);
         }
 
         destroy() {

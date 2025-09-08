@@ -107,6 +107,9 @@
             }
         });
         
+        // ✅ NUEVO: Eventos para configuración del botón siguiente en preguntas freestyle
+        this.bindFreestyleButtonEvents();
+        
         // Prevent accidental navigation
         $(window).on('beforeunload' + ns, () => {
             if (this.formBuilder.isDirty && !this.formBuilder.isDestroyed) {
@@ -604,6 +607,382 @@
                 this.formBuilder.updatePreviewStyles();
             }
         });
+        
+        // ✅ SOLUCIÓN: Eventos para gradientes animados de introducción
+        this.bindAnimatedGradientEvents();
+    }
+    
+    /**
+     * ✅ NUEVO: Vincular eventos para gradientes animados de introducción
+     */
+    bindAnimatedGradientEvents() {
+        const ns = this.eventNamespace;
+        
+        // Checkbox principal para activar/desactivar gradiente animado
+        $('#intro-animated-background').off('change' + ns).on('change' + ns, (e) => {
+            const $checkbox = $(e.currentTarget);
+            const $gradientContainer = $('#intro-gradient-colors');
+            
+            if ($checkbox.is(':checked')) {
+                $gradientContainer.slideDown(300);
+                // Actualizar preview inmediatamente
+                setTimeout(() => {
+                    this.formBuilder.updateGradientPreview();
+                }, 350);
+            } else {
+                $gradientContainer.slideUp(300);
+            }
+            
+            // ✅ SOLUCIÓN: Marcar como modificado Y guardar automáticamente
+            if (!this.formBuilder.isDestroyed) {
+                this.formBuilder.isDirty = true;
+                this.formBuilder.saveFormDebounced(); // Guardar automáticamente
+            }
+        });
+        
+        // Colores del gradiente
+        const gradientColorInputs = [
+            '#intro-gradient-color-1',
+            '#intro-gradient-color-2', 
+            '#intro-gradient-color-3',
+            '#intro-gradient-color-4'
+        ];
+        
+        gradientColorInputs.forEach(selector => {
+            $(selector).off('change input' + ns).on('change input' + ns, () => {
+                if (!this.formBuilder.isDestroyed) {
+                    this.formBuilder.isDirty = true;
+                    this.formBuilder.updateGradientPreview();
+                }
+            });
+        });
+        
+        // Velocidad del gradiente
+        $('#intro-gradient-speed').off('input' + ns).on('input' + ns, (e) => {
+            const value = $(e.target).val();
+            $('.sfq-gradient-speed-value').text(value + 's');
+            
+            if (!this.formBuilder.isDestroyed) {
+                this.formBuilder.isDirty = true;
+                this.formBuilder.updateGradientPreview();
+            }
+        });
+        
+        // Ángulo del gradiente
+        $('#intro-gradient-angle').off('input' + ns).on('input' + ns, (e) => {
+            const value = $(e.target).val();
+            $('.sfq-gradient-angle-value').text(value + '°');
+            
+            if (!this.formBuilder.isDestroyed) {
+                this.formBuilder.isDirty = true;
+                this.formBuilder.updateGradientPreview();
+            }
+        });
+        
+        // Tamaño del gradiente
+        $('#intro-gradient-size').off('input' + ns).on('input' + ns, (e) => {
+            const value = $(e.target).val();
+            $('.sfq-gradient-size-value').text(value + '%');
+            
+            if (!this.formBuilder.isDestroyed) {
+                this.formBuilder.isDirty = true;
+                this.formBuilder.updateGradientPreview();
+            }
+        });
+        
+        console.log('SFQ EventManager: Animated gradient events bound');
+        
+        // ✅ NUEVO: Eventos para gradientes de pantalla de introducción
+        this.bindIntroScreenGradientEvents();
+    }
+    
+    /**
+     * ✅ NUEVO: Vincular eventos para gradientes de pantalla de introducción
+     */
+    bindIntroScreenGradientEvents() {
+        const ns = this.eventNamespace;
+        
+        // Checkbox principal para activar/desactivar gradiente de pantalla de introducción
+        $('#intro-animated-background-checkbox').off('change' + ns).on('change' + ns, (e) => {
+            const $checkbox = $(e.currentTarget);
+            const $gradientContainer = $('#intro-gradient-colors-container');
+            
+            if ($checkbox.is(':checked')) {
+                $gradientContainer.slideDown(300);
+                // Actualizar preview inmediatamente
+                setTimeout(() => {
+                    this.formBuilder.updateIntroScreenGradientPreview();
+                }, 350);
+            } else {
+                $gradientContainer.slideUp(300);
+            }
+            
+            // ✅ SOLUCIÓN: Marcar como modificado Y guardar automáticamente
+            if (!this.formBuilder.isDestroyed) {
+                this.formBuilder.isDirty = true;
+                this.formBuilder.saveFormDebounced(); // Guardar automáticamente
+            }
+        });
+        
+        // Colores del gradiente de pantalla de introducción
+        const introScreenGradientColorInputs = [
+            '#intro-screen-gradient-color-1',
+            '#intro-screen-gradient-color-2', 
+            '#intro-screen-gradient-color-3',
+            '#intro-screen-gradient-color-4'
+        ];
+        
+        introScreenGradientColorInputs.forEach(selector => {
+            $(selector).off('change input' + ns).on('change input' + ns, () => {
+                if (!this.formBuilder.isDestroyed) {
+                    this.formBuilder.isDirty = true;
+                    this.formBuilder.updateIntroScreenGradientPreview();
+                }
+            });
+        });
+        
+        // Velocidad del gradiente de pantalla de introducción
+        $('#intro-screen-gradient-speed').off('input' + ns).on('input' + ns, (e) => {
+            const value = $(e.target).val();
+            $('.sfq-gradient-speed-value').text(value + 's');
+            
+            if (!this.formBuilder.isDestroyed) {
+                this.formBuilder.isDirty = true;
+                this.formBuilder.updateIntroScreenGradientPreview();
+            }
+        });
+        
+        // Ángulo del gradiente de pantalla de introducción
+        $('#intro-screen-gradient-angle').off('input' + ns).on('input' + ns, (e) => {
+            const value = $(e.target).val();
+            $('.sfq-gradient-angle-value').text(value + '°');
+            
+            if (!this.formBuilder.isDestroyed) {
+                this.formBuilder.isDirty = true;
+                this.formBuilder.updateIntroScreenGradientPreview();
+            }
+        });
+        
+        // Tamaño del gradiente de pantalla de introducción
+        $('#intro-screen-gradient-size').off('input' + ns).on('input' + ns, (e) => {
+            const value = $(e.target).val();
+            $('.sfq-gradient-size-value').text(value + '%');
+            
+            if (!this.formBuilder.isDestroyed) {
+                this.formBuilder.isDirty = true;
+                this.formBuilder.updateIntroScreenGradientPreview();
+            }
+        });
+        
+        console.log('SFQ EventManager: Intro screen gradient events bound');
+    }
+
+    /**
+     * ✅ NUEVO: Vincular eventos para configuración del botón siguiente en preguntas freestyle
+     */
+    bindFreestyleButtonEvents() {
+        const ns = this.eventNamespace;
+        
+        // Evento para mostrar/ocultar botón siguiente
+        $(document).off('change' + ns, '.sfq-show-next-button-checkbox').on('change' + ns, '.sfq-show-next-button-checkbox', (e) => {
+            const $checkbox = $(e.currentTarget);
+            const $question = $checkbox.closest('.sfq-question-item');
+            const $textSetting = $question.find('.sfq-next-button-text-setting');
+            const $styleSetting = $question.find('.sfq-next-button-style-setting');
+            
+            if ($checkbox.is(':checked')) {
+                $textSetting.slideDown(300);
+                $styleSetting.slideDown(300);
+            } else {
+                $textSetting.slideUp(300);
+                $styleSetting.slideUp(300);
+            }
+            
+            // Actualizar configuración de la pregunta
+            this.updateQuestionButtonSettings($question);
+        });
+        
+        // Evento para cambiar texto del botón
+        $(document).off('input' + ns, '.sfq-next-button-text-input').on('input' + ns, '.sfq-next-button-text-input', (e) => {
+            const $question = $(e.currentTarget).closest('.sfq-question-item');
+            this.updateQuestionButtonSettings($question);
+        });
+        
+        // Evento para cambiar entre estilo global y personalizado
+        $(document).off('change' + ns, 'input[name^="button_style_"]').on('change' + ns, 'input[name^="button_style_"]', (e) => {
+            const $radio = $(e.currentTarget);
+            const $question = $radio.closest('.sfq-question-item');
+            const $customPanel = $question.find('.sfq-custom-button-panel');
+            
+            if ($radio.val() === 'custom') {
+                $customPanel.slideDown(300);
+            } else {
+                $customPanel.slideUp(300);
+            }
+            
+            this.updateQuestionButtonSettings($question);
+        });
+        
+        // Eventos para controles de personalización del botón
+        $(document).off('change input' + ns, '.sfq-config-input').on('change input' + ns, '.sfq-config-input', (e) => {
+            const $input = $(e.currentTarget);
+            const $question = $input.closest('.sfq-question-item');
+            
+            // Actualizar displays de valores en tiempo real
+            this.updateButtonConfigDisplays($input);
+            
+            // Actualizar configuración de la pregunta
+            this.updateQuestionButtonSettings($question);
+        });
+        
+        // Evento específico para checkbox de degradado
+        $(document).off('change' + ns, 'input[data-setting="gradient_enabled"]').on('change' + ns, 'input[data-setting="gradient_enabled"]', (e) => {
+            const $checkbox = $(e.currentTarget);
+            const $question = $checkbox.closest('.sfq-question-item');
+            const $gradientSetting = $question.find('.sfq-gradient-color-setting');
+            const $gradientAnimationSetting = $question.find('.sfq-gradient-animation-setting');
+            
+            console.log('SFQ: Gradient checkbox changed:', $checkbox.is(':checked'));
+            
+            if ($checkbox.is(':checked')) {
+                $gradientSetting.slideDown(300);
+                $gradientAnimationSetting.slideDown(300);
+                console.log('SFQ: Showing gradient settings');
+            } else {
+                $gradientSetting.slideUp(300);
+                $gradientAnimationSetting.slideUp(300);
+                console.log('SFQ: Hiding gradient settings');
+            }
+            
+            this.updateQuestionButtonSettings($question);
+        });
+        
+        // Eventos específicos para checkboxes de sombras
+        $(document).off('change' + ns, 'input[data-setting="box_shadow"]').on('change' + ns, 'input[data-setting="box_shadow"]', (e) => {
+            const $checkbox = $(e.currentTarget);
+            const $question = $checkbox.closest('.sfq-question-item');
+            
+            console.log('SFQ: Box shadow checkbox changed:', $checkbox.is(':checked'));
+            this.updateQuestionButtonSettings($question);
+        });
+        
+        $(document).off('change' + ns, 'input[data-setting="text_shadow"]').on('change' + ns, 'input[data-setting="text_shadow"]', (e) => {
+            const $checkbox = $(e.currentTarget);
+            const $question = $checkbox.closest('.sfq-question-item');
+            
+            console.log('SFQ: Text shadow checkbox changed:', $checkbox.is(':checked'));
+            this.updateQuestionButtonSettings($question);
+        });
+        
+        console.log('SFQ EventManager: Freestyle button events bound');
+    }
+    
+    /**
+     * ✅ NUEVO: Actualizar configuración del botón de una pregunta
+     */
+    updateQuestionButtonSettings($question) {
+        if (!$question.length) return;
+        
+        const questionId = $question.attr('id');
+        const question = this.formBuilder.questionManager.getQuestion(questionId);
+        
+        if (!question || question.type !== 'freestyle') return;
+        
+        // ✅ SOLUCIÓN: Forzar creación de objeto plano siguiendo la guía
+        if (!question.settings || Array.isArray(question.settings) || typeof question.settings !== 'object') {
+            question.settings = Object.create(null); // Crear objeto sin prototipo
+            question.settings = {}; // Luego asignar objeto literal limpio
+        }
+        
+        // ✅ CRÍTICO: Crear nuevo objeto para evitar referencias de array
+        const newSettings = {};
+        
+        // Copiar settings existentes si los hay
+        if (question.settings && typeof question.settings === 'object' && !Array.isArray(question.settings)) {
+            Object.keys(question.settings).forEach(key => {
+                newSettings[key] = question.settings[key];
+            });
+        }
+        
+        // Configuración básica del botón
+        const $showCheckbox = $question.find('.sfq-show-next-button-checkbox');
+        const $textInput = $question.find('.sfq-next-button-text-input');
+        const $styleRadio = $question.find('input[name^="button_style_"]:checked');
+        
+        newSettings.show_next_button = $showCheckbox.is(':checked');
+        newSettings.next_button_text = $textInput.val() || '';
+        newSettings.next_button_custom_style = $styleRadio.val() === 'custom';
+        
+        // Si es estilo personalizado, recoger todas las configuraciones
+        if (newSettings.next_button_custom_style) {
+            // ✅ CRÍTICO: Crear nuevo objeto para next_button_style también
+            const buttonStyle = {};
+            
+            // Recoger todos los valores de configuración
+            $question.find('.sfq-config-input').each((index, input) => {
+                const $input = $(input);
+                const setting = $input.data('setting');
+                
+                if (setting) {
+                    if ($input.attr('type') === 'checkbox') {
+                        buttonStyle[setting] = $input.is(':checked');
+                        
+                        // ✅ DEBUGGING: Log específico para gradient_enabled
+                        if (setting === 'gradient_enabled') {
+                            console.log('SFQ: Saving gradient_enabled:', $input.is(':checked'));
+                        }
+                    } else if ($input.attr('type') === 'range') {
+                        buttonStyle[setting] = parseFloat($input.val()) || 0;
+                    } else {
+                        buttonStyle[setting] = $input.val() || '';
+                    }
+                }
+            });
+            
+            newSettings.next_button_style = buttonStyle;
+            
+            // ✅ DEBUGGING: Log del objeto buttonStyle completo
+            console.log('SFQ: Button style object created:', buttonStyle);
+        }
+        
+        // ✅ CRÍTICO: Asignar el nuevo objeto completo
+        question.settings = newSettings;
+        
+        // Marcar formulario como modificado
+        this.formBuilder.isDirty = true;
+        
+        // ✅ DEBUGGING: Verificar que settings sigue siendo objeto
+        console.log('SFQ: Updated button settings for question:', questionId);
+        console.log('SFQ: Settings type:', typeof question.settings);
+        console.log('SFQ: Settings is array:', Array.isArray(question.settings));
+        console.log('SFQ: Settings content:', question.settings);
+        
+        if (question.settings.next_button_style) {
+            console.log('SFQ: Button style gradient_enabled:', question.settings.next_button_style.gradient_enabled);
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Actualizar displays de valores en tiempo real
+     */
+    updateButtonConfigDisplays($input) {
+        const setting = $input.data('setting');
+        const value = $input.val();
+        
+        switch (setting) {
+            case 'background_opacity':
+                $input.siblings('.sfq-bg-opacity-display').text(value);
+                break;
+            case 'border_opacity':
+                $input.siblings('.sfq-border-opacity-display').text(value);
+                break;
+            case 'border_radius':
+                $input.siblings('.sfq-border-radius-display').text(value + 'px');
+                break;
+            case 'font_size':
+                $input.siblings('.sfq-font-size-display').text(value + 'px');
+                break;
+        }
     }
 
     /**

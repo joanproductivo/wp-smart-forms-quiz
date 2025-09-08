@@ -153,6 +153,67 @@
                             ${controlsHtml}
                         </div>
                         
+                        <!-- ✅ NUEVO: Configuración específica del botón siguiente para preguntas freestyle -->
+                        <div class="sfq-freestyle-next-button-controls">
+                            <h4 style="margin: 20px 0 15px 0; font-size: 14px; font-weight: 600; color: #333; border-bottom: 1px solid #e0e0e0; padding-bottom: 8px;">
+                                🔘 Configuración del Botón Siguiente
+                            </h4>
+                            
+                            <!-- Mostrar/ocultar botón siguiente -->
+                            <label class="sfq-next-button-toggle">
+                                <input type="checkbox" class="sfq-show-next-button-checkbox" 
+                                       ${question.settings?.show_next_button !== false ? 'checked' : ''}>
+                                Mostrar botón "Siguiente"
+                            </label>
+                            
+                            <!-- Configuración del texto del botón -->
+                            <div class="sfq-next-button-text-setting" style="margin-top: 12px; margin-left: 20px; ${question.settings?.show_next_button === false ? 'display: none;' : ''}">
+                                <label style="display: block; margin-bottom: 6px; font-size: 13px; color: #666; font-weight: 500;">
+                                    Texto personalizado del botón:
+                                </label>
+                                <input type="text" class="sfq-next-button-text-input" 
+                                       placeholder="Ej: Continuar, Siguiente paso, Finalizar..." 
+                                       value="${this.escapeHtml(question.settings?.next_button_text || '')}"
+                                       style="width: 100%; max-width: 300px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
+                                <small style="display: block; margin-top: 4px; color: #666; font-size: 11px;">
+                                    Deja vacío para usar el texto por defecto ("Siguiente" o "Finalizar")
+                                </small>
+                            </div>
+                            
+                            <!-- Configuración de estilo del botón -->
+                            <div class="sfq-next-button-style-setting" style="margin-top: 15px; margin-left: 20px; ${question.settings?.show_next_button === false ? 'display: none;' : ''}">
+                                <label style="display: block; margin-bottom: 8px; font-size: 13px; color: #666; font-weight: 500;">
+                                    Estilo del botón:
+                                </label>
+                                
+                                <div class="sfq-button-style-options">
+                                    <label class="sfq-button-style-option">
+                                        <input type="radio" name="button_style_${question.id}" value="global" 
+                                               ${!question.settings?.next_button_custom_style ? 'checked' : ''}>
+                                        <span>🌐 Usar estilo global</span>
+                                    </label>
+                                    <label class="sfq-button-style-option">
+                                        <input type="radio" name="button_style_${question.id}" value="custom" 
+                                               ${question.settings?.next_button_custom_style ? 'checked' : ''}>
+                                        <span>🎨 Personalizado</span>
+                                    </label>
+                                </div>
+                                
+                                <!-- Panel de personalización del botón -->
+                                <div class="sfq-custom-button-panel" style="display: ${question.settings?.next_button_custom_style ? 'block' : 'none'}; margin-top: 15px; padding: 15px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px;">
+                                    <details class="sfq-button-customization-details">
+                                        <summary style="cursor: pointer; font-weight: 500; color: #333; margin-bottom: 15px;">
+                                            ⚙️ Opciones de personalización
+                                        </summary>
+                                        
+                                        <div class="sfq-button-customization-content">
+                                            ${this.renderButtonCustomizationOptions(question)}
+                                        </div>
+                                    </details>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div class="sfq-question-settings">
                             <label>
                                 <input type="checkbox" class="sfq-required-checkbox" 
@@ -776,6 +837,145 @@
             }, 3000);
         }
 
+        renderButtonCustomizationOptions(question) {
+            const settings = question.settings || {};
+            const buttonSettings = settings.next_button_style || {};
+            
+            return `
+                <!-- Alineación del botón -->
+                <div class="sfq-config-group">
+                    <label class="sfq-config-label">
+                        📍 Alineación del botón:
+                        <select class="sfq-config-input sfq-button-alignment" data-setting="alignment">
+                            <option value="left" ${buttonSettings.alignment === 'left' ? 'selected' : ''}>Izquierda</option>
+                            <option value="center" ${buttonSettings.alignment === 'center' || !buttonSettings.alignment ? 'selected' : ''}>Centro</option>
+                            <option value="right" ${buttonSettings.alignment === 'right' ? 'selected' : ''}>Derecha</option>
+                        </select>
+                    </label>
+                </div>
+                
+                <!-- Colores del fondo -->
+                <div class="sfq-config-group">
+                    <h6 style="margin: 15px 0 10px 0; font-size: 13px; font-weight: 600; color: #495057;">🎨 Fondo del Botón</h6>
+                    
+                    <div class="sfq-config-row">
+                        <label class="sfq-config-label">
+                            Color de fondo:
+                            <input type="color" class="sfq-config-input" data-setting="background_color" 
+                                   value="${buttonSettings.background_color || '#007cba'}">
+                        </label>
+                        <label class="sfq-config-label">
+                            Opacidad del fondo:
+                            <input type="range" class="sfq-config-input" data-setting="background_opacity" 
+                                   min="0" max="1" step="0.1" 
+                                   value="${buttonSettings.background_opacity || '1'}">
+                            <span class="sfq-bg-opacity-display">${buttonSettings.background_opacity || '1'}</span>
+                        </label>
+                    </div>
+                    
+                    <div class="sfq-config-row">
+                        <label class="sfq-config-label">
+                            <input type="checkbox" class="sfq-config-input" data-setting="gradient_enabled" ${this.isChecked(buttonSettings.gradient_enabled) ? 'checked' : ''}>
+                            Activar degradado
+                        </label>
+                        <label class="sfq-config-label sfq-gradient-color-setting" style="display: ${this.isChecked(buttonSettings.gradient_enabled) ? 'block' : 'none'};">
+                            Color del degradado:
+                            <input type="color" class="sfq-config-input" data-setting="gradient_color" 
+                                   value="${buttonSettings.gradient_color || '#005a87'}">
+                        </label>
+                    </div>
+                    
+                    <div class="sfq-config-row sfq-gradient-animation-setting" style="display: ${this.isChecked(buttonSettings.gradient_enabled) ? 'block' : 'none'};">
+                        <label class="sfq-config-label">
+                            <input type="checkbox" class="sfq-config-input" data-setting="gradient_animated" ${this.isChecked(buttonSettings.gradient_animated) ? 'checked' : ''}>
+                            Degradado animado
+                        </label>
+                        <label class="sfq-config-label">
+                            Dirección del degradado:
+                            <select class="sfq-config-input" data-setting="gradient_direction">
+                                <option value="to right" ${buttonSettings.gradient_direction === 'to right' || !buttonSettings.gradient_direction ? 'selected' : ''}>Horizontal (izq. a der.)</option>
+                                <option value="to left" ${buttonSettings.gradient_direction === 'to left' ? 'selected' : ''}>Horizontal (der. a izq.)</option>
+                                <option value="to bottom" ${buttonSettings.gradient_direction === 'to bottom' ? 'selected' : ''}>Vertical (arriba a abajo)</option>
+                                <option value="to top" ${buttonSettings.gradient_direction === 'to top' ? 'selected' : ''}>Vertical (abajo a arriba)</option>
+                                <option value="45deg" ${buttonSettings.gradient_direction === '45deg' ? 'selected' : ''}>Diagonal (45°)</option>
+                                <option value="135deg" ${buttonSettings.gradient_direction === '135deg' ? 'selected' : ''}>Diagonal (135°)</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Configuración de bordes -->
+                <div class="sfq-config-group">
+                    <h6 style="margin: 15px 0 10px 0; font-size: 13px; font-weight: 600; color: #495057;">📦 Bordes</h6>
+                    
+                    <div class="sfq-config-row">
+                        <label class="sfq-config-label">
+                            Color del borde:
+                            <input type="color" class="sfq-config-input" data-setting="border_color" 
+                                   value="${buttonSettings.border_color || '#007cba'}">
+                        </label>
+                        <label class="sfq-config-label">
+                            Opacidad del borde:
+                            <input type="range" class="sfq-config-input" data-setting="border_opacity" 
+                                   min="0" max="1" step="0.1" 
+                                   value="${buttonSettings.border_opacity || '1'}">
+                            <span class="sfq-border-opacity-display">${buttonSettings.border_opacity || '1'}</span>
+                        </label>
+                    </div>
+                    
+                    <div class="sfq-config-row">
+                        <label class="sfq-config-label">
+                            Radio del borde:
+                            <input type="range" class="sfq-config-input" data-setting="border_radius" 
+                                   min="0" max="50" step="1" 
+                                   value="${buttonSettings.border_radius || '8'}">
+                            <span class="sfq-border-radius-display">${buttonSettings.border_radius || '8'}px</span>
+                        </label>
+                        <label class="sfq-config-label">
+                            <input type="checkbox" data-setting="box_shadow" ${buttonSettings.box_shadow ? 'checked' : ''}>
+                            Sombreado del botón
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Configuración de texto -->
+                <div class="sfq-config-group">
+                    <h6 style="margin: 15px 0 10px 0; font-size: 13px; font-weight: 600; color: #495057;">🔤 Texto del Botón</h6>
+                    
+                    <div class="sfq-config-row">
+                        <label class="sfq-config-label">
+                            Tamaño del texto:
+                            <input type="range" class="sfq-config-input" data-setting="font_size" 
+                                   min="12" max="24" step="1" 
+                                   value="${buttonSettings.font_size || '16'}">
+                            <span class="sfq-font-size-display">${buttonSettings.font_size || '16'}px</span>
+                        </label>
+                        <label class="sfq-config-label">
+                            Grosor del texto:
+                            <select class="sfq-config-input" data-setting="font_weight">
+                                <option value="normal" ${buttonSettings.font_weight === 'normal' || !buttonSettings.font_weight ? 'selected' : ''}>Normal</option>
+                                <option value="500" ${buttonSettings.font_weight === '500' ? 'selected' : ''}>Medio</option>
+                                <option value="600" ${buttonSettings.font_weight === '600' ? 'selected' : ''}>Semi-negrita</option>
+                                <option value="bold" ${buttonSettings.font_weight === 'bold' ? 'selected' : ''}>Negrita</option>
+                            </select>
+                        </label>
+                    </div>
+                    
+                    <div class="sfq-config-row">
+                        <label class="sfq-config-label">
+                            Color del texto:
+                            <input type="color" class="sfq-config-input" data-setting="text_color" 
+                                   value="${buttonSettings.text_color || '#ffffff'}">
+                        </label>
+                        <label class="sfq-config-label">
+                            <input type="checkbox" data-setting="text_shadow" ${buttonSettings.text_shadow ? 'checked' : ''}>
+                            Sombra del texto
+                        </label>
+                    </div>
+                </div>
+            `;
+        }
+
         escapeHtml(text) {
             if (typeof text !== 'string') return '';
             const map = {
@@ -786,6 +986,16 @@
                 "'": '&#039;'
             };
             return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        /**
+         * ✅ NUEVO: Helper para verificar valores booleanos correctamente
+         */
+        isChecked(value) {
+            if (value === true || value === 'true' || value === '1' || value === 1) {
+                return true;
+            }
+            return false;
         }
     }
 

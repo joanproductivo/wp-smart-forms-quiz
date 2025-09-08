@@ -167,6 +167,7 @@
 .sfq-intro-screen {
     text-align: center;
     padding: 3rem 0;
+    border-radius: 30px;
 }
 
 .sfq-intro-title {
@@ -1329,4 +1330,240 @@
         border-color: #3a3a3a;
         color: #b0b0b0;
     }
+}
+
+/* ✅ NUEVO: Animación para degradado animado del botón personalizado y fondo de introducción */
+@keyframes sfq-gradient-animation {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+/* ✅ NUEVO: Estilos para el fondo animado del formulario completo */
+.sfq-animated-gradient-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    z-index: 0;
+    background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+    background-size: 400% 400%;
+    animation: sfq-gradient-animation 15s ease infinite;
+}
+
+/* ✅ NUEVO: Asegurar que el contenido esté por encima del gradiente animado */
+.sfq-form-container:has(.sfq-animated-gradient-bg) {
+    position: relative;
+}
+
+.sfq-form-container:has(.sfq-animated-gradient-bg) .sfq-content-wrapper {
+    position: relative;
+    z-index: 2;
+}
+
+/* ✅ NUEVO: Mejorar legibilidad del texto sobre gradiente animado */
+.sfq-form-container:has(.sfq-animated-gradient-bg) .sfq-intro-title,
+.sfq-form-container:has(.sfq-animated-gradient-bg) .sfq-intro-description {
+    color: white;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.sfq-form-container:has(.sfq-animated-gradient-bg) .sfq-button-primary {
+    background: rgba(255,255,255,0.2);
+    border: 2px solid rgba(255,255,255,0.3);
+    color: white;
+    backdrop-filter: blur(1px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.sfq-form-container:has(.sfq-animated-gradient-bg) .sfq-button-primary:hover {
+    background: rgba(255,255,255,0.3);
+    border-color: rgba(255,255,255,0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+
+/* ✅ NUEVO: Fallback para navegadores que no soportan :has() */
+.sfq-form-container.sfq-has-animated-gradient {
+    position: relative;
+}
+
+.sfq-form-container.sfq-has-animated-gradient .sfq-content-wrapper {
+    position: relative;
+    z-index: 2;
+}
+
+.sfq-form-container.sfq-has-animated-gradient .sfq-intro-title,
+.sfq-form-container.sfq-has-animated-gradient .sfq-intro-description {
+    color: white;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.sfq-form-container.sfq-has-animated-gradient .sfq-button-primary {
+    background: rgba(255,255,255,0.2);
+    border: 2px solid rgba(255,255,255,0.3);
+    color: white;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.sfq-form-container.sfq-has-animated-gradient .sfq-button-primary:hover {
+    background: rgba(255,255,255,0.3);
+    border-color: rgba(255,255,255,0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+
+/* ✅ NUEVO: Estilos adicionales para botones con degradado animado */
+.sfq-custom-styled-button[style*="sfq-gradient-animation"] {
+    background-size: 400% 400% !important;
+    animation: sfq-gradient-animation 4s ease infinite !important;
+}
+
+/* ✅ CORREGIDO: Selector más específico para asegurar que la animación se aplique */
+.sfq-next-button.sfq-custom-styled-button[style*="animation"] {
+    background-size: 400% 400% !important;
+    animation: sfq-gradient-animation 4s ease infinite !important;
+}
+
+/* ✅ NUEVO: Selector alternativo usando clase específica */
+.sfq-gradient-animated {
+    background-size: 400% 400% !important;
+    animation: sfq-gradient-animation 4s ease infinite !important;
+}
+
+/* ===== ESTILOS PARA FONDO ANIMADO CON GRADIENTE EN PANTALLA DE INTRODUCCIÓN ===== */
+
+/* Contenedor de introducción con fondo animado */
+.sfq-intro-screen.sfq-animated-gradient {
+    position: relative;
+    overflow: hidden;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+    background-size: 400% 400%;
+    animation: sfq-intro-gradient-animation 15s ease infinite;
+}
+
+/* Animación personalizable del gradiente de introducción */
+@keyframes sfq-intro-gradient-animation {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+/* Contenido de la introducción con fondo animado */
+.sfq-intro-screen.sfq-animated-gradient .sfq-intro-title,
+.sfq-intro-screen.sfq-animated-gradient .sfq-intro-description {
+    color: white;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    position: relative;
+    z-index: 2;
+}
+
+/* Botón de introducción con fondo animado */
+.sfq-intro-screen.sfq-animated-gradient .sfq-button-primary {
+    background: rgba(255,255,255,0.2);
+    border: 2px solid rgba(255,255,255,0.3);
+    color: white;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.sfq-intro-screen.sfq-animated-gradient .sfq-button-primary:hover {
+    background: rgba(255,255,255,0.3);
+    border-color: rgba(255,255,255,0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+
+/* Overlay opcional para mejorar legibilidad */
+.sfq-intro-screen.sfq-animated-gradient::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.1);
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* Contenido con z-index superior al overlay */
+.sfq-intro-screen.sfq-animated-gradient > * {
+    position: relative;
+    z-index: 2;
+}
+
+/* Responsive para pantalla de introducción con gradiente */
+@media (max-width: 768px) {
+    .sfq-intro-screen.sfq-animated-gradient {
+        min-height: 100vh;
+        padding: 2rem 1rem;
+    }
+    
+    .sfq-intro-screen.sfq-animated-gradient .sfq-intro-title {
+        font-size: 1.8rem;
+    }
+    
+    .sfq-intro-screen.sfq-animated-gradient .sfq-intro-description {
+        font-size: 1rem;
+    }
+}
+
+/* Variaciones de velocidad de animación */
+.sfq-intro-screen.sfq-animated-gradient[data-animation-speed="slow"] {
+    animation-duration: 25s;
+}
+
+.sfq-intro-screen.sfq-animated-gradient[data-animation-speed="fast"] {
+    animation-duration: 8s;
+}
+
+/* Soporte para diferentes ángulos de gradiente */
+.sfq-intro-screen.sfq-animated-gradient[data-gradient-angle="0"] {
+    background: linear-gradient(0deg, var(--gradient-color-1, #ee7752), var(--gradient-color-2, #e73c7e), var(--gradient-color-3, #23a6d5), var(--gradient-color-4, #23d5ab));
+}
+
+.sfq-intro-screen.sfq-animated-gradient[data-gradient-angle="45"] {
+    background: linear-gradient(45deg, var(--gradient-color-1, #ee7752), var(--gradient-color-2, #e73c7e), var(--gradient-color-3, #23a6d5), var(--gradient-color-4, #23d5ab));
+}
+
+.sfq-intro-screen.sfq-animated-gradient[data-gradient-angle="90"] {
+    background: linear-gradient(90deg, var(--gradient-color-1, #ee7752), var(--gradient-color-2, #e73c7e), var(--gradient-color-3, #23a6d5), var(--gradient-color-4, #23d5ab));
+}
+
+.sfq-intro-screen.sfq-animated-gradient[data-gradient-angle="135"] {
+    background: linear-gradient(135deg, var(--gradient-color-1, #ee7752), var(--gradient-color-2, #e73c7e), var(--gradient-color-3, #23a6d5), var(--gradient-color-4, #23d5ab));
+}
+
+/* Soporte para tamaños de gradiente personalizados */
+.sfq-intro-screen.sfq-animated-gradient[data-gradient-size="200"] {
+    background-size: 200% 200%;
+}
+
+.sfq-intro-screen.sfq-animated-gradient[data-gradient-size="600"] {
+    background-size: 600% 600%;
+}
+
+.sfq-intro-screen.sfq-animated-gradient[data-gradient-size="800"] {
+    background-size: 800% 800%;
 }

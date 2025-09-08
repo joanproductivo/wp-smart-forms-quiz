@@ -151,6 +151,27 @@ class SFQ_Frontend {
              data-settings='<?php echo json_encode($settings); ?>'
              data-secure-loading="<?php echo $secure_loading ? 'true' : 'false'; ?>">
             
+            <?php // ✅ NUEVO: Gradiente animado para pantalla de introducción ?>
+            <?php if (!empty($styles['intro_animated_background']) && $styles['intro_animated_background']) : ?>
+                <div class="sfq-animated-gradient-bg" style="
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: linear-gradient(<?php echo esc_attr($styles['intro_gradient_angle'] ?? '-45'); ?>deg, 
+                        <?php echo esc_attr($styles['intro_gradient_color_1'] ?? '#ee7752'); ?>, 
+                        <?php echo esc_attr($styles['intro_gradient_color_2'] ?? '#e73c7e'); ?>, 
+                        <?php echo esc_attr($styles['intro_gradient_color_3'] ?? '#23a6d5'); ?>, 
+                        <?php echo esc_attr($styles['intro_gradient_color_4'] ?? '#23d5ab'); ?>);
+                    background-size: <?php echo esc_attr($styles['intro_gradient_size'] ?? '400'); ?>% <?php echo esc_attr($styles['intro_gradient_size'] ?? '400'); ?>%;
+                    animation: sfq-gradient-animation <?php echo esc_attr($styles['intro_gradient_speed'] ?? '15'); ?>s ease infinite;
+                    pointer-events: none;
+                    border-radius: inherit;
+                    z-index: 0;
+                "></div>
+            <?php endif; ?>
+            
             <?php // ✅ NUEVO: Imagen de fondo separada con opacidad independiente ?>
             <?php if (!empty($styles['background_image_url'])) : ?>
                 <div class="sfq-background-image" style="
@@ -167,7 +188,7 @@ class SFQ_Frontend {
                     opacity: <?php echo esc_attr($styles['background_opacity'] ?? '1'); ?>;
                     pointer-events: none;
                     border-radius: inherit;
-                    z-index: 0;
+                    z-index: 1;
                 "></div>
             <?php endif; ?>
             
@@ -202,7 +223,28 @@ class SFQ_Frontend {
             $show_intro = isset($settings['show_intro_screen']) ? $settings['show_intro_screen'] : true;
             if ($show_intro && (!empty($form->intro_title) || !empty($form->intro_description))) : ?>
                 <div class="sfq-screen sfq-intro-screen active">
-                    <div class="sfq-intro-content">
+                    <?php // ✅ NUEVO: Gradiente animado específico para pantalla de introducción ?>
+                    <?php if (!empty($styles['intro_screen_animated_background']) && $styles['intro_screen_animated_background']) : ?>
+                        <div class="sfq-intro-animated-gradient-bg" style="
+                            position: absolute;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            bottom: 0;
+                            background: linear-gradient(<?php echo esc_attr($styles['intro_screen_gradient_angle'] ?? '-45'); ?>deg, 
+                                <?php echo esc_attr($styles['intro_screen_gradient_color_1'] ?? '#ee7752'); ?>, 
+                                <?php echo esc_attr($styles['intro_screen_gradient_color_2'] ?? '#e73c7e'); ?>, 
+                                <?php echo esc_attr($styles['intro_screen_gradient_color_3'] ?? '#23a6d5'); ?>, 
+                                <?php echo esc_attr($styles['intro_screen_gradient_color_4'] ?? '#23d5ab'); ?>);
+                            background-size: <?php echo esc_attr($styles['intro_screen_gradient_size'] ?? '400'); ?>% <?php echo esc_attr($styles['intro_screen_gradient_size'] ?? '400'); ?>%;
+                            animation: sfq-gradient-animation <?php echo esc_attr($styles['intro_screen_gradient_speed'] ?? '15'); ?>s ease infinite;
+                            pointer-events: none;
+                            border-radius: inherit;
+                            z-index: 0;
+                        "></div>
+                    <?php endif; ?>
+                    
+                    <div class="sfq-intro-content" style="position: relative; z-index: 1;">
                         <?php if (!empty($form->intro_title)) : ?>
                             <h2 class="sfq-intro-title"><?php echo esc_html($form->intro_title); ?></h2>
                         <?php endif; ?>
@@ -307,8 +349,27 @@ class SFQ_Frontend {
                         
                         if ($should_show_next) : 
                             $button_text = !empty($next_button_text) ? $next_button_text : __('Siguiente', 'smart-forms-quiz');
+                            
+                        // ✅ NUEVO: Aplicar estilos personalizados del botón si están configurados
+                        $button_styles = '';
+                        $button_classes = 'sfq-button sfq-button-primary sfq-next-button';
+                        
+                        if (isset($first_question->settings['next_button_custom_style']) && $first_question->settings['next_button_custom_style'] && 
+                            isset($first_question->settings['next_button_style'])) {
+                            $style_config = $first_question->settings['next_button_style'];
+                            $button_styles = $this->generate_button_styles($style_config);
+                            $button_classes .= ' sfq-custom-styled-button';
+                            
+                            // ✅ NUEVO: Añadir clase específica para degradado animado
+                            if (isset($style_config['gradient_animated']) && 
+                                ($style_config['gradient_animated'] === true || $style_config['gradient_animated'] === 'true' || 
+                                 $style_config['gradient_animated'] === '1' || $style_config['gradient_animated'] === 1)) {
+                                $button_classes .= ' sfq-gradient-animated';
+                            }
+                        }
                         ?>
-                            <button class="sfq-button sfq-button-primary sfq-next-button">
+                            <button class="<?php echo esc_attr($button_classes); ?>" 
+                                    <?php echo !empty($button_styles) ? 'style="' . esc_attr($button_styles) . '"' : ''; ?>>
                                 <?php echo esc_html($button_text); ?>
                             </button>
                         <?php endif; ?>
@@ -422,10 +483,40 @@ class SFQ_Frontend {
                                         } else {
                                             $button_text = ($index === count($form->questions) - 1) ? __('Siguiente', 'smart-forms-quiz') : __('Siguiente', 'smart-forms-quiz');
                                         }
+                                        
+                                        // ✅ NUEVO: Aplicar estilos personalizados del botón si están configurados
+                                        $button_styles = '';
+                                        $button_classes = 'sfq-button sfq-button-primary sfq-next-button';
+                                        $navigation_styles = '';
+                                        
+                                        if (isset($question->settings['next_button_custom_style']) && $question->settings['next_button_custom_style'] && 
+                                            isset($question->settings['next_button_style'])) {
+                                            $style_config = $question->settings['next_button_style'];
+                                            $button_styles = $this->generate_button_styles($style_config);
+                                            $button_classes .= ' sfq-custom-styled-button';
+                                            
+                                            // Aplicar alineación al contenedor de navegación
+                                            if (!empty($style_config['alignment'])) {
+                                                switch ($style_config['alignment']) {
+                                                    case 'left':
+                                                        $navigation_styles = 'text-align: left;';
+                                                        break;
+                                                    case 'center':
+                                                        $navigation_styles = 'text-align: center;';
+                                                        break;
+                                                    case 'right':
+                                                        $navigation_styles = 'text-align: right;';
+                                                        break;
+                                                }
+                                            }
+                                        }
                                     ?>
-                                        <button class="sfq-button sfq-button-primary sfq-next-button">
-                                            <?php echo esc_html($button_text); ?>
-                                        </button>
+                                        <div class="sfq-button-container" <?php echo !empty($navigation_styles) ? 'style="' . esc_attr($navigation_styles) . '"' : ''; ?>>
+                                            <button class="<?php echo esc_attr($button_classes); ?>" 
+                                                    <?php echo !empty($button_styles) ? 'style="' . esc_attr($button_styles) . '"' : ''; ?>>
+                                                <?php echo esc_html($button_text); ?>
+                                            </button>
+                                        </div>
                                     <?php endif; ?>
                                 </div>
                             <?php endif; ?>
@@ -808,6 +899,33 @@ class SFQ_Frontend {
                 #sfq-form-<?php echo $form_id; ?> .sfq-question-screen.active[data-pantalla-final="true"]:not(.sfq-conditional-access) {
                     display: none !important;
                 }
+                
+                /* ✅ NUEVO: Estilos para alineación del botón personalizado usando el selector correcto */
+                <?php 
+                // Aplicar estilos de alineación para botones personalizados
+                foreach ($form->questions as $question) {
+                    if ($question->question_type === 'freestyle' && 
+                        isset($question->settings['next_button_custom_style']) && 
+                        $question->settings['next_button_custom_style'] && 
+                        isset($question->settings['next_button_style']['alignment'])) {
+                        
+                        $alignment = $question->settings['next_button_style']['alignment'];
+                        $question_selector = '[data-question-id="' . $question->id . '"]';
+                        
+                        switch ($alignment) {
+                            case 'left':
+                                echo "#sfq-form-{$form_id} {$question_selector} .sfq-navigation:has(.sfq-next-button:only-child) { justify-content: flex-start !important; }\n";
+                                break;
+                            case 'center':
+                                echo "#sfq-form-{$form_id} {$question_selector} .sfq-navigation:has(.sfq-next-button:only-child) {  justify-content: center !important; }\n";
+                                break;
+                            case 'right':
+                                echo "#sfq-form-{$form_id} {$question_selector} .sfq-navigation:has(.sfq-next-button:only-child) { justify-content: flex-end !important; }\n";
+                                break;
+                        }
+                    }
+                }
+                ?>
             </style>
         <?php endif; ?>
         
@@ -3309,5 +3427,154 @@ class SFQ_Frontend {
         }
         
         return $matching_conditions;
+    }
+    
+    /**
+     * ✅ NUEVO: Generar estilos CSS para el botón personalizado
+     */
+    private function generate_button_styles($style_config) {
+        $styles = array();
+        
+        // ✅ CORREGIDO: Color de fondo con opacidad y degradado
+        if (!empty($style_config['background_color'])) {
+            $bg_color = $style_config['background_color'];
+            $bg_opacity = isset($style_config['background_opacity']) ? floatval($style_config['background_opacity']) : 1.0;
+            
+            // ✅ CORREGIDO: Verificar degradado con múltiples condiciones
+            $gradient_enabled = false;
+            if (isset($style_config['gradient_enabled'])) {
+                // Verificar diferentes formas de representar true
+                $gradient_enabled = ($style_config['gradient_enabled'] === true || 
+                                   $style_config['gradient_enabled'] === 'true' || 
+                                   $style_config['gradient_enabled'] === '1' || 
+                                   $style_config['gradient_enabled'] === 1);
+            }
+            
+            if ($gradient_enabled && !empty($style_config['gradient_color'])) {
+                $gradient_color = $style_config['gradient_color'];
+                
+                // ✅ NUEVO: Verificar si el degradado debe ser animado
+                $gradient_animated = false;
+                if (isset($style_config['gradient_animated'])) {
+                    $gradient_animated = ($style_config['gradient_animated'] === true || 
+                                        $style_config['gradient_animated'] === 'true' || 
+                                        $style_config['gradient_animated'] === '1' || 
+                                        $style_config['gradient_animated'] === 1);
+                }
+                
+                // ✅ CRÍTICO: Aplicar opacidad a ambos colores del degradado
+                if ($bg_opacity != 1.0) {
+                    $bg_rgba = $this->hex_to_rgba($bg_color, $bg_opacity);
+                    $gradient_rgba = $this->hex_to_rgba($gradient_color, $bg_opacity);
+                    
+                    if ($gradient_animated) {
+                        // Degradado animado con múltiples paradas de color
+                        $styles['background'] = "linear-gradient(-45deg, {$bg_rgba}, {$gradient_rgba}, {$bg_rgba}, {$gradient_rgba}) !important";
+                        $styles['background-size'] = '400% 400% !important';
+                        $styles['animation'] = 'sfq-gradient-animation 4s ease infinite !important';
+                    } else {
+                        // Degradado estático
+                        $styles['background'] = "linear-gradient(135deg, {$bg_rgba}, {$gradient_rgba}) !important";
+                    }
+                } else {
+                    if ($gradient_animated) {
+                        // Degradado animado con múltiples paradas de color
+                        $styles['background'] = "linear-gradient(-45deg, {$bg_color}, {$gradient_color}, {$bg_color}, {$gradient_color}) !important";
+                        $styles['background-size'] = '400% 400% !important';
+                        $styles['animation'] = 'sfq-gradient-animation 4s ease infinite !important';
+                    } else {
+                        // Degradado estático
+                        $styles['background'] = "linear-gradient(135deg, {$bg_color}, {$gradient_color}) !important";
+                    }
+                }
+                
+                // ✅ CRÍTICO: Asegurar que no se sobrescriba el degradado
+                // No establecer background-color cuando hay degradado activo
+            } else {
+                // Color sólido con opacidad
+                if ($bg_opacity != 1.0) {
+                    $styles['background-color'] = $this->hex_to_rgba($bg_color, $bg_opacity) . ' !important';
+                } else {
+                    $styles['background-color'] = $bg_color . ' !important';
+                }
+            }
+        }
+        
+        // ✅ CORREGIDO: Color y opacidad del borde
+        if (!empty($style_config['border_color'])) {
+            $border_color = $style_config['border_color'];
+            $border_opacity = isset($style_config['border_opacity']) ? floatval($style_config['border_opacity']) : 1.0;
+            
+            if ($border_opacity != 1.0) {
+                $border_rgba = $this->hex_to_rgba($border_color, $border_opacity);
+                $styles['border'] = '2px solid ' . $border_rgba . ' !important';
+            } else {
+                $styles['border'] = '2px solid ' . $border_color . ' !important';
+            }
+        }
+        
+        // ✅ CORREGIDO: Radio del botón
+        if (isset($style_config['border_radius']) && $style_config['border_radius'] !== '') {
+            $styles['border-radius'] = intval($style_config['border_radius']) . 'px !important';
+        }
+        
+        // ✅ CORREGIDO: Sombreado del botón con verificación mejorada
+        $box_shadow_enabled = false;
+        if (isset($style_config['box_shadow'])) {
+            $box_shadow_enabled = ($style_config['box_shadow'] === true || 
+                                 $style_config['box_shadow'] === 'true' || 
+                                 $style_config['box_shadow'] === '1' || 
+                                 $style_config['box_shadow'] === 1);
+        }
+        if ($box_shadow_enabled) {
+            $styles['box-shadow'] = '0 4px 12px rgba(0, 0, 0, 0.15) !important';
+        }
+        
+        // ✅ CORREGIDO: Tamaño del texto
+        if (isset($style_config['font_size']) && $style_config['font_size'] !== '') {
+            $styles['font-size'] = intval($style_config['font_size']) . 'px !important';
+        }
+        
+        // ✅ CORREGIDO: Grosor del texto
+        if (!empty($style_config['font_weight'])) {
+            $styles['font-weight'] = $style_config['font_weight'] . ' !important';
+        }
+        
+        // ✅ CORREGIDO: Color del texto
+        if (!empty($style_config['text_color'])) {
+            $styles['color'] = $style_config['text_color'] . ' !important';
+        }
+        
+        // ✅ CORREGIDO: Sombra del texto con verificación mejorada
+        $text_shadow_enabled = false;
+        if (isset($style_config['text_shadow'])) {
+            $text_shadow_enabled = ($style_config['text_shadow'] === true || 
+                                   $style_config['text_shadow'] === 'true' || 
+                                   $style_config['text_shadow'] === '1' || 
+                                   $style_config['text_shadow'] === 1);
+        }
+        if ($text_shadow_enabled) {
+            $styles['text-shadow'] = '1px 1px 2px rgba(0, 0, 0, 0.3) !important';
+        }
+        
+        // Estilos básicos del botón
+        $styles['padding'] = '12px 24px !important';
+        $styles['cursor'] = 'pointer !important';
+        $styles['transition'] = 'all 0.2s ease !important';
+        $styles['text-decoration'] = 'none !important';
+        $styles['display'] = 'inline-block !important';
+        
+        // ✅ CORREGIDO: Solo establecer border si no se ha establecido ya
+        if (!isset($styles['border'])) {
+            $styles['border'] = 'none !important';
+        }
+        
+        // Convertir array de estilos a string CSS
+        $style_string = '';
+        foreach ($styles as $property => $value) {
+            $style_string .= $property . ': ' . $value . '; ';
+        }
+        
+        return trim($style_string);
     }
 }

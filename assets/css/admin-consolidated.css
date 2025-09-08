@@ -1280,6 +1280,287 @@ body.sfq-dragging-active * {
     border-radius: 6px;
 }
 
+/* ==========================================================================
+   CONFIGURACIÓN DEL BOTÓN SIGUIENTE PARA PREGUNTAS FREESTYLE
+   ========================================================================== */
+
+.sfq-freestyle-next-button-controls {
+    margin: 20px 0;
+    padding: 20px;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    border-left: 4px solid #9b59b6;
+}
+
+.sfq-freestyle-next-button-controls h4 {
+    margin: 0 0 15px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 8px;
+}
+
+.sfq-next-button-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: #333;
+    margin: 0 0 12px 0;
+}
+
+.sfq-next-button-toggle input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    margin: 0;
+}
+
+.sfq-next-button-text-setting {
+    margin-top: 12px;
+    margin-left: 20px;
+}
+
+.sfq-next-button-text-setting label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    color: #666;
+    font-weight: 500;
+}
+
+.sfq-next-button-text-setting input[type="text"] {
+    width: 100%;
+    max-width: 300px;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+    transition: var(--sfq-transition);
+    background: white;
+}
+
+.sfq-next-button-text-setting input[type="text"]:focus {
+    outline: none;
+    border-color: #9b59b6;
+    box-shadow: 0 0 0 2px rgba(155, 89, 182, 0.1);
+}
+
+.sfq-next-button-text-setting small {
+    display: block;
+    margin-top: 4px;
+    color: #666;
+    font-size: 11px;
+}
+
+.sfq-next-button-style-setting {
+    margin-top: 15px;
+    margin-left: 20px;
+}
+
+.sfq-next-button-style-setting > label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: #666;
+    font-weight: 500;
+}
+
+.sfq-button-style-options {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.sfq-button-style-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #333;
+    margin: 0;
+}
+
+.sfq-button-style-option input[type="radio"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    margin: 0;
+}
+
+.sfq-custom-button-panel {
+    margin-top: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+}
+
+.sfq-button-customization-details {
+    border: none;
+    background: none;
+    padding: 0;
+}
+
+.sfq-button-customization-details summary {
+    cursor: pointer;
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 15px;
+    outline: none;
+    list-style: none;
+}
+
+.sfq-button-customization-details summary::-webkit-details-marker {
+    display: none;
+}
+
+.sfq-button-customization-details summary::before {
+    content: "▶";
+    margin-right: 8px;
+    transition: transform 0.2s ease;
+}
+
+.sfq-button-customization-details[open] summary::before {
+    transform: rotate(90deg);
+}
+
+.sfq-button-customization-content {
+    padding-top: 10px;
+}
+
+.sfq-config-group {
+    margin-bottom: 20px;
+}
+
+.sfq-config-group h6 {
+    margin: 15px 0 10px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.sfq-config-label {
+    display: block;
+    margin-bottom: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #495057;
+}
+
+.sfq-config-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 13px;
+    transition: all 0.2s ease;
+    background: white;
+    font-family: var(--sfq-font-family);
+}
+
+.sfq-config-input:focus {
+    outline: none;
+    border-color: #9b59b6;
+    box-shadow: 0 0 0 2px rgba(155, 89, 182, 0.1);
+}
+
+.sfq-config-input[type="checkbox"] {
+    width: auto;
+    margin-right: 8px;
+    transform: scale(1.1);
+}
+
+.sfq-config-input[type="color"] {
+    width: 60px;
+    height: 40px;
+    padding: 2px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    cursor: pointer;
+    background: white;
+}
+
+.sfq-config-input[type="range"] {
+    width: calc(100% - 60px);
+    margin-right: 10px;
+    vertical-align: middle;
+    accent-color: #9b59b6;
+}
+
+.sfq-config-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 12px;
+}
+
+.sfq-config-row .sfq-config-label {
+    margin-bottom: 0;
+}
+
+.sfq-bg-opacity-display,
+.sfq-border-opacity-display,
+.sfq-border-radius-display,
+.sfq-font-size-display {
+    display: inline-block;
+    min-width: 45px;
+    padding: 4px 8px;
+    background: #e9ecef;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #495057;
+    text-align: center;
+    vertical-align: middle;
+    font-family: 'Courier New', monospace;
+}
+
+.sfq-gradient-color-setting {
+    margin-top: 10px;
+}
+
+/* Responsive para configuración del botón */
+@media (max-width: 768px) {
+    .sfq-freestyle-next-button-controls {
+        padding: 15px;
+    }
+    
+    .sfq-next-button-text-setting,
+    .sfq-next-button-style-setting {
+        margin-left: 0;
+        margin-top: 10px;
+    }
+    
+    .sfq-button-style-options {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .sfq-config-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .sfq-config-input[type="range"] {
+        width: calc(100% - 50px);
+    }
+    
+    .sfq-bg-opacity-display,
+    .sfq-border-opacity-display,
+    .sfq-border-radius-display,
+    .sfq-font-size-display {
+        min-width: 40px;
+        font-size: 11px;
+    }
+}
+
 .sfq-question-settings label {
     display: flex;
     align-items: center;
@@ -3291,4 +3572,77 @@ body.sfq-dragging-active * {
     content: " ✓";
     color: #28a745;
     font-weight: bold;
+}
+
+/* ==========================================================================
+   ESTILOS PARA ALINEACIÓN DEL BOTÓN PERSONALIZADO EN PREGUNTAS FREESTYLE
+   ========================================================================== */
+
+/* Estilos base para la alineación del botón siguiente personalizado */
+.sfq-navigation:has(.sfq-next-button:only-child) {
+    display: flex;
+    width: 100%;
+    margin: 20px 0;
+    padding: 0;
+}
+
+/* Alineación izquierda */
+.sfq-navigation:has(.sfq-next-button:only-child).align-left,
+.sfq-navigation:has(.sfq-next-button:only-child)[data-align="left"] {
+    justify-content: flex-start !important;
+}
+
+/* Alineación central */
+.sfq-navigation:has(.sfq-next-button:only-child).align-center,
+.sfq-navigation:has(.sfq-next-button:only-child)[data-align="center"] {
+    justify-content: center !important;
+}
+
+/* Alineación derecha */
+.sfq-navigation:has(.sfq-next-button:only-child).align-right,
+.sfq-navigation:has(.sfq-next-button:only-child)[data-align="right"] {
+    justify-content: flex-end !important;
+}
+
+/* Estilos para el botón personalizado */
+.sfq-next-button.sfq-custom-styled-button {
+    display: inline-block;
+    position: relative;
+    z-index: 1;
+    transition: all 0.3s ease;
+}
+
+.sfq-next-button.sfq-custom-styled-button:hover {
+    transform: translateY(-1px);
+}
+
+/* Fallback para navegadores que no soportan :has() */
+@supports not (selector(:has(*))) {
+    /* Usar clases específicas como fallback */
+    .sfq-navigation.sfq-align-left {
+        display: flex;
+        justify-content: flex-start !important;
+    }
+    
+    .sfq-navigation.sfq-align-center {
+        display: flex;
+        justify-content: center !important;
+    }
+    
+    .sfq-navigation.sfq-align-right {
+        display: flex;
+        justify-content: flex-end !important;
+    }
+}
+
+/* Responsive para alineación de botones */
+@media (max-width: 768px) {
+    .sfq-navigation:has(.sfq-next-button:only-child) {
+        margin: 15px 0;
+    }
+    
+    .sfq-next-button.sfq-custom-styled-button {
+        min-width: 120px;
+        padding: 10px 20px !important;
+    }
 }

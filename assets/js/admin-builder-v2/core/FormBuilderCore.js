@@ -286,6 +286,9 @@
             $('#intro-description-color').val(styles.intro_description_color || '#666666').trigger('change');
             $('#input-border-color').val(styles.input_border_color || '#ddd').trigger('change');
             
+            // Animated gradient settings
+            this.populateAnimatedGradientSettings(styles);
+            
             // Opacity values
             this.populateOpacityValues(styles);
             
@@ -361,6 +364,77 @@
             // Show overlay options if enabled
             if (styles.background_overlay === true) {
                 $('#background-overlay-options').show();
+            }
+        }
+
+        populateAnimatedGradientSettings(styles) {
+            // ===== TAB-STYLE GRADIENT (formulario completo) =====
+            // Animated gradient activation - CORREGIDO: Usar normalización de boolean
+            const tabStyleGradientEnabled = this.dataValidator.normalizeBoolean(styles.intro_animated_background);
+            $('#intro-animated-background').prop('checked', tabStyleGradientEnabled);
+            
+            // Gradient colors
+            $('#intro-gradient-color-1').val(styles.intro_gradient_color_1 || '#ee7752').trigger('change');
+            $('#intro-gradient-color-2').val(styles.intro_gradient_color_2 || '#e73c7e').trigger('change');
+            $('#intro-gradient-color-3').val(styles.intro_gradient_color_3 || '#23a6d5').trigger('change');
+            $('#intro-gradient-color-4').val(styles.intro_gradient_color_4 || '#23d5ab').trigger('change');
+            
+            // Gradient options
+            $('#intro-gradient-speed').val(styles.intro_gradient_speed || '15');
+            $('.sfq-gradient-speed-value').text((styles.intro_gradient_speed || '15') + 's');
+            
+            $('#intro-gradient-angle').val(styles.intro_gradient_angle || '-45');
+            $('.sfq-gradient-angle-value').text((styles.intro_gradient_angle || '-45') + '°');
+            
+            $('#intro-gradient-size').val(styles.intro_gradient_size || '400');
+            $('.sfq-gradient-size-value').text((styles.intro_gradient_size || '400') + '%');
+            
+            // Show/hide gradient colors container based on activation - CORREGIDO
+            if (tabStyleGradientEnabled) {
+                $('#intro-gradient-colors').show();
+            } else {
+                $('#intro-gradient-colors').hide();
+            }
+            
+            // ===== INTRO SCREEN GRADIENT (solo pantalla de introducción) =====
+            // Animated gradient activation for intro screen - CORREGIDO: Usar normalización de boolean
+            const introScreenGradientEnabled = this.dataValidator.normalizeBoolean(styles.intro_screen_animated_background);
+            $('#intro-animated-background-checkbox').prop('checked', introScreenGradientEnabled);
+            
+            // Intro screen gradient colors
+            $('#intro-screen-gradient-color-1').val(styles.intro_screen_gradient_color_1 || '#ee7752').trigger('change');
+            $('#intro-screen-gradient-color-2').val(styles.intro_screen_gradient_color_2 || '#e73c7e').trigger('change');
+            $('#intro-screen-gradient-color-3').val(styles.intro_screen_gradient_color_3 || '#23a6d5').trigger('change');
+            $('#intro-screen-gradient-color-4').val(styles.intro_screen_gradient_color_4 || '#23d5ab').trigger('change');
+            
+            // Intro screen gradient options
+            $('#intro-screen-gradient-speed').val(styles.intro_screen_gradient_speed || '15');
+            $('.sfq-gradient-speed-value').text((styles.intro_screen_gradient_speed || '15') + 's');
+            
+            $('#intro-screen-gradient-angle').val(styles.intro_screen_gradient_angle || '-45');
+            $('.sfq-gradient-angle-value').text((styles.intro_screen_gradient_angle || '-45') + '°');
+            
+            $('#intro-screen-gradient-size').val(styles.intro_screen_gradient_size || '400');
+            $('.sfq-gradient-size-value').text((styles.intro_screen_gradient_size || '400') + '%');
+            
+            // Show/hide intro screen gradient colors container based on activation - CORREGIDO
+            if (introScreenGradientEnabled) {
+                $('#intro-gradient-colors-container').show();
+            } else {
+                $('#intro-gradient-colors-container').hide();
+            }
+            
+            // Update previews if gradients are active - CORREGIDO
+            if (tabStyleGradientEnabled) {
+                setTimeout(() => {
+                    this.updateGradientPreview();
+                }, 100);
+            }
+            
+            if (introScreenGradientEnabled) {
+                setTimeout(() => {
+                    this.updateIntroScreenGradientPreview();
+                }, 100);
             }
         }
 
@@ -585,7 +659,25 @@
                 background_opacity: $('#background-opacity').val() !== '' ? $('#background-opacity').val() : '1',
                 background_overlay: $('#background-overlay').is(':checked'),
                 background_overlay_color: $('#background-overlay-color').val() || '#000000',
-                background_overlay_opacity: $('#background-overlay-opacity').val() !== '' ? $('#background-overlay-opacity').val() : '0.3'
+                background_overlay_opacity: $('#background-overlay-opacity').val() !== '' ? $('#background-overlay-opacity').val() : '0.3',
+                // Animated gradient settings (Tab-Style - formulario completo)
+                intro_animated_background: $('#intro-animated-background').is(':checked'),
+                intro_gradient_color_1: $('#intro-gradient-color-1').val() || '#ee7752',
+                intro_gradient_color_2: $('#intro-gradient-color-2').val() || '#e73c7e',
+                intro_gradient_color_3: $('#intro-gradient-color-3').val() || '#23a6d5',
+                intro_gradient_color_4: $('#intro-gradient-color-4').val() || '#23d5ab',
+                intro_gradient_speed: $('#intro-gradient-speed').val() || '15',
+                intro_gradient_angle: $('#intro-gradient-angle').val() || '-45',
+                intro_gradient_size: $('#intro-gradient-size').val() || '400',
+                // Intro screen gradient settings (solo pantalla de introducción)
+                intro_screen_animated_background: $('#intro-animated-background-checkbox').is(':checked'),
+                intro_screen_gradient_color_1: $('#intro-screen-gradient-color-1').val() || '#ee7752',
+                intro_screen_gradient_color_2: $('#intro-screen-gradient-color-2').val() || '#e73c7e',
+                intro_screen_gradient_color_3: $('#intro-screen-gradient-color-3').val() || '#23a6d5',
+                intro_screen_gradient_color_4: $('#intro-screen-gradient-color-4').val() || '#23d5ab',
+                intro_screen_gradient_speed: $('#intro-screen-gradient-speed').val() || '15',
+                intro_screen_gradient_angle: $('#intro-screen-gradient-angle').val() || '-45',
+                intro_screen_gradient_size: $('#intro-screen-gradient-size').val() || '400'
             };
         }
 
@@ -781,6 +873,94 @@
             if (this.styleManager) {
                 this.styleManager.updatePreviewStyles();
             }
+        }
+
+        // Gradient preview update method
+        updateGradientPreview() {
+            const color1 = $('#intro-gradient-color-1').val();
+            const color2 = $('#intro-gradient-color-2').val();
+            const color3 = $('#intro-gradient-color-3').val();
+            const color4 = $('#intro-gradient-color-4').val();
+            const speed = $('#intro-gradient-speed').val();
+            const angle = $('#intro-gradient-angle').val();
+            const size = $('#intro-gradient-size').val();
+            
+            const $preview = $('#intro-gradient-preview');
+            
+            // Crear el gradiente CSS
+            const gradient = `linear-gradient(${angle}deg, ${color1}, ${color2}, ${color3}, ${color4})`;
+            
+            // Aplicar estilos al preview
+            $preview.css({
+                'background': gradient,
+                'background-size': `${size}% ${size}%`,
+                'animation': `sfq-gradient-animation ${speed}s ease infinite`
+            });
+            
+            // Actualizar la animación CSS dinámicamente
+            this.updateGradientAnimation(speed);
+        }
+
+        // Update gradient animation duration
+        updateGradientAnimation(speed) {
+            // Buscar si ya existe una regla de animación personalizada
+            let styleSheet = document.getElementById('sfq-dynamic-gradient-styles');
+            if (!styleSheet) {
+                styleSheet = document.createElement('style');
+                styleSheet.id = 'sfq-dynamic-gradient-styles';
+                document.head.appendChild(styleSheet);
+            }
+            
+            // Actualizar la regla CSS para ambos previews
+            styleSheet.textContent = `
+                #intro-gradient-preview, #intro-screen-gradient-preview {
+                    animation-duration: ${speed}s !important;
+                }
+            `;
+        }
+
+        // ✅ NUEVO: Función para actualizar preview del gradiente de pantalla de introducción
+        updateIntroScreenGradientPreview() {
+            const color1 = $('#intro-screen-gradient-color-1').val();
+            const color2 = $('#intro-screen-gradient-color-2').val();
+            const color3 = $('#intro-screen-gradient-color-3').val();
+            const color4 = $('#intro-screen-gradient-color-4').val();
+            const speed = $('#intro-screen-gradient-speed').val();
+            const angle = $('#intro-screen-gradient-angle').val();
+            const size = $('#intro-screen-gradient-size').val();
+            
+            const $preview = $('#intro-screen-gradient-preview');
+            
+            // Crear el gradiente CSS
+            const gradient = `linear-gradient(${angle}deg, ${color1}, ${color2}, ${color3}, ${color4})`;
+            
+            // Aplicar estilos al preview
+            $preview.css({
+                'background': gradient,
+                'background-size': `${size}% ${size}%`,
+                'animation': `sfq-gradient-animation ${speed}s ease infinite`
+            });
+            
+            // Actualizar la animación CSS dinámicamente
+            this.updateIntroScreenGradientAnimation(speed);
+        }
+
+        // ✅ NUEVO: Actualizar animación específica para pantalla de introducción
+        updateIntroScreenGradientAnimation(speed) {
+            // Buscar si ya existe una regla de animación personalizada
+            let styleSheet = document.getElementById('sfq-dynamic-intro-gradient-styles');
+            if (!styleSheet) {
+                styleSheet = document.createElement('style');
+                styleSheet.id = 'sfq-dynamic-intro-gradient-styles';
+                document.head.appendChild(styleSheet);
+            }
+            
+            // Actualizar la regla CSS específica para intro screen
+            styleSheet.textContent = `
+                #intro-screen-gradient-preview {
+                    animation-duration: ${speed}s !important;
+                }
+            `;
         }
 
         destroy() {

@@ -884,6 +884,79 @@ class SFQ_Admin {
                                    value="<?php echo $form ? esc_attr($form->intro_button_text) : 'Comenzar'; ?>" 
                                    placeholder="<?php _e('Texto del botón', 'smart-forms-quiz'); ?>">
                             
+                            <!-- Nueva sección para fondo animado colapsable -->
+                            <div class="sfq-message-config-section collapsed" style="margin-top: 20px;">
+                                <h4><?php _e('🌈 Fondo Animado con Gradiente', 'smart-forms-quiz'); ?></h4>
+                                <div class="sfq-message-fields">
+                                    <div class="sfq-field-group">
+                                        <label>
+                                            <input type="checkbox" id="intro-animated-background-checkbox" <?php echo ($form && isset($form->style_settings['intro_screen_animated_background']) && $form->style_settings['intro_screen_animated_background']) ? 'checked' : ''; ?>>
+                                            <?php _e('Activar fondo animado con gradiente', 'smart-forms-quiz'); ?>
+                                        </label>
+                                        <p class="description"><?php _e('Añade un fondo animado con gradiente de colores que se mueve suavemente', 'smart-forms-quiz'); ?></p>
+                                    </div>
+                                    
+                                    <div class="sfq-gradient-colors-container" id="intro-gradient-colors-container" style="<?php echo ($form && isset($form->style_settings['intro_screen_animated_background']) && $form->style_settings['intro_screen_animated_background']) ? '' : 'display: none;'; ?> margin-top: 15px;">
+                                        <div class="sfq-gradient-colors-grid">
+                                            <div class="sfq-field-group">
+                                                <label><?php _e('Color 1 del Gradiente', 'smart-forms-quiz'); ?></label>
+                                                <input type="text" id="intro-screen-gradient-color-1" class="sfq-color-picker" value="<?php echo $form && isset($form->style_settings['intro_screen_gradient_color_1']) ? esc_attr($form->style_settings['intro_screen_gradient_color_1']) : '#ee7752'; ?>">
+                                                <p class="description"><?php _e('Primer color del gradiente animado', 'smart-forms-quiz'); ?></p>
+                                            </div>
+                                            <div class="sfq-field-group">
+                                                <label><?php _e('Color 2 del Gradiente', 'smart-forms-quiz'); ?></label>
+                                                <input type="text" id="intro-screen-gradient-color-2" class="sfq-color-picker" value="<?php echo $form && isset($form->style_settings['intro_screen_gradient_color_2']) ? esc_attr($form->style_settings['intro_screen_gradient_color_2']) : '#e73c7e'; ?>">
+                                                <p class="description"><?php _e('Segundo color del gradiente animado', 'smart-forms-quiz'); ?></p>
+                                            </div>
+                                            <div class="sfq-field-group">
+                                                <label><?php _e('Color 3 del Gradiente', 'smart-forms-quiz'); ?></label>
+                                                <input type="text" id="intro-screen-gradient-color-3" class="sfq-color-picker" value="<?php echo $form && isset($form->style_settings['intro_screen_gradient_color_3']) ? esc_attr($form->style_settings['intro_screen_gradient_color_3']) : '#23a6d5'; ?>">
+                                                <p class="description"><?php _e('Tercer color del gradiente animado', 'smart-forms-quiz'); ?></p>
+                                            </div>
+                                            <div class="sfq-field-group">
+                                                <label><?php _e('Color 4 del Gradiente', 'smart-forms-quiz'); ?></label>
+                                                <input type="text" id="intro-screen-gradient-color-4" class="sfq-color-picker" value="<?php echo $form && isset($form->style_settings['intro_screen_gradient_color_4']) ? esc_attr($form->style_settings['intro_screen_gradient_color_4']) : '#23d5ab'; ?>">
+                                                <p class="description"><?php _e('Cuarto color del gradiente animado', 'smart-forms-quiz'); ?></p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="sfq-gradient-options" style="margin-top: 20px;">
+                                            <div class="sfq-field-group">
+                                                <label><?php _e('Velocidad de Animación (segundos)', 'smart-forms-quiz'); ?></label>
+                                        <input type="range" id="intro-screen-gradient-speed" min="5" max="30" value="<?php echo $form && isset($form->style_settings['intro_screen_gradient_speed']) ? esc_attr($form->style_settings['intro_screen_gradient_speed']) : '15'; ?>" class="sfq-range">
+                                        <span class="sfq-gradient-speed-value"><?php echo $form && isset($form->style_settings['intro_screen_gradient_speed']) ? esc_attr($form->style_settings['intro_screen_gradient_speed']) : '15'; ?>s</span>
+                                                <p class="description"><?php _e('Duración de un ciclo completo de animación', 'smart-forms-quiz'); ?></p>
+                                            </div>
+                                            
+                                            <div class="sfq-field-group">
+                                                <label><?php _e('Ángulo del Gradiente', 'smart-forms-quiz'); ?></label>
+                                        <input type="range" id="intro-screen-gradient-angle" min="-180" max="180" value="<?php echo $form && isset($form->style_settings['intro_screen_gradient_angle']) ? esc_attr($form->style_settings['intro_screen_gradient_angle']) : '-45'; ?>" class="sfq-range">
+                                        <span class="sfq-gradient-angle-value"><?php echo $form && isset($form->style_settings['intro_screen_gradient_angle']) ? esc_attr($form->style_settings['intro_screen_gradient_angle']) : '-45'; ?>°</span>
+                                                <p class="description"><?php _e('Ángulo de dirección del gradiente (-45° es diagonal)', 'smart-forms-quiz'); ?></p>
+                                            </div>
+                                            
+                                            <div class="sfq-field-group">
+                                                <label><?php _e('Tamaño del Gradiente (%)', 'smart-forms-quiz'); ?></label>
+                                        <input type="range" id="intro-screen-gradient-size" min="200" max="800" value="<?php echo $form && isset($form->style_settings['intro_screen_gradient_size']) ? esc_attr($form->style_settings['intro_screen_gradient_size']) : '400'; ?>" class="sfq-range">
+                                        <span class="sfq-gradient-size-value"><?php echo $form && isset($form->style_settings['intro_screen_gradient_size']) ? esc_attr($form->style_settings['intro_screen_gradient_size']) : '400'; ?>%</span>
+                                                <p class="description"><?php _e('Tamaño del gradiente (400% es el valor recomendado para animación suave)', 'smart-forms-quiz'); ?></p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="sfq-gradient-preview" style="margin-top: 20px;">
+                                            <label><?php _e('Vista Previa del Gradiente', 'smart-forms-quiz'); ?></label>
+                                            <div class="sfq-gradient-preview-box" id="intro-screen-gradient-preview">
+                                                <div class="sfq-gradient-preview-content">
+                                                    <h3><?php _e('Título de Ejemplo', 'smart-forms-quiz'); ?></h3>
+                                                    <p><?php _e('Descripción de ejemplo con fondo animado', 'smart-forms-quiz'); ?></p>
+                                                    <button class="sfq-preview-button"><?php _e('Comenzar', 'smart-forms-quiz'); ?></button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <!-- Nuevos selectores de color para intro -->
                             <div class="sfq-intro-colors" style="margin-top: 15px;">
                                 <h4><?php _e('🎨 Colores de la Pantalla de Introducción', 'smart-forms-quiz'); ?></h4>
@@ -952,6 +1025,79 @@ class SFQ_Admin {
                     
                     <!-- Tab Estilo -->
                     <div class="sfq-tab-content" id="tab-style">
+                        <!-- ===== FONDO ANIMADO CON GRADIENTE ===== -->
+                        <div class="sfq-message-config-section collapsed" style="margin-bottom: 30px;">
+                            <h4><?php _e('🌈 Fondo Animado con Gradiente', 'smart-forms-quiz'); ?></h4>
+                            <div class="sfq-message-fields">
+                                <div class="sfq-field-group">
+                                    <label>
+                                        <input type="checkbox" id="intro-animated-background" <?php echo ($form && isset($form->style_settings['intro_animated_background']) && $form->style_settings['intro_animated_background']) ? 'checked' : ''; ?>>
+                                        <?php _e('Activar fondo animado con gradiente', 'smart-forms-quiz'); ?>
+                                    </label>
+                                    <p class="description"><?php _e('Añade un fondo animado con gradiente de colores que se mueve suavemente por todo el formulario', 'smart-forms-quiz'); ?></p>
+                                </div>
+                                
+                                <div class="sfq-gradient-colors-container" id="intro-gradient-colors" style="<?php echo ($form && isset($form->style_settings['intro_animated_background']) && $form->style_settings['intro_animated_background']) ? '' : 'display: none;'; ?> margin-top: 15px;">
+                                    <div class="sfq-gradient-colors-grid">
+                                        <div class="sfq-field-group">
+                                            <label><?php _e('Color 1 del Gradiente', 'smart-forms-quiz'); ?></label>
+                                            <input type="text" id="intro-gradient-color-1" class="sfq-color-picker" value="<?php echo $form && isset($form->style_settings['intro_gradient_color_1']) ? esc_attr($form->style_settings['intro_gradient_color_1']) : '#ee7752'; ?>">
+                                            <p class="description"><?php _e('Primer color del gradiente animado', 'smart-forms-quiz'); ?></p>
+                                        </div>
+                                        <div class="sfq-field-group">
+                                            <label><?php _e('Color 2 del Gradiente', 'smart-forms-quiz'); ?></label>
+                                            <input type="text" id="intro-gradient-color-2" class="sfq-color-picker" value="<?php echo $form && isset($form->style_settings['intro_gradient_color_2']) ? esc_attr($form->style_settings['intro_gradient_color_2']) : '#e73c7e'; ?>">
+                                            <p class="description"><?php _e('Segundo color del gradiente animado', 'smart-forms-quiz'); ?></p>
+                                        </div>
+                                        <div class="sfq-field-group">
+                                            <label><?php _e('Color 3 del Gradiente', 'smart-forms-quiz'); ?></label>
+                                            <input type="text" id="intro-gradient-color-3" class="sfq-color-picker" value="<?php echo $form && isset($form->style_settings['intro_gradient_color_3']) ? esc_attr($form->style_settings['intro_gradient_color_3']) : '#23a6d5'; ?>">
+                                            <p class="description"><?php _e('Tercer color del gradiente animado', 'smart-forms-quiz'); ?></p>
+                                        </div>
+                                        <div class="sfq-field-group">
+                                            <label><?php _e('Color 4 del Gradiente', 'smart-forms-quiz'); ?></label>
+                                            <input type="text" id="intro-gradient-color-4" class="sfq-color-picker" value="<?php echo $form && isset($form->style_settings['intro_gradient_color_4']) ? esc_attr($form->style_settings['intro_gradient_color_4']) : '#23d5ab'; ?>">
+                                            <p class="description"><?php _e('Cuarto color del gradiente animado', 'smart-forms-quiz'); ?></p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="sfq-gradient-options" style="margin-top: 20px;">
+                                        <div class="sfq-field-group">
+                                            <label><?php _e('Velocidad de Animación (segundos)', 'smart-forms-quiz'); ?></label>
+                                            <input type="range" id="intro-gradient-speed" min="5" max="30" value="<?php echo $form && isset($form->style_settings['intro_gradient_speed']) ? esc_attr($form->style_settings['intro_gradient_speed']) : '15'; ?>" class="sfq-range">
+                                            <span class="sfq-gradient-speed-value"><?php echo $form && isset($form->style_settings['intro_gradient_speed']) ? esc_attr($form->style_settings['intro_gradient_speed']) : '15'; ?>s</span>
+                                            <p class="description"><?php _e('Duración de un ciclo completo de animación', 'smart-forms-quiz'); ?></p>
+                                        </div>
+                                        
+                                        <div class="sfq-field-group">
+                                            <label><?php _e('Ángulo del Gradiente', 'smart-forms-quiz'); ?></label>
+                                            <input type="range" id="intro-gradient-angle" min="-180" max="180" value="<?php echo $form && isset($form->style_settings['intro_gradient_angle']) ? esc_attr($form->style_settings['intro_gradient_angle']) : '-45'; ?>" class="sfq-range">
+                                            <span class="sfq-gradient-angle-value"><?php echo $form && isset($form->style_settings['intro_gradient_angle']) ? esc_attr($form->style_settings['intro_gradient_angle']) : '-45'; ?>°</span>
+                                            <p class="description"><?php _e('Ángulo de dirección del gradiente (-45° es diagonal)', 'smart-forms-quiz'); ?></p>
+                                        </div>
+                                        
+                                        <div class="sfq-field-group">
+                                            <label><?php _e('Tamaño del Gradiente (%)', 'smart-forms-quiz'); ?></label>
+                                            <input type="range" id="intro-gradient-size" min="200" max="800" value="<?php echo $form && isset($form->style_settings['intro_gradient_size']) ? esc_attr($form->style_settings['intro_gradient_size']) : '400'; ?>" class="sfq-range">
+                                            <span class="sfq-gradient-size-value"><?php echo $form && isset($form->style_settings['intro_gradient_size']) ? esc_attr($form->style_settings['intro_gradient_size']) : '400'; ?>%</span>
+                                            <p class="description"><?php _e('Tamaño del gradiente (400% es el valor recomendado para animación suave)', 'smart-forms-quiz'); ?></p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="sfq-gradient-preview" style="margin-top: 20px;">
+                                        <label><?php _e('Vista Previa del Gradiente', 'smart-forms-quiz'); ?></label>
+                                        <div class="sfq-gradient-preview-box" id="intro-gradient-preview">
+                                            <div class="sfq-gradient-preview-content">
+                                                <h3><?php _e('Título de Ejemplo', 'smart-forms-quiz'); ?></h3>
+                                                <p><?php _e('Descripción de ejemplo con fondo animado', 'smart-forms-quiz'); ?></p>
+                                                <button class="sfq-preview-button"><?php _e('Comenzar', 'smart-forms-quiz'); ?></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <h3><?php _e('🖼️ Imagen de Fondo', 'smart-forms-quiz'); ?></h3>
                         
                         <div class="sfq-field-group">
@@ -2294,6 +2440,184 @@ class SFQ_Admin {
                 z-index: 1000;
                 opacity: 0.9;
             }
+            
+            /* ===== ESTILOS PARA FONDO ANIMADO CON GRADIENTE ===== */
+            .sfq-animated-background-section {
+                background: #fff;
+                border: 1px solid #e1e1e1;
+                border-radius: 8px;
+                padding: 20px;
+                margin-bottom: 20px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+            
+            .sfq-animated-background-section h4 {
+                margin-top: 0;
+                color: #007cba;
+                font-size: 16px;
+                font-weight: 600;
+                border-bottom: 2px solid #007cba;
+                padding-bottom: 10px;
+                margin-bottom: 20px;
+            }
+            
+            .sfq-gradient-colors-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 15px;
+                margin-bottom: 20px;
+            }
+            
+            .sfq-gradient-colors-grid .sfq-field-group {
+                background: #f8f9fa;
+                padding: 15px;
+                border-radius: 6px;
+                border: 1px solid #e9ecef;
+            }
+            
+            .sfq-gradient-colors-grid .sfq-field-group label {
+                font-weight: 500;
+                font-size: 13px;
+                color: #555;
+                margin-bottom: 8px;
+                display: block;
+            }
+            
+            .sfq-gradient-options {
+                background: #f8f9fa;
+                padding: 20px;
+                border-radius: 6px;
+                border: 1px solid #e9ecef;
+            }
+            
+            .sfq-gradient-options .sfq-field-group {
+                margin-bottom: 20px;
+            }
+            
+            .sfq-gradient-options .sfq-field-group:last-child {
+                margin-bottom: 0;
+            }
+            
+            .sfq-gradient-speed-value,
+            .sfq-gradient-angle-value,
+            .sfq-gradient-size-value {
+                display: inline-block;
+                margin-left: 10px;
+                font-weight: 600;
+                color: #007cba;
+                min-width: 40px;
+                text-align: center;
+                background: #fff;
+                padding: 4px 8px;
+                border-radius: 4px;
+                border: 1px solid #ddd;
+                font-size: 12px;
+            }
+            
+            .sfq-gradient-preview {
+                background: #fff;
+                border: 1px solid #e1e1e1;
+                border-radius: 8px;
+                padding: 20px;
+                margin-top: 20px;
+            }
+            
+            .sfq-gradient-preview label {
+                font-weight: 500;
+                font-size: 14px;
+                color: #555;
+                margin-bottom: 15px;
+                display: block;
+            }
+            
+            .sfq-gradient-preview-box {
+                position: relative;
+                min-height: 200px;
+                border-radius: 12px;
+                overflow: hidden;
+                background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+                background-size: 400% 400%;
+                animation: sfq-gradient-animation 15s ease infinite;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            }
+            
+            .sfq-gradient-preview-content {
+                text-align: center;
+                color: white;
+                text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                z-index: 2;
+                position: relative;
+            }
+            
+            .sfq-gradient-preview-content h3 {
+                font-size: 28px;
+                font-weight: 300;
+                margin: 0 0 15px 0;
+                color: white;
+            }
+            
+            .sfq-gradient-preview-content p {
+                font-size: 16px;
+                margin: 0 0 25px 0;
+                opacity: 0.9;
+                color: white;
+            }
+            
+            .sfq-preview-button {
+                background: rgba(255,255,255,0.2);
+                border: 2px solid rgba(255,255,255,0.3);
+                color: white;
+                padding: 12px 30px;
+                border-radius: 25px;
+                font-size: 16px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                backdrop-filter: blur(1px);
+            }
+            
+            .sfq-preview-button:hover {
+                background: rgba(255,255,255,0.3);
+                border-color: rgba(255,255,255,0.5);
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            }
+            
+            /* Animación del gradiente */
+            @keyframes sfq-gradient-animation {
+                0% {
+                    background-position: 0% 50%;
+                }
+                50% {
+                    background-position: 100% 50%;
+                }
+                100% {
+                    background-position: 0% 50%;
+                }
+            }
+            
+            /* Responsive para móviles */
+            @media (max-width: 768px) {
+                .sfq-gradient-colors-grid {
+                    grid-template-columns: 1fr;
+                }
+                
+                .sfq-gradient-preview-content h3 {
+                    font-size: 24px;
+                }
+                
+                .sfq-gradient-preview-content p {
+                    font-size: 14px;
+                }
+                
+                .sfq-preview-button {
+                    padding: 10px 25px;
+                    font-size: 14px;
+                }
+            }
         </style>
         
         <!-- Script para manejar secciones colapsables -->
@@ -2605,6 +2929,148 @@ class SFQ_Admin {
             $(document).on('sfq-style-changed', function(event, data) {
                 console.log('SFQ Style Changed:', data);
             });
+            
+            // ===== FUNCIONALIDAD DE FONDO ANIMADO CON GRADIENTE =====
+            
+            // Los eventos de fondo animado se manejan en EventManager.js
+            
+            // Inicializar color pickers para gradiente (sección de introducción)
+            $('#intro-screen-gradient-color-1, #intro-screen-gradient-color-2, #intro-screen-gradient-color-3, #intro-screen-gradient-color-4').wpColorPicker({
+                change: function(event, ui) {
+                    updateIntroScreenGradientPreview();
+                }
+            });
+            
+            // Inicializar color pickers para gradiente (sección de estilo)
+            $('#intro-gradient-color-1, #intro-gradient-color-2, #intro-gradient-color-3, #intro-gradient-color-4').wpColorPicker({
+                change: function(event, ui) {
+                    updateStyleGradientPreview();
+                }
+            });
+            
+            // Función para actualizar la vista previa del gradiente (pantalla de introducción)
+            function updateIntroScreenGradientPreview() {
+                const color1 = $('#intro-screen-gradient-color-1').val();
+                const color2 = $('#intro-screen-gradient-color-2').val();
+                const color3 = $('#intro-screen-gradient-color-3').val();
+                const color4 = $('#intro-screen-gradient-color-4').val();
+                const speed = $('#intro-screen-gradient-speed').val();
+                const angle = $('#intro-screen-gradient-angle').val();
+                const size = $('#intro-screen-gradient-size').val();
+                
+                const $preview = $('#intro-screen-gradient-preview');
+                
+                // Crear el gradiente CSS
+                const gradient = `linear-gradient(${angle}deg, ${color1}, ${color2}, ${color3}, ${color4})`;
+                
+                // Aplicar estilos al preview
+                $preview.css({
+                    'background': gradient,
+                    'background-size': `${size}% ${size}%`,
+                    'animation': `sfq-gradient-animation ${speed}s ease infinite`
+                });
+                
+                // Actualizar la animación CSS dinámicamente
+                updateGradientAnimation(speed, 'intro-screen-gradient-preview');
+            }
+            
+            // Función para actualizar la vista previa del gradiente (sección de estilo)
+            function updateStyleGradientPreview() {
+                const color1 = $('#intro-gradient-color-1').val();
+                const color2 = $('#intro-gradient-color-2').val();
+                const color3 = $('#intro-gradient-color-3').val();
+                const color4 = $('#intro-gradient-color-4').val();
+                const speed = $('#intro-gradient-speed').val();
+                const angle = $('#intro-gradient-angle').val();
+                const size = $('#intro-gradient-size').val();
+                
+                const $preview = $('#intro-gradient-preview');
+                
+                // Crear el gradiente CSS
+                const gradient = `linear-gradient(${angle}deg, ${color1}, ${color2}, ${color3}, ${color4})`;
+                
+                // Aplicar estilos al preview
+                $preview.css({
+                    'background': gradient,
+                    'background-size': `${size}% ${size}%`,
+                    'animation': `sfq-gradient-animation ${speed}s ease infinite`
+                });
+                
+                // Actualizar la animación CSS dinámicamente
+                updateGradientAnimation(speed, 'intro-gradient-preview');
+            }
+            
+            // Función para actualizar la animación CSS dinámicamente
+            function updateGradientAnimation(speed, previewId) {
+                // Buscar si ya existe una regla de animación personalizada
+                let styleSheet = document.getElementById('sfq-dynamic-gradient-styles');
+                if (!styleSheet) {
+                    styleSheet = document.createElement('style');
+                    styleSheet.id = 'sfq-dynamic-gradient-styles';
+                    document.head.appendChild(styleSheet);
+                }
+                
+                // Actualizar la regla CSS para ambos previews
+                styleSheet.textContent = `
+                    #intro-gradient-preview, #intro-screen-gradient-preview {
+                        animation-duration: ${speed}s !important;
+                    }
+                `;
+            }
+            
+            // Manejar cambios en los controles de gradiente (pantalla de introducción)
+            $('#intro-screen-gradient-speed').on('input', function() {
+                const value = $(this).val();
+                $(this).siblings('.sfq-gradient-speed-value').text(value + 's');
+                updateIntroScreenGradientPreview();
+            });
+            
+            $('#intro-screen-gradient-angle').on('input', function() {
+                const value = $(this).val();
+                $(this).siblings('.sfq-gradient-angle-value').text(value + '°');
+                updateIntroScreenGradientPreview();
+            });
+            
+            $('#intro-screen-gradient-size').on('input', function() {
+                const value = $(this).val();
+                $(this).siblings('.sfq-gradient-size-value').text(value + '%');
+                updateIntroScreenGradientPreview();
+            });
+            
+            // Manejar cambios en los controles de gradiente (sección de estilo)
+            $('#intro-gradient-speed').on('input', function() {
+                const value = $(this).val();
+                $('.sfq-gradient-speed-value').text(value + 's');
+                updateStyleGradientPreview();
+            });
+            
+            $('#intro-gradient-angle').on('input', function() {
+                const value = $(this).val();
+                $('.sfq-gradient-angle-value').text(value + '°');
+                updateStyleGradientPreview();
+            });
+            
+            $('#intro-gradient-size').on('input', function() {
+                const value = $(this).val();
+                $('.sfq-gradient-size-value').text(value + '%');
+                updateStyleGradientPreview();
+            });
+            
+            // Inicializar valores de los sliders (pantalla de introducción)
+            $('#intro-screen-gradient-speed').trigger('input');
+            $('#intro-screen-gradient-angle').trigger('input');
+            $('#intro-screen-gradient-size').trigger('input');
+            
+            // Inicializar valores de los sliders (sección de estilo)
+            $('#intro-gradient-speed').trigger('input');
+            $('#intro-gradient-angle').trigger('input');
+            $('#intro-gradient-size').trigger('input');
+            
+            // Actualizar preview inicial cuando se carguen los color pickers
+            setTimeout(function() {
+                updateIntroScreenGradientPreview();
+                updateStyleGradientPreview();
+            }, 500);
         });
         </script>
         <?php
