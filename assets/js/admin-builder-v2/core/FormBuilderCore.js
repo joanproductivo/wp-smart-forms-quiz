@@ -68,6 +68,7 @@
             this.styleManager = window.SFQ_StyleManager ? new SFQ_StyleManager(this) : null;
             this.blockFormTimerManager = window.SFQ_BlockFormTimerManager ? new SFQ_BlockFormTimerManager(this) : null;
             this.previewManager = window.SFQ_PreviewManager ? new SFQ_PreviewManager(this) : null;
+            this.cacheCompatibility = window.SFQ_CacheCompatibility ? new SFQ_CacheCompatibility(this) : null;
             
             console.log('SFQ: Modules initialized successfully');
         }
@@ -131,6 +132,10 @@
             
             if (this.previewManager) {
                 this.previewManager.init();
+            }
+            
+            if (this.cacheCompatibility) {
+                this.cacheCompatibility.init();
             }
         }
 
@@ -1071,6 +1076,10 @@
             
             if (this.previewManager) {
                 this.previewManager.destroy();
+            }
+            
+            if (this.cacheCompatibility) {
+                this.cacheCompatibility.destroy();
             }
             
             // Clear references

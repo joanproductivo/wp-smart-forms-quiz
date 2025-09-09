@@ -4190,11 +4190,20 @@ class SFQ_Admin {
             true
         );
         
-        // 3. COMPONENTES ESPECIALIZADOS
+        // 3. COMPATIBILIDAD CON CACHE (debe cargarse temprano)
+        wp_enqueue_script(
+            'sfq-cache-compatibility',
+            SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/components/CacheCompatibility.js',
+            array('sfq-data-validator'),
+            SFQ_VERSION,
+            true
+        );
+        
+        // 4. COMPONENTES ESPECIALIZADOS
         wp_enqueue_script(
             'sfq-ui-renderer',
             SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/components/UIRenderer.js',
-            array('sfq-data-validator'),
+            array('sfq-cache-compatibility'),
             SFQ_VERSION,
             true
         );
@@ -4239,11 +4248,11 @@ class SFQ_Admin {
             true
         );
         
-        // 4. GESTORES DE FUNCIONALIDAD
+        // 5. GESTORES DE FUNCIONALIDAD
         wp_enqueue_script(
             'sfq-event-manager',
             SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/managers/EventManager.js',
-            array('sfq-style-manager'),
+            array('sfq-block-form-timer-manager'),
             SFQ_VERSION,
             true
         );
@@ -4264,16 +4273,16 @@ class SFQ_Admin {
             true
         );
         
-        // 5. CONTROLADOR PRINCIPAL (depende de todos los anteriores)
+        // 6. CONTROLADOR PRINCIPAL (depende de todos los anteriores)
         wp_enqueue_script(
             'sfq-form-builder-core',
             SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/core/FormBuilderCore.js',
-            array('sfq-question-manager'),
+            array('sfq-question-manager', 'sfq-cache-compatibility'),
             SFQ_VERSION,
             true
         );
         
-        // 6. PUNTO DE ENTRADA PRINCIPAL (inicializa todo el sistema)
+        // 7. PUNTO DE ENTRADA PRINCIPAL (inicializa todo el sistema)
         wp_enqueue_script(
             'sfq-main',
             SFQ_PLUGIN_URL . 'assets/js/admin-builder-v2/main.js',

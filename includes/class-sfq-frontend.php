@@ -3456,22 +3456,21 @@ class SFQ_Frontend {
     /**
      * ✅ NUEVO: Obtener el ID del formulario actual basado en el ID de pregunta
      */
-    private function get_current_form_id($question_id) {
-        if (empty($question_id)) {
-            return null;
-        }
-        
-        // Intentar obtener el form_id desde la base de datos usando el question_id
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'sfq_forms';
-        
-        $form_id = $wpdb->get_var($wpdb->prepare(
-            "SELECT id FROM {$table_name} WHERE JSON_SEARCH(questions, 'one', %s, NULL, '$[*].id') IS NOT NULL",
-            $question_id
-        ));
-        
-        return $form_id ? intval($form_id) : null;
+  private function get_current_form_id($question_id) {
+    if (empty($question_id)) {
+        return null;
     }
+
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'sfq_questions';
+
+    $form_id = $wpdb->get_var($wpdb->prepare(
+        "SELECT form_id FROM {$table_name} WHERE id = %d",
+        $question_id
+    ));
+
+    return $form_id ? intval($form_id) : null;
+}
     
     /**
      * Verificar si un tipo de elemento requiere validación
@@ -3536,7 +3535,7 @@ class SFQ_Frontend {
     /**
      * ✅ NUEVO: Obtener condiciones de una pregunta para el frontend
      */
-    private function get_question_conditions_for_frontend($question_id) {
+ private function get_question_conditions_for_frontend($question_id) {
         global $wpdb;
         
         // Cache estático para evitar consultas repetidas

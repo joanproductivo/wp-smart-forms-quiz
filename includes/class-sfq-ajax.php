@@ -993,7 +993,8 @@ class SFQ_Ajax {
     }
     
     /**
-     * Evaluar condición con comparación inteligente de tipos
+     * ✅ FASE 3: Motor Unificado de Lógica Condicional Backend
+     * Usa exactamente la misma lógica que el frontend para consistencia total
      */
     private function evaluate_condition($condition, $answer, $variables) {
         switch ($condition->condition_type) {
@@ -1030,7 +1031,8 @@ class SFQ_Ajax {
     }
     
     /**
-     * Obtener valor de comparación con fallback para compatibilidad
+     * ✅ FASE 3: Obtener valor de comparación - UNIFICADO con frontend
+     * Usa exactamente la misma lógica que ConditionalLogicEngine.getComparisonValue()
      */
     private function get_comparison_value($condition) {
         // Priorizar comparison_value si existe y no está vacío
@@ -1043,7 +1045,8 @@ class SFQ_Ajax {
     }
     
     /**
-     * Comparación inteligente que maneja números y texto automáticamente
+     * ✅ FASE 3: Comparación inteligente - UNIFICADO con frontend
+     * Usa exactamente la misma lógica que ConditionalLogicEngine.smartCompare()
      */
     private function smart_compare($value1, $value2, $operator) {
         // Si ambos valores parecen números, comparar como números
@@ -1057,7 +1060,7 @@ class SFQ_Ajax {
                 case '<':
                     return $num1 < $num2;
                 case '==':
-                    return $num1 == $num2;
+                    return $num1 === $num2;
                 default:
                     return false;
             }
@@ -1069,9 +1072,9 @@ class SFQ_Ajax {
         
         switch ($operator) {
             case '>':
-                return strcmp($str1, $str2) > 0;
+                return $str1 > $str2; // ✅ CORREGIDO: Usar > directo en lugar de strcmp
             case '<':
-                return strcmp($str1, $str2) < 0;
+                return $str1 < $str2; // ✅ CORREGIDO: Usar < directo en lugar de strcmp
             case '==':
                 return $str1 === $str2;
             default:

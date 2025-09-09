@@ -7,8 +7,8 @@
     'use strict';
 
     /**
-     * ✅ NUEVO: Motor Unificado de Lógica Condicional
-     * Centraliza todo el procesamiento de condiciones para evitar duplicación
+     * ✅ FASE 2: Motor Unificado de Lógica Condicional con Optimizaciones Avanzadas
+     * Centraliza todo el procesamiento de condiciones con evaluación local inteligente
      */
     class ConditionalLogicEngine {
         constructor(formInstance) {
@@ -468,10 +468,8 @@
             
             // ✅ NUEVO: Aplicar estilos de imagen de fondo
             this.applyBackgroundImageStyles();
-            
-            // ✅ NUEVO: Aplicar estilos personalizados de botones
+              // ✅ NUEVO: Aplicar estilos personalizados de botones
             this.applyCustomButtonStyles();
-            
            
             // ✅ CORREGIDO: Retrasar inicialización del guardado parcial
             if (this.savePartialEnabled) {
@@ -1078,7 +1076,7 @@
          * Mantener como wrapper para compatibilidad hacia atrás
          */
         evaluateConditionsForRedirect(conditions, questionId, customVariables = null) {
-            
+            console.log('🔧 Legacy: Using legacy wrapper for condition evaluation');
             
             // Crear trigger temporal para el motor unificado
             const trigger = {
@@ -1496,6 +1494,7 @@
          * SOLO procesa condiciones basadas en variables globales (no duplicar condiciones de respuesta)
          */
         async processConditionsForNavigation(questionId) {
+            console.log('🔧 Navigation: Processing conditions for navigation', { questionId });
             
             try {
                 // ✅ REFACTORIZADO: Usar motor unificado con trigger de navegación
@@ -1508,6 +1507,7 @@
 
                 const result = await this.conditionalEngine.processConditions(questionId, trigger);
                 
+                console.log('🔧 Navigation: Engine result', result);
                 
                 // Si el motor unificado no encontró condiciones de navegación, hacer fallback a AJAX
                 if (!result.shouldRedirect && !result.skipToQuestion) {
@@ -1515,11 +1515,13 @@
                     
                     // Solo consultar servidor si no hay respuesta específica
                     if (currentAnswer === undefined) {
+                        console.log('🔧 Navigation: No local navigation conditions, checking server');
                         
                         try {
                             const ajaxResult = await this.checkConditionsViaAjax(questionId, null);
                             
                             if (ajaxResult && (ajaxResult.shouldRedirect || ajaxResult.skipToQuestion)) {
+                                console.log('🔧 Navigation: Server returned navigation result', ajaxResult);
                                 return ajaxResult;
                             }
                             
@@ -1533,6 +1535,7 @@
                     }
                 }
                 
+                console.log('🔧 Navigation: Final result', result);
                 return result;
                 
             } catch (error) {
@@ -4677,8 +4680,7 @@
             } else {
             }
         }
-
-        /**
+ /**
          * ✅ NUEVO: Aplicar estilos personalizados de botones con gradiente animado
          */
         applyCustomButtonStyles() {
@@ -5110,6 +5112,7 @@
          * ✅ NUEVO: Mostrar mensaje de bloqueo del formulario
          */
         showBlockedMessage(questionScreen) {
+            console.log('SFQ: Showing blocked message for question:', questionScreen.dataset.questionId);
             
             // Ocultar la pregunta actual
             if (this.currentScreen) {
