@@ -409,7 +409,10 @@
                     ] : [],
                     required: false,
                     order: this.questions.length,
-                    conditions: []
+                    conditions: [],
+                    settings: {
+                        collapsed: false // Default to not collapsed when adding new question
+                    }
                 };
                 
                 // Si es una pregunta de estilo libre
@@ -476,22 +479,28 @@
             
             if (!question) return;
             
-            // Delete question
-            $question.find('.sfq-delete-question').off('click').on('click', () => {
-                if (confirm('¿Estás seguro de eliminar esta pregunta?')) {
-                    this.deleteQuestion(questionId);
-                }
-            });
+            // Delete question - REMOVIDO: Ahora se maneja por event delegation en EventManager.js
+            // $question.find('.sfq-delete-question').off('click').on('click', () => {
+            //     if (confirm('¿Estás seguro de eliminar esta pregunta?')) {
+            //         this.deleteQuestion(questionId);
+            //     }
+            // });
             
-            // Duplicate question
-            $question.find('.sfq-duplicate-question').off('click').on('click', () => {
-                this.duplicateQuestion(questionId);
-            });
+            // Duplicate question - REMOVIDO: Ahora se maneja por event delegation en EventManager.js
+            // $question.find('.sfq-duplicate-question').off('click').on('click', () => {
+            //     this.duplicateQuestion(questionId);
+            // });
             
             // Update question text
             $question.find('.sfq-question-text-input').off('input').on('input', (e) => {
                 question.text = $(e.target).val();
                 this.formBuilder.isDirty = true;
+                
+                // Update the title preview in the header
+                const $titlePreview = $question.find('.sfq-question-title-preview');
+                const currentText = question.text || 'Pregunta sin título';
+                const truncatedText = currentText.substring(0, 60) + (currentText.length > 60 ? '...' : '');
+                $titlePreview.text(truncatedText);
             });
             
             // Update required
@@ -577,6 +586,17 @@
             console.log('SFQ: Initialized hide_title checkbox for question', question.id, 'to:', hideTitle);
             console.log('SFQ: Question settings:', question.settings);
             
+            // ✅ NUEVO: Inicializar estado de plegado/expansión
+            const isCollapsed = question.settings.collapsed === true;
+            if (isCollapsed) {
+                $question.addClass('collapsed');
+                $question.find('.sfq-question-content').addClass('collapsed');
+            } else {
+                $question.removeClass('collapsed');
+                $question.find('.sfq-question-content').removeClass('collapsed');
+            }
+            console.log('SFQ: Initialized collapsed state for question', question.id, 'to:', isCollapsed);
+
             // ✅ NUEVO: Inicializar estado de configuración del botón siguiente para preguntas freestyle
             if (question.type === 'freestyle') {
                 this.initializeFreestyleButtonSettings($question, question);
@@ -612,18 +632,18 @@
                 this.formBuilder.isDirty = true;
             });
             
-            // Add option
-            $question.find('.sfq-add-option').off('click').on('click', () => {
-                this.addOption(questionId);
-            });
+            // Add option - REMOVIDO: Ahora se maneja por event delegation en EventManager.js
+            // $question.find('.sfq-add-option').off('click').on('click', () => {
+            //     this.addOption(questionId);
+            // });
             
             // Bind option events
             this.bindOptionEvents(questionId);
             
-            // Add condition button
-            $question.find('.sfq-add-condition').off('click').on('click', () => {
-                this.formBuilder.conditionEngine.addCondition(questionId);
-            });
+            // Add condition button - REMOVIDO: Ahora se maneja por event delegation en EventManager.js
+            // $question.find('.sfq-add-condition').off('click').on('click', () => {
+            //     this.formBuilder.conditionEngine.addCondition(questionId);
+            // });
             
             // Freestyle elements events
             if (question.type === 'freestyle') {
@@ -847,22 +867,22 @@
                 self.openElementConfigModal(questionId, elementId, elementType);
             });
             
-            // Duplicate element
-            $question.find('.sfq-duplicate-element').off('click').on('click', function() {
-                const $element = $(this).closest('.sfq-freestyle-element');
-                const elementId = $element.data('element-id');
-                self.duplicateFreestyleElement(questionId, elementId);
-            });
+            // Duplicate element - REMOVIDO: Ahora se maneja por event delegation en EventManager.js
+            // $question.find('.sfq-duplicate-element').off('click').on('click', function() {
+            //     const $element = $(this).closest('.sfq-freestyle-element');
+            //     const elementId = $element.data('element-id');
+            //     self.duplicateFreestyleElement(questionId, elementId);
+            // });
             
-            // Delete element
-            $question.find('.sfq-delete-element').off('click').on('click', function() {
-                const $element = $(this).closest('.sfq-freestyle-element');
-                const elementId = $element.data('element-id');
-                
-                if (confirm('¿Estás seguro de eliminar este elemento?')) {
-                    self.deleteFreestyleElement(questionId, elementId);
-                }
-            });
+            // Delete element - REMOVIDO: Ahora se maneja por event delegation en EventManager.js
+            // $question.find('.sfq-delete-element').off('click').on('click', function() {
+            //     const $element = $(this).closest('.sfq-freestyle-element');
+            //     const elementId = $element.data('element-id');
+            //     
+            //     if (confirm('¿Estás seguro de eliminar este elemento?')) {
+            //         self.deleteFreestyleElement(questionId, elementId);
+            //     }
+            // });
         }
 
         addFreestyleElement(questionId, elementType) {
@@ -2855,13 +2875,32 @@
             const original = this.questions.find(q => q.id === questionId);
             if (!original) return;
             
-            const newId = 'q_' + Date.now();
+            const newId = 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9); // Ensure unique ID
+            
+            // Determine options based on question type
+            let duplicatedOptions = [];
+            if (original.type !== 'freestyle' && original.options && Array.isArray(original.options)) {
+                duplicatedOptions = original.options.map(opt => ({ ...opt }));
+            }
+
+            // Determine freestyle_elements based on question type
+            let duplicatedFreestyleElements = [];
+            if (original.type === 'freestyle' && original.freestyle_elements && Array.isArray(original.freestyle_elements)) {
+                duplicatedFreestyleElements = original.freestyle_elements.map(el => ({ 
+                    ...el, 
+                    id: 'element_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9) // Generate new IDs for elements
+                })); 
+            }
+
             const duplicate = {
                 ...original,
                 id: newId,
                 text: original.text + ' (Copia)',
-                options: original.options.map(opt => ({ ...opt })),
-                conditions: []
+                options: duplicatedOptions,
+                conditions: [], // Conditions should be duplicated separately if needed, but for now, start fresh
+                freestyle_elements: duplicatedFreestyleElements, // Include duplicated freestyle elements
+                global_settings: original.global_settings ? { ...original.global_settings } : {}, // Duplicate global settings
+                settings: original.settings ? { ...original.settings } : {} // Duplicate question settings
             };
             
             this.questions.push(duplicate);

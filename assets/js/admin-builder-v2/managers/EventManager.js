@@ -58,6 +58,12 @@
             this.formBuilder.toggleMainArea();
         });
         
+        // Toggle all questions button
+        $('#sfq-toggle-all-questions').on('click' + ns, (e) => {
+            e.preventDefault();
+            this.handleToggleAllQuestions(e);
+        });
+
         // Form field changes
         $('#form-title, #form-description, #form-type').on('change' + ns, () => {
             if (!this.formBuilder.isDestroyed) {
@@ -160,6 +166,11 @@
             this.handleAddCondition(e);
         });
         
+        // Delegación para plegar/expandir contenido de pregunta
+        $(document).on('click' + ns + '-delegation', '.sfq-toggle-question-content', (e) => {
+            this.handleToggleQuestionContent(e);
+        });
+
         console.log('SFQ EventManager: Event delegation set up');
     }
 
@@ -268,6 +279,109 @@
         const questionId = $button.closest('.sfq-question-item').attr('id');
         
         this.formBuilder.conditionEngine.addCondition(questionId);
+    }
+
+    /**
+     * Manejar plegado/expansión del contenido de una pregunta
+     */
+    handleToggleQuestionContent(e) {
+        e.preventDefault();
+        const $button = $(e.currentTarget);
+        const $questionItem = $button.closest('.sfq-question-item');
+        const $questionContent = $questionItem.find('.sfq-question-content');
+        const questionId = $questionItem.attr('id');
+            const question = this.formBuilder.questionManager.getQuestion(questionId);
+
+            if (!question) return;
+
+            const $titlePreview = $questionItem.find('.sfq-question-title-preview');
+
+            // Toggle class for content visibility
+            $questionContent.slideToggle(300, () => {
+                const isCollapsed = $questionContent.is(':hidden');
+                $questionItem.toggleClass('sfq-collapsed', isCollapsed);
+                $button.find('.dashicons')
+                       .toggleClass('dashicons-arrow-up', !isCollapsed)
+                       .toggleClass('dashicons-arrow-down', isCollapsed);
+                
+                // Update visibility of the title preview
+                if (isCollapsed) {
+                    $titlePreview.addClass('visible');
+                    // Update the title preview text when collapsing
+                    const currentText = question.text || 'Pregunta sin título';
+                    const truncatedText = currentText.substring(0, 60) + (currentText.length > 60 ? '...' : '');
+                    $titlePreview.text(truncatedText);
+                } else {
+                    $titlePreview.removeClass('visible');
+                }
+
+                // Save collapse state
+                if (!question.settings) {
+                    question.settings = {};
+                }
+                question.settings.collapsed = isCollapsed;
+                this.formBuilder.isDirty = true;
+            });
+        }
+
+    /**
+     * Manejar plegado/expansión de todas las preguntas
+     */
+    handleToggleAllQuestions(e) {
+        e.preventDefault();
+        const $button = $(e.currentTarget);
+        const $allQuestions = $('.sfq-question-item');
+        const $allQuestionContents = $allQuestions.find('.sfq-question-content');
+        const $allToggleButtons = $allQuestions.find('.sfq-toggle-question-content .dashicons');
+
+        // Determine if we should collapse or expand
+        // If any question is currently expanded, we collapse all. Otherwise, we expand all.
+        const shouldCollapseAll = $allQuestionContents.filter(':visible').length > 0;
+
+        $allQuestionContents.each((index, element) => {
+            const $content = $(element);
+            const $questionItem = $content.closest('.sfq-question-item');
+            const questionId = $questionItem.attr('id');
+            const question = this.formBuilder.questionManager.getQuestion(questionId);
+            const $toggleButtonIcon = $questionItem.find('.sfq-toggle-question-content .dashicons');
+            const $titlePreview = $questionItem.find('.sfq-question-title-preview');
+
+            if (shouldCollapseAll) {
+                $content.slideUp(300);
+                $questionItem.addClass('sfq-collapsed');
+                $toggleButtonIcon.removeClass('dashicons-arrow-up').addClass('dashicons-arrow-down');
+                $titlePreview.addClass('visible'); // Show title preview when collapsed
+                if (question) {
+                    question.settings.collapsed = true;
+                    const currentText = question.text || 'Pregunta sin título';
+                    const truncatedText = currentText.substring(0, 60) + (currentText.length > 60 ? '...' : '');
+                    $titlePreview.text(truncatedText); // Update text when collapsing
+                }
+            } else {
+                $content.slideDown(300);
+                $questionItem.removeClass('sfq-collapsed');
+                $toggleButtonIcon.removeClass('dashicons-arrow-down').addClass('dashicons-arrow-up');
+                $titlePreview.removeClass('visible'); // Hide title preview when expanded
+                if (question) question.settings.collapsed = false;
+            }
+        });
+
+        // Update global button text and icon
+        $button.find('.dashicons')
+               .toggleClass('dashicons-editor-expand', !shouldCollapseAll)
+               .toggleClass('dashicons-editor-contract', shouldCollapseAll);
+        // To prevent overlapping, we should only have one text element or manage its visibility.
+        // For now, let's just update the text content of the button directly.
+        $button.text(shouldCollapseAll ? 'Expandir Todo' : 'Plegar Todo');
+        // Re-add the dashicon if it was removed by .text()
+        if (shouldCollapseAll) {
+            $button.prepend('<span class="dashicons dashicons-editor-contract"></span> ');
+        } else {
+            $button.prepend('<span class="dashicons dashicons-editor-expand"></span> ');
+        }
+
+
+        this.formBuilder.isDirty = true;
     }
 
     /**

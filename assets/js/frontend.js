@@ -121,7 +121,6 @@
             // 1. Obtener condiciones del elemento clickeado (comportamiento original)
             const element = trigger.element;
             if (element && element.dataset.conditions) {
-                console.log(`SFQ JS Debug: Raw element conditions for question ${questionId}:`, element.dataset.conditions);
                 try {
                     const elementConditions = JSON.parse(element.dataset.conditions);
                     if (Array.isArray(elementConditions)) {
@@ -142,7 +141,6 @@
                     // Evitar duplicar las condiciones del elemento ya procesado
                     if (condElement === element) continue;
                     
-                    console.log(`SFQ JS Debug: Raw question-level conditions for question ${questionId} (element ${condElement.id || 'N/A'}):`, condElement.dataset.conditions);
                     try {
                         const conditions = JSON.parse(condElement.dataset.conditions || '[]');
                         if (Array.isArray(conditions)) {
@@ -155,7 +153,6 @@
                 }
             }
             
-            console.log(`🔧 ConditionalEngine: Found ${allConditions.length} total conditions for answer trigger on question ${questionId}`);
             return allConditions;
         }
 
@@ -377,12 +374,10 @@
         }
 
         smartCompare(value1, value2, operator) {
-            console.log(`SFQ JS Debug: smartCompare called with: value1=${value1} (Type: ${typeof value1}), value2=${value2} (Type: ${typeof value2}), operator=${operator}`);
 
             if (!isNaN(value1) && !isNaN(value2)) {
                 const num1 = parseFloat(value1);
                 const num2 = parseFloat(value2);
-                console.log(`SFQ JS Debug: Performing numerical comparison: ${num1} ${operator} ${num2}`);
                 
                 switch (operator) {
                     case '>': return num1 > num2;
@@ -396,7 +391,6 @@
             
             const str1 = String(value1);
             const str2 = String(value2);
-            console.log(`SFQ JS Debug: Performing string comparison: '${str1}' ${operator} '${str2}'`);
             
             switch (operator) {
                 case '>': return str1.localeCompare(str2) > 0;

@@ -48,11 +48,17 @@
                 `;
             }
 
+            const truncatedText = question.text ? this.escapeHtml(question.text).substring(0, 60) + (question.text.length > 60 ? '...' : '') : 'Pregunta sin título';
+
             const html = `
                 <div class="sfq-question-item" id="${question.id}" data-type="${question.type}">
                     <div class="sfq-question-header">
                         <span class="sfq-question-type-label">${typeLabels[question.type] || question.type}</span>
+                        <span class="sfq-question-title-preview ${question.settings?.collapsed ? 'visible' : ''}">${truncatedText}</span>
                         <div class="sfq-question-actions">
+                            <button class="sfq-question-action sfq-toggle-question-content" type="button" title="Plegar/Expandir">
+                                <span class="dashicons dashicons-arrow-up"></span>
+                            </button>
                             <button class="sfq-question-action sfq-duplicate-question" type="button" title="Duplicar">
                                 <span class="dashicons dashicons-admin-page"></span>
                             </button>
@@ -62,7 +68,7 @@
                         </div>
                     </div>
                     
-                    <div class="sfq-question-content">
+                    <div class="sfq-question-content ${question.settings?.collapsed ? 'collapsed' : ''}">
                         <input type="text" class="sfq-question-text-input" 
                                placeholder="Escribe tu pregunta aquí..." 
                                value="${this.escapeHtml(question.text)}">
@@ -125,12 +131,17 @@
             const elementsHtml = this.renderFreestyleElements(question.freestyle_elements || []);
             const controlsHtml = this.renderFreestyleControls(question.id);
             const isFinaleScreen = question.pantallaFinal || false;
+            const truncatedText = question.text ? this.escapeHtml(question.text).substring(0, 60) + (question.text.length > 60 ? '...' : '') : 'Pregunta sin título';
 
             const html = `
                 <div class="sfq-question-item sfq-freestyle-question ${isFinaleScreen ? 'sfq-final-screen' : ''}" id="${question.id}" data-type="freestyle" data-final-screen="${isFinaleScreen}">
                     <div class="sfq-question-header">
                         <span class="sfq-question-type-label">${isFinaleScreen ? '🏁 Pantalla Final' : 'Estilo Libre'}</span>
+                        <span class="sfq-question-title-preview ${question.settings?.collapsed ? 'visible' : ''}">${truncatedText}</span>
                         <div class="sfq-question-actions">
+                            <button class="sfq-question-action sfq-toggle-question-content" type="button" title="Plegar/Expandir">
+                                <span class="dashicons dashicons-arrow-up"></span>
+                            </button>
                             <button class="sfq-question-action sfq-duplicate-question" type="button" title="Duplicar">
                                 <span class="dashicons dashicons-admin-page"></span>
                             </button>
@@ -140,7 +151,7 @@
                         </div>
                     </div>
                     
-                    <div class="sfq-question-content">
+                    <div class="sfq-question-content ${question.settings?.collapsed ? 'collapsed' : ''}">
                         <input type="text" class="sfq-question-text-input" 
                                placeholder="Escribe tu pregunta aquí..." 
                                value="${this.escapeHtml(question.text)}">

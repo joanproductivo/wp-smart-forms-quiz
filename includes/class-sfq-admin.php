@@ -2002,6 +2002,10 @@ class SFQ_Admin {
                         <button class="button" id="sfq-toggle-main" title="<?php _e('Desplegar/Plegar área principal', 'smart-forms-quiz'); ?>">
                             <span class="dashicons dashicons-arrow-up-alt2"></span>
                         </button>
+                        <button class="button" id="sfq-toggle-all-questions" title="<?php _e('Plegar/Expandir todas las preguntas', 'smart-forms-quiz'); ?>">
+                            <span class="dashicons dashicons-editor-expand"></span>
+                            <?php _e('Plegar Todo', 'smart-forms-quiz'); ?>
+                        </button>
                         <button class="button" id="sfq-preview-form">
                             <span class="dashicons dashicons-visibility"></span>
                             <?php _e('Vista Previa', 'smart-forms-quiz'); ?>

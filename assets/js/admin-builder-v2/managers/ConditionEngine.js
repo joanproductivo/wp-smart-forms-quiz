@@ -148,60 +148,12 @@
             
             if (!condition) return;
             
-            const self = this; // Guardar referencia al contexto correcto
-            
-            // Update condition fields
-            $condition.find('.sfq-condition-type').off('change').on('change', function() {
-                const newConditionType = $(this).val();
-                condition.type = newConditionType;
-                
-                // Regenerar el campo de valor de condición según el nuevo tipo
-                const newConditionValueField = self.formBuilder.uiRenderer.generateConditionValueField(condition);
-                $condition.find('.sfq-condition-value-container').html(newConditionValueField);
-                
-                // Rebind events para los nuevos campos
-                self.bindConditionValueEvents($condition, condition);
-                
-                self.formBuilder.isDirty = true;
-            });
+            // The event binding for condition type, action type, and amount fields
+            // is now handled by delegated events in FormBuilderCore.js (setupConditionalLogicControls).
+            // We only need to bind events for the condition value fields, which are dynamic.
             
             // Bind initial condition value events
             this.bindConditionValueEvents($condition, condition);
-            
-            // Handle action type change - regenerate action value field and show/hide amount field
-            $condition.find('.sfq-action-type').off('change').on('change', function() {
-                const newActionType = $(this).val();
-                condition.action = newActionType;
-                
-                // Limpiar el valor anterior si cambia el tipo de acción
-                condition.actionValue = '';
-                
-                // Regenerar el campo de valor de acción
-                const newActionValueField = self.formBuilder.uiRenderer.generateActionValueField(condition);
-                $condition.find('.sfq-action-value-container').html(newActionValueField);
-                
-                // Mostrar/ocultar campo de cantidad según el tipo de acción
-                const $amountRow = $condition.find('.sfq-condition-amount-row');
-                const $amountLabel = $condition.find('.sfq-condition-amount-label');
-                
-                if (['add_variable', 'set_variable'].includes(newActionType)) {
-                    $amountRow.show();
-                    $amountLabel.text(newActionType === 'add_variable' ? 'Cantidad a sumar:' : 'Valor a establecer:');
-                } else {
-                    $amountRow.hide();
-                }
-                
-                // Rebind events para el nuevo campo
-                self.bindActionValueEvents($condition, condition);
-                
-                self.formBuilder.isDirty = true;
-            });
-            
-            // Handle amount field changes
-            $condition.find('.sfq-condition-amount').off('input').on('input', function() {
-                condition.amount = parseInt($(this).val()) || 0;
-                self.formBuilder.isDirty = true;
-            });
             
             // Bind initial action value events
             this.bindActionValueEvents($condition, condition);

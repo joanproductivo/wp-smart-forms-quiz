@@ -680,6 +680,22 @@ body.sfq-dragging-active * {
     border-radius: 4px;
 }
 
+.sfq-question-title-preview {
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    margin-left: 10px;
+    flex-grow: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: none; /* Hidden by default */
+}
+
+.sfq-question-title-preview.visible {
+    display: block; /* Show when collapsed */
+}
+
 .sfq-question-actions {
     display: flex;
     gap: 5px;
@@ -698,6 +714,59 @@ body.sfq-dragging-active * {
 .sfq-question-action:hover {
     background: rgba(0, 124, 186, 0.1);
     color: var(--sfq-primary);
+}
+
+/* Estilos para el botón de plegado/expansión individual */
+.sfq-toggle-question-content .dashicons {
+    transition: transform 0.3s ease;
+}
+
+.sfq-question-item.collapsed .sfq-toggle-question-content .dashicons {
+    transform: rotate(180deg);
+}
+
+/* Ocultar el contenido de la pregunta cuando está plegada */
+.sfq-question-content.collapsed {
+    display: none;
+}
+
+/* Estilos para el botón global de plegar/expandir todo */
+#sfq-toggle-all-questions {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: var(--sfq-transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2);
+}
+
+#sfq-toggle-all-questions:hover {
+    background: linear-gradient(135deg, #5a6268 0%, #495057 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
+}
+
+#sfq-toggle-all-questions {
+    display: flex;
+    align-items: center;
+    gap: 5px; /* Add some space between icon and text */
+}
+
+#sfq-toggle-all-questions .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    transition: transform 0.3s ease;
+}
+
+#sfq-toggle-all-questions.expanded .dashicons {
+    transform: rotate(180deg);
 }
 
 .sfq-move-handle {
