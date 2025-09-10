@@ -171,6 +171,102 @@
             this.handleToggleQuestionContent(e);
         });
 
+        // ✅ NUEVO: Delegación para cambios en el tipo de condición
+        $(document).on('change' + ns + '-delegation', '.sfq-condition-type', (e) => {
+            const $select = $(e.currentTarget);
+            const $conditionItem = $select.closest('.sfq-condition-item');
+            const conditionId = $conditionItem.attr('id');
+            const $questionItem = $select.closest('.sfq-question-item');
+            const questionId = $questionItem.attr('id');
+
+            const question = this.formBuilder.questionManager.getQuestion(questionId);
+            // CRÍTICO: Obtener la condición directamente del ConditionEngine para asegurar que sea la instancia correcta
+            const condition = this.formBuilder.conditionEngine.conditions[questionId]?.find(c => c.id === conditionId);
+            if (!condition) {
+                console.error('SFQ EventManager: Condition object not found in ConditionEngine for ID:', conditionId);
+                return;
+            }
+            console.log('SFQ EventManager: Retrieved condition object for type change:', condition);
+
+            const newConditionType = $select.val();
+            condition.type = newConditionType;
+            // CRÍTICO: Limpiar el valor anterior si cambia el tipo de condición para evitar datos inconsistentes
+            condition.value = ''; 
+            condition.comparisonValue = ''; // También limpiar comparisonValue si aplica
+
+            // Regenerar el campo de valor de condición según el nuevo tipo
+            const newConditionValueField = this.formBuilder.uiRenderer.generateConditionValueField(condition);
+            $conditionItem.find('.sfq-condition-value-container').html(newConditionValueField);
+
+            // Rebind events para los nuevos campos
+            this.formBuilder.conditionEngine.bindConditionValueEvents($conditionItem, condition);
+            this.formBuilder.isDirty = true;
+            console.log('SFQ EventManager: Condition type changed for', conditionId, 'to', newConditionType);
+        });
+
+        // ✅ NUEVO: Delegación para cambios en el tipo de acción
+        $(document).on('change' + ns + '-delegation', '.sfq-action-type', (e) => {
+            const $select = $(e.currentTarget);
+            const $conditionItem = $select.closest('.sfq-condition-item');
+            const conditionId = $conditionItem.attr('id');
+            const $questionItem = $select.closest('.sfq-question-item');
+            const questionId = $questionItem.attr('id');
+
+            // CRÍTICO: Obtener la condición directamente del ConditionEngine para asegurar que sea la instancia correcta
+            const condition = this.formBuilder.conditionEngine.conditions[questionId]?.find(c => c.id === conditionId);
+            if (!condition) {
+                console.error('SFQ EventManager: Condition object not found in ConditionEngine for ID:', conditionId);
+                return;
+            }
+            console.log('SFQ EventManager: Retrieved condition object for action change:', condition);
+
+            const newActionType = $select.val();
+            condition.action = newActionType;
+            condition.actionValue = ''; // Limpiar el valor anterior si cambia el tipo de acción
+            condition.amount = 0; // También limpiar amount si cambia el tipo de acción
+
+            // Regenerar el campo de valor de acción
+            const newActionValueField = this.formBuilder.uiRenderer.generateActionValueField(condition);
+            $conditionItem.find('.sfq-action-value-container').html(newActionValueField);
+
+            // Mostrar/ocultar campo de cantidad según el tipo de acción
+            const $amountRow = $conditionItem.find('.sfq-condition-amount-row');
+            const $amountLabel = $conditionItem.find('.sfq-condition-amount-label');
+            
+            if (['add_variable', 'set_variable'].includes(newActionType)) {
+                $amountRow.slideDown(200);
+                $amountLabel.text(newActionType === 'add_variable' ? 'Cantidad a sumar:' : 'Valor a establecer:');
+            } else {
+                $amountRow.slideUp(200);
+            }
+
+            // Rebind events para el nuevo campo
+            this.formBuilder.conditionEngine.bindActionValueEvents($conditionItem, condition);
+            this.formBuilder.isDirty = true;
+            console.log('SFQ EventManager: Action type changed for', conditionId, 'to', newActionType);
+        });
+
+        // ✅ NUEVO: Delegación para cambios en el campo de cantidad (amount)
+        $(document).on('input' + ns + '-delegation', '.sfq-condition-amount', (e) => {
+            const $input = $(e.currentTarget);
+            const $conditionItem = $input.closest('.sfq-condition-item');
+            const conditionId = $conditionItem.attr('id');
+            const $questionItem = $input.closest('.sfq-question-item');
+            const questionId = $questionItem.attr('id');
+
+            // CRÍTICO: Obtener la condición directamente del ConditionEngine para asegurar que sea la instancia correcta
+            const condition = this.formBuilder.conditionEngine.conditions[questionId]?.find(c => c.id === conditionId);
+            if (!condition) {
+                console.error('SFQ EventManager: Condition object not found in ConditionEngine for ID:', conditionId);
+                return;
+            }
+            console.log('SFQ EventManager: Retrieved condition object for amount change:', condition);
+
+            condition.amount = parseInt($input.val()) || 0;
+            this.formBuilder.isDirty = true;
+            console.log('SFQ EventManager: Condition amount changed for', conditionId, 'to', condition.amount);
+        });
+
         console.log('SFQ EventManager: Event delegation set up');
     }
 
