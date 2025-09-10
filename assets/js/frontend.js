@@ -157,27 +157,40 @@
         }
 
         /**
-         * Obtener condiciones de navegación (solo variables)
+         * Obtener condiciones de navegación 
          */
         async getNavigationConditions(questionId, trigger) {
             const questionContainer = this.form.container.querySelector(`[data-question-id="${questionId}"]`);
             if (!questionContainer) return [];
 
             const allConditions = [];
+
+            // 1. Obtener condiciones del contenedor de la pregunta en sí
+            if (questionContainer.dataset.conditions) {
+                try {
+                    const containerConditions = JSON.parse(questionContainer.dataset.conditions);
+                    if (Array.isArray(containerConditions)) {
+                        allConditions.push(...containerConditions);
+                    }
+                } catch (e) {
+                    console.error('🔧 ConditionalEngine: Error parsing question container conditions:', e);
+                }
+            }
+
+            // 2. Obtener condiciones de los elementos dentro de la pregunta
             const conditionsElements = questionContainer.querySelectorAll('[data-conditions]');
 
             for (const element of conditionsElements) {
+                // Evitar duplicar si el elemento es el propio contenedor de la pregunta (aunque ya se maneja arriba)
+                if (element === questionContainer) continue; 
+                
                 try {
                     const conditions = JSON.parse(element.dataset.conditions || '[]');
                     if (Array.isArray(conditions)) {
-                        // Filtrar solo condiciones basadas en variables
-                        const variableConditions = conditions.filter(condition => 
-                            condition.condition_type && condition.condition_type.startsWith('variable_')
-                        );
-                        allConditions.push(...variableConditions);
+                        allConditions.push(...conditions);
                     }
                 } catch (e) {
-                    console.error('🔧 ConditionalEngine: Error parsing navigation conditions:', e);
+                    console.error('🔧 ConditionalEngine: Error parsing navigation conditions from element:', e);
                 }
             }
 
@@ -463,6 +476,18 @@
             this.lastSaveTime = 0;
             this.savePartialDelay = 3000; // 3 segundos después de cambios
             this.savePartialTimer = null;
+            
+            // ✅ SOLUCIÓN: Sistema de estado para controlar navegación
+            this.navigationState = {
+                isProcessing: false,
+                canNavigate: true,
+                pendingNavigation: null
+            };
+            
+            // ✅ SOLUCIÓN: Variables para controlar procesamiento de texto pendiente
+            this.hasPendingTextProcessing = false;
+            this.pendingTextInput = null;
+            this.textInputTimeout = null;
             
             // ✅ CRÍTICO: Inicializar variables globales desde el campo oculto
             this.initializeGlobalVariables();
@@ -810,75 +835,78 @@
             const questionId = input.name.replace('question_', '');
             this.responses[questionId] = input.value;
 
+            // ✅ SOLUCIÓN: Marcar que hay procesamiento pendiente
+            this.hasPendingTextProcessing = true;
+            this.pendingTextInput = { input, questionId };
+
             // ✅ AÑADIR: Procesar condiciones con debounce para evitar spam
             clearTimeout(this.textInputTimeout);
             this.textInputTimeout = setTimeout(async () => {
-                try {
-                    // Mostrar indicador de procesamiento
-                    const questionContainer = input.closest('.sfq-question-screen');
-                    if (questionContainer) {
-                        this.showProcessingIndicator(questionContainer);
-                    }
+                await this.processTextInputConditions(input, questionId);
+            }, 300); // Reducido de 500ms a 300ms para mejor responsividad
+        }
 
-                    // ✅ REFACTORIZADO: Usar motor unificado de lógica condicional
-                    const trigger = {
-                        type: 'answer',
-                        hasAnswer: true,
-                        answer: input.value,
-                        element: input
-                    };
+        /**
+         * ✅ NUEVO: Procesar condiciones de input de texto (extraído para reutilización)
+         */
+        async processTextInputConditions(input, questionId) {
+            try {
+                // ✅ REFACTORIZADO: Usar motor unificado de lógica condicional
+                const trigger = {
+                    type: 'answer',
+                    hasAnswer: true,
+                    answer: input.value,
+                    element: input
+                };
 
-                    const redirectResult = await this.conditionalEngine.processConditions(questionId, trigger);
-                    
-                    if (redirectResult && redirectResult.shouldRedirect) {
-                        // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
-                        if (redirectResult.markAsCompleted) {
-                            // Mostrar indicador de procesamiento elegante
-                            this.showRedirectProcessingIndicator();
+                const redirectResult = await this.conditionalEngine.processConditions(questionId, trigger);
+                
+                if (redirectResult && redirectResult.shouldRedirect) {
+                    // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
+                    if (redirectResult.markAsCompleted) {
+                        // Mostrar indicador de procesamiento elegante
+                        this.showRedirectProcessingIndicator();
+                        
+                        try {
+                            // Marcar como completado silenciosamente
+                            await this.markFormAsCompleted();
                             
-                            try {
-                                // Marcar como completado silenciosamente
-                                await this.markFormAsCompleted();
-                                
-                                // Pequeña pausa para que el usuario vea el indicador
-                                setTimeout(() => {
-                                    window.location.href = redirectResult.redirectUrl;
-                                }, 1500);
-                            } catch (error) {
-                                console.error('SFQ: Error marking form as completed before redirect:', error);
-                                // Redirigir de todos modos
+                            // Pequeña pausa para que el usuario vea el indicador
+                            setTimeout(() => {
                                 window.location.href = redirectResult.redirectUrl;
-                            }
-                        } else {
-                            // Redirección inmediata sin marcar como completado
+                            }, 1500);
+                        } catch (error) {
+                            console.error('SFQ: Error marking form as completed before redirect:', error);
+                            // Redirigir de todos modos
                             window.location.href = redirectResult.redirectUrl;
                         }
-                        return;
+                    } else {
+                        // Redirección inmediata sin marcar como completado
+                        window.location.href = redirectResult.redirectUrl;
                     }
-
-                    // Si hay salto de pregunta, configurarlo
-                    if (redirectResult && redirectResult.skipToQuestion) {
-                        this.skipToQuestion = redirectResult.skipToQuestion;
-                    }
-
-                    // ✅ CRÍTICO: Actualizar variables si las hay
-                    if (redirectResult && redirectResult.variables) {
-                        this.variables = { ...redirectResult.variables };
-                        // ✅ NUEVO: Actualizar DOM con nuevos valores
-                        this.updateVariablesInDOM();
-                    }
-                    
-                } catch (error) {
-                    console.error('Error processing conditions:', error);
-                    this.showError('Error al procesar las condiciones. Continuando...');
-                } finally {
-                    // Ocultar indicador de procesamiento
-                    const questionContainer = input.closest('.sfq-question-screen');
-                    if (questionContainer) {
-                        this.hideProcessingIndicator(questionContainer);
-                    }
+                    return;
                 }
-            }, 500); // Esperar 500ms después de que el usuario deje de escribir
+
+                // Si hay salto de pregunta, configurarlo
+                if (redirectResult && redirectResult.skipToQuestion) {
+                    this.skipToQuestion = redirectResult.skipToQuestion;
+                }
+
+                // ✅ CRÍTICO: Actualizar variables si las hay
+                if (redirectResult && redirectResult.variables) {
+                    this.variables = { ...redirectResult.variables };
+                    // ✅ NUEVO: Actualizar DOM con nuevos valores
+                    this.updateVariablesInDOM();
+                }
+                
+            } catch (error) {
+                console.error('Error processing conditions:', error);
+                this.showError('Error al procesar las condiciones. Continuando...');
+            } finally {
+                // ✅ SOLUCIÓN: Marcar que el procesamiento ha terminado
+                this.hasPendingTextProcessing = false;
+                this.pendingTextInput = null;
+            }
         }
 
         async handleRating(e) {
@@ -1264,10 +1292,12 @@
             
             try {
                 // ✅ REFACTORIZADO: Usar motor unificado con trigger de navegación
+                const currentResponseForQuestion = this.responses[questionId];
+
                 const trigger = {
                     type: 'navigation',
-                    hasAnswer: false,
-                    answer: null,
+                    hasAnswer: currentResponseForQuestion !== undefined,
+                    answer: currentResponseForQuestion, // Pass the actual response object/value
                     element: null
                 };
 
@@ -1275,36 +1305,29 @@
                 
                 console.log('🔧 Navigation: Engine result', result);
                 
-                // ✅ SOLUCIÓN: NO hacer fallback a AJAX para evitar duplicación
-                // El motor unificado ya maneja todas las condiciones necesarias
-                // Solo hacer AJAX si realmente no hay condiciones locales Y no hay respuesta
-                const hasLocalConditions = result.shouldRedirect || result.skipToQuestion || 
-                                          Object.keys(result.variables).length > Object.keys(this.variables).length;
+                // Solo hacer AJAX si realmente no hay condiciones locales (redirección, salto o cambio de variables)
+                // const hasLocalConditions = result.shouldRedirect || result.skipToQuestion || 
+                //                           Object.keys(result.variables).length > Object.keys(this.variables).length;
                 
-                if (!hasLocalConditions) {
-                    const currentAnswer = this.responses[questionId];
-                    
-                    // Solo consultar servidor si no hay respuesta específica Y no hay condiciones locales
-                    if (currentAnswer === undefined) {
-                        console.log('🔧 Navigation: No local navigation conditions, checking server');
+                //  if (!hasLocalConditions) {
+                 //        console.log('🔧 Navigation: No local navigation conditions, checking server');
                         
-                        try {
-                            const ajaxResult = await this.checkConditionsViaAjax(questionId, null);
+                //          try {
+                 //             const ajaxResult = await this.checkConditionsViaAjax(questionId, null);
                             
-                            if (ajaxResult && (ajaxResult.shouldRedirect || ajaxResult.skipToQuestion)) {
-                                console.log('🔧 Navigation: Server returned navigation result', ajaxResult);
-                                return ajaxResult;
-                            }
+                 //             if (ajaxResult && (ajaxResult.shouldRedirect || ajaxResult.skipToQuestion)) {
+                  //                console.log('🔧 Navigation: Server returned navigation result', ajaxResult);
+                  //               return ajaxResult;
+                  //            }
                             
                             // Actualizar variables del servidor
-                            if (ajaxResult && ajaxResult.variables) {
-                                result.variables = { ...ajaxResult.variables };
-                            }
-                        } catch (error) {
-                            console.error('🔧 Navigation: Server check failed', error);
-                        }
-                    }
-                }
+                  //         if (ajaxResult && ajaxResult.variables) {
+                   //              result.variables = { ...ajaxResult.variables };
+                   //           }
+                   //       } catch (error) {
+                    //         console.error('🔧 Navigation: Server check failed', error);
+                    //      }
+                // }
                 
                 console.log('🔧 Navigation: Final result', result);
                 return result;
@@ -1575,6 +1598,86 @@
             const currentQuestion = this.currentScreen;
             if (!currentQuestion) return;
 
+            // ✅ SOLUCIÓN DEFINITIVA: Procesar INMEDIATAMENTE cualquier texto escrito
+            const questionId = currentQuestion.dataset.questionId;
+            const textInputs = currentQuestion.querySelectorAll('.sfq-text-input, .sfq-freestyle-input, .sfq-freestyle-textarea');
+            
+            console.log('🔧 NEXT QUESTION: Checking for text inputs to process');
+            
+            // BLOQUEAR completamente hasta procesar TODOS los inputs de texto
+            for (const input of textInputs) {
+                const inputValue = input.value ? input.value.trim() : '';
+                
+                if (inputValue !== '') {
+                    console.log('🔧 FOUND TEXT TO PROCESS:', inputValue);
+                    
+                    // Mostrar indicador visual de que estamos procesando
+                    this.showProcessingIndicator(currentQuestion);
+                    
+                    // Cancelar TODOS los timeouts pendientes
+                    clearTimeout(this.textInputTimeout);
+                    clearTimeout(this.freestyleInputTimeout);
+                    
+                    // Procesar INMEDIATAMENTE y ESPERAR el resultado completo
+                    try {
+                        console.log('🔧 PROCESSING CONDITIONS FOR TEXT:', inputValue);
+                        
+                        const trigger = {
+                            type: 'answer',
+                            hasAnswer: true,
+                            answer: inputValue,
+                            element: input
+                        };
+
+                        // ESPERAR hasta que se complete el procesamiento
+                        const redirectResult = await this.conditionalEngine.processConditions(questionId, trigger);
+                        
+                        console.log('🔧 PROCESSING RESULT:', redirectResult);
+                        
+                        // Si hay redirección, ejecutarla INMEDIATAMENTE
+                        if (redirectResult && redirectResult.shouldRedirect) {
+                            console.log('🔧 REDIRECTING TO:', redirectResult.redirectUrl);
+                            
+                            if (redirectResult.markAsCompleted) {
+                                this.showRedirectProcessingIndicator();
+                                try {
+                                    await this.markFormAsCompleted();
+                                    setTimeout(() => {
+                                        window.location.href = redirectResult.redirectUrl;
+                                    }, 1500);
+                                } catch (error) {
+                                    window.location.href = redirectResult.redirectUrl;
+                                }
+                            } else {
+                                window.location.href = redirectResult.redirectUrl;
+                            }
+                            return; // SALIR INMEDIATAMENTE
+                        }
+
+                        // Si hay salto de pregunta, configurarlo
+                        if (redirectResult && redirectResult.skipToQuestion) {
+                            console.log('🔧 SKIPPING TO QUESTION:', redirectResult.skipToQuestion);
+                            this.skipToQuestion = redirectResult.skipToQuestion;
+                        }
+
+                        // Actualizar variables
+                        if (redirectResult && redirectResult.variables) {
+                            console.log('🔧 UPDATING VARIABLES:', redirectResult.variables);
+                            this.variables = { ...redirectResult.variables };
+                            this.updateVariablesInDOM();
+                        }
+                        
+                    } catch (error) {
+                        console.error('🔧 ERROR PROCESSING TEXT CONDITIONS:', error);
+                    } finally {
+                        // Ocultar indicador de procesamiento
+                        this.hideProcessingIndicator(currentQuestion);
+                    }
+                }
+            }
+            
+            console.log('🔧 TEXT PROCESSING COMPLETED, CONTINUING WITH NAVIGATION');
+
             // Validar respuesta requerida
             if (!this.validateCurrentQuestion()) {
                 this.showError('Por favor, responde a esta pregunta antes de continuar.');
@@ -1590,7 +1693,6 @@
 
             // ✅ CORREGIDO: SOLO procesar condiciones si NO hay respuesta específica
             // Si hay respuesta, las condiciones ya se procesaron en handleSingleChoice/handleMultipleChoice/etc.
-            const questionId = currentQuestion.dataset.questionId;
             const hasCurrentAnswer = this.responses[questionId] !== undefined;
             
            

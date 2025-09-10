@@ -7,7 +7,7 @@ const Constants = {
     /**
      * Información de la versión
      */
-    VERSION: '2.2',
+    VERSION: '2.5',
     BUILD_DATE: '2025-01-08',
     
     /**
@@ -15,9 +15,9 @@ const Constants = {
      */
     CONFIG: {
         // Límites del sistema
-        MAX_QUESTIONS: 100,
+        MAX_QUESTIONS: 1000,
         MAX_OPTIONS_PER_QUESTION: 20,
-        MAX_FREESTYLE_ELEMENTS: 50,
+        MAX_FREESTYLE_ELEMENTS: 1000,
         MAX_CONDITIONS_PER_QUESTION: 10,
         MAX_VARIABLES: 50,
         

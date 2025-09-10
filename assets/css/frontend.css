@@ -769,6 +769,7 @@
     transition: var(--sfq-transition);
     background: var(--sfq-background-color);
     color: var(--sfq-text-color);
+    border-radius: 10px 10px 0px 0px;
 }
 
 .sfq-freestyle-input:focus,

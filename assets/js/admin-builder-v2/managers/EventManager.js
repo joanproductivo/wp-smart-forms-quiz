@@ -166,6 +166,11 @@
             this.handleAddCondition(e);
         });
         
+        // Delegación para eliminar elementos (condiciones, elementos freestyle, etc.)
+        $(document).on('click' + ns + '-delegation', '.sfq-delete-element', (e) => {
+            this.handleDeleteElement(e);
+        });
+        
         // Delegación para plegar/expandir contenido de pregunta
         $(document).on('click' + ns + '-delegation', '.sfq-toggle-question-content', (e) => {
             this.handleToggleQuestionContent(e);
@@ -401,6 +406,102 @@
         const questionId = $button.closest('.sfq-question-item').attr('id');
         
         this.formBuilder.conditionEngine.addCondition(questionId);
+    }
+
+    /**
+     * Manejar eliminar elemento (condiciones, elementos freestyle, etc.)
+     */
+    handleDeleteElement(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const $button = $(e.currentTarget);
+        const $element = $button.closest('[data-element-type], .sfq-condition-item, .sfq-variable-item');
+        
+        if ($element.length === 0) {
+            console.warn('SFQ: No element found to delete');
+            return;
+        }
+        
+        // Determinar el tipo de elemento a eliminar
+        if ($element.hasClass('sfq-condition-item')) {
+            // Eliminar condición
+            this.handleDeleteCondition($element);
+        } else if ($element.hasClass('sfq-variable-item')) {
+            // Eliminar variable global
+            this.handleDeleteVariable($element);
+        } else if ($element.attr('data-element-type')) {
+            // Eliminar elemento freestyle
+            this.handleDeleteFreestyleElement($element);
+        } else {
+            console.warn('SFQ: Unknown element type to delete');
+        }
+    }
+
+    /**
+     * Manejar eliminar condición
+     */
+    handleDeleteCondition($conditionElement) {
+        const conditionId = $conditionElement.attr('id');
+        const $questionItem = $conditionElement.closest('.sfq-question-item');
+        const questionId = $questionItem.attr('id');
+        
+        if (confirm('¿Estás seguro de eliminar esta condición?')) {
+            // Eliminar del ConditionEngine
+            if (this.formBuilder.conditionEngine) {
+                this.formBuilder.conditionEngine.removeCondition(questionId, conditionId);
+            }
+            
+            // Eliminar del DOM
+            $conditionElement.slideUp(300, function() {
+                $(this).remove();
+            });
+            
+            this.formBuilder.isDirty = true;
+            console.log('SFQ: Deleted condition:', conditionId);
+        }
+    }
+
+    /**
+     * Manejar eliminar variable global
+     */
+    handleDeleteVariable($variableElement) {
+        const variableName = $variableElement.data('variable-name');
+        
+        if (confirm('¿Estás seguro de eliminar esta variable global?')) {
+            // Eliminar del VariableManager
+            if (this.formBuilder.variableManager) {
+                this.formBuilder.variableManager.deleteVariable(variableName);
+            }
+            
+            // Eliminar del DOM
+            $variableElement.slideUp(300, function() {
+                $(this).remove();
+            });
+            
+            this.formBuilder.isDirty = true;
+            console.log('SFQ: Deleted variable:', variableName);
+        }
+    }
+
+    /**
+     * Manejar eliminar elemento freestyle
+     */
+    handleDeleteFreestyleElement($element) {
+        const elementId = $element.data('element-id');
+        const elementType = $element.attr('data-element-type');
+        const $questionItem = $element.closest('.sfq-question-item');
+        const questionId = $questionItem.attr('id');
+        
+        if (confirm(`¿Estás seguro de eliminar este elemento ${elementType}?`)) {
+            // ✅ CORREGIDO: Llamar al método correcto del QuestionManager
+            if (this.formBuilder.questionManager) {
+                this.formBuilder.questionManager.deleteFreestyleElement(questionId, elementId);
+            }
+            
+            this.formBuilder.isDirty = true;
+            console.log('SFQ: Deleted freestyle element:', elementId, elementType);
+        }
     }
 
     /**

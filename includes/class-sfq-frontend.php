@@ -1170,12 +1170,19 @@ class SFQ_Frontend {
      */
     private function render_email_input($question) {
         $settings = $question->settings ?: array();
+        
+        // Obtener todas las condiciones de la pregunta
+        $question_conditions = $this->get_question_conditions_for_frontend($question->id);
+        // Las condiciones para inputs de texto se evalúan en base a la respuesta del input
+        $input_conditions = $this->get_conditions_for_input_field($question_conditions);
         ?>
         <div class="sfq-input-wrapper">
             <input type="email" 
                    name="question_<?php echo $question->id; ?>" 
                    class="sfq-text-input sfq-email-input"
                    placeholder="<?php echo esc_attr($settings['placeholder'] ?? 'tu@email.com'); ?>"
+                   data-conditions='<?php echo json_encode($input_conditions); ?>'
+                   data-has-conditions="<?php echo !empty($input_conditions) ? 'true' : 'false'; ?>"
                    <?php echo $question->required ? 'required' : ''; ?>>
             <div class="sfq-input-line"></div>
             <span class="sfq-input-error"><?php _e('Por favor, introduce un email válido', 'smart-forms-quiz'); ?></span>
@@ -2158,14 +2165,18 @@ class SFQ_Frontend {
     private function render_text_input($question) {
         $settings = $question->settings ?: array();
         
-       
-        
+        // Obtener todas las condiciones de la pregunta
+        $question_conditions = $this->get_question_conditions_for_frontend($question->id);
+        // Las condiciones para inputs de texto se evalúan en base a la respuesta del input
+        $input_conditions = $this->get_conditions_for_input_field($question_conditions);
         ?>
         <div class="sfq-input-wrapper">
             <input type="text" 
                    name="question_<?php echo $question->id; ?>" 
                    class="sfq-text-input"
                    placeholder="<?php echo esc_attr($settings['placeholder'] ?? __('Escribe tu respuesta aquí...', 'smart-forms-quiz')); ?>"
+                   data-conditions='<?php echo json_encode($input_conditions); ?>'
+                   data-has-conditions="<?php echo !empty($input_conditions) ? 'true' : 'false'; ?>"
                    <?php echo $question->required ? 'required' : ''; ?>>
             <div class="sfq-input-line"></div>
         </div>
@@ -2417,12 +2428,15 @@ class SFQ_Frontend {
 
         // 1. Obtener todas las condiciones de la pregunta
         $question_conditions = $this->get_question_conditions_for_frontend($question->id);
+        $has_conditions = !empty($question_conditions) ? 'true' : 'false';
         ?>
         <div class="sfq-freestyle-container" 
              data-question-id="<?php echo $question->id; ?>"
              data-layout="<?php echo esc_attr($layout); ?>"
              data-spacing="<?php echo esc_attr($spacing); ?>"
-             data-pantalla-final="<?php echo (isset($question->pantallaFinal) && $question->pantallaFinal) ? 'true' : 'false'; ?>">
+             data-pantalla-final="<?php echo (isset($question->pantallaFinal) && $question->pantallaFinal) ? 'true' : 'false'; ?>"
+             data-conditions='<?php echo json_encode($question_conditions); ?>'
+             data-has-conditions="<?php echo $has_conditions; ?>">
             
             <?php foreach ($question->freestyle_elements as $index => $element) : ?>
                 <div class="sfq-freestyle-element sfq-element-<?php echo esc_attr($element['type']); ?>" 
@@ -3824,6 +3838,44 @@ class SFQ_Frontend {
         foreach ($all_conditions as $condition) {
             // Incluir condiciones que evalúan respuestas de texto
             if (in_array($condition->condition_type, ['answer_equals', 'answer_contains', 'answer_not_equals'])) {
+                $relevant_conditions[] = array(
+                    'condition_type' => $condition->condition_type,
+                    'condition_value' => $condition->condition_value,
+                    'action_type' => $condition->action_type,
+                    'action_value' => $condition->action_value,
+                    'variable_amount' => $condition->variable_amount,
+                    'comparison_value' => $condition->comparison_value ?? '',
+                    'order_position' => $condition->order_position
+                );
+            }
+            // También incluir condiciones de variables que se ejecutan independientemente
+            elseif (in_array($condition->condition_type, ['variable_greater', 'variable_greater_equal', 'variable_less', 'variable_less_equal', 'variable_equals'])) {
+                $relevant_conditions[] = array(
+                    'condition_type' => $condition->condition_type,
+                    'condition_value' => $condition->condition_value,
+                    'action_type' => $condition->action_type,
+                    'action_value' => $condition->action_value,
+                    'variable_amount' => $condition->variable_amount,
+                    'comparison_value' => $condition->comparison_value ?? '',
+                    'order_position' => $condition->order_position
+                );
+            }
+        }
+        
+        return $relevant_conditions;
+    }
+    
+    /**
+     * ✅ NUEVO: Obtener condiciones relevantes para un campo de entrada de texto/email.
+     * Estas condiciones no se filtran por un valor de opción específico en el backend,
+     * sino que se envían al frontend para su evaluación dinámica.
+     */
+    private function get_conditions_for_input_field($all_conditions) {
+        $relevant_conditions = array();
+        
+        foreach ($all_conditions as $condition) {
+            // Incluir condiciones que evalúan respuestas de texto
+            if (in_array($condition->condition_type, ['answer_equals', 'answer_contains', 'answer_not_equals', 'answer_greater', 'answer_less'])) {
                 $relevant_conditions[] = array(
                     'condition_type' => $condition->condition_type,
                     'condition_value' => $condition->condition_value,
