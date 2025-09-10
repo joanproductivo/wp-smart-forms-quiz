@@ -121,6 +121,7 @@
             // 1. Obtener condiciones del elemento clickeado (comportamiento original)
             const element = trigger.element;
             if (element && element.dataset.conditions) {
+                console.log(`SFQ JS Debug: Raw element conditions for question ${questionId}:`, element.dataset.conditions);
                 try {
                     const elementConditions = JSON.parse(element.dataset.conditions);
                     if (Array.isArray(elementConditions)) {
@@ -141,6 +142,7 @@
                     // Evitar duplicar las condiciones del elemento ya procesado
                     if (condElement === element) continue;
                     
+                    console.log(`SFQ JS Debug: Raw question-level conditions for question ${questionId} (element ${condElement.id || 'N/A'}):`, condElement.dataset.conditions);
                     try {
                         const conditions = JSON.parse(condElement.dataset.conditions || '[]');
                         if (Array.isArray(conditions)) {
@@ -281,11 +283,23 @@
                     const compareValue3 = this.getComparisonValue(condition);
                     return this.smartCompare(varValue1, compareValue3, '>');
                     
+                case 'variable_greater_equal':
+                    // ✅ NUEVO: Variable es mayor o igual que
+                    const varValue1_ge = variables[condition.condition_value] || 0;
+                    const compareValue3_ge = this.getComparisonValue(condition);
+                    return this.smartCompare(varValue1_ge, compareValue3_ge, '>=');
+                    
                 case 'variable_less':
                     // ✅ CORREGIDO: Usar condition.condition_value como nombre de variable
                     const varValue2 = variables[condition.condition_value] || 0;
                     const compareValue4 = this.getComparisonValue(condition);
                     return this.smartCompare(varValue2, compareValue4, '<');
+                    
+                case 'variable_less_equal':
+                    // ✅ NUEVO: Variable es menor o igual que
+                    const varValue2_le = variables[condition.condition_value] || 0;
+                    const compareValue4_le = this.getComparisonValue(condition);
+                    return this.smartCompare(varValue2_le, compareValue4_le, '<=');
                     
                 case 'variable_equals':
                     // ✅ CORREGIDO: Usar condition.condition_value como nombre de variable
@@ -363,13 +377,18 @@
         }
 
         smartCompare(value1, value2, operator) {
+            console.log(`SFQ JS Debug: smartCompare called with: value1=${value1} (Type: ${typeof value1}), value2=${value2} (Type: ${typeof value2}), operator=${operator}`);
+
             if (!isNaN(value1) && !isNaN(value2)) {
                 const num1 = parseFloat(value1);
                 const num2 = parseFloat(value2);
+                console.log(`SFQ JS Debug: Performing numerical comparison: ${num1} ${operator} ${num2}`);
                 
                 switch (operator) {
                     case '>': return num1 > num2;
+                    case '>=': return num1 >= num2;
                     case '<': return num1 < num2;
+                    case '<=': return num1 <= num2;
                     case '==': return num1 === num2;
                     default: return false;
                 }
@@ -377,10 +396,13 @@
             
             const str1 = String(value1);
             const str2 = String(value2);
+            console.log(`SFQ JS Debug: Performing string comparison: '${str1}' ${operator} '${str2}'`);
             
             switch (operator) {
                 case '>': return str1.localeCompare(str2) > 0;
+                case '>=': return str1.localeCompare(str2) >= 0;
                 case '<': return str1.localeCompare(str2) < 0;
+                case '<=': return str1.localeCompare(str2) <= 0;
                 case '==': return str1 === str2;
                 default: return false;
             }

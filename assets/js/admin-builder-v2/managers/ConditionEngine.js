@@ -404,7 +404,7 @@
                 let normalizedComparisonValue = cond.comparisonValue || '';
                 
                 // Si es una condición de variable y el valor parece numérico, convertirlo
-                if (['variable_greater', 'variable_less', 'variable_equals'].includes(cond.type)) {
+                if (['variable_greater', 'variable_greater_equal', 'variable_less', 'variable_less_equal', 'variable_equals'].includes(cond.type)) {
                     if (normalizedComparisonValue !== '' && !isNaN(normalizedComparisonValue)) {
                         // Es numérico, convertir a número para consistencia
                         normalizedComparisonValue = parseFloat(normalizedComparisonValue);

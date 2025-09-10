@@ -452,9 +452,21 @@ const ElementTypes = {
             applies_to: 'all',
             value_type: 'variable_comparison'
         },
+        variable_greater_equal: {
+            name: 'Variable es mayor o igual que',
+            description: 'El valor de una variable es mayor o igual que el especificado',
+            applies_to: 'all',
+            value_type: 'variable_comparison'
+        },
         variable_less: {
             name: 'Variable es menor que',
             description: 'El valor de una variable es menor que el especificado',
+            applies_to: 'all',
+            value_type: 'variable_comparison'
+        },
+        variable_less_equal: {
+            name: 'Variable es menor o igual que',
+            description: 'El valor de una variable es menor o igual que el especificado',
             applies_to: 'all',
             value_type: 'variable_comparison'
         },

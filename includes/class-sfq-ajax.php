@@ -528,20 +528,23 @@ class SFQ_Ajax {
         );
         
         // ✅ SOLUCIÓN CORREGIDA: Si no se encuentra pregunta por índice y se acabaron las preguntas normales,
-        // ir a la pantalla final por defecto del sistema (no a pantallas finales personalizadas)
+        // cargar dinámicamente la pantalla de agradecimiento por defecto
         if (!$target_question && $question_index !== null) {
             // Verificar si el índice está fuera del rango de preguntas normales
             if ($question_index >= count($separated_questions['normal'])) {
-                // Se acabaron las preguntas normales, ir a pantalla final por defecto del sistema
-                error_log('SFQ Secure: No more normal questions, going to default system final screen');
+                // Se acabaron las preguntas normales, cargar pantalla de agradecimiento por defecto
+                error_log('SFQ Secure: No more normal questions, loading default thank you screen');
                 
-                // Finalizar formulario con pantalla por defecto del sistema
+                // Renderizar pantalla de agradecimiento por defecto dinámicamente
+                $thank_you_html = $this->render_default_thank_you_screen($form);
+                
                 wp_send_json_success(array(
-                    'html' => null,
+                    'html' => $thank_you_html,
                     'is_last_question' => true,
                     'form_completed' => true,
-                    'use_default_final_screen' => true, // ✅ NUEVO: Indicar que use la pantalla por defecto
-                    'message' => __('Formulario completado - usar pantalla final por defecto', 'smart-forms-quiz')
+                    'is_final_screen' => true, // ✅ CRÍTICO: Marcar como pantalla final
+                    'question_id' => 'thank_you_default',
+                    'message' => __('Formulario completado - pantalla de agradecimiento cargada', 'smart-forms-quiz')
                 ));
                 return;
             }
@@ -961,6 +964,56 @@ class SFQ_Ajax {
     }
     
     /**
+     * ✅ NUEVO: Renderizar pantalla de agradecimiento por defecto dinámicamente
+     */
+    private function render_default_thank_you_screen($form) {
+        $settings = $form->settings ?? array();
+        $thank_you_message = $form->thank_you_message ?? '';
+        
+        // ✅ CORREGIDO: Si hay mensaje personalizado, usarlo; si no, usar el por defecto
+        $has_custom_message = !empty($thank_you_message) && trim($thank_you_message) !== '';
+        
+        ob_start();
+        ?>
+        <div class="sfq-screen sfq-thank-you-screen" 
+             data-question-id="thank_you_default"
+             data-question-index="-1"
+             data-question-type="thank_you"
+             data-pantalla-final="true">
+            
+            <div class="sfq-thank-you-content">
+                <div class="sfq-success-icon">
+                    <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                        <circle cx="40" cy="40" r="38" stroke="currentColor" stroke-width="4"/>
+                        <path d="M25 40L35 50L55 30" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                
+                <?php if ($has_custom_message) : ?>
+                    <!-- Mostrar mensaje personalizado -->
+                    <div class="sfq-thank-you-message">
+                        <?php echo wp_kses_post($thank_you_message); ?>
+                    </div>
+                <?php else : ?>
+                    <!-- Mostrar mensaje por defecto -->
+                    <h2><?php echo esc_html(__('¡Gracias por completar el formulario!', 'smart-forms-quiz')); ?></h2>
+                    <p><?php echo esc_html(__('Tu respuesta ha sido registrada correctamente.', 'smart-forms-quiz')); ?></p>
+                <?php endif; ?>
+                
+                <?php if (!empty($form->redirect_url)) : ?>
+                    <div class="sfq-thank-you-actions">
+                        <a href="<?php echo esc_url($form->redirect_url); ?>" class="sfq-button sfq-button-primary">
+                            <?php _e('Continuar', 'smart-forms-quiz'); ?>
+                        </a>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+    
+    /**
      * ✅ NUEVO: Extraer ID de video de YouTube
      */
     private function extract_youtube_id($url) {
@@ -997,37 +1050,47 @@ class SFQ_Ajax {
      * Usa exactamente la misma lógica que el frontend para consistencia total
      */
     private function evaluate_condition($condition, $answer, $variables) {
-        switch ($condition->condition_type) {
+        $condition_type = $condition->condition_type;
+        $var_name = $condition->condition_value ?? '';
+        $comparison_value = $this->get_comparison_value($condition);
+        $var_value = $variables[$var_name] ?? 0;
+        $result = false;
+
+        error_log("SFQ PHP Debug: Evaluating condition type: {$condition_type}");
+        error_log("SFQ PHP Debug: Variable name: {$var_name}, Variable value: " . var_export($var_value, true) . " (Type: " . gettype($var_value) . ")");
+        error_log("SFQ PHP Debug: Comparison value: " . var_export($comparison_value, true) . " (Type: " . gettype($comparison_value) . ")");
+
+        switch ($condition_type) {
             case 'answer_equals':
-                return $answer === $condition->condition_value;
-                
+                $result = $answer === $condition->condition_value;
+                break;
             case 'answer_contains':
-                return strpos($answer, $condition->condition_value) !== false;
-                
+                $result = strpos($answer, $condition->condition_value) !== false;
+                break;
             case 'answer_not_equals':
-                return $answer !== $condition->condition_value;
-                
+                $result = $answer !== $condition->condition_value;
+                break;
             case 'variable_greater':
-                $var_name = $condition->condition_value;
-                $comparison_value = $this->get_comparison_value($condition);
-                $var_value = $variables[$var_name] ?? 0;
-                return $this->smart_compare($var_value, $comparison_value, '>');
-                
+                $result = $this->smart_compare($var_value, $comparison_value, '>');
+                break;
+            case 'variable_greater_equal':
+                $result = $this->smart_compare($var_value, $comparison_value, '>=');
+                break;
             case 'variable_less':
-                $var_name = $condition->condition_value;
-                $comparison_value = $this->get_comparison_value($condition);
-                $var_value = $variables[$var_name] ?? 0;
-                return $this->smart_compare($var_value, $comparison_value, '<');
-                
+                $result = $this->smart_compare($var_value, $comparison_value, '<');
+                break;
+            case 'variable_less_equal':
+                $result = $this->smart_compare($var_value, $comparison_value, '<=');
+                break;
             case 'variable_equals':
-                $var_name = $condition->condition_value;
-                $comparison_value = $this->get_comparison_value($condition);
-                $var_value = $variables[$var_name] ?? 0;
-                return $this->smart_compare($var_value, $comparison_value, '==');
-                
+                $result = $this->smart_compare($var_value, $comparison_value, '==');
+                break;
             default:
-                return false;
+                $result = false;
+                break;
         }
+        error_log("SFQ PHP Debug: Condition result for {$condition_type}: " . ($result ? 'TRUE' : 'FALSE'));
+        return $result;
     }
     
     /**
@@ -1049,16 +1112,23 @@ class SFQ_Ajax {
      * Usa exactamente la misma lógica que ConditionalLogicEngine.smartCompare()
      */
     private function smart_compare($value1, $value2, $operator) {
+        error_log("SFQ PHP Debug: smart_compare called with: value1=" . var_export($value1, true) . " (Type: " . gettype($value1) . "), value2=" . var_export($value2, true) . " (Type: " . gettype($value2) . "), operator={$operator}");
+
         // Si ambos valores parecen números, comparar como números
         if (is_numeric($value1) && is_numeric($value2)) {
             $num1 = floatval($value1);
             $num2 = floatval($value2);
+            error_log("SFQ PHP Debug: Performing numerical comparison: {$num1} {$operator} {$num2}");
             
             switch ($operator) {
                 case '>':
                     return $num1 > $num2;
+                case '>=':
+                    return $num1 >= $num2;
                 case '<':
                     return $num1 < $num2;
+                case '<=':
+                    return $num1 <= $num2;
                 case '==':
                     return $num1 === $num2;
                 default:
@@ -1069,12 +1139,17 @@ class SFQ_Ajax {
         // Si alguno no es numérico, comparar como strings
         $str1 = strval($value1);
         $str2 = strval($value2);
+        error_log("SFQ PHP Debug: Performing string comparison: '{$str1}' {$operator} '{$str2}'");
         
         switch ($operator) {
             case '>':
-                return $str1 > $str2; // ✅ CORREGIDO: Usar > directo en lugar de strcmp
+                return $str1 > $str2;
+            case '>=':
+                return $str1 >= $str2;
             case '<':
-                return $str1 < $str2; // ✅ CORREGIDO: Usar < directo en lugar de strcmp
+                return $str1 < $str2;
+            case '<=':
+                return $str1 <= $str2;
             case '==':
                 return $str1 === $str2;
             default:

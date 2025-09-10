@@ -552,8 +552,14 @@
                             <option value="variable_greater" ${condition.type === 'variable_greater' ? 'selected' : ''}>
                                 Si la variable es mayor que
                             </option>
+                            <option value="variable_greater_equal" ${condition.type === 'variable_greater_equal' ? 'selected' : ''}>
+                                Si la variable es mayor o igual que
+                            </option>
                             <option value="variable_less" ${condition.type === 'variable_less' ? 'selected' : ''}>
                                 Si la variable es menor que
+                            </option>
+                            <option value="variable_less_equal" ${condition.type === 'variable_less_equal' ? 'selected' : ''}>
+                                Si la variable es menor o igual que
                             </option>
                             <option value="variable_equals" ${condition.type === 'variable_equals' ? 'selected' : ''}>
                                 Si la variable es igual a
@@ -714,7 +720,9 @@
         generateConditionValueField(condition) {
             switch (condition.type) {
                 case 'variable_greater':
+                case 'variable_greater_equal':
                 case 'variable_less':
+                case 'variable_less_equal':
                 case 'variable_equals':
                     // Para condiciones de variables, mostrar dropdown de variables + campo de valor
                     return this.generateVariableConditionFields(condition);

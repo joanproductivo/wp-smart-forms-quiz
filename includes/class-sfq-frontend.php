@@ -573,32 +573,36 @@ class SFQ_Frontend {
                 <?php endif; ?>
             <?php endif; ?>
             
-            <!-- Pantalla de agradecimiento -->
-            <div class="sfq-screen sfq-thank-you-screen">
-                <div class="sfq-thank-you-content">
-                    <div class="sfq-success-icon">
-                        <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
-                            <circle cx="40" cy="40" r="38" stroke="currentColor" stroke-width="4"/>
-                            <path d="M25 40L35 50L55 30" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </div>
-                    
-                    <?php if (!empty($form->thank_you_message)) : ?>
-                        <div class="sfq-thank-you-message">
-                            <?php echo wp_kses_post($form->thank_you_message); ?>
+            <!-- ✅ CRÍTICO: Solo renderizar pantalla de agradecimiento en modo normal -->
+            <?php if (!$secure_loading) : ?>
+                <!-- Pantalla de agradecimiento -->
+                <div class="sfq-screen sfq-thank-you-screen">
+                    <div class="sfq-thank-you-content">
+                        <div class="sfq-success-icon">
+                            <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                                <circle cx="40" cy="40" r="38" stroke="currentColor" stroke-width="4"/>
+                                <path d="M25 40L35 50L55 30" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
                         </div>
-                    <?php else : ?>
-                        <h2><?php _e('¡Gracias por completar el formulario!', 'smart-forms-quiz'); ?></h2>
-                        <p><?php _e('Tu respuesta ha sido registrada correctamente.', 'smart-forms-quiz'); ?></p>
-                    <?php endif; ?>
-                    
-                    <?php if (!empty($form->redirect_url)) : ?>
-                        <p class="sfq-redirect-message">
-                            <?php _e('Serás redirigido en unos segundos...', 'smart-forms-quiz'); ?>
-                        </p>
-                    <?php endif; ?>
+                        
+                        <?php if (!empty($form->thank_you_message)) : ?>
+                            <div class="sfq-thank-you-message">
+                                <?php echo wp_kses_post($form->thank_you_message); ?>
+                            </div>
+                        <?php else : ?>
+                            <h2><?php _e('¡Gracias por completar el formulario!', 'smart-forms-quiz'); ?></h2>
+                            <p><?php _e('Tu respuesta ha sido registrada correctamente.', 'smart-forms-quiz'); ?></p>
+                        <?php endif; ?>
+                        
+                        <?php if (!empty($form->redirect_url)) : ?>
+                            <p class="sfq-redirect-message">
+                                <?php _e('Serás redirigido en unos segundos...', 'smart-forms-quiz'); ?>
+                            </p>
+                        <?php endif; ?>
+                    </div>
                 </div>
-            </div>
+            <?php endif; ?>
+            <!-- ✅ MODO SEGURO: La pantalla de agradecimiento se cargará dinámicamente solo cuando sea necesario -->
             
             <!-- Variables ocultas para lógica condicional -->
             <?php 
@@ -3686,7 +3690,7 @@ class SFQ_Frontend {
                 }
             }
             // También incluir condiciones de variables que se ejecutan independientemente
-            elseif (in_array($condition->condition_type, ['variable_greater', 'variable_less', 'variable_equals'])) {
+            elseif (in_array($condition->condition_type, ['variable_greater', 'variable_greater_equal', 'variable_less', 'variable_less_equal', 'variable_equals'])) {
                 // Las condiciones de variables se evalúan siempre, no dependen del valor de la opción
                 $matching_conditions[] = array(
                     'condition_type' => $condition->condition_type,
@@ -3725,7 +3729,7 @@ class SFQ_Frontend {
                 );
             }
             // También incluir condiciones de variables que se ejecutan independientemente
-            elseif (in_array($condition->condition_type, ['variable_greater', 'variable_less', 'variable_equals'])) {
+            elseif (in_array($condition->condition_type, ['variable_greater', 'variable_greater_equal', 'variable_less', 'variable_less_equal', 'variable_equals'])) {
                 $relevant_conditions[] = array(
                     'condition_type' => $condition->condition_type,
                     'condition_value' => $condition->condition_value,
