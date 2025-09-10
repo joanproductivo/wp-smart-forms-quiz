@@ -1342,8 +1342,8 @@ class SFQ_Admin {
                         
                         <div class="sfq-field-group">
                             <label><?php _e('Padding del Contenedor (rem)', 'smart-forms-quiz'); ?></label>
-                            <input type="number" id="form-container-padding" min="0" max="10" step="0.1" value="2" class="sfq-input" style="width: 100px;">
-                            <p class="description"><?php _e('Espaciado interno del contenedor principal del formulario en rem (por defecto: 2rem)', 'smart-forms-quiz'); ?></p>
+                            <input type="text" id="form-container-padding" value="" class="sfq-input" placeholder="Ej: 2rem, 1rem 2rem, 10px 20px 30px 40px" style="width: 250px;">
+                            <p class="description"><?php _e('Espaciado interno del contenedor principal del formulario (ej: 2rem, 1rem 2rem, 10px 20px 30px 40px). Deja vacío para el valor por defecto.', 'smart-forms-quiz'); ?></p>
                         </div>
                         
                         <h3><?php _e('📏 Dimensiones y Espaciado', 'smart-forms-quiz'); ?></h3>

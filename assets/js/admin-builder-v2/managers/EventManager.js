@@ -170,6 +170,32 @@
         $(document).on('click' + ns + '-delegation', '.sfq-toggle-question-content', (e) => {
             this.handleToggleQuestionContent(e);
         });
+        
+        // ✅ NUEVO: Delegación para eventos de imagen de pregunta
+        $(document).on('click' + ns + '-delegation', '.sfq-upload-question-image-btn', (e) => {
+            this.handleUploadQuestionImage(e);
+        });
+        
+        $(document).on('input' + ns + '-delegation', '.sfq-question-image-url-input', (e) => {
+            this.handleQuestionImageUrlInput(e);
+        });
+        
+        $(document).on('click' + ns + '-delegation', '.sfq-remove-question-image', (e) => {
+            this.handleRemoveQuestionImage(e);
+        });
+        
+        $(document).on('change' + ns + '-delegation', '.sfq-question-image-position, .sfq-question-image-width, .sfq-question-image-shadow, .sfq-question-image-mobile-force', (e) => {
+            this.handleQuestionImageSettingsChange(e);
+        });
+        
+        $(document).on('input' + ns + '-delegation', '.sfq-question-image-width', (e) => {
+            this.handleQuestionImageWidthChange(e);
+        });
+        
+        // ✅ NUEVO: Delegación para ancho personalizado de móvil
+        $(document).on('input' + ns + '-delegation', '.sfq-question-image-mobile-width', (e) => {
+            this.handleQuestionImageMobileWidthChange(e);
+        });
 
         // ✅ NUEVO: Delegación para cambios en el tipo de condición
         $(document).on('change' + ns + '-delegation', '.sfq-condition-type', (e) => {
@@ -1347,6 +1373,335 @@
         });
         
         console.log('SFQ EventManager: Freestyle button events bound');
+    }
+    
+    /**
+     * ✅ NUEVO: Manejar subida de imagen de pregunta
+     */
+    handleUploadQuestionImage(e) {
+        e.preventDefault();
+        const $button = $(e.currentTarget);
+        const $question = $button.closest('.sfq-question-item');
+        const questionId = $question.attr('id');
+        
+        // Verificar que wp.media esté disponible
+        if (typeof wp === 'undefined' || !wp.media) {
+            alert('Error: WordPress Media Library no está disponible.');
+            return;
+        }
+        
+        console.log('SFQ: Opening Media Library for question image:', questionId);
+        
+        // Crear instancia del media uploader
+        const mediaUploader = wp.media({
+            title: 'Seleccionar Imagen para Pregunta',
+            button: {
+                text: 'Usar esta imagen'
+            },
+            multiple: false,
+            library: {
+                type: 'image'
+            }
+        });
+        
+        // Evento cuando se selecciona una imagen
+        mediaUploader.on('select', () => {
+            const attachment = mediaUploader.state().get('selection').first().toJSON();
+            console.log('SFQ: Selected attachment:', attachment);
+            
+            // Validar que sea una imagen válida
+            if (!this.isValidImageAttachment(attachment)) {
+                alert('Error: El archivo seleccionado no es una imagen válida');
+                return;
+            }
+            
+            // Actualizar la pregunta con los datos de la imagen
+            this.updateQuestionImage($question, attachment);
+        });
+        
+        // Abrir el uploader
+        mediaUploader.open();
+    }
+    
+    /**
+     * ✅ NUEVO: Manejar input de URL de imagen de pregunta
+     */
+    handleQuestionImageUrlInput(e) {
+        const $input = $(e.currentTarget);
+        const url = $input.val().trim();
+        const $question = $input.closest('.sfq-question-item');
+        
+        if (url && this.isValidImageUrl(url)) {
+            // URL válida
+            $input.removeClass('invalid').addClass('valid');
+            
+            // Crear objeto attachment simulado para URL manual
+            const attachment = {
+                url: url,
+                id: '',
+                alt: 'Imagen desde URL',
+                title: 'Imagen desde URL'
+            };
+            
+            this.updateQuestionImage($question, attachment);
+        } else if (url) {
+            // URL inválida
+            $input.removeClass('valid').addClass('invalid');
+            this.hideQuestionImagePreview($question);
+        } else {
+            // Campo vacío
+            $input.removeClass('valid invalid');
+            this.hideQuestionImagePreview($question);
+            this.clearQuestionImageData($question);
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Manejar eliminación de imagen de pregunta
+     */
+    handleRemoveQuestionImage(e) {
+        e.preventDefault();
+        const $button = $(e.currentTarget);
+        const $question = $button.closest('.sfq-question-item');
+        
+        this.removeQuestionImage($question);
+    }
+    
+    /**
+     * ✅ NUEVO: Manejar cambios en configuración de imagen de pregunta
+     */
+    handleQuestionImageSettingsChange(e) {
+        const $input = $(e.currentTarget);
+        const $question = $input.closest('.sfq-question-item');
+        
+        this.updateQuestionImageSettings($question);
+    }
+    
+    /**
+     * ✅ NUEVO: Manejar cambio de ancho de imagen de pregunta
+     */
+    handleQuestionImageWidthChange(e) {
+        const $input = $(e.currentTarget);
+        const value = $input.val();
+        const $question = $input.closest('.sfq-question-item');
+        
+        // Actualizar display del valor
+        $input.siblings('.width-display').text(value + 'px');
+        
+        // Actualizar configuración
+        this.updateQuestionImageSettings($question);
+    }
+    
+    /**
+     * ✅ NUEVO: Manejar cambio de ancho personalizado para móvil
+     */
+    handleQuestionImageMobileWidthChange(e) {
+        const $input = $(e.currentTarget);
+        const value = $input.val();
+        const $question = $input.closest('.sfq-question-item');
+        
+        // Actualizar display del valor
+        $input.siblings('.mobile-width-display').text(value + 'px');
+        
+        // Actualizar configuración
+        this.updateQuestionImageSettings($question);
+    }
+    
+    /**
+     * ✅ NUEVO: Actualizar imagen de pregunta
+     */
+    updateQuestionImage($question, attachment) {
+        const questionId = $question.attr('id');
+        const question = this.formBuilder.questionManager.getQuestion(questionId);
+        
+        if (!question) return;
+        
+        // Inicializar settings si no existen
+        if (!question.settings || typeof question.settings !== 'object') {
+            question.settings = {};
+        }
+        
+        // Crear/actualizar configuración de imagen
+        question.settings.question_image = {
+            url: attachment.url,
+            id: attachment.id || '',
+            alt: attachment.alt || attachment.title || 'Imagen de pregunta',
+            position: question.settings.question_image?.position || 'top',
+            width: question.settings.question_image?.width || 300,
+            shadow: question.settings.question_image?.shadow || false,
+            mobile_force_position: question.settings.question_image?.mobile_force_position || false
+        };
+        
+        // Actualizar input de URL
+        const $urlInput = $question.find('.sfq-question-image-url-input');
+        $urlInput.val(attachment.url).removeClass('invalid').addClass('valid');
+        
+        // Mostrar configuración y preview
+        this.showQuestionImageConfig($question);
+        this.updateQuestionImagePreview($question, attachment);
+        
+        // Marcar formulario como modificado
+        this.formBuilder.isDirty = true;
+        
+        console.log('SFQ: Updated question image:', question.settings.question_image);
+    }
+    
+    /**
+     * ✅ NUEVO: Mostrar configuración de imagen de pregunta
+     */
+    showQuestionImageConfig($question) {
+        const $configSection = $question.find('.sfq-question-image-config');
+        $configSection.slideDown(300);
+        
+        // Repoblar valores de configuración
+        const question = this.formBuilder.questionManager.getQuestion($question.attr('id'));
+        if (question?.settings?.question_image) {
+            const imageConfig = question.settings.question_image;
+            
+            $question.find('.sfq-question-image-position').val(imageConfig.position || 'top');
+            $question.find('.sfq-question-image-width').val(imageConfig.width || 300);
+            $question.find('.width-display').text((imageConfig.width || 300) + 'px');
+            $question.find('.sfq-question-image-shadow').prop('checked', imageConfig.shadow || false);
+            $question.find('.sfq-question-image-mobile-force').prop('checked', imageConfig.mobile_force_position || false);
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Actualizar preview de imagen de pregunta
+     */
+    updateQuestionImagePreview($question, attachment) {
+        const $previewContainer = $question.find('.sfq-question-image-preview');
+        const $previewImage = $previewContainer.find('.sfq-preview-image');
+        
+        $previewImage.attr('src', attachment.url);
+        $previewImage.attr('alt', attachment.alt || 'Vista previa');
+        $previewContainer.slideDown(300);
+    }
+    
+    /**
+     * ✅ NUEVO: Ocultar preview de imagen de pregunta
+     */
+    hideQuestionImagePreview($question) {
+        const $previewContainer = $question.find('.sfq-question-image-preview');
+        $previewContainer.slideUp(300);
+    }
+    
+    /**
+     * ✅ NUEVO: Eliminar imagen de pregunta
+     */
+    removeQuestionImage($question) {
+        const questionId = $question.attr('id');
+        const question = this.formBuilder.questionManager.getQuestion(questionId);
+        
+        if (!question) return;
+        
+        // Limpiar datos de imagen
+        if (question.settings && question.settings.question_image) {
+            delete question.settings.question_image;
+        }
+        
+        // Limpiar interfaz
+        const $urlInput = $question.find('.sfq-question-image-url-input');
+        $urlInput.val('').removeClass('valid invalid');
+        
+        // Ocultar configuración y preview
+        $question.find('.sfq-question-image-config').slideUp(300);
+        this.hideQuestionImagePreview($question);
+        
+        // Marcar formulario como modificado
+        this.formBuilder.isDirty = true;
+        
+        console.log('SFQ: Removed question image for:', questionId);
+    }
+    
+    /**
+     * ✅ NUEVO: Limpiar datos de imagen de pregunta
+     */
+    clearQuestionImageData($question) {
+        const questionId = $question.attr('id');
+        const question = this.formBuilder.questionManager.getQuestion(questionId);
+        
+        if (question?.settings?.question_image) {
+            delete question.settings.question_image;
+            this.formBuilder.isDirty = true;
+        }
+        
+        // Ocultar configuración
+        $question.find('.sfq-question-image-config').slideUp(300);
+    }
+    
+    /**
+     * ✅ NUEVO: Actualizar configuración de imagen de pregunta
+     */
+    updateQuestionImageSettings($question) {
+        const questionId = $question.attr('id');
+        const question = this.formBuilder.questionManager.getQuestion(questionId);
+        
+        if (!question?.settings?.question_image) return;
+        
+        // Recoger valores de configuración
+        const position = $question.find('.sfq-question-image-position').val();
+        const width = parseInt($question.find('.sfq-question-image-width').val()) || 300;
+        const shadow = $question.find('.sfq-question-image-shadow').is(':checked');
+        const mobileForce = $question.find('.sfq-question-image-mobile-force').is(':checked');
+        const mobileWidth = parseInt($question.find('.sfq-question-image-mobile-width').val()) || 150;
+        
+        // ✅ NUEVO: Mostrar/ocultar campo de ancho personalizado para móvil
+        const $mobileWidthConfig = $question.find('.sfq-mobile-width-config');
+        if (mobileForce) {
+            $mobileWidthConfig.slideDown(300);
+        } else {
+            $mobileWidthConfig.slideUp(300);
+        }
+        
+        // Actualizar configuración
+        question.settings.question_image.position = position;
+        question.settings.question_image.width = width;
+        question.settings.question_image.shadow = shadow;
+        question.settings.question_image.mobile_force_position = mobileForce;
+        question.settings.question_image.mobile_width = mobileWidth;
+        
+        // Marcar formulario como modificado
+        this.formBuilder.isDirty = true;
+        
+        console.log('SFQ: Updated question image settings:', question.settings.question_image);
+    }
+    
+    /**
+     * ✅ NUEVO: Validar attachment de imagen
+     */
+    isValidImageAttachment(attachment) {
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+        
+        // Verificar tipo MIME
+        if (!validTypes.includes(attachment.mime)) {
+            console.error('SFQ: Invalid MIME type:', attachment.mime);
+            return false;
+        }
+        
+        // Verificar que tenga URL
+        if (!attachment.url) {
+            console.error('SFQ: No URL found in attachment');
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * ✅ NUEVO: Validar URL de imagen
+     */
+    isValidImageUrl(url) {
+        // Verificar que sea una URL válida
+        try {
+            new URL(url);
+        } catch {
+            return false;
+        }
+        
+        // Verificar extensión de imagen
+        const validExtensions = /\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i;
+        return validExtensions.test(url);
     }
     
     /**

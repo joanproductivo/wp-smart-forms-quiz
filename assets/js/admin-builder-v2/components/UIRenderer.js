@@ -74,6 +74,10 @@
                                value="${this.escapeHtml(question.text)}">
                         
                         ${optionsHtml}
+                        
+                        <!-- ✅ NUEVO: Sección de imagen de pregunta para tipos objetivo -->
+                        ${this.renderQuestionImageSection(question)}
+                        
                         <div class="sfq-next-button-controls-universal">
                          <label class="sfq-next-button-toggle">
                                 <input type="checkbox" class="sfq-show-next-button-checkbox" 
@@ -1154,6 +1158,123 @@
                             <input type="checkbox" data-setting="text_shadow" ${buttonSettings.text_shadow ? 'checked' : ''}>
                             Sombra del texto
                         </label>
+                    </div>
+                </div>
+            `;
+        }
+
+        /**
+         * ✅ NUEVO: Renderizar sección de imagen de pregunta para tipos objetivo
+         */
+        renderQuestionImageSection(question) {
+            // Solo mostrar para tipos de pregunta objetivo
+            const targetTypes = ['single_choice', 'multiple_choice', 'rating', 'text', 'email'];
+            if (!targetTypes.includes(question.type)) {
+                return '';
+            }
+            
+            const imageConfig = question.settings?.question_image || {};
+            const hasImage = imageConfig.url && imageConfig.url.trim() !== '';
+            
+            return `
+                <div class="sfq-question-image-section">
+                    <h4 style="margin: 20px 0 15px 0; font-size: 14px; font-weight: 600; color: #333; border-bottom: 1px solid #e0e0e0; padding-bottom: 8px;">
+                        🖼️ Imagen de la Pregunta
+                    </h4>
+                    
+                    <!-- Controles de subida -->
+                    <div class="sfq-image-controls">
+                        <button type="button" class="button sfq-upload-question-image-btn">
+                            <span class="dashicons dashicons-upload"></span>
+                            Subir Imagen
+                        </button>
+                        <input type="url" class="sfq-question-image-url-input ${hasImage ? 'valid' : ''}" 
+                               placeholder="O pega URL de imagen..." 
+                               value="${this.escapeHtml(imageConfig.url || '')}"
+                               style="flex: 1; min-width: 200px; margin-left: 10px; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
+                    </div>
+                    
+                    <!-- Configuración de imagen -->
+                    <div class="sfq-question-image-config" style="display: ${hasImage ? 'block' : 'none'}; margin-top: 15px; padding: 15px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px;">
+                        <div class="sfq-config-row" style="display: flex; gap: 20px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;">
+                            <label style="display: flex; flex-direction: column; min-width: 120px;">
+                                <span style="font-size: 12px; color: #666; margin-bottom: 4px; font-weight: 500;">Posición:</span>
+                                <select class="sfq-question-image-position" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
+                                    <option value="top" ${imageConfig.position === 'top' || !imageConfig.position ? 'selected' : ''}>⬆️ Arriba</option>
+                                    <option value="left" ${imageConfig.position === 'left' ? 'selected' : ''}>⬅️ izquierda</option>
+                                    <option value="right" ${imageConfig.position === 'right' ? 'selected' : ''}>➡️ derecha</option>
+                                    <option value="bottom" ${imageConfig.position === 'bottom' ? 'selected' : ''}>⬇️ Abajo</option>
+                                </select>
+                            </label>
+                            
+                            <label style="display: flex; flex-direction: column; min-width: 150px;">
+                                <span style="font-size: 12px; color: #666; margin-bottom: 4px; font-weight: 500;">Ancho:</span>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="range" class="sfq-question-image-width" 
+                                           min="100" max="800" step="10" 
+                                           value="${imageConfig.width || 300}"
+                                           style="flex: 1;">
+                                    <span class="width-display" style="font-size: 12px; color: #007cba; font-weight: 500; min-width: 50px;">
+                                        ${imageConfig.width || 300}px
+                                    </span>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <div class="sfq-config-row" style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" class="sfq-question-image-shadow" 
+                                       ${imageConfig.shadow ? 'checked' : ''}>
+                                <span style="font-size: 13px; color: #333;">🌟 Sombreado</span>
+                            </label>
+                            
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" class="sfq-question-image-mobile-force" 
+                                       ${imageConfig.mobile_force_position ? 'checked' : ''}>
+                                <span style="font-size: 13px; color: #333;">📱 Forzar posición en móvil</span>
+                            </label>
+                        </div>
+                        
+                        <!-- ✅ NUEVO: Campo de ancho personalizado para móvil -->
+                        <div class="sfq-mobile-width-config" style="display: ${imageConfig.mobile_force_position ? 'block' : 'none'}; margin-top: 15px; padding: 15px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px;">
+                            <label style="display: flex; flex-direction: column; max-width: 250px;">
+                                <span style="font-size: 12px; color: #856404; margin-bottom: 8px; font-weight: 600;">
+                                    📱 Ancho personalizado para móvil:
+                                </span>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="range" class="sfq-question-image-mobile-width" 
+                                           min="80" max="400" step="10" 
+                                           value="${imageConfig.mobile_width || 150}"
+                                           style="flex: 1;">
+                                    <span class="mobile-width-display" style="font-size: 12px; color: #007cba; font-weight: 500; min-width: 50px;">
+                                        ${imageConfig.mobile_width || 150}px
+                                    </span>
+                                </div>
+                                <small style="display: block; margin-top: 6px; color: #856404; font-size: 11px; line-height: 1.3;">
+                                    💡 Este ancho se aplicará solo en dispositivos móviles cuando "Forzar posición en móvil" esté activado.
+                                </small>
+                            </label>
+                        </div>
+                        
+                        <small style="display: block; margin-top: 10px; color: #666; font-size: 11px; line-height: 1.4;">
+                            💡 <strong>Tip:</strong> En móvil, la imagen se mostrará arriba o abajo automáticamente para mejor experiencia, 
+                            a menos que actives "Forzar posición en móvil".
+                        </small>
+                    </div>
+                    
+                    <!-- Vista previa de imagen -->
+                    <div class="sfq-question-image-preview" style="display: ${hasImage ? 'block' : 'none'}; margin-top: 15px;">
+                        <div class="sfq-image-preview" style="position: relative; display: inline-block; max-width: 200px; border: 2px solid #ddd; border-radius: 6px; overflow: hidden; background: white; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+                            <img src="${this.escapeHtml(imageConfig.url || '')}" 
+                                 alt="${this.escapeHtml(imageConfig.alt || 'Vista previa')}" 
+                                 class="sfq-preview-image"
+                                 style="width: 100%; height: auto; max-height: 120px; object-fit: cover; display: block;">
+                            <button type="button" class="sfq-remove-question-image" 
+                                    title="Eliminar imagen"
+                                    style="position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; background: rgba(220, 53, 69, 0.9); color: white; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);">
+                                <span class="dashicons dashicons-no-alt"></span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;

@@ -651,7 +651,7 @@ class SFQ_Frontend {
                     
                     /* Nuevas variables CSS para las opciones de estilo */
                     --sfq-form-container-border-radius: <?php echo esc_attr($styles['form_container_border_radius'] ?? '20'); ?>px;
-                    --sfq-form-container-padding: <?php echo esc_attr($styles['form_container_padding'] ?? '2'); ?>rem;
+                    --sfq-form-container-padding: <?php echo esc_attr($styles['form_container_padding'] ?? '2rem 2rem 3rem'); ?>;
                     --sfq-question-text-size: <?php echo esc_attr($styles['question_text_size'] ?? '24'); ?>px;
                     --sfq-option-text-size: <?php echo esc_attr($styles['option_text_size'] ?? '16'); ?>px;
                     --sfq-question-content-min-height: <?php echo esc_attr($styles['question_content_min_height'] ?? '0'); ?>px;
@@ -941,9 +941,107 @@ class SFQ_Frontend {
     }
     
     /**
-     * Renderizar tipo de pregunta específico
+     * Renderizar tipo de pregunta específico con imagen posicionada
      */
     private function render_question_type($question) {
+        // Verificar si la pregunta tiene imagen configurada
+        $settings = $question->settings ?? array();
+        $has_image = !empty($settings['question_image']) && 
+                     is_array($settings['question_image']) && 
+                     !empty($settings['question_image']['url']);
+        
+        if ($has_image) {
+            $this->render_question_with_positioned_layout($question);
+        } else {
+            $this->render_question_without_image($question);
+        }
+    }
+    
+    /**
+     * Renderizar pregunta con imagen posicionada correctamente
+     */
+    private function render_question_with_positioned_layout($question) {
+        $image_config = $question->settings['question_image'];
+        $position = $image_config['position'] ?? 'top';
+        $width = $image_config['width'] ?? 300;
+        $shadow = $image_config['shadow'] ?? false;
+        $mobile_force = $image_config['mobile_force_position'] ?? false;
+        $mobile_width = $image_config['mobile_width'] ?? null; // ✅ NUEVO: Ancho personalizado para móvil
+        $image_url = $image_config['url'];
+        $image_alt = $image_config['alt'] ?? '';
+        
+        // Clases CSS para posicionamiento
+        $container_classes = array('sfq-question-with-image');
+        $container_classes[] = 'position-' . $position;
+        
+        if ($mobile_force) {
+            $container_classes[] = 'mobile-force-position';
+        }
+        
+        // Clases para la imagen
+        $image_classes = array('sfq-question-image');
+        if ($shadow) {
+            $image_classes[] = 'with-shadow';
+        }
+        
+        // ✅ NUEVO: Preparar atributos para ancho móvil personalizado
+        $mobile_width_attr = '';
+        $mobile_width_style = '';
+        if ($mobile_force && !empty($mobile_width)) {
+            $mobile_width_attr = 'data-mobile-width="' . intval($mobile_width) . '"';
+            $mobile_width_style = '--sfq-mobile-image-width: ' . intval($mobile_width) . 'px;';
+        }
+        
+        ?>
+        <div class="<?php echo esc_attr(implode(' ', $container_classes)); ?>" 
+             <?php echo !empty($mobile_width_style) ? 'style="' . esc_attr($mobile_width_style) . '"' : ''; ?>>
+            <?php if ($position === 'top') : ?>
+                <!-- Imagen arriba -->
+                <div class="<?php echo esc_attr(implode(' ', $image_classes)); ?>" 
+                     style="width: <?php echo intval($width); ?>px; max-width: 100%; margin: auto;"
+                     <?php echo $mobile_width_attr; ?>>
+                    <img src="<?php echo esc_url($image_url); ?>" 
+                         alt="<?php echo esc_attr($image_alt); ?>"
+                         style="width: 100%; height: auto; display: block;"
+                         loading="lazy">
+                </div>
+                <!-- Contenido de la pregunta -->
+                <?php $this->render_question_without_image($question); ?>
+            <?php elseif ($position === 'bottom') : ?>
+                <!-- Contenido de la pregunta -->
+                <?php $this->render_question_without_image($question); ?>
+                <!-- Imagen abajo -->
+                <div class="<?php echo esc_attr(implode(' ', $image_classes)); ?>" 
+                     style="width: <?php echo intval($width); ?>px; max-width: 100%; margin:auto;"
+                     <?php echo $mobile_width_attr; ?>>
+                    <img src="<?php echo esc_url($image_url); ?>" 
+                         alt="<?php echo esc_attr($image_alt); ?>"
+                         style="width: 100%; height: auto; display: block;"
+                         loading="lazy">
+                </div>
+            <?php else : ?>
+                <!-- Imagen a la izquierda o derecha -->
+                <div class="<?php echo esc_attr(implode(' ', $image_classes)); ?>" 
+                     style="width: <?php echo intval($width); ?>px; max-width: 100%;"
+                     <?php echo $mobile_width_attr; ?>>
+                    <img src="<?php echo esc_url($image_url); ?>" 
+                         alt="<?php echo esc_attr($image_alt); ?>"
+                         style="width: 100%; height: auto; display: block;"
+                         loading="lazy">
+                </div>
+                <!-- Contenido de la pregunta -->
+                <div class="sfq-question-content-with-image">
+                    <?php $this->render_question_without_image($question); ?>
+                </div>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Renderizar pregunta sin imagen (método original)
+     */
+    private function render_question_without_image($question) {
         switch ($question->question_type) {
             case 'single_choice':
                 $this->render_single_choice($question);
@@ -1030,6 +1128,8 @@ class SFQ_Frontend {
         if (empty($question->options)) {
             return;
         }
+        
+        
         ?>
         <div class="sfq-options-grid sfq-multiple-choice" data-question-id="<?php echo $question->id; ?>">
             <?php foreach ($question->options as $index => $option) : ?>
@@ -1064,22 +1164,6 @@ class SFQ_Frontend {
         <?php
     }
     
-    /**
-     * Renderizar campo de texto
-     */
-    private function render_text_input($question) {
-        $settings = $question->settings ?: array();
-        ?>
-        <div class="sfq-input-wrapper">
-            <input type="text" 
-                   name="question_<?php echo $question->id; ?>" 
-                   class="sfq-text-input"
-                   placeholder="<?php echo esc_attr($settings['placeholder'] ?? __('Escribe tu respuesta aquí...', 'smart-forms-quiz')); ?>"
-                   <?php echo $question->required ? 'required' : ''; ?>>
-            <div class="sfq-input-line"></div>
-        </div>
-        <?php
-    }
     
     /**
      * Renderizar campo de email
@@ -1106,10 +1190,12 @@ class SFQ_Frontend {
         $settings = $question->settings ?: array();
         $type = $settings['rating_type'] ?? 'stars';
         $max = $settings['max_rating'] ?? 5;
-        ?>
-        <?php
+        
         // Obtener todas las condiciones de la pregunta
         $question_conditions = $this->get_question_conditions_for_frontend($question->id);
+        
+        
+        
         ?>
         <div class="sfq-rating-wrapper" data-question-id="<?php echo $question->id; ?>" data-type="<?php echo $type; ?>">
             <?php if ($type === 'stars') : ?>
@@ -2064,6 +2150,26 @@ class SFQ_Frontend {
         
         // 4. Si no es nada de lo anterior, tratarlo como texto/emoji
         return '<span class="sfq-limit-icon-text">' . esc_html($content) . '</span>';
+    }
+    
+    /**
+     * Renderizar campo de texto
+     */
+    private function render_text_input($question) {
+        $settings = $question->settings ?: array();
+        
+       
+        
+        ?>
+        <div class="sfq-input-wrapper">
+            <input type="text" 
+                   name="question_<?php echo $question->id; ?>" 
+                   class="sfq-text-input"
+                   placeholder="<?php echo esc_attr($settings['placeholder'] ?? __('Escribe tu respuesta aquí...', 'smart-forms-quiz')); ?>"
+                   <?php echo $question->required ? 'required' : ''; ?>>
+            <div class="sfq-input-line"></div>
+        </div>
+        <?php
     }
     
     /**
@@ -3743,6 +3849,193 @@ class SFQ_Frontend {
         }
         
         return $relevant_conditions;
+    }
+    
+    /**
+     * ✅ NUEVO: Renderizar pregunta con imagen posicionada
+     */
+    private function render_question_with_image($question) {
+        $image_config = $question->settings['question_image'] ?? null;
+        
+        if (!$image_config || empty($image_config['url'])) {
+            return $this->render_question_type($question);
+        }
+        
+        $position = $image_config['position'] ?? 'left';
+        $width = $image_config['width'] ?? 300;
+        $shadow = $image_config['shadow'] ?? false;
+        $mobile_force = $image_config['mobile_force_position'] ?? false;
+        
+        // Renderizar con imagen según posición
+        return $this->render_question_with_positioned_image($question, $image_config);
+    }
+    
+    /**
+     * ✅ NUEVO: Renderizar pregunta con imagen posicionada específicamente
+     */
+    private function render_question_with_positioned_image($question, $image_config) {
+        $position = $image_config['position'] ?? 'left';
+        $width = $image_config['width'] ?? 300;
+        $shadow = $image_config['shadow'] ?? false;
+        $mobile_force = $image_config['mobile_force_position'] ?? false;
+        $image_url = $image_config['url'];
+        $image_alt = $image_config['alt'] ?? '';
+        
+        // Clases CSS para posicionamiento
+        $container_classes = array('sfq-question-with-image');
+        $container_classes[] = 'position-' . $position;
+        
+        if ($mobile_force) {
+            $container_classes[] = 'mobile-force-position';
+        }
+        
+        // Clases para la imagen
+        $image_classes = array('sfq-question-image');
+        if ($shadow) {
+            $image_classes[] = 'with-shadow';
+        }
+        
+        ob_start();
+        ?>
+        <div class="<?php echo esc_attr(implode(' ', $container_classes)); ?>">
+            <div class="<?php echo esc_attr(implode(' ', $image_classes)); ?>" 
+                 style="width: <?php echo intval($width); ?>px; max-width: 100%;">
+                <img src="<?php echo esc_url($image_url); ?>" 
+                     alt="<?php echo esc_attr($image_alt); ?>"
+                     style="width: 100%; height: auto; display: block;"
+                     loading="lazy">
+            </div>
+            <div class="sfq-question-content-with-image">
+                <?php $this->render_question_type($question); ?>
+            </div>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+    
+    /**
+     * ✅ NUEVO: Renderizar imagen de pregunta si está configurada (método simplificado)
+     */
+    private function render_question_image($question) {
+        // Verificar si la pregunta tiene configuración de imagen
+        $settings = $question->settings ?? array();
+        
+        // ✅ CORREGIDO: Verificar la nueva estructura de configuración
+        if (empty($settings['question_image']) || !is_array($settings['question_image'])) {
+            return; // No hay imagen configurada
+        }
+        
+        $image_config = $settings['question_image'];
+        $image_url = $image_config['url'] ?? '';
+        
+        if (empty($image_url)) {
+            return; // No hay URL de imagen
+        }
+        
+        // Obtener configuraciones de la imagen
+        $image_position = $image_config['position'] ?? 'top';
+        $image_width = $image_config['width'] ?? 300;
+        $image_shadow = $image_config['shadow'] ?? false;
+        $force_mobile_position = $image_config['mobile_force_position'] ?? false;
+        $image_alt = $image_config['alt'] ?? '';
+        
+        // Generar estilos CSS para la imagen
+        $image_styles = array();
+        $image_styles['width'] = intval($image_width) . 'px';
+        $image_styles['max-width'] = '100%';
+        $image_styles['height'] = 'auto';
+        $image_styles['display'] = 'block';
+        
+        if ($image_shadow) {
+            $image_styles['box-shadow'] = '0 4px 12px rgba(0, 0, 0, 0.15)';
+            $image_styles['border-radius'] = '8px';
+        }
+        
+        // Convertir estilos a string CSS
+        $style_string = '';
+        foreach ($image_styles as $property => $value) {
+            $style_string .= $property . ': ' . $value . '; ';
+        }
+        
+        // Generar clases CSS para posicionamiento
+        $container_classes = array('sfq-question-image-container');
+        $container_classes[] = 'sfq-position-' . $image_position;
+        
+        if ($force_mobile_position) {
+            $container_classes[] = 'sfq-mobile-force-position';
+        }
+        
+        // Generar estilos del contenedor según la posición
+        $container_styles = array();
+        
+        switch ($image_position) {
+            case 'left':
+                $container_styles['display'] = 'flex';
+                $container_styles['align-items'] = 'flex-start';
+                $container_styles['gap'] = '20px';
+                $container_styles['margin-bottom'] = '20px';
+                break;
+            case 'right':
+                $container_styles['display'] = 'flex';
+                $container_styles['align-items'] = 'flex-start';
+                $container_styles['flex-direction'] = 'row-reverse';
+                $container_styles['gap'] = '20px';
+                $container_styles['margin-bottom'] = '20px';
+                break;
+            case 'bottom':
+                $container_styles['margin-top'] = '20px';
+                $container_styles['text-align'] = 'center';
+                break;
+            case 'top':
+            default:
+                $container_styles['margin-bottom'] = '20px';
+                $container_styles['text-align'] = 'center';
+                break;
+        }
+        
+        // Convertir estilos del contenedor a string CSS
+        $container_style_string = '';
+        foreach ($container_styles as $property => $value) {
+            $container_style_string .= $property . ': ' . $value . '; ';
+        }
+        
+        ?>
+        <div class="<?php echo esc_attr(implode(' ', $container_classes)); ?>" 
+             style="<?php echo esc_attr(trim($container_style_string)); ?>">
+            <img src="<?php echo esc_url($image_url); ?>" 
+                 alt="<?php echo esc_attr($image_alt); ?>"
+                 class="sfq-question-image"
+                 style="<?php echo esc_attr(trim($style_string)); ?>"
+                 loading="lazy">
+        </div>
+        
+        <style>
+            /* Estilos responsive para imagen de pregunta */
+            @media (max-width: 768px) {
+                .sfq-question-image-container.sfq-position-left:not(.sfq-mobile-force-position),
+                .sfq-question-image-container.sfq-position-right:not(.sfq-mobile-force-position) {
+                    flex-direction: column !important;
+                    text-align: center !important;
+                }
+                
+                .sfq-question-image-container.sfq-mobile-force-position.sfq-position-left {
+                    flex-direction: row !important;
+                    text-align: left !important;
+                }
+                
+                .sfq-question-image-container.sfq-mobile-force-position.sfq-position-right {
+                    flex-direction: row-reverse !important;
+                    text-align: right !important;
+                }
+                
+                .sfq-question-image {
+                    max-width: 100% !important;
+                    width: auto !important;
+                    max-height: 300px !important;
+                }
+            }
+        </style>
+        <?php
     }
     
     /**

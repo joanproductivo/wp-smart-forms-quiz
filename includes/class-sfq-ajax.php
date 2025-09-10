@@ -2383,7 +2383,52 @@ class SFQ_Ajax {
                 } elseif (count($question['options']) < 2) {
                     $errors['options'] = sprintf(__('La pregunta %d requiere al menos 2 opciones', 'smart-forms-quiz'), $index + 1);
                 }
+                
+                // ✅ NUEVO: Validación específica para image_choice
+                if ($question['question_type'] === 'image_choice') {
+                    foreach ($question['options'] as $opt_index => $option) {
+                        if (!empty($option['image'])) {
+                            // Validar URL de imagen
+                            if (!filter_var($option['image'], FILTER_VALIDATE_URL)) {
+                                $errors['options'][] = sprintf(__('URL de imagen inválida en opción %d de pregunta %d', 'smart-forms-quiz'), $opt_index + 1, $index + 1);
+                            }
+                            
+                            // Validar ID de attachment si existe
+                            if (!empty($option['image_id']) && !is_numeric($option['image_id'])) {
+                                $errors['options'][] = sprintf(__('ID de imagen inválido en opción %d de pregunta %d', 'smart-forms-quiz'), $opt_index + 1, $index + 1);
+                            }
+                        }
+                    }
+                }
             }
+            
+                // ✅ NUEVO: Validar imagen de pregunta para tipos objetivo
+                $types_with_question_image = array('single_choice', 'multiple_choice', 'rating', 'text');
+                if (in_array($question['question_type'], $types_with_question_image)) {
+                    // Verificar configuración de imagen de pregunta en settings
+                    if (isset($question['settings']['question_image_enabled']) && $question['settings']['question_image_enabled']) {
+                        // Validar URL de imagen de pregunta
+                        if (!empty($question['settings']['question_image_url']) && !filter_var($question['settings']['question_image_url'], FILTER_VALIDATE_URL)) {
+                            $errors['question_image'] = sprintf(__('URL de imagen de pregunta inválida en pregunta %d', 'smart-forms-quiz'), $index + 1);
+                        }
+                        
+                        // Validar posición
+                        if (!empty($question['settings']['question_image_position'])) {
+                            $valid_positions = array('top', 'left', 'right', 'bottom');
+                            if (!in_array($question['settings']['question_image_position'], $valid_positions)) {
+                                $errors['question_image'] = sprintf(__('Posición de imagen inválida en pregunta %d', 'smart-forms-quiz'), $index + 1);
+                            }
+                        }
+                        
+                        // Validar ancho
+                        if (!empty($question['settings']['question_image_width'])) {
+                            $width = intval($question['settings']['question_image_width']);
+                            if ($width < 50 || $width > 800) {
+                                $errors['question_image'] = sprintf(__('Ancho de imagen debe estar entre 50 y 800 píxeles en pregunta %d', 'smart-forms-quiz'), $index + 1);
+                            }
+                        }
+                    }
+                }
         }
         
         return $errors;

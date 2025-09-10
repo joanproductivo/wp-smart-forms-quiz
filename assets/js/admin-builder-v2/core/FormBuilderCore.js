@@ -334,7 +334,7 @@
             $('#form-container-border-radius').val(styles.form_container_border_radius || '20');
             $('.sfq-form-container-radius-value').text((styles.form_container_border_radius || '20') + 'px');
             $('#form-container-shadow').prop('checked', styles.form_container_shadow === true);
-            $('#form-container-padding').val(styles.form_container_padding || '2');
+            $('#form-container-padding').val(styles.form_container_padding || '2rem 2rem 3rem'); // Permitir cadena vacía para valores CSS
             $('#form-container-width').val(styles.form_container_width || 'responsive');
             $('#question-content-width').val(styles.question_content_width || 'responsive');
             $('#question-content-custom-width').val(styles.question_content_custom_width || '600');
@@ -675,7 +675,7 @@
                 form_container_shadow: $('#form-container-shadow').is(':checked'),
                 form_container_padding: (() => {
                     const value = $('#form-container-padding').val();
-                    return value !== '' ? value : '2';
+                    return value !== '' ? value : '2rem 2rem 3rem';
                 })(),
                 form_container_width: $('#form-container-width').val() || 'responsive',
                 form_container_custom_width: $('#form-container-custom-width').val() || '720',

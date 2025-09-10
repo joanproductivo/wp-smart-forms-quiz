@@ -214,6 +214,11 @@
                         this.repopulateImagePreviews(question.id, question);
                     }
                     
+                    // ✅ NUEVO: Repoblar imagen de pregunta para tipos objetivo
+                    if (['single_choice', 'multiple_choice', 'rating', 'text', 'email'].includes(question.type)) {
+                        this.repopulateQuestionImage(question.id, question);
+                    }
+                    
                     // Load conditions if any
                     const questionData = questionsData.find(q => q.id === question.originalId);
                     if (questionData && questionData.conditions && questionData.conditions.length > 0) {
@@ -3684,6 +3689,177 @@
                     'animation-direction': 'normal'
                 });
                 $previewElement.off('mouseenter mouseleave');
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Repoblar imagen de pregunta para tipos objetivo
+         */
+        repopulateQuestionImage(questionId, question) {
+            console.log('SFQ: === STARTING QUESTION IMAGE REPOPULATION ===');
+            console.log('SFQ: Question ID:', questionId);
+            console.log('SFQ: Question type:', question.type);
+            console.log('SFQ: Question settings:', question.settings);
+            
+            // Verificar que sea un tipo de pregunta objetivo
+            const targetTypes = ['single_choice', 'multiple_choice', 'rating', 'text'];
+            if (!targetTypes.includes(question.type)) {
+                console.log('SFQ: Question type not supported for question image:', question.type);
+                return;
+            }
+            
+            // Verificar que tenga configuración de imagen
+            const imageConfig = question.settings?.question_image;
+            if (!imageConfig || !imageConfig.url) {
+                console.log('SFQ: No question image configuration found');
+                return;
+            }
+            
+            console.log('SFQ: Found question image config:', imageConfig);
+            
+            // ✅ CORREGIDO: Usar setTimeout para asegurar que el DOM esté completamente renderizado
+            setTimeout(() => {
+                this._performQuestionImageRepopulation(questionId, question, imageConfig);
+            }, 150);
+        }
+        
+        /**
+         * ✅ NUEVO: Función interna para realizar la repoblación de imagen de pregunta
+         */
+        _performQuestionImageRepopulation(questionId, question, imageConfig) {
+            console.log('SFQ: Performing delayed question image repopulation for question:', questionId);
+            
+            // Buscar el elemento de la pregunta
+            let $question = $(`#${questionId}`);
+            
+            if ($question.length === 0) {
+                $question = $(`.sfq-question-item[data-question-id="${questionId}"]`);
+            }
+            
+            if ($question.length === 0) {
+                $question = $(`#sfq-questions-container #${questionId}, #sfq-final-screens-container #${questionId}`);
+            }
+            
+            if ($question.length === 0) {
+                console.error('SFQ: Question element not found for image repopulation:', questionId);
+                return;
+            }
+            
+            console.log('SFQ: Found question element for image repopulation');
+            
+            // Buscar la sección de imagen de pregunta
+            let $imageSection = $question.find('.sfq-question-image-section');
+            
+            if ($imageSection.length === 0) {
+                console.warn('SFQ: Question image section not found, creating it...');
+                this._createQuestionImageSection($question, question);
+                $imageSection = $question.find('.sfq-question-image-section');
+            }
+            
+            if ($imageSection.length === 0) {
+                console.error('SFQ: Could not create question image section');
+                return;
+            }
+            
+            // Actualizar el input de URL
+            const $urlInput = $imageSection.find('.sfq-question-image-url-input');
+            if ($urlInput.length > 0) {
+                $urlInput.val(imageConfig.url).removeClass('invalid').addClass('valid');
+                console.log('SFQ: Updated question image URL input');
+            }
+            
+            // Actualizar configuraciones
+            if (imageConfig.position) {
+                $imageSection.find('.sfq-question-image-position').val(imageConfig.position);
+            }
+            
+            if (imageConfig.width) {
+                const $widthSlider = $imageSection.find('.sfq-question-image-width');
+                $widthSlider.val(imageConfig.width);
+                $imageSection.find('.width-display').text(imageConfig.width + 'px');
+            }
+            
+            if (imageConfig.shadow !== undefined) {
+                $imageSection.find('.sfq-question-image-shadow').prop('checked', imageConfig.shadow);
+            }
+            
+            if (imageConfig.mobile_force_position !== undefined) {
+                $imageSection.find('.sfq-question-image-mobile-force').prop('checked', imageConfig.mobile_force_position);
+            }
+            
+            // Mostrar la configuración
+            $imageSection.find('.sfq-question-image-config').show();
+            
+            // Mostrar el preview de la imagen
+            this._updateQuestionImagePreview($imageSection, {
+                url: imageConfig.url,
+                alt: imageConfig.alt || 'Imagen de pregunta'
+            });
+            
+            console.log('SFQ: Successfully repopulated question image');
+            console.log('SFQ: === FINISHED QUESTION IMAGE REPOPULATION ===');
+        }
+        
+        /**
+         * ✅ NUEVO: Crear sección de imagen de pregunta si no existe
+         */
+        _createQuestionImageSection($question, question) {
+            console.log('SFQ: Creating question image section');
+            
+            const imageSection = this.formBuilder.uiRenderer.renderQuestionImageSection(question);
+            
+            // Insertar después de las opciones o antes de los settings
+            const $insertPoint = $question.find('.sfq-next-button-controls-universal, .sfq-question-settings').first();
+            
+            if ($insertPoint.length > 0) {
+                $insertPoint.before(imageSection);
+            } else {
+                // Fallback: insertar al final del contenido
+                $question.find('.sfq-question-content').append(imageSection);
+            }
+            
+            console.log('SFQ: Created question image section');
+        }
+        
+        /**
+         * ✅ NUEVO: Actualizar preview de imagen de pregunta
+         */
+        _updateQuestionImagePreview($imageSection, imageData) {
+            console.log('SFQ: Updating question image preview with data:', imageData);
+            
+            const $previewContainer = $imageSection.find('.sfq-question-image-preview');
+            
+            if ($previewContainer.length === 0) {
+                console.error('SFQ: Question image preview container not found');
+                return;
+            }
+            
+            let $previewImage = $previewContainer.find('.sfq-preview-image');
+            
+            if ($previewImage.length === 0) {
+                console.log('SFQ: Creating question image preview element');
+                $previewContainer.find('.sfq-image-preview').html(`
+                    <img src="" alt="Vista previa" class="sfq-preview-image">
+                    <button type="button" class="sfq-remove-question-image" title="Eliminar imagen">
+                        <span class="dashicons dashicons-no-alt"></span>
+                    </button>
+                `);
+                $previewImage = $previewContainer.find('.sfq-preview-image');
+            }
+            
+            if ($previewImage.length > 0) {
+                $previewImage.attr('src', imageData.url);
+                $previewImage.attr('alt', imageData.alt || 'Vista previa');
+                
+                // Manejar errores de carga
+                $previewImage.off('error').on('error', function() {
+                    console.warn('SFQ: Failed to load question image:', imageData.url);
+                    $(this).attr('src', 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+SW1hZ2VuPC90ZXh0Pjwvc3ZnPg==');
+                    $(this).attr('alt', 'Error al cargar imagen');
+                });
+                
+                $previewContainer.show();
+                console.log('SFQ: Successfully updated question image preview');
             }
         }
 
