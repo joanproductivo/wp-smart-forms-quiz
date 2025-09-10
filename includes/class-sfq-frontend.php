@@ -1103,11 +1103,23 @@ class SFQ_Frontend {
         $type = $settings['rating_type'] ?? 'stars';
         $max = $settings['max_rating'] ?? 5;
         ?>
+        <?php
+        // Obtener todas las condiciones de la pregunta
+        $question_conditions = $this->get_question_conditions_for_frontend($question->id);
+        ?>
         <div class="sfq-rating-wrapper" data-question-id="<?php echo $question->id; ?>" data-type="<?php echo $type; ?>">
             <?php if ($type === 'stars') : ?>
                 <div class="sfq-stars-rating">
                     <?php for ($i = 1; $i <= $max; $i++) : ?>
-                        <button class="sfq-star" data-value="<?php echo $i; ?>" type="button">
+                        <?php
+                        // Filtrar condiciones para el valor de calificación actual
+                        $rating_conditions = $this->get_conditions_for_option_value($question_conditions, (string)$i);
+                        ?>
+                        <button class="sfq-star"
+                                data-value="<?php echo $i; ?>"
+                                type="button"
+                                data-conditions='<?php echo json_encode($rating_conditions); ?>'
+                                data-has-conditions="<?php echo !empty($rating_conditions) ? 'true' : 'false'; ?>">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                             </svg>
@@ -1117,11 +1129,19 @@ class SFQ_Frontend {
                 </div>
             <?php else : ?>
                 <div class="sfq-emoji-rating">
-                    <button class="sfq-emoji" data-value="1" type="button">😞</button>
-                    <button class="sfq-emoji" data-value="2" type="button">😐</button>
-                    <button class="sfq-emoji" data-value="3" type="button">🙂</button>
-                    <button class="sfq-emoji" data-value="4" type="button">😊</button>
-                    <button class="sfq-emoji" data-value="5" type="button">😍</button>
+                    <?php
+                    $default_emojis = array('😞', '😐', '🙂', '😊', '😍');
+                    for ($i = 1; $i <= $max; $i++) :
+                        $emoji = $settings['icons'][$i-1] ?? $default_emojis[$i-1] ?? '⭐';
+                        // Filtrar condiciones para el valor de calificación actual
+                        $rating_conditions = $this->get_conditions_for_option_value($question_conditions, (string)$i);
+                    ?>
+                        <button class="sfq-emoji"
+                                data-value="<?php echo $i; ?>"
+                                type="button"
+                                data-conditions='<?php echo json_encode($rating_conditions); ?>'
+                                data-has-conditions="<?php echo !empty($rating_conditions) ? 'true' : 'false'; ?>"><?php echo $emoji; ?></button>
+                    <?php endfor; ?>
                     <input type="hidden" name="question_<?php echo $question->id; ?>" value="">
                 </div>
             <?php endif; ?>
@@ -2284,6 +2304,9 @@ class SFQ_Frontend {
         $layout = $global_settings['layout'] ?? 'vertical';
         $spacing = $global_settings['spacing'] ?? 'normal';
         $show_numbers = $global_settings['show_element_numbers'] ?? false;
+
+        // 1. Obtener todas las condiciones de la pregunta
+        $question_conditions = $this->get_question_conditions_for_frontend($question->id);
         ?>
         <div class="sfq-freestyle-container" 
              data-question-id="<?php echo $question->id; ?>"
@@ -2311,7 +2334,7 @@ class SFQ_Frontend {
                     <?php endif; ?>
                     
                     <div class="sfq-element-content">
-                        <?php $this->render_freestyle_element($element, $question->id); ?>
+                        <?php $this->render_freestyle_element($element, $question->id, $question_conditions); ?>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -2322,66 +2345,66 @@ class SFQ_Frontend {
     /**
      * Renderizar elemento freestyle específico
      */
-    private function render_freestyle_element($element, $question_id) {
+    private function render_freestyle_element($element, $question_id, $question_conditions) { // Added $question_conditions
         $element_id = $element['id'];
         $element_type = $element['type'];
         $settings = $element['settings'] ?? array();
         
         switch ($element_type) {
             case 'text':
-                $this->render_freestyle_text($element, $question_id);
+                $this->render_freestyle_text($element, $question_id, $question_conditions);
                 break;
                 
             case 'email':
-                $this->render_freestyle_email($element, $question_id);
+                $this->render_freestyle_email($element, $question_id, $question_conditions);
                 break;
                 
             case 'phone':
-                $this->render_freestyle_phone($element, $question_id);
+                $this->render_freestyle_phone($element, $question_id, $question_conditions);
                 break;
                 
             case 'video':
-                $this->render_freestyle_video($element, $question_id);
+                $this->render_freestyle_video($element, $question_id, $question_conditions);
                 break;
                 
             case 'image':
-                $this->render_freestyle_image($element, $question_id);
+                $this->render_freestyle_image($element, $question_id, $question_conditions);
                 break;
                 
             case 'file_upload':
-                $this->render_freestyle_file_upload($element, $question_id);
+                $this->render_freestyle_file_upload($element, $question_id, $question_conditions);
                 break;
                 
             case 'button':
-                $this->render_freestyle_button($element, $question_id);
+                $this->render_freestyle_button($element, $question_id, $question_conditions);
                 break;
                 
             case 'rating':
-                $this->render_freestyle_rating($element, $question_id);
+                $this->render_freestyle_rating($element, $question_id, $question_conditions);
                 break;
                 
             case 'dropdown':
-                $this->render_freestyle_dropdown($element, $question_id);
+                $this->render_freestyle_dropdown($element, $question_id, $question_conditions);
                 break;
                 
             case 'checkbox':
-                $this->render_freestyle_checkbox($element, $question_id);
+                $this->render_freestyle_checkbox($element, $question_id, $question_conditions);
                 break;
                 
             case 'countdown':
-                $this->render_freestyle_countdown($element, $question_id);
+                $this->render_freestyle_countdown($element, $question_id, $question_conditions);
                 break;
                 
             case 'legal_text':
-                $this->render_freestyle_legal_text($element, $question_id);
+                $this->render_freestyle_legal_text($element, $question_id, $question_conditions);
                 break;
                 
             case 'variable_display':
-                $this->render_freestyle_variable_display($element, $question_id);
+                $this->render_freestyle_variable_display($element, $question_id, $question_conditions);
                 break;
                 
             case 'styled_text':
-                $this->render_freestyle_styled_text($element, $question_id);
+                $this->render_freestyle_styled_text($element, $question_id, $question_conditions);
                 break;
                 
             default:
@@ -2392,14 +2415,14 @@ class SFQ_Frontend {
     /**
      * Renderizar elemento de texto freestyle
      */
-    private function render_freestyle_text($element, $question_id) {
+    private function render_freestyle_text($element, $question_id, $question_conditions) { // Added $question_conditions
         $settings = $element['settings'] ?? array();
         $placeholder = $settings['placeholder'] ?? __('Escribe aquí...', 'smart-forms-quiz');
         $max_length = $settings['max_length'] ?? '';
         $multiline = $settings['multiline'] ?? false;
         
-        // ✅ SOLUCIÓN: Obtener condiciones del elemento
-        $element_conditions = $element['conditions'] ?? array();
+        // Obtener condiciones relevantes para este campo de texto freestyle
+        $element_conditions = $this->get_conditions_for_freestyle_input_field($question_conditions);
         ?>
         <div class="sfq-freestyle-text-wrapper">
             <?php if ($multiline) : ?>
@@ -2408,6 +2431,7 @@ class SFQ_Frontend {
                           class="sfq-freestyle-textarea"
                           placeholder="<?php echo esc_attr($placeholder); ?>"
                           data-conditions='<?php echo json_encode($element_conditions); ?>'
+                          data-has-conditions="<?php echo !empty($element_conditions) ? 'true' : 'false'; ?>"
                           <?php echo $max_length ? 'maxlength="' . esc_attr($max_length) . '"' : ''; ?>
                           rows="<?php echo esc_attr($settings['rows'] ?? 3); ?>"></textarea>
             <?php else : ?>
@@ -2417,6 +2441,7 @@ class SFQ_Frontend {
                        class="sfq-freestyle-input"
                        placeholder="<?php echo esc_attr($placeholder); ?>"
                        data-conditions='<?php echo json_encode($element_conditions); ?>'
+                       data-has-conditions="<?php echo !empty($element_conditions) ? 'true' : 'false'; ?>"
                        <?php echo $max_length ? 'maxlength="' . esc_attr($max_length) . '"' : ''; ?>>
             <?php endif; ?>
             <div class="sfq-input-line"></div>
@@ -2427,16 +2452,21 @@ class SFQ_Frontend {
     /**
      * Renderizar elemento de email freestyle
      */
-    private function render_freestyle_email($element, $question_id) {
+    private function render_freestyle_email($element, $question_id, $question_conditions) { // Added $question_conditions
         $settings = $element['settings'] ?? array();
         $placeholder = $settings['placeholder'] ?? 'tu@email.com';
+        
+        // Obtener condiciones relevantes para este campo de email freestyle
+        $element_conditions = $this->get_conditions_for_freestyle_input_field($question_conditions);
         ?>
         <div class="sfq-freestyle-email-wrapper">
             <input type="email" 
                    name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
                    id="element_<?php echo $element['id']; ?>"
                    class="sfq-freestyle-input sfq-email-input"
-                   placeholder="<?php echo esc_attr($placeholder); ?>">
+                   placeholder="<?php echo esc_attr($placeholder); ?>"
+                   data-conditions='<?php echo json_encode($element_conditions); ?>'
+                   data-has-conditions="<?php echo !empty($element_conditions) ? 'true' : 'false'; ?>">
             <div class="sfq-input-line"></div>
             <span class="sfq-input-error"><?php _e('Por favor, introduce un email válido', 'smart-forms-quiz'); ?></span>
         </div>
@@ -2446,10 +2476,13 @@ class SFQ_Frontend {
     /**
      * Renderizar elemento de teléfono freestyle
      */
-    private function render_freestyle_phone($element, $question_id) {
+    private function render_freestyle_phone($element, $question_id, $question_conditions) { // Added $question_conditions
         $settings = $element['settings'] ?? array();
         $placeholder = $settings['placeholder'] ?? '+34 600 000 000';
         $pattern = $settings['pattern'] ?? '';
+        
+        // Obtener condiciones relevantes para este campo de teléfono freestyle
+        $element_conditions = $this->get_conditions_for_freestyle_input_field($question_conditions);
         ?>
         <div class="sfq-freestyle-phone-wrapper">
             <input type="tel" 
@@ -2457,6 +2490,8 @@ class SFQ_Frontend {
                    id="element_<?php echo $element['id']; ?>"
                    class="sfq-freestyle-input sfq-phone-input"
                    placeholder="<?php echo esc_attr($placeholder); ?>"
+                   data-conditions='<?php echo json_encode($element_conditions); ?>'
+                   data-has-conditions="<?php echo !empty($element_conditions) ? 'true' : 'false'; ?>"
                    <?php echo $pattern ? 'pattern="' . esc_attr($pattern) . '"' : ''; ?>>
             <div class="sfq-input-line"></div>
         </div>
@@ -2466,7 +2501,7 @@ class SFQ_Frontend {
     /**
      * Renderizar elemento de video freestyle
      */
-    private function render_freestyle_video($element, $question_id) {
+    private function render_freestyle_video($element, $question_id, $question_conditions) { // Added $question_conditions
         $settings = $element['settings'] ?? array();
         $video_url = $settings['video_url'] ?? '';
         $autoplay = $settings['autoplay'] ?? false;
@@ -2516,7 +2551,7 @@ class SFQ_Frontend {
     /**
      * Renderizar elemento de imagen freestyle
      */
-    private function render_freestyle_image($element, $question_id) {
+    private function render_freestyle_image($element, $question_id, $question_conditions) { // Added $question_conditions
         $settings = $element['settings'] ?? array();
         $image_url = $settings['image_url'] ?? '';
         $alt_text = $settings['alt_text'] ?? $element['label'] ?? '';
@@ -2528,11 +2563,20 @@ class SFQ_Frontend {
             echo '<p class="sfq-image-error">' . __('URL de imagen no configurada', 'smart-forms-quiz') . '</p>';
             return;
         }
+
+        $image_conditions = array();
+        if ($clickable) {
+            // If clickable, treat it like a button with a 'clicked' value
+            $image_conditions = $this->get_conditions_for_option_value($question_conditions, 'clicked');
+        }
         ?>
         <div class="sfq-freestyle-image-wrapper">
             <?php if ($clickable) : ?>
                 <div class="sfq-clickable-image" 
                      data-element-id="<?php echo $element['id']; ?>"
+                     data-value="clicked"
+                     data-conditions='<?php echo json_encode($image_conditions); ?>'
+                     data-has-conditions="<?php echo !empty($image_conditions) ? 'true' : 'false'; ?>"
                      style="cursor: pointer;">
                     <img src="<?php echo esc_url($image_url); ?>" 
                          alt="<?php echo esc_attr($alt_text); ?>"
@@ -2559,14 +2603,21 @@ class SFQ_Frontend {
     /**
      * Renderizar elemento de subida de archivo freestyle
      */
-    private function render_freestyle_file_upload($element, $question_id) {
+    private function render_freestyle_file_upload($element, $question_id, $question_conditions) { // Added $question_conditions
         $settings = $element['settings'] ?? array();
         $accept = $settings['accept'] ?? 'image/*';
         $max_size = $settings['max_size'] ?? '5MB';
         $multiple = $settings['multiple'] ?? false;
+
+        // For file upload, conditions might be based on 'file_uploaded' or similar.
+        // For now, we'll pass all relevant conditions for input fields, and the JS will handle it.
+        $element_conditions = $this->get_conditions_for_freestyle_input_field($question_conditions);
         ?>
         <div class="sfq-freestyle-file-wrapper">
-            <div class="sfq-file-upload-area" data-element-id="<?php echo $element['id']; ?>">
+            <div class="sfq-file-upload-area" 
+                 data-element-id="<?php echo $element['id']; ?>"
+                 data-conditions='<?php echo json_encode($element_conditions); ?>'
+                 data-has-conditions="<?php echo !empty($element_conditions) ? 'true' : 'false'; ?>">
                 <input type="file" 
                        name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]<?php echo $multiple ? '[]' : ''; ?>"
                        id="element_<?php echo $element['id']; ?>"
@@ -2591,7 +2642,7 @@ class SFQ_Frontend {
     /**
      * Renderizar elemento de botón freestyle
      */
-    private function render_freestyle_button($element, $question_id) {
+    private function render_freestyle_button($element, $question_id, $question_conditions) { // Added $question_conditions
         $settings = $element['settings'] ?? array();
         $button_text = $settings['button_text'] ?? $element['label'] ?? __('Botón', 'smart-forms-quiz');
         $button_url = $settings['button_url'] ?? '';
@@ -2739,7 +2790,9 @@ class SFQ_Frontend {
         if ($gradient_enabled) {
             $unique_id = 'sfq-gradient-btn-' . $element['id'] . '-' . substr(md5($question_id . $element['id']), 0, 8);
         }
-        
+
+        // For buttons, the data-value is 'clicked'
+        $button_conditions = $this->get_conditions_for_option_value($question_conditions, 'clicked');
         ?>
         <div class="sfq-freestyle-button-wrapper" style="text-align: <?php echo esc_attr($settings['text_align'] ?? 'left'); ?>;">
             <?php if (!empty($button_url)) : ?>
@@ -2748,6 +2801,9 @@ class SFQ_Frontend {
                    <?php echo $unique_id ? 'id="' . esc_attr($unique_id) . '"' : ''; ?>
                    <?php echo $open_new_tab ? 'target="_blank" rel="noopener"' : ''; ?>
                    data-element-id="<?php echo esc_attr($element['id']); ?>"
+                   data-value="clicked"
+                   data-conditions='<?php echo json_encode($button_conditions); ?>'
+                   data-has-conditions="<?php echo !empty($button_conditions) ? 'true' : 'false'; ?>"
                    <?php if ($gradient_enabled && !empty($settings['gradient_hover_pause']) && $settings['gradient_hover_pause']) : ?>
                    data-hover-pause="true"
                    <?php endif; ?>
@@ -2759,6 +2815,9 @@ class SFQ_Frontend {
                         class="<?php echo esc_attr($css_classes); ?>"
                         <?php echo $unique_id ? 'id="' . esc_attr($unique_id) . '"' : ''; ?>
                         data-element-id="<?php echo esc_attr($element['id']); ?>"
+                        data-value="clicked"
+                        data-conditions='<?php echo json_encode($button_conditions); ?>'
+                        data-has-conditions="<?php echo !empty($button_conditions) ? 'true' : 'false'; ?>"
                         <?php if ($gradient_enabled && !empty($settings['gradient_hover_pause']) && $settings['gradient_hover_pause']) : ?>
                         data-hover-pause="true"
                         <?php endif; ?>
@@ -2856,22 +2915,31 @@ class SFQ_Frontend {
     /**
      * Renderizar elemento de valoración freestyle
      */
-    private function render_freestyle_rating($element, $question_id) {
+    private function render_freestyle_rating($element, $question_id, $question_conditions) { // Added $question_conditions
         $settings = $element['settings'] ?? array();
         $rating_type = $settings['rating_type'] ?? 'stars';
         $max_rating = $settings['max_rating'] ?? 5;
         $icons = $settings['icons'] ?? array();
+
+        // Obtener todas las condiciones de la pregunta
+        // $question_conditions = $this->get_question_conditions_for_frontend($question_id); // Already passed
         ?>
-        <div class="sfq-freestyle-rating-wrapper" 
-             data-element-id="<?php echo $element['id']; ?>" 
+        <div class="sfq-freestyle-rating-wrapper"
+             data-element-id="<?php echo $element['id']; ?>"
              data-type="<?php echo esc_attr($rating_type); ?>">
-            
+
             <?php if ($rating_type === 'stars') : ?>
                 <div class="sfq-freestyle-stars">
                     <?php for ($i = 1; $i <= $max_rating; $i++) : ?>
-                        <button class="sfq-freestyle-star" 
-                                data-value="<?php echo $i; ?>" 
-                                type="button">
+                        <?php
+                        // Filtrar condiciones para el valor de calificación actual
+                        $rating_conditions = $this->get_conditions_for_option_value($question_conditions, (string)$i);
+                        ?>
+                        <button class="sfq-freestyle-star"
+                                data-value="<?php echo $i; ?>"
+                                type="button"
+                                data-conditions='<?php echo json_encode($rating_conditions); ?>'
+                                data-has-conditions="<?php echo !empty($rating_conditions) ? 'true' : 'false'; ?>">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                             </svg>
@@ -2881,26 +2949,36 @@ class SFQ_Frontend {
             <?php elseif ($rating_type === 'hearts') : ?>
                 <div class="sfq-freestyle-hearts">
                     <?php for ($i = 1; $i <= $max_rating; $i++) : ?>
-                        <button class="sfq-freestyle-heart" 
-                                data-value="<?php echo $i; ?>" 
-                                type="button">❤️</button>
+                        <?php
+                        // Filtrar condiciones para el valor de calificación actual
+                        $rating_conditions = $this->get_conditions_for_option_value($question_conditions, (string)$i);
+                        ?>
+                        <button class="sfq-freestyle-heart"
+                                data-value="<?php echo $i; ?>"
+                                type="button"
+                                data-conditions='<?php echo json_encode($rating_conditions); ?>'
+                                data-has-conditions="<?php echo !empty($rating_conditions) ? 'true' : 'false'; ?>">❤️</button>
                     <?php endfor; ?>
                 </div>
             <?php else : ?>
                 <div class="sfq-freestyle-emojis">
-                    <?php 
+                    <?php
                     $default_emojis = array('😞', '😐', '🙂', '😊', '😍');
-                    for ($i = 1; $i <= $max_rating; $i++) : 
+                    for ($i = 1; $i <= $max_rating; $i++) :
                         $emoji = $icons[$i-1] ?? $default_emojis[$i-1] ?? '⭐';
+                        // Filtrar condiciones para el valor de calificación actual
+                        $rating_conditions = $this->get_conditions_for_option_value($question_conditions, (string)$i);
                     ?>
-                        <button class="sfq-freestyle-emoji" 
-                                data-value="<?php echo $i; ?>" 
-                                type="button"><?php echo $emoji; ?></button>
+                        <button class="sfq-freestyle-emoji"
+                                data-value="<?php echo $i; ?>"
+                                type="button"
+                                data-conditions='<?php echo json_encode($rating_conditions); ?>'
+                                data-has-conditions="<?php echo !empty($rating_conditions) ? 'true' : 'false'; ?>"><?php echo $emoji; ?></button>
                     <?php endfor; ?>
                 </div>
             <?php endif; ?>
-            
-            <input type="hidden" 
+
+            <input type="hidden"
                    name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
                    value=""
                    class="sfq-rating-value">
@@ -2911,18 +2989,33 @@ class SFQ_Frontend {
     /**
      * Renderizar elemento desplegable freestyle
      */
-    private function render_freestyle_dropdown($element, $question_id) {
+    private function render_freestyle_dropdown($element, $question_id, $question_conditions) { // Added $question_conditions
         $settings = $element['settings'] ?? array();
         $options = $settings['options'] ?? array();
         $placeholder = $settings['placeholder'] ?? __('Selecciona una opción...', 'smart-forms-quiz');
+
+        // Obtener todas las condiciones de la pregunta
+        // $question_conditions = $this->get_question_conditions_for_frontend($question_id); // Already passed
         ?>
         <div class="sfq-freestyle-dropdown-wrapper">
             <select name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
                     id="element_<?php echo $element['id']; ?>"
-                    class="sfq-freestyle-select">
-                <option value=""><?php echo esc_html($placeholder); ?></option>
+                    class="sfq-freestyle-select"
+                    data-element-id="<?php echo $element['id']; ?>"
+                    data-question-id="<?php echo $question_id; ?>">
+                <option value=""
+                        data-conditions='<?php echo json_encode($this->get_conditions_for_option_value($question_conditions, '')); ?>'
+                        data-has-conditions="<?php echo !empty($this->get_conditions_for_option_value($question_conditions, '')) ? 'true' : 'false'; ?>">
+                    <?php echo esc_html($placeholder); ?>
+                </option>
                 <?php foreach ($options as $option) : ?>
-                    <option value="<?php echo esc_attr($option['value'] ?? $option['text']); ?>">
+                    <?php
+                    $option_value = $option['value'] ?? $option['text'];
+                    $option_conditions = $this->get_conditions_for_option_value($question_conditions, $option_value);
+                    ?>
+                    <option value="<?php echo esc_attr($option_value); ?>"
+                            data-conditions='<?php echo json_encode($option_conditions); ?>'
+                            data-has-conditions="<?php echo !empty($option_conditions) ? 'true' : 'false'; ?>">
                         <?php echo esc_html($option['text']); ?>
                     </option>
                 <?php endforeach; ?>
@@ -2934,26 +3027,36 @@ class SFQ_Frontend {
     /**
      * Renderizar elemento checkbox freestyle
      */
-    private function render_freestyle_checkbox($element, $question_id) {
+    private function render_freestyle_checkbox($element, $question_id, $question_conditions) { // Added $question_conditions
         $settings = $element['settings'] ?? array();
         $checkbox_text = $settings['checkbox_text'] ?? $element['label'] ?? '';
         $required_check = $settings['required_check'] ?? false;
+
+        // Obtener todas las condiciones de la pregunta
+        // $question_conditions = $this->get_question_conditions_for_frontend($question_id); // Already passed
+
+        // Filtrar condiciones para el valor "checked"
+        $checked_conditions = $this->get_conditions_for_option_value($question_conditions, 'checked');
+        // También se pueden añadir condiciones para el estado "unchecked" si es necesario,
+        // pero el motor de condiciones en frontend.js ya maneja el valor vacío para 'answer_not_equals'.
         ?>
         <div class="sfq-freestyle-checkbox-wrapper">
             <label class="sfq-freestyle-checkbox-label">
-                <input type="checkbox" 
+                <input type="checkbox"
                        name="freestyle[<?php echo $question_id; ?>][<?php echo $element['id']; ?>]"
                        id="element_<?php echo $element['id']; ?>"
                        class="sfq-freestyle-checkbox"
                        value="checked"
+                       data-conditions='<?php echo json_encode($checked_conditions); ?>'
+                       data-has-conditions="<?php echo !empty($checked_conditions) ? 'true' : 'false'; ?>"
                        <?php echo $required_check ? 'required' : ''; ?>>
-                
+
                 <span class="sfq-checkbox-custom">
                     <svg class="sfq-checkbox-icon" viewBox="0 0 24 24">
                         <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
                     </svg>
                 </span>
-                
+
                 <?php if (!empty($checkbox_text)) : ?>
                     <span class="sfq-checkbox-text"><?php echo esc_html($checkbox_text); ?></span>
                 <?php endif; ?>
@@ -2965,7 +3068,7 @@ class SFQ_Frontend {
     /**
      * Renderizar elemento de cuenta atrás freestyle
      */
-    private function render_freestyle_countdown($element, $question_id) {
+    private function render_freestyle_countdown($element, $question_id, $question_conditions) { // Added $question_conditions
         $settings = $element['settings'] ?? array();
         $target_date = $settings['target_date'] ?? '';
         $countdown_text = $settings['countdown_text'] ?? __('Tiempo restante:', 'smart-forms-quiz');
@@ -3015,7 +3118,7 @@ class SFQ_Frontend {
     /**
      * Renderizar elemento de texto legal freestyle
      */
-    private function render_freestyle_legal_text($element, $question_id) {
+    private function render_freestyle_legal_text($element, $question_id, $question_conditions) { // Added $question_conditions
         $settings = $element['settings'] ?? array();
         $text_content = $settings['text_content'] ?? '';
         $require_acceptance = $settings['require_acceptance'] ?? false;
@@ -3024,6 +3127,12 @@ class SFQ_Frontend {
         if (empty($text_content)) {
             echo '<p class="sfq-legal-error">' . __('Contenido del texto legal no configurado', 'smart-forms-quiz') . '</p>';
             return;
+        }
+
+        $legal_conditions = array();
+        if ($require_acceptance) {
+            // If acceptance is required, treat it like a checkbox with 'accepted' value
+            $legal_conditions = $this->get_conditions_for_option_value($question_conditions, 'accepted');
         }
         ?>
         <div class="sfq-freestyle-legal-wrapper">
@@ -3039,6 +3148,8 @@ class SFQ_Frontend {
                                id="element_<?php echo $element['id']; ?>"
                                class="sfq-legal-checkbox"
                                value="accepted"
+                               data-conditions='<?php echo json_encode($legal_conditions); ?>'
+                               data-has-conditions="<?php echo !empty($legal_conditions) ? 'true' : 'false'; ?>"
                                required>
                         
                         <span class="sfq-checkbox-custom">
@@ -3062,7 +3173,7 @@ class SFQ_Frontend {
     /**
      * Renderizar elemento de mostrar variable freestyle
      */
-    private function render_freestyle_variable_display($element, $question_id) {
+    private function render_freestyle_variable_display($element, $question_id, $question_conditions) { // Added $question_conditions
         $settings = $element['settings'] ?? array();
         $variable_name = $settings['variable_name'] ?? '';
         $preview_value = $settings['preview_value'] ?? '0';
@@ -3590,6 +3701,44 @@ class SFQ_Frontend {
         }
         
         return $matching_conditions;
+    }
+    
+    /**
+     * Obtener condiciones relevantes para un campo de entrada freestyle (texto, email, teléfono).
+     * Estas condiciones no se filtran por un valor de opción específico en el backend,
+     * sino que se envían al frontend para su evaluación dinámica.
+     */
+    private function get_conditions_for_freestyle_input_field($all_conditions) {
+        $relevant_conditions = array();
+        
+        foreach ($all_conditions as $condition) {
+            // Incluir condiciones que evalúan respuestas de texto
+            if (in_array($condition->condition_type, ['answer_equals', 'answer_contains', 'answer_not_equals'])) {
+                $relevant_conditions[] = array(
+                    'condition_type' => $condition->condition_type,
+                    'condition_value' => $condition->condition_value,
+                    'action_type' => $condition->action_type,
+                    'action_value' => $condition->action_value,
+                    'variable_amount' => $condition->variable_amount,
+                    'comparison_value' => $condition->comparison_value ?? '',
+                    'order_position' => $condition->order_position
+                );
+            }
+            // También incluir condiciones de variables que se ejecutan independientemente
+            elseif (in_array($condition->condition_type, ['variable_greater', 'variable_less', 'variable_equals'])) {
+                $relevant_conditions[] = array(
+                    'condition_type' => $condition->condition_type,
+                    'condition_value' => $condition->condition_value,
+                    'action_type' => $condition->action_type,
+                    'action_value' => $condition->action_value,
+                    'variable_amount' => $condition->variable_amount,
+                    'comparison_value' => $condition->comparison_value ?? '',
+                    'order_position' => $condition->order_position
+                );
+            }
+        }
+        
+        return $relevant_conditions;
     }
     
     /**

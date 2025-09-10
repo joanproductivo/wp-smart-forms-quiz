@@ -113,21 +113,48 @@
         }
 
         /**
-         * Obtener condiciones de respuesta desde el DOM
+         * ✅ EXPANDIDO: Obtener condiciones de respuesta desde el DOM (elemento + pregunta)
          */
         async getAnswerConditions(questionId, trigger) {
+            const allConditions = [];
+            
+            // 1. Obtener condiciones del elemento clickeado (comportamiento original)
             const element = trigger.element;
-            if (!element || !element.dataset.conditions) {
-                return [];
+            if (element && element.dataset.conditions) {
+                try {
+                    const elementConditions = JSON.parse(element.dataset.conditions);
+                    if (Array.isArray(elementConditions)) {
+                        allConditions.push(...elementConditions);
+                    }
+                } catch (e) {
+                    console.error('🔧 ConditionalEngine: Error parsing element conditions:', e);
+                }
             }
-
-            try {
-                const conditions = JSON.parse(element.dataset.conditions);
-                return Array.isArray(conditions) ? conditions : [];
-            } catch (e) {
-                console.error('🔧 ConditionalEngine: Error parsing answer conditions:', e);
-                return [];
+            
+            // 2. ✅ NUEVO: Obtener condiciones a nivel de pregunta (incluyendo variable_*)
+            const questionContainer = this.form.container.querySelector(`[data-question-id="${questionId}"]`);
+            if (questionContainer) {
+                // Buscar todos los elementos con condiciones en la pregunta
+                const conditionsElements = questionContainer.querySelectorAll('[data-conditions]');
+                
+                for (const condElement of conditionsElements) {
+                    // Evitar duplicar las condiciones del elemento ya procesado
+                    if (condElement === element) continue;
+                    
+                    try {
+                        const conditions = JSON.parse(condElement.dataset.conditions || '[]');
+                        if (Array.isArray(conditions)) {
+                            // Incluir todas las condiciones (answer_* y variable_*)
+                            allConditions.push(...conditions);
+                        }
+                    } catch (e) {
+                        console.error('🔧 ConditionalEngine: Error parsing question-level conditions:', e);
+                    }
+                }
             }
+            
+            console.log(`🔧 ConditionalEngine: Found ${allConditions.length} total conditions for answer trigger on question ${questionId}`);
+            return allConditions;
         }
 
         /**
@@ -168,22 +195,13 @@
         }
 
         /**
-         * Determinar si una condición debe evaluarse según el trigger
+         * ✅ CORREGIDO: Determinar si una condición debe evaluarse según el trigger
+         * Procesar todas las condiciones en orden sin filtrar por tipo
          */
         shouldEvaluateCondition(condition, trigger) {
-            switch (trigger.type) {
-                case 'answer':
-                    // Para triggers de respuesta, evaluar condiciones de respuesta
-                    return ['answer_equals', 'answer_contains', 'answer_not_equals', 
-                           'answer_greater', 'answer_less'].includes(condition.condition_type);
-                    
-                case 'navigation':
-                    // Para triggers de navegación, solo condiciones de variables
-                    return condition.condition_type && condition.condition_type.startsWith('variable_');
-                    
-                default:
-                    return true;
-            }
+            // ✅ SOLUCIÓN: Procesar todas las condiciones en el orden que aparecen
+            // sin importar si son de respuesta o variable
+            return true;
         }
 
         /**
@@ -226,28 +244,54 @@
 
             switch (condition.condition_type) {
                 case 'answer_equals':
+                    // ✅ CORREGIDO: Manejar arrays para respuestas múltiples
+                    if (Array.isArray(answer)) {
+                        return answer.includes(condition.condition_value);
+                    }
                     return answer === condition.condition_value;
                     
                 case 'answer_contains':
+                    if (Array.isArray(answer)) {
+                        return answer.some(val => val && val.toString().includes(condition.condition_value));
+                    }
                     return answer && answer.toString().includes(condition.condition_value);
                     
                 case 'answer_not_equals':
+                    // ✅ CORREGIDO: Manejar arrays para respuestas múltiples
+                    if (Array.isArray(answer)) {
+                        return !answer.includes(condition.condition_value);
+                    }
                     return answer !== condition.condition_value;
                     
+                case 'answer_greater':
+                    // ✅ IMPLEMENTADO: Condición answer_greater
+                    const answerValue1 = Array.isArray(answer) ? Math.max(...answer.map(v => parseFloat(v) || 0)) : (parseFloat(answer) || 0);
+                    const compareValue1 = parseFloat(condition.condition_value) || 0;
+                    return answerValue1 > compareValue1;
+                    
+                case 'answer_less':
+                    // ✅ IMPLEMENTADO: Condición answer_less
+                    const answerValue2 = Array.isArray(answer) ? Math.min(...answer.map(v => parseFloat(v) || 0)) : (parseFloat(answer) || 0);
+                    const compareValue2 = parseFloat(condition.condition_value) || 0;
+                    return answerValue2 < compareValue2;
+                    
                 case 'variable_greater':
+                    // ✅ CORREGIDO: Usar condition.condition_value como nombre de variable
                     const varValue1 = variables[condition.condition_value] || 0;
-                    const compareValue1 = this.getComparisonValue(condition);
-                    return this.smartCompare(varValue1, compareValue1, '>');
+                    const compareValue3 = this.getComparisonValue(condition);
+                    return this.smartCompare(varValue1, compareValue3, '>');
                     
                 case 'variable_less':
+                    // ✅ CORREGIDO: Usar condition.condition_value como nombre de variable
                     const varValue2 = variables[condition.condition_value] || 0;
-                    const compareValue2 = this.getComparisonValue(condition);
-                    return this.smartCompare(varValue2, compareValue2, '<');
+                    const compareValue4 = this.getComparisonValue(condition);
+                    return this.smartCompare(varValue2, compareValue4, '<');
                     
                 case 'variable_equals':
+                    // ✅ CORREGIDO: Usar condition.condition_value como nombre de variable
                     const varValue3 = variables[condition.condition_value] || 0;
-                    const compareValue3 = this.getComparisonValue(condition);
-                    return this.smartCompare(varValue3, compareValue3, '==');
+                    const compareValue5 = this.getComparisonValue(condition);
+                    return this.smartCompare(varValue3, compareValue5, '==');
                     
                 default:
                     console.warn('🔧 ConditionalEngine: Unknown condition type:', condition.condition_type);
@@ -395,7 +439,7 @@
             this.conditionsCache = new Map();
             this.navigationMap = null;
             this.isSecureMode = container.dataset.secureLoading === 'true';
-            this.optimizationEnabled = true;
+            // Removed this.optimizationEnabled = true; as it's no longer used.
             
             // ✅ NUEVO: Variables para guardado parcial
             this.savePartialEnabled = this.settings.save_partial || false;
@@ -684,23 +728,23 @@
             });
             this.responses[questionId] = selectedValues;
 
-            // ✅ AÑADIR: Procesar condiciones después de cada cambio
-            try {
-                // Mostrar indicador de procesamiento
-                this.showProcessingIndicator(questionContainer);
+            // Mostrar indicador de procesamiento
+            this.showProcessingIndicator(questionContainer);
 
-                // Crear un elemento temporal con las condiciones para evaluar
-                const tempElement = document.createElement('div');
-                tempElement.dataset.conditions = checkbox.dataset.conditions || '[]';
-                tempElement.dataset.value = selectedValues.join(','); // Para condiciones que evalúen múltiples valores
-                
-                const redirectResult = await this.processConditionsImmediate(tempElement, questionId);
+            try {
+                // ✅ REFACTORIZADO: Usar motor unificado de lógica condicional
+                const trigger = {
+                    type: 'answer',
+                    hasAnswer: true,
+                    answer: selectedValues,
+                    element: checkbox
+                };
+
+                const redirectResult = await this.conditionalEngine.processConditions(questionId, trigger);
                 
                 if (redirectResult && redirectResult.shouldRedirect) {
                     // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
                     if (redirectResult.markAsCompleted) {
-                       
-                        
                         // Mostrar indicador de procesamiento elegante
                         this.showRedirectProcessingIndicator();
                         
@@ -735,9 +779,9 @@
                     // ✅ NUEVO: Actualizar DOM con nuevos valores
                     this.updateVariablesInDOM();
                 }
-                
+
             } catch (error) {
-                console.error('Error processing conditions in multiple choice:', error);
+                console.error('Error processing conditions:', error);
                 this.showError('Error al procesar las condiciones. Continuando...');
             } finally {
                 // Ocultar indicador de procesamiento
@@ -760,18 +804,19 @@
                         this.showProcessingIndicator(questionContainer);
                     }
 
-                    // Crear un elemento temporal con las condiciones para evaluar
-                    const tempElement = document.createElement('div');
-                    tempElement.dataset.conditions = input.dataset.conditions || '[]';
-                    tempElement.dataset.value = input.value;
-                    
-                    const redirectResult = await this.processConditionsImmediate(tempElement, questionId);
+                    // ✅ REFACTORIZADO: Usar motor unificado de lógica condicional
+                    const trigger = {
+                        type: 'answer',
+                        hasAnswer: true,
+                        answer: input.value,
+                        element: input
+                    };
+
+                    const redirectResult = await this.conditionalEngine.processConditions(questionId, trigger);
                     
                     if (redirectResult && redirectResult.shouldRedirect) {
                         // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
                         if (redirectResult.markAsCompleted) {
-                           
-                            
                             // Mostrar indicador de procesamiento elegante
                             this.showRedirectProcessingIndicator();
                             
@@ -808,7 +853,7 @@
                     }
                     
                 } catch (error) {
-                    console.error('Error processing conditions in text input:', error);
+                    console.error('Error processing conditions:', error);
                     this.showError('Error al procesar las condiciones. Continuando...');
                 } finally {
                     // Ocultar indicador de procesamiento
@@ -849,23 +894,23 @@
             wrapper.querySelector('input[type="hidden"]').value = value;
             this.responses[questionId] = value;
 
-            // ✅ AÑADIR: Procesar condiciones inmediatamente
-            try {
-                // Mostrar indicador de procesamiento
-                this.showProcessingIndicator(wrapper);
+            // Mostrar indicador de procesamiento
+            this.showProcessingIndicator(wrapper);
 
-                // Crear un elemento temporal con las condiciones para evaluar
-                const tempElement = document.createElement('div');
-                tempElement.dataset.conditions = button.dataset.conditions || '[]';
-                tempElement.dataset.value = value;
-                
-                const redirectResult = await this.processConditionsImmediate(tempElement, questionId);
+            try {
+                // ✅ REFACTORIZADO: Usar motor unificado de lógica condicional
+                const trigger = {
+                    type: 'answer',
+                    hasAnswer: true,
+                    answer: value,
+                    element: button
+                };
+
+                const redirectResult = await this.conditionalEngine.processConditions(questionId, trigger);
                 
                 if (redirectResult && redirectResult.shouldRedirect) {
                     // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
                     if (redirectResult.markAsCompleted) {
-
-                        
                         // Mostrar indicador de procesamiento elegante
                         this.showRedirectProcessingIndicator();
                         
@@ -897,10 +942,12 @@
                 // ✅ CRÍTICO: Actualizar variables si las hay
                 if (redirectResult && redirectResult.variables) {
                     this.variables = { ...redirectResult.variables };
+                    // ✅ NUEVO: Actualizar DOM con nuevos valores
+                    this.updateVariablesInDOM();
                 }
 
             } catch (error) {
-                console.error('Error processing conditions in rating:', error);
+                console.error('Error processing conditions:', error);
                 this.showError('Error al procesar las condiciones. Continuando...');
             } finally {
                 // Ocultar indicador de procesamiento
@@ -935,18 +982,23 @@
             const responseValue = imageLabel ? imageLabel.textContent.trim() : (option.dataset.value || '');
             this.responses[questionId] = responseValue;
 
-            // ✅ AÑADIR: Procesar condiciones inmediatamente
-            try {
-                // Mostrar indicador de procesamiento
-                this.showProcessingIndicator(grid);
+            // Mostrar indicador de procesamiento
+            this.showProcessingIndicator(grid);
 
-                const redirectResult = await this.processConditionsImmediate(option, questionId);
+            try {
+                // ✅ REFACTORIZADO: Usar motor unificado de lógica condicional
+                const trigger = {
+                    type: 'answer',
+                    hasAnswer: true,
+                    answer: responseValue,
+                    element: option
+                };
+
+                const redirectResult = await this.conditionalEngine.processConditions(questionId, trigger);
                 
                 if (redirectResult && redirectResult.shouldRedirect) {
                     // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
                     if (redirectResult.markAsCompleted) {
-                       
-                        
                         // Mostrar indicador de procesamiento elegante
                         this.showRedirectProcessingIndicator();
                         
@@ -978,10 +1030,12 @@
                 // ✅ CRÍTICO: Actualizar variables si las hay
                 if (redirectResult && redirectResult.variables) {
                     this.variables = { ...redirectResult.variables };
+                    // ✅ NUEVO: Actualizar DOM con nuevos valores
+                    this.updateVariablesInDOM();
                 }
 
             } catch (error) {
-                console.error('Error processing conditions in image choice:', error);
+                console.error('Error processing conditions:', error);
                 this.showError('Error al procesar las condiciones. Continuando...');
             } finally {
                 // Ocultar indicador de procesamiento
@@ -1008,160 +1062,10 @@
             }
         }
 
-        async processConditionsImmediate(element, questionId) {
-            // ✅ OPTIMIZADO: Usar el nuevo sistema de evaluación optimizada
-            if (this.optimizationEnabled) {
-                return await this.processConditionsOptimized(element, questionId);
-            }
-            
-            // ✅ FALLBACK: Mantener lógica original para compatibilidad
-            const conditions = element.dataset.conditions;
-            let hasLocalConditions = false;
-            let hasConditionsAttribute = false;
-            
-            if (conditions !== undefined) {
-                hasConditionsAttribute = true;
-                
-                try {
-                    const conditionsList = JSON.parse(conditions);
-                    hasLocalConditions = Array.isArray(conditionsList) && conditionsList.length > 0;
-                    
-                    if (hasLocalConditions) {
-                        const localResult = this.evaluateConditionsForRedirect(conditionsList, questionId);
-                        
-                        // ✅ CRÍTICO: Aplicar variables actualizadas al estado global
-                        if (localResult.variables) {
-                            this.variables = { ...localResult.variables };
-                        }
-                        
-                        if (localResult.shouldRedirect || localResult.skipToQuestion) {
-                            return localResult;
-                        }
-                    }
-                } catch (e) {
-                    console.error('Error procesando condiciones locales:', e);
-                }
-            }
-            
-            // ✅ CORREGIDO: Hacer petición AJAX si hay atributo conditions (aunque esté vacío)
-            if (hasConditionsAttribute) {
-                try {
-                    const ajaxResult = await this.checkConditionsViaAjax(questionId, element.dataset.value);
-                    
-                    // ✅ CRÍTICO: Aplicar variables del servidor al estado global
-                    if (ajaxResult && ajaxResult.variables) {
-                        this.variables = { ...ajaxResult.variables };
-                    }
-                    
-                    return ajaxResult;
-                } catch (error) {
-                    console.error('Error en petición AJAX de condiciones:', error);
-                    return { 
-                        shouldRedirect: false, 
-                        skipToQuestion: null,
-                        variables: this.variables 
-                    };
-                }
-            } else {
-                return { 
-                    shouldRedirect: false, 
-                    skipToQuestion: null,
-                    variables: this.variables 
-                };
-            }
-        }
-
-        /**
-         * ✅ REFACTORIZADO: Usar motor unificado para evaluación de condiciones
-         * Mantener como wrapper para compatibilidad hacia atrás
-         */
-        evaluateConditionsForRedirect(conditions, questionId, customVariables = null) {
-            console.log('🔧 Legacy: Using legacy wrapper for condition evaluation');
-            
-            // Crear trigger temporal para el motor unificado
-            const trigger = {
-                type: 'answer',
-                hasAnswer: true,
-                answer: this.responses[questionId],
-                element: null
-            };
-
-            // Crear contexto temporal
-            const context = {
-                questionId,
-                trigger,
-                answer: this.responses[questionId],
-                variables: customVariables || this.variables,
-                responses: this.responses,
-                isSecureMode: this.isSecureMode,
-                timestamp: Date.now()
-            };
-
-            const result = {
-                shouldRedirect: false,
-                redirectUrl: null,
-                skipToQuestion: null,
-                variables: { ...context.variables }
-            };
-
-            // Evaluar condiciones usando la lógica del motor unificado
-            for (const condition of conditions) {
-                const conditionMet = this.conditionalEngine.evaluateConditionLogic(condition, context);
-                
-                if (conditionMet) {
-                    // Ejecutar acciones usando la lógica del motor unificado
-                    switch (condition.action_type) {
-                        case 'redirect_url':
-                            result.shouldRedirect = true;
-                            result.redirectUrl = condition.action_value;
-                            result.markAsCompleted = true;
-                            return result;
-                            
-                        case 'add_variable':
-                            const currentValue = result.variables[condition.action_value] || 0;
-                            const addAmount = parseInt(condition.variable_amount) || 0;
-                            result.variables[condition.action_value] = currentValue + addAmount;
-                            break;
-                            
-                        case 'set_variable':
-                            result.variables[condition.action_value] = condition.variable_amount;
-                            break;
-                            
-                        case 'goto_question':
-                            result.skipToQuestion = condition.action_value;
-                            break;
-                            
-                        case 'skip_to_end':
-                            result.skipToQuestion = 'end';
-                            break;
-                    }
-                    
-                    break; // Solo ejecutar la primera condición que coincida
-                }
-            }
-            
-            return result;
-        }
-
-        /**
-         * ✅ REFACTORIZADO: Usar motor unificado para evaluación inmediata
-         * Mantener como wrapper para compatibilidad hacia atrás
-         */
-        evaluateConditionImmediate(condition, answer, questionId) {
-            console.log('🔧 Legacy: Using legacy wrapper for immediate evaluation');
-            
-            // Crear contexto temporal para el motor unificado
-            const context = {
-                questionId,
-                answer,
-                variables: this.variables,
-                responses: this.responses,
-                isSecureMode: this.isSecureMode,
-                timestamp: Date.now()
-            };
-
-            return this.conditionalEngine.evaluateConditionLogic(condition, context);
-        }
+        // Removed processConditionsImmediate, evaluateConditionsForRedirect, evaluateConditionImmediate, processConditionsOptimized, processConditionsNormalMode, processConditionsSecureMode
+        // These functions are replaced by direct calls to this.conditionalEngine.processConditions() in event handlers.
+        // The checkConditionsViaAjax is retained for server-side condition evaluation fallback, as the new engine does not have this built-in.
+        // The elementShouldHaveConditions is also retained as it's used by checkConditionsViaAjax.
 
         /**
          * ✅ DELEGADO: Usar funciones del motor unificado
@@ -1178,108 +1082,8 @@
         }
 
         /**
-         * ✅ NUEVO: Determinar si las condiciones se pueden evaluar completamente en local
-         */
-        canEvaluateLocally(conditions) {
-            if (!Array.isArray(conditions) || conditions.length === 0) {
-                return true; // Sin condiciones = evaluación local
-            }
-
-            // En modo seguro, ser más conservador
-            if (this.isSecureMode) {
-                return conditions.every(condition => {
-                    // Solo condiciones simples en modo seguro
-                    const simpleConditionTypes = ['answer_equals', 'answer_contains', 'answer_not_equals'];
-                    const simpleActionTypes = ['add_variable', 'set_variable', 'goto_question', 'skip_to_end'];
-                    
-                    return simpleConditionTypes.includes(condition.condition_type) && 
-                           simpleActionTypes.includes(condition.action_type);
-                });
-            }
-
-            // En modo normal, evaluar todo localmente
-            return true;
-        }
-
-        /**
-         * ✅ NUEVO: Evaluación optimizada de condiciones según el modo
-         */
-        async processConditionsOptimized(element, questionId) {
-            const startTime = performance.now();
-            
-            if (this.isSecureMode) {
-                const result = await this.processConditionsSecureMode(element, questionId);
-                return result;
-            } else {
-                const result = this.processConditionsNormalMode(element, questionId);
-                return result;
-            }
-        }
-
-        /**
-         * ✅ CORREGIDO: Procesamiento optimizado para modo normal con detección mejorada
-         */
-        processConditionsNormalMode(element, questionId) {
-            const conditions = element.dataset.conditions;
-           
-            // ✅ NUEVO: Verificar si el elemento DEBERÍA tener condiciones
-            const shouldHaveConditions = this.elementShouldHaveConditions(element);
-            
-            if (!conditions || conditions === 'undefined' || conditions === 'null') {
-                if (shouldHaveConditions) {
-                  
-                    return this.checkConditionsViaAjax(questionId, element.dataset.value);
-                }
-                // Si no debería tener condiciones, continuar normalmente
-                
-                return { shouldRedirect: false, skipToQuestion: null, variables: this.variables };
-            }
-
-            try {
-                const conditionsList = JSON.parse(conditions);
-               
-                // ✅ MEJORADO: Solo hacer AJAX si hay error real de datos
-                if (!Array.isArray(conditionsList)) {
-                  
-                    return this.checkConditionsViaAjax(questionId, element.dataset.value);
-                }
-                
-                // ✅ NUEVO: Si está vacío pero debería tener condiciones, hacer AJAX
-                if (conditionsList.length === 0 && shouldHaveConditions) {
-                   
-                    return this.checkConditionsViaAjax(questionId, element.dataset.value);
-                }
-                
-                // ✅ OPTIMIZADO: Si está vacío y no debería tener condiciones, continuar
-                if (conditionsList.length === 0) {
-                   
-                    return { shouldRedirect: false, skipToQuestion: null, variables: this.variables };
-                }
-
-
-                
-                // En modo normal, evaluar todo localmente (sin AJAX)
-                const localResult = this.evaluateConditionsForRedirect(conditionsList, questionId);
-                
-               
-                
-                // Aplicar variables actualizadas
-                if (localResult.variables) {
-                    this.variables = { ...localResult.variables };
-                   
-                }
-                
-                return localResult;
-                
-            } catch (e) {
-
-                // ✅ CRÍTICO: En caso de error, hacer fallback a AJAX
-                return this.checkConditionsViaAjax(questionId, element.dataset.value);
-            }
-        }
-
-        /**
          * ✅ MEJORADO: Determinar si un elemento debería tener condiciones con detección más precisa
+         * Retained for checkConditionsViaAjax fallback.
          */
         elementShouldHaveConditions(element) {
             // 1. Verificar atributo explícito data-has-conditions (más confiable)
@@ -1317,60 +1121,6 @@
             
             return false;
         }
-
-        /**
-         * ✅ NUEVO: Procesamiento híbrido optimizado para modo seguro
-         */
-        async processConditionsSecureMode(element, questionId) {
-            const conditions = element.dataset.conditions;
-            
-            if (!conditions) {
-                return { 
-                    shouldRedirect: false, 
-                    skipToQuestion: null,
-                    variables: this.variables 
-                };
-            }
-
-            try {
-                const conditionsList = JSON.parse(conditions);
-                
-                if (!Array.isArray(conditionsList) || conditionsList.length === 0) {
-                    // En modo seguro, hacer AJAX incluso con condiciones vacías
-                    // (el servidor puede tener condiciones adicionales)
-                    return await this.checkConditionsViaAjax(questionId, element.dataset.value);
-                }
-
-                // Verificar si se puede evaluar localmente
-                if (this.canEvaluateLocally(conditionsList)) {
-                    // Evaluación local optimizada
-                    const localResult = this.evaluateConditionsForRedirect(conditionsList, questionId);
-                    
-                    // Aplicar variables actualizadas
-                    if (localResult.variables) {
-                        this.variables = { ...localResult.variables };
-                    }
-                    
-                    // Si hay redirección o salto, no necesitamos AJAX
-                    if (localResult.shouldRedirect || localResult.skipToQuestion) {
-                        return localResult;
-                    }
-                    
-                    // Para casos simples sin redirección, también evitar AJAX
-                    return localResult;
-                } else {
-                    // Condiciones complejas requieren validación del servidor
-                    return await this.checkConditionsViaAjax(questionId, element.dataset.value);
-                }
-                
-            } catch (e) {
-                console.error('Error procesando condiciones en modo seguro:', e);
-                // Fallback a AJAX en caso de error
-                return await this.checkConditionsViaAjax(questionId, element.dataset.value);
-            }
-        }
-
-       
 
         async checkConditionsViaAjax(questionId, answer) {
             const result = {
@@ -1490,7 +1240,7 @@
         }
         
         /**
-         * ✅ REFACTORIZADO: Procesar condiciones para navegación usando el motor unificado
+         * ✅ CORREGIDO: Procesar condiciones para navegación sin duplicación
          * SOLO procesa condiciones basadas en variables globales (no duplicar condiciones de respuesta)
          */
         async processConditionsForNavigation(questionId) {
@@ -1509,11 +1259,16 @@
                 
                 console.log('🔧 Navigation: Engine result', result);
                 
-                // Si el motor unificado no encontró condiciones de navegación, hacer fallback a AJAX
-                if (!result.shouldRedirect && !result.skipToQuestion) {
+                // ✅ SOLUCIÓN: NO hacer fallback a AJAX para evitar duplicación
+                // El motor unificado ya maneja todas las condiciones necesarias
+                // Solo hacer AJAX si realmente no hay condiciones locales Y no hay respuesta
+                const hasLocalConditions = result.shouldRedirect || result.skipToQuestion || 
+                                          Object.keys(result.variables).length > Object.keys(this.variables).length;
+                
+                if (!hasLocalConditions) {
                     const currentAnswer = this.responses[questionId];
                     
-                    // Solo consultar servidor si no hay respuesta específica
+                    // Solo consultar servidor si no hay respuesta específica Y no hay condiciones locales
                     if (currentAnswer === undefined) {
                         console.log('🔧 Navigation: No local navigation conditions, checking server');
                         
@@ -1594,33 +1349,14 @@
             };
             
             try {
-                // ✅ ESTRATEGIA 1: Buscar condiciones en el DOM del elemento que se clickeó
-                const questionContainer = this.container.querySelector(`[data-question-id="${questionId}"]`);
-                if (questionContainer) {
-                    const clickedElement = questionContainer.querySelector(`[data-value="${answer}"]`);
-                    if (clickedElement && clickedElement.dataset.conditions) {
-                        console.log('SFQ Fallback: Found conditions in DOM element');
-                        
-                        try {
-                            const conditions = JSON.parse(clickedElement.dataset.conditions);
-                            if (Array.isArray(conditions) && conditions.length > 0) {
-                                console.log('SFQ Fallback: Processing DOM conditions:', conditions);
-                                return this.evaluateConditionsForRedirect(conditions, questionId);
-                            }
-                        } catch (e) {
-                            console.error('SFQ Fallback: Error parsing DOM conditions:', e);
-                        }
-                    }
-                }
-                
-                // ✅ ESTRATEGIA 2: Aplicar lógica condicional básica basada en patrones comunes
+                // ✅ ESTRATEGIA 1: Aplicar lógica condicional básica basada en patrones comunes
                 const fallbackResult = this.applyBasicConditionalPatterns(questionId, answer);
                 if (fallbackResult.shouldRedirect || fallbackResult.skipToQuestion) {
                     console.log('SFQ Fallback: Basic patterns matched:', fallbackResult);
                     return fallbackResult;
                 }
                 
-                // ✅ ESTRATEGIA 3: Continuar con navegación secuencial normal
+                // ✅ ESTRATEGIA 2: Continuar con navegación secuencial normal
                 console.log('SFQ Fallback: No conditions matched, continuing with sequential navigation');
                 
                 // Mostrar notificación discreta al usuario sobre el modo fallback
@@ -2264,10 +2000,16 @@
                     }
 
                    
-                    // ✅ SOLUCIÓN: Usar elemento real en lugar de temporal
-                    const redirectResult = await this.processConditionsImmediate(input, questionId);
+                    // ✅ REFACTORIZADO: Usar motor unificado de lógica condicional directamente
+                    const trigger = {
+                        type: 'answer',
+                        hasAnswer: true,
+                        answer: input.value,
+                        element: input // Pass the actual input element
+                    };
+
+                    const redirectResult = await this.conditionalEngine.processConditions(questionId, trigger);
                     
-                   
                     if (redirectResult && redirectResult.shouldRedirect) {
                         // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
                         if (redirectResult.markAsCompleted) {
@@ -2294,15 +2036,15 @@
                         return;
                     }
 
-                    // Si hay salto de pregunta, configurarlo
+                    // If there's a question skip, configure it
                     if (redirectResult && redirectResult.skipToQuestion) {
                         this.skipToQuestion = redirectResult.skipToQuestion;
                     }
 
-                    // ✅ CRÍTICO: Actualizar variables si las hay
+                    // ✅ CRÍTICO: Update variables if any
                     if (redirectResult && redirectResult.variables) {
                         this.variables = { ...redirectResult.variables };
-                        // ✅ NUEVO: Actualizar DOM con nuevos valores
+                        // ✅ NUEVO: Update DOM with new values
                         this.updateVariablesInDOM();
                     }
                     
@@ -2310,13 +2052,13 @@
                     console.error('Error processing conditions in freestyle input:', error);
                     this.showError('Error al procesar las condiciones. Continuando...');
                 } finally {
-                    // Ocultar indicador de procesamiento
+                    // Hide processing indicator
                     const questionScreen = input.closest('.sfq-question-screen');
                     if (questionScreen) {
                         this.hideProcessingIndicator(questionScreen);
                     }
                 }
-            }, 500); // Esperar 500ms después de que el usuario deje de escribir
+            }, 500); // Wait 500ms after the user stops typing
         }
 
         /**
@@ -2335,20 +2077,22 @@
 
             this.responses[questionId][elementId] = select.value;
 
-            // ✅ AÑADIR: Procesar condiciones inmediatamente
-            try {
-                // Mostrar indicador de procesamiento
-                const questionScreen = select.closest('.sfq-question-screen');
-                if (questionScreen) {
-                    this.showProcessingIndicator(questionScreen);
-                }
+            // Mostrar indicador de procesamiento
+            const questionScreen = select.closest('.sfq-question-screen');
+            if (questionScreen) {
+                this.showProcessingIndicator(questionScreen);
+            }
 
-                // Crear un elemento temporal con las condiciones para evaluar
-                const tempElement = document.createElement('div');
-                tempElement.dataset.conditions = select.dataset.conditions || '[]';
-                tempElement.dataset.value = select.value;
-                
-                const redirectResult = await this.processConditionsImmediate(tempElement, questionId);
+            try {
+                // ✅ REFACTORIZADO: Usar motor unificado de lógica condicional
+                const trigger = {
+                    type: 'answer',
+                    hasAnswer: true,
+                    answer: select.value,
+                    element: select
+                };
+
+                const redirectResult = await this.conditionalEngine.processConditions(questionId, trigger);
                 
                 if (redirectResult && redirectResult.shouldRedirect) {
                     // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
@@ -2389,11 +2133,10 @@
                 }
                 
             } catch (error) {
-                console.error('Error processing conditions in freestyle select:', error);
+                console.error('Error processing conditions:', error);
                 this.showError('Error al procesar las condiciones. Continuando...');
             } finally {
                 // Ocultar indicador de procesamiento
-                const questionScreen = select.closest('.sfq-question-screen');
                 if (questionScreen) {
                     this.hideProcessingIndicator(questionScreen);
                 }
@@ -2416,20 +2159,22 @@
 
             this.responses[questionId][elementId] = checkbox.checked ? checkbox.value : '';
 
-            // ✅ AÑADIR: Procesar condiciones inmediatamente
-            try {
-                // Mostrar indicador de procesamiento
-                const questionScreen = checkbox.closest('.sfq-question-screen');
-                if (questionScreen) {
-                    this.showProcessingIndicator(questionScreen);
-                }
+            // Mostrar indicador de procesamiento
+            const questionScreen = checkbox.closest('.sfq-question-screen');
+            if (questionScreen) {
+                this.showProcessingIndicator(questionScreen);
+            }
 
-                // Crear un elemento temporal con las condiciones para evaluar
-                const tempElement = document.createElement('div');
-                tempElement.dataset.conditions = checkbox.dataset.conditions || '[]';
-                tempElement.dataset.value = checkbox.checked ? checkbox.value : '';
-                
-                const redirectResult = await this.processConditionsImmediate(tempElement, questionId);
+            try {
+                // ✅ REFACTORIZADO: Usar motor unificado de lógica condicional
+                const trigger = {
+                    type: 'answer',
+                    hasAnswer: true,
+                    answer: checkbox.checked ? checkbox.value : '',
+                    element: checkbox
+                };
+
+                const redirectResult = await this.conditionalEngine.processConditions(questionId, trigger);
                 
                 if (redirectResult && redirectResult.shouldRedirect) {
                     // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
@@ -2470,11 +2215,10 @@
                 }
                 
             } catch (error) {
-                console.error('Error processing conditions in freestyle checkbox:', error);
+                console.error('Error processing conditions:', error);
                 this.showError('Error al procesar las condiciones. Continuando...');
             } finally {
                 // Ocultar indicador de procesamiento
-                const questionScreen = checkbox.closest('.sfq-question-screen');
                 if (questionScreen) {
                     this.hideProcessingIndicator(questionScreen);
                 }
@@ -2525,20 +2269,22 @@
 
             this.responses[questionId][elementId] = value;
 
-            // ✅ AÑADIR: Procesar condiciones inmediatamente
-            try {
-                // Mostrar indicador de procesamiento
-                const questionScreen = wrapper.closest('.sfq-question-screen');
-                if (questionScreen) {
-                    this.showProcessingIndicator(questionScreen);
-                }
+            // Mostrar indicador de procesamiento
+            const questionScreen = wrapper.closest('.sfq-question-screen');
+            if (questionScreen) {
+                this.showProcessingIndicator(questionScreen);
+            }
 
-                // Crear un elemento temporal con las condiciones para evaluar
-                const tempElement = document.createElement('div');
-                tempElement.dataset.conditions = button.dataset.conditions || '[]';
-                tempElement.dataset.value = value;
-                
-                const redirectResult = await this.processConditionsImmediate(tempElement, questionId);
+            try {
+                // ✅ REFACTORIZADO: Usar motor unificado de lógica condicional
+                const trigger = {
+                    type: 'answer',
+                    hasAnswer: true,
+                    answer: value,
+                    element: button
+                };
+
+                const redirectResult = await this.conditionalEngine.processConditions(questionId, trigger);
                 
                 if (redirectResult && redirectResult.shouldRedirect) {
                     // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
@@ -2579,11 +2325,10 @@
                 }
                 
             } catch (error) {
-                console.error('Error processing conditions in freestyle rating:', error);
+                console.error('Error processing conditions:', error);
                 this.showError('Error al procesar las condiciones. Continuando...');
             } finally {
                 // Ocultar indicador de procesamiento
-                const questionScreen = wrapper.closest('.sfq-question-screen');
                 if (questionScreen) {
                     this.hideProcessingIndicator(questionScreen);
                 }
@@ -2612,20 +2357,22 @@
 
             this.responses[questionId][elementId] = 'clicked';
 
-            // ✅ AÑADIR: Procesar condiciones inmediatamente
-            try {
-                // Mostrar indicador de procesamiento
-                const questionScreen = button.closest('.sfq-question-screen');
-                if (questionScreen) {
-                    this.showProcessingIndicator(questionScreen);
-                }
+            // Mostrar indicador de procesamiento
+            const questionScreen = button.closest('.sfq-question-screen');
+            if (questionScreen) {
+                this.showProcessingIndicator(questionScreen);
+            }
 
-                // Crear un elemento temporal con las condiciones para evaluar
-                const tempElement = document.createElement('div');
-                tempElement.dataset.conditions = button.dataset.conditions || '[]';
-                tempElement.dataset.value = 'clicked';
-                
-                const redirectResult = await this.processConditionsImmediate(tempElement, questionId);
+            try {
+                // ✅ REFACTORIZADO: Usar motor unificado de lógica condicional
+                const trigger = {
+                    type: 'answer',
+                    hasAnswer: true,
+                    answer: 'clicked',
+                    element: button
+                };
+
+                const redirectResult = await this.conditionalEngine.processConditions(questionId, trigger);
                 
                 if (redirectResult && redirectResult.shouldRedirect) {
                     // ✅ NUEVO: Marcar como completado antes de redirigir si es necesario
@@ -2666,11 +2413,10 @@
                 }
                 
             } catch (error) {
-                console.error('Error processing conditions in freestyle button:', error);
+                console.error('Error processing conditions:', error);
                 this.showError('Error al procesar las condiciones. Continuando...');
             } finally {
                 // Ocultar indicador de procesamiento
-                const questionScreen = button.closest('.sfq-question-screen');
                 if (questionScreen) {
                     this.hideProcessingIndicator(questionScreen);
                 }
@@ -2690,7 +2436,7 @@
         /**
          * Manejar click en imagen freestyle
          */
-        handleFreestyleImageClick(e) {
+        async handleFreestyleImageClick(e) { // Made async
             const imageContainer = e.currentTarget;
             const elementId = imageContainer.dataset.elementId;
             const questionContainer = imageContainer.closest('.sfq-freestyle-container');
@@ -2709,6 +2455,59 @@
 
             this.responses[questionId][elementId] = 'clicked';
 
+            // Mostrar indicador de procesamiento
+            const questionScreen = imageContainer.closest('.sfq-question-screen');
+            if (questionScreen) {
+                this.showProcessingIndicator(questionScreen);
+            }
+
+            try {
+                // ✅ REFACTORIZADO: Usar motor unificado de lógica condicional
+                const trigger = {
+                    type: 'answer',
+                    hasAnswer: true,
+                    answer: 'clicked',
+                    element: imageContainer // Pass the actual image container element
+                };
+
+                const redirectResult = await this.conditionalEngine.processConditions(questionId, trigger);
+                
+                if (redirectResult && redirectResult.shouldRedirect) {
+                    if (redirectResult.markAsCompleted) {
+                        this.showRedirectProcessingIndicator();
+                        try {
+                            await this.markFormAsCompleted();
+                            setTimeout(() => {
+                                window.location.href = redirectResult.redirectUrl;
+                            }, 1500);
+                        } catch (error) {
+                            console.error('SFQ: Error marking form as completed before redirect:', error);
+                            window.location.href = redirectResult.redirectUrl;
+                        }
+                    } else {
+                        window.location.href = redirectResult.redirectUrl;
+                    }
+                    return;
+                }
+
+                if (redirectResult && redirectResult.skipToQuestion) {
+                    this.skipToQuestion = redirectResult.skipToQuestion;
+                }
+
+                if (redirectResult && redirectResult.variables) {
+                    this.variables = { ...redirectResult.variables };
+                    this.updateVariablesInDOM();
+                }
+                
+            } catch (error) {
+                console.error('Error processing conditions in freestyle image click:', error);
+                this.showError('Error al procesar las condiciones. Continuando...');
+            } finally {
+                if (questionScreen) {
+                    this.hideProcessingIndicator(questionScreen);
+                }
+            }
+
             // Añadir efecto visual
             imageContainer.style.transform = 'scale(0.95)';
             setTimeout(() => {
@@ -2719,7 +2518,7 @@
         /**
          * Manejar subida de archivos freestyle
          */
-        handleFreestyleFileUpload(e) {
+        async handleFreestyleFileUpload(e) { // Made async
             const input = e.target;
             const elementId = input.id.replace('element_', '');
             const questionContainer = input.closest('.sfq-freestyle-container');
@@ -2749,7 +2548,7 @@
                 if (validFiles.length > 0) {
                     console.log('SFQ File Upload: Valid files found:', validFiles.length);
                     // Subir archivos al servidor
-                    this.uploadFiles(validFiles, elementId, questionId, uploadArea, preview);
+                    await this.uploadFiles(validFiles, elementId, questionId, uploadArea, preview); // Await uploadFiles
                 } else {
                     console.log('SFQ File Upload: No valid files found');
                     // Limpiar input si no hay archivos válidos
