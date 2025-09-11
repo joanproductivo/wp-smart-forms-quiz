@@ -3649,7 +3649,7 @@ class SFQ_Frontend {
         }
         
         // Padding por defecto para el recuadro
-        $styles['padding'] = '16px';
+        $styles['padding'] = '0rem 1rem';
         $styles['margin'] = 'auto';
         $styles['box-sizing'] = 'border-box';
         
