@@ -131,7 +131,7 @@
                 icons: ['😞', '😐', '🙂', '😊', '😍']
             },
             dropdown: {
-                placeholder: 'Selecciona una opción...',
+                placeholder: 'Selecciona una opción',
                 options: []
             },
             checkbox: {
@@ -214,7 +214,7 @@
                         <label style="display: block; margin-bottom: 5px; font-size: 12px; color: #666; font-weight: 500;">
                             Texto que verá el usuario (ej: "Tu nombre completo", "Selecciona una opción"):
                         </label>
-                        <input type="text" placeholder="Ej: Tu nombre completo, Selecciona una opción..." 
+                        <input type="text" placeholder="Ej: Tu nombre completo, Selecciona una opción" 
                                value="${this.escapeHtml(element.label)}" 
                                class="sfq-element-label-input">
                     </div>
