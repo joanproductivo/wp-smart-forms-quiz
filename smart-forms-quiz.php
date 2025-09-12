@@ -3,7 +3,7 @@
  * Plugin Name: Smart Forms & Quiz
  * Plugin URI: https://github.com/joanproductivo/wp-smart-forms-quiz
  * Description: Plugin eficiente para crear formularios y quiz modernos con lógica condicional y analytics
- * Version: 2.5
+ * Version: 2.6
  * Author: Joan Planas & IA
  * License: No puedes comercializar con este plugin.
  * Text Domain: smart-forms-quiz
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Definir constantes del plugin
-define('SFQ_VERSION', '2.5');
+define('SFQ_VERSION', '2.6');
 define('SFQ_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SFQ_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('SFQ_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -82,6 +82,9 @@ function sfq_init() {
     // Inicializar componentes
     $loader = new SFQ_Loader();
     $loader->init();
+    
+    // Encolar script de carga AJAX para formularios
+    add_action('wp_enqueue_scripts', array('SFQ_Frontend', 'enqueue_ajax_loader_script'));
 }
 
 // Verificar y ejecutar migraciones automáticamente

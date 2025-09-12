@@ -520,13 +520,10 @@ class SFQ_WP_Rocket_Compat {
             $form_pages = $this->get_pages_with_forms();
         }
         
-        foreach ($form_pages as $page) {
-            if (!in_array($page, $excluded_uris)) {
-                $excluded_uris[] = $page;
-            }
-        }
+        // ✅ MODIFICADO: Ya no excluimos páginas completas por defecto, ya que el formulario se carga vía AJAX.
+        // Solo mantenemos las exclusiones basadas en parámetros de URL que indican contenido dinámico.
         
-        // Patrones adicionales
+        // Patrones adicionales que siempre deben ser excluidos
         $additional_patterns = array(
             '(.*)sfq_form_id=(.*)',
             '(.*)sfq_session_id=(.*)',
@@ -560,7 +557,8 @@ class SFQ_WP_Rocket_Compat {
             'sfq_check_form_completion',
             'sfq_upload_file',
             'sfq_refresh_nonce',
-            'sfq_get_form_content'
+            'sfq_get_form_content',// Omite la verificación de nonce bajo la condición de que el temporizador del formulario haya expirado. Esto es crucial para la UX, ya que un usuario que espera la expiración de un temporizador no debería ser bloqueado por un nonce expirado al intentar acceder al formulario.
+            'sfq_get_full_form' // Excluir el nuevo endpoint de carga AJAX del formulario
         );
         
         foreach ($ajax_actions as $action) {

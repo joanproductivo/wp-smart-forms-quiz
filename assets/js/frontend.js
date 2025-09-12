@@ -1288,7 +1288,6 @@
          * SOLO procesa condiciones basadas en variables globales (no duplicar condiciones de respuesta)
          */
         async processConditionsForNavigation(questionId) {
-            console.log('🔧 Navigation: Processing conditions for navigation', { questionId });
             
             try {
                 // ✅ REFACTORIZADO: Usar motor unificado con trigger de navegación
@@ -1303,7 +1302,6 @@
 
                 const result = await this.conditionalEngine.processConditions(questionId, trigger);
                 
-                console.log('🔧 Navigation: Engine result', result);
                 
                 // Solo hacer AJAX si realmente no hay condiciones locales (redirección, salto o cambio de variables)
                 // const hasLocalConditions = result.shouldRedirect || result.skipToQuestion || 
@@ -1329,7 +1327,6 @@
                     //      }
                 // }
                 
-                console.log('🔧 Navigation: Final result', result);
                 return result;
                 
             } catch (error) {
@@ -1396,7 +1393,6 @@
                 }
                 
                 // ✅ ESTRATEGIA 2: Continuar con navegación secuencial normal
-                console.log('SFQ Fallback: No conditions matched, continuing with sequential navigation');
                 
                 // Mostrar notificación discreta al usuario sobre el modo fallback
                 this.showFallbackNotification();
@@ -1602,7 +1598,6 @@
             const questionId = currentQuestion.dataset.questionId;
             const textInputs = currentQuestion.querySelectorAll('.sfq-text-input, .sfq-freestyle-input, .sfq-freestyle-textarea');
             
-            console.log('🔧 NEXT QUESTION: Checking for text inputs to process');
             
             // BLOQUEAR completamente hasta procesar TODOS los inputs de texto
             for (const input of textInputs) {
@@ -1620,7 +1615,6 @@
                     
                     // Procesar INMEDIATAMENTE y ESPERAR el resultado completo
                     try {
-                        console.log('🔧 PROCESSING CONDITIONS FOR TEXT:', inputValue);
                         
                         const trigger = {
                             type: 'answer',
@@ -1676,7 +1670,6 @@
                 }
             }
             
-            console.log('🔧 TEXT PROCESSING COMPLETED, CONTINUING WITH NAVIGATION');
 
             // Validar respuesta requerida
             if (!this.validateCurrentQuestion()) {
@@ -5498,9 +5491,13 @@
 
     // Inicializar cuando el DOM esté listo
     document.addEventListener('DOMContentLoaded', function() {
-        // Buscar todos los formularios en la página
-        document.querySelectorAll('.sfq-form-container').forEach(container => {
-            new SmartFormQuiz(container);
+        // Buscar todos los formularios en la página que NO sean placeholders AJAX
+        document.querySelectorAll('.sfq-form-container:not(.sfq-form-ajax-placeholder)').forEach(container => {
+            // Solo inicializar si no ha sido inicializado ya (para evitar duplicados si el script se carga varias veces)
+            if (!container.dataset.initialized) {
+                new SmartFormQuiz(container);
+                container.dataset.initialized = 'true';
+            }
         });
     });
 

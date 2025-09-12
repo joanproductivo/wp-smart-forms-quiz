@@ -78,6 +78,9 @@
                         <!-- ✅ NUEVO: Sección de imagen de pregunta para tipos objetivo -->
                         ${this.renderQuestionImageSection(question)}
                         
+                        <!-- ✅ NUEVO: Sección de video YouTube/Vimeo para tipos objetivo -->
+                        ${this.renderQuestionVideoSection(question)}
+                        
                         <div class="sfq-next-button-controls-universal">
                          <label class="sfq-next-button-toggle">
                                 <input type="checkbox" class="sfq-show-next-button-checkbox" 
@@ -1243,7 +1246,7 @@
                                 </span>
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <input type="range" class="sfq-question-image-mobile-width" 
-                                           min="80" max="400" step="10" 
+                                           min="50" max="1000" step="10" 
                                            value="${imageConfig.mobile_width || 150}"
                                            style="flex: 1;">
                                     <span class="mobile-width-display" style="font-size: 12px; color: #007cba; font-weight: 500; min-width: 50px;">
@@ -1278,6 +1281,212 @@
                     </div>
                 </div>
             `;
+        }
+
+        /**
+         * ✅ NUEVO: Renderizar sección de video YouTube/Vimeo para tipos objetivo
+         */
+        renderQuestionVideoSection(question) {
+            // Solo mostrar para tipos de pregunta objetivo
+            const targetTypes = ['single_choice', 'multiple_choice', 'rating', 'text', 'email'];
+            if (!targetTypes.includes(question.type)) {
+                return '';
+            }
+            
+            const videoConfig = question.settings?.question_video || {};
+            const hasVideo = videoConfig.url && videoConfig.url.trim() !== '';
+            
+            return `
+                <div class="sfq-question-video-section">
+                    <h4 style="margin: 20px 0 15px 0; font-size: 14px; font-weight: 600; color: #333; border-bottom: 1px solid #e0e0e0; padding-bottom: 8px;">
+                        🎥 Video de la Pregunta (YouTube/Vimeo)
+                    </h4>
+                    
+                    <!-- Campo de URL de video -->
+                    <div class="sfq-video-controls">
+                        <input type="url" class="sfq-question-video-url-input ${hasVideo ? 'valid' : ''}" 
+                               placeholder="Pega la URL de YouTube o Vimeo..." 
+                               value="${this.escapeHtml(videoConfig.url || '')}"
+                               style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
+                        <small style="display: block; margin-top: 6px; color: #666; font-size: 11px; line-height: 1.3;">
+                            💡 <strong>Formatos soportados:</strong><br>
+                            • YouTube: https://www.youtube.com/watch?v=... o https://youtu.be/...<br>
+                            • Vimeo: https://vimeo.com/123456789
+                        </small>
+                    </div>
+                    
+                    <!-- Configuración de video -->
+                    <div class="sfq-question-video-config" style="display: ${hasVideo ? 'block' : 'none'}; margin-top: 15px; padding: 15px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px;">
+                        <div class="sfq-config-row" style="display: flex; gap: 20px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;">
+                            <label style="display: flex; flex-direction: column; min-width: 120px;">
+                                <span style="font-size: 12px; color: #666; margin-bottom: 4px; font-weight: 500;">Posición:</span>
+                                <select class="sfq-question-video-position" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
+                                    <option value="top" ${videoConfig.position === 'top' || !videoConfig.position ? 'selected' : ''}>⬆️ Arriba</option>
+                                    <option value="left" ${videoConfig.position === 'left' ? 'selected' : ''}>⬅️ Izquierda</option>
+                                    <option value="right" ${videoConfig.position === 'right' ? 'selected' : ''}>➡️ Derecha</option>
+                                    <option value="bottom" ${videoConfig.position === 'bottom' ? 'selected' : ''}>⬇️ Abajo</option>
+                                </select>
+                            </label>
+                            
+                            <label style="display: flex; flex-direction: column; min-width: 150px;">
+                                <span style="font-size: 12px; color: #666; margin-bottom: 4px; font-weight: 500;">Ancho:</span>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="range" class="sfq-question-video-width" 
+                                           min="300" max="800" step="10" 
+                                           value="${videoConfig.width || 560}"
+                                           style="flex: 1;">
+                                    <span class="video-width-display" style="font-size: 12px; color: #007cba; font-weight: 500; min-width: 50px;">
+                                        ${videoConfig.width || 560}px
+                                    </span>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <div class="sfq-config-row" style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" class="sfq-question-video-shadow" 
+                                       ${videoConfig.shadow ? 'checked' : ''}>
+                                <span style="font-size: 13px; color: #333;">🌟 Sombreado</span>
+                            </label>
+                            
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" class="sfq-question-video-mobile-force" 
+                                       ${videoConfig.mobile_force_position ? 'checked' : ''}>
+                                <span style="font-size: 13px; color: #333;">📱 Forzar posición en móvil</span>
+                            </label>
+                        </div>
+                        
+                        <!-- Campo de ancho personalizado para móvil -->
+                        <div class="sfq-video-mobile-width-config" style="display: ${videoConfig.mobile_force_position ? 'block' : 'none'}; margin-top: 15px; padding: 15px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px;">
+                            <label style="display: flex; flex-direction: column; max-width: 250px;">
+                                <span style="font-size: 12px; color: #856404; margin-bottom: 8px; font-weight: 600;">
+                                    📱 Ancho personalizado para móvil:
+                                </span>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="range" class="sfq-question-video-mobile-width" 
+                                           min="50" max="1000" step="10" 
+                                           value="${videoConfig.mobile_width || 320}"
+                                           style="flex: 1;">
+                                    <span class="video-mobile-width-display" style="font-size: 12px; color: #007cba; font-weight: 500; min-width: 50px;">
+                                        ${videoConfig.mobile_width || 320}px
+                                    </span>
+                                </div>
+                                <small style="display: block; margin-top: 6px; color: #856404; font-size: 11px; line-height: 1.3;">
+                                    💡 Este ancho se aplicará solo en dispositivos móviles cuando "Forzar posición en móvil" esté activado.
+                                </small>
+                            </label>
+                        </div>
+                        
+                        <small style="display: block; margin-top: 10px; color: #666; font-size: 11px; line-height: 1.4;">
+                            💡 <strong>Tip:</strong> En móvil, el video se mostrará arriba o abajo automáticamente para mejor experiencia, 
+                            a menos que actives "Forzar posición en móvil".
+                        </small>
+                    </div>
+                    
+                    <!-- Vista previa de video -->
+                    <div class="sfq-question-video-preview" style="display: ${hasVideo ? 'block' : 'none'}; margin-top: 15px;">
+                        <div class="sfq-video-preview-container" style="position: relative; display: inline-block; max-width: 300px; border: 2px solid #ddd; border-radius: 8px; overflow: hidden; background: #000; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+                            <div class="sfq-video-embed-preview" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
+                                ${this.generateVideoPreview(videoConfig.url || '')}
+                            </div>
+                            <button type="button" class="sfq-remove-question-video" 
+                                    title="Eliminar video"
+                                    style="position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; background: rgba(220, 53, 69, 0.9); color: white; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); z-index: 10;">
+                                <span class="dashicons dashicons-no-alt"></span>
+                            </button>
+                        </div>
+                        <div style="margin-top: 8px; font-size: 12px; color: #666; text-align: center;">
+                            🎥 ${this.getVideoTypeFromUrl(videoConfig.url || '')} - Vista previa
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        /**
+         * ✅ NUEVO: Generar vista previa del video según la plataforma
+         */
+        generateVideoPreview(url) {
+            if (!url) return '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #666;">🎥 Sin video</div>';
+            
+            const videoId = this.extractVideoId(url);
+            if (!videoId) {
+                return '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #dc3545;">❌ URL no válida</div>';
+            }
+            
+            if (this.isYouTubeUrl(url)) {
+                return `<img src="https://img.youtube.com/vi/${videoId}/maxresdefault.jpg" 
+                            alt="Vista previa de YouTube" 
+                            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover;"
+                            onerror="this.src='https://img.youtube.com/vi/${videoId}/hqdefault.jpg'">
+                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60px; height: 42px; background: rgba(255, 0, 0, 0.8); border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+                            <div style="width: 0; height: 0; border-left: 15px solid white; border-top: 8px solid transparent; border-bottom: 8px solid transparent; margin-left: 3px;"></div>
+                        </div>`;
+            } else if (this.isVimeoUrl(url)) {
+                return `<div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #1ab7ea 0%, #1171ef 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 24px;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 32px; margin-bottom: 8px;">▶</div>
+                                <div style="font-size: 14px; font-weight: 500;">Vimeo</div>
+                            </div>
+                        </div>`;
+            }
+            
+            return '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #dc3545;">❌ Plataforma no soportada</div>';
+        }
+
+        /**
+         * ✅ NUEVO: Extraer ID del video según la plataforma
+         */
+        extractVideoId(url) {
+            if (this.isYouTubeUrl(url)) {
+                // YouTube patterns
+                const patterns = [
+                    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+                    /youtube\.com\/v\/([^&\n?#]+)/,
+                    /youtube\.com\/shorts\/([^&\n?#]+)/
+                ];
+                
+                for (const pattern of patterns) {
+                    const match = url.match(pattern);
+                    if (match) return match[1];
+                }
+            } else if (this.isVimeoUrl(url)) {
+                // Vimeo patterns
+                const patterns = [
+                    /vimeo\.com\/(\d+)/,
+                    /player\.vimeo\.com\/video\/(\d+)/
+                ];
+                
+                for (const pattern of patterns) {
+                    const match = url.match(pattern);
+                    if (match) return match[1];
+                }
+            }
+            
+            return null;
+        }
+
+        /**
+         * ✅ NUEVO: Verificar si es URL de YouTube
+         */
+        isYouTubeUrl(url) {
+            return /(?:youtube\.com|youtu\.be)/.test(url);
+        }
+
+        /**
+         * ✅ NUEVO: Verificar si es URL de Vimeo
+         */
+        isVimeoUrl(url) {
+            return /vimeo\.com/.test(url);
+        }
+
+        /**
+         * ✅ NUEVO: Obtener tipo de video desde URL
+         */
+        getVideoTypeFromUrl(url) {
+            if (this.isYouTubeUrl(url)) return 'YouTube';
+            if (this.isVimeoUrl(url)) return 'Vimeo';
+            return 'Video';
         }
 
         escapeHtml(text) {

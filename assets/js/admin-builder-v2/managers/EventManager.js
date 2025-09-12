@@ -1750,7 +1750,7 @@
         // ✅ NUEVO: Mostrar/ocultar campo de ancho personalizado para móvil
         const $mobileWidthConfig = $question.find('.sfq-mobile-width-config');
         if (mobileForce) {
-            $mobileWidthConfig.slideDown(300);
+            $mobileWidthConfig.slideDown(100);
         } else {
             $mobileWidthConfig.slideUp(300);
         }

@@ -7,7 +7,7 @@ const Constants = {
     /**
      * Información de la versión
      */
-    VERSION: '2.5',
+    VERSION: '2.6',
     BUILD_DATE: '2025-01-08',
     
     /**

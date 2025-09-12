@@ -49,16 +49,16 @@ class SFQ_Shortcode {
             $wrapper_attrs .= ' style="' . esc_attr($atts['style']) . '"';
         }
         
-        $output = '';
-        if ($wrapper_attrs) {
-            $output .= '<div' . $wrapper_attrs . '>';
-        }
+        // Generar un ID único para el contenedor del formulario
+        $unique_id = 'sfq-form-ajax-container-' . uniqid();
+
+        // Obtener o crear el ID de sesión
+        $session_id = SFQ_Utils::get_or_create_session_id($form_id);
         
-        $output .= $this->frontend->render_form($form_id);
-        
-        if ($wrapper_attrs) {
-            $output .= '</div>';
-        }
+        $output = '<div id="' . esc_attr($unique_id) . '"' . $wrapper_attrs . ' data-form-id="' . esc_attr($form_id) . '" data-session-id="' . esc_attr($session_id) . '" class="sfq-form-ajax-placeholder">';
+        $output .= '<div class="sfq-loading-spinner"></div>';
+        $output .= '<p>' . __('Cargando formulario...', 'smart-forms-quiz') . '</p>';
+        $output .= '</div>';
         
         return $output;
     }

@@ -23,6 +23,10 @@ class SFQ_Ajax {
         add_action('wp_ajax_sfq_get_secure_question', array($this, 'get_secure_question'));
         add_action('wp_ajax_nopriv_sfq_get_secure_question', array($this, 'get_secure_question'));
         
+        // ✅ NUEVO: AJAX handler para cargar el formulario completo via AJAX
+        add_action('wp_ajax_sfq_get_full_form', array($this, 'get_full_form'));
+        add_action('wp_ajax_nopriv_sfq_get_full_form', array($this, 'get_full_form'));
+        
         // AJAX handlers para admin
         add_action('wp_ajax_sfq_save_form', array($this, 'save_form'));
         add_action('wp_ajax_sfq_get_form_data', array($this, 'get_form_data'));
@@ -2403,28 +2407,75 @@ class SFQ_Ajax {
             }
             
                 // ✅ NUEVO: Validar imagen de pregunta para tipos objetivo
-                $types_with_question_image = array('single_choice', 'multiple_choice', 'rating', 'text');
+                $types_with_question_image = array('single_choice', 'multiple_choice', 'rating', 'text', 'email');
                 if (in_array($question['question_type'], $types_with_question_image)) {
                     // Verificar configuración de imagen de pregunta en settings
-                    if (isset($question['settings']['question_image_enabled']) && $question['settings']['question_image_enabled']) {
+                    if (isset($question['settings']['question_image']) && is_array($question['settings']['question_image'])) {
+                        $image_config = $question['settings']['question_image'];
+                        
                         // Validar URL de imagen de pregunta
-                        if (!empty($question['settings']['question_image_url']) && !filter_var($question['settings']['question_image_url'], FILTER_VALIDATE_URL)) {
+                        if (!empty($image_config['url']) && !filter_var($image_config['url'], FILTER_VALIDATE_URL)) {
                             $errors['question_image'] = sprintf(__('URL de imagen de pregunta inválida en pregunta %d', 'smart-forms-quiz'), $index + 1);
                         }
                         
                         // Validar posición
-                        if (!empty($question['settings']['question_image_position'])) {
+                        if (!empty($image_config['position'])) {
                             $valid_positions = array('top', 'left', 'right', 'bottom');
-                            if (!in_array($question['settings']['question_image_position'], $valid_positions)) {
+                            if (!in_array($image_config['position'], $valid_positions)) {
                                 $errors['question_image'] = sprintf(__('Posición de imagen inválida en pregunta %d', 'smart-forms-quiz'), $index + 1);
                             }
                         }
                         
                         // Validar ancho
-                        if (!empty($question['settings']['question_image_width'])) {
-                            $width = intval($question['settings']['question_image_width']);
+                        if (!empty($image_config['width'])) {
+                            $width = intval($image_config['width']);
                             if ($width < 50 || $width > 800) {
                                 $errors['question_image'] = sprintf(__('Ancho de imagen debe estar entre 50 y 800 píxeles en pregunta %d', 'smart-forms-quiz'), $index + 1);
+                            }
+                        }
+                    }
+                }
+                
+                // ✅ NUEVO: Validar video de pregunta para tipos objetivo
+                $types_with_question_video = array('single_choice', 'multiple_choice', 'rating', 'text', 'email');
+                if (in_array($question['question_type'], $types_with_question_video)) {
+                    // Verificar configuración de video de pregunta en settings
+                    if (isset($question['settings']['question_video']) && is_array($question['settings']['question_video'])) {
+                        $video_config = $question['settings']['question_video'];
+                        
+                        // Validar URL de video de pregunta
+                        if (!empty($video_config['url'])) {
+                            if (!filter_var($video_config['url'], FILTER_VALIDATE_URL)) {
+                                $errors['question_video'] = sprintf(__('URL de video de pregunta inválida en pregunta %d', 'smart-forms-quiz'), $index + 1);
+                            } else {
+                                // Validar que sea una URL de YouTube o Vimeo
+                                if (!$this->is_valid_video_url($video_config['url'])) {
+                                    $errors['question_video'] = sprintf(__('URL de video debe ser de YouTube o Vimeo en pregunta %d', 'smart-forms-quiz'), $index + 1);
+                                }
+                            }
+                        }
+                        
+                        // Validar posición
+                        if (!empty($video_config['position'])) {
+                            $valid_positions = array('top', 'left', 'right', 'bottom');
+                            if (!in_array($video_config['position'], $valid_positions)) {
+                                $errors['question_video'] = sprintf(__('Posición de video inválida en pregunta %d', 'smart-forms-quiz'), $index + 1);
+                            }
+                        }
+                        
+                        // Validar ancho
+                        if (!empty($video_config['width'])) {
+                            $width = intval($video_config['width']);
+                            if ($width < 50 || $width > 1000) {
+                                $errors['question_video'] = sprintf(__('Ancho de video debe estar entre 200 y 800 píxeles en pregunta %d', 'smart-forms-quiz'), $index + 1);
+                            }
+                        }
+                        
+                        // Validar ancho móvil si está habilitado
+                        if (!empty($video_config['mobile_force_position']) && !empty($video_config['mobile_width'])) {
+                            $mobile_width = intval($video_config['mobile_width']);
+                            if ($mobile_width < 50 || $mobile_width > 1000) {
+                                $errors['question_video'] = sprintf(__('Ancho móvil de video debe estar entre 150 y 400 píxeles en pregunta %d', 'smart-forms-quiz'), $index + 1);
                             }
                         }
                     }
@@ -4842,6 +4893,82 @@ class SFQ_Ajax {
     }
     
     /**
+     * ✅ NUEVO: Cargar el formulario completo via AJAX
+     */
+    public function get_full_form() {
+        // Verificar nonce
+        if (!check_ajax_referer('sfq_nonce', 'nonce', false)) {
+            wp_send_json_error(array(
+                'message' => __('Error de seguridad', 'smart-forms-quiz'),
+                'code' => 'INVALID_NONCE'
+            ));
+            return;
+        }
+        
+        // Rate limiting para carga de formularios
+        if (!SFQ_Security::check_rate_limit('get_full_form', 10, 60)) {
+            wp_send_json_error(array(
+                'message' => __('Demasiadas peticiones. Intenta de nuevo en un momento.', 'smart-forms-quiz'),
+                'code' => 'RATE_LIMIT_EXCEEDED'
+            ));
+            return;
+        }
+        
+        // Validar datos requeridos
+        $form_id = intval($_POST['form_id'] ?? 0);
+        $session_id = sanitize_text_field($_POST['session_id'] ?? '');
+        
+        if (!$form_id || !$session_id) {
+            wp_send_json_error(array(
+                'message' => __('Datos del formulario incompletos', 'smart-forms-quiz'),
+                'code' => 'MISSING_DATA'
+            ));
+            return;
+        }
+        
+        try {
+            // Crear instancia del frontend para renderizar el formulario
+            $frontend = new SFQ_Frontend();
+            
+            // Renderizar el formulario con el session_id proporcionado
+            $form_html = $frontend->render_form($form_id, $session_id);
+            
+            if (empty($form_html)) {
+                wp_send_json_error(array(
+                    'message' => __('No se pudo cargar el formulario', 'smart-forms-quiz'),
+                    'code' => 'FORM_LOAD_ERROR'
+                ));
+                return;
+            }
+            
+            // Obtener la configuración del formulario para pasarla al frontend
+            $form_data = $this->database->get_form($form_id);
+            $settings = $form_data->settings ?? array();
+            
+            // Generar un nuevo nonce para futuras interacciones
+            $new_nonce = wp_create_nonce('sfq_nonce');
+            
+            wp_send_json_success(array(
+                'html' => $form_html,
+                'form_id' => $form_id,
+                'session_id' => $session_id,
+                'settings' => $settings,
+                'nonce' => $new_nonce,
+                'message' => __('Formulario cargado correctamente', 'smart-forms-quiz')
+            ));
+            
+        } catch (Exception $e) {
+            error_log('SFQ Error in get_full_form: ' . $e->getMessage());
+            
+            wp_send_json_error(array(
+                'message' => __('Error al cargar el formulario', 'smart-forms-quiz'),
+                'code' => 'INTERNAL_ERROR',
+                'debug' => WP_DEBUG ? $e->getMessage() : null
+            ));
+        }
+    }
+    
+    /**
      * ✅ NUEVO: Generar estilos CSS para el botón personalizado (copiado del frontend)
      */
     private function generate_button_styles($style_config) {
@@ -5016,6 +5143,48 @@ class SFQ_Ajax {
         $opacity = max(0, min(1, floatval($opacity)));
         
         return "rgba({$r}, {$g}, {$b}, {$opacity})";
+    }
+    
+    /**
+     * ✅ NUEVO: Validar que una URL sea de YouTube o Vimeo
+     */
+    private function is_valid_video_url($url) {
+        if (empty($url) || !is_string($url)) {
+            return false;
+        }
+        
+        // Patrones para YouTube
+        $youtube_patterns = array(
+            '/^https?:\/\/(www\.)?youtube\.com\/watch\?v=[\w-]+/',
+            '/^https?:\/\/(www\.)?youtu\.be\/[\w-]+/',
+            '/^https?:\/\/(www\.)?youtube\.com\/embed\/[\w-]+/',
+            '/^https?:\/\/(www\.)?youtube\.com\/v\/[\w-]+/',
+            '/^https?:\/\/(www\.)?youtube\.com\/shorts\/[\w-]+/'
+        );
+        
+        // Patrones para Vimeo
+        $vimeo_patterns = array(
+            '/^https?:\/\/(www\.)?vimeo\.com\/\d+/',
+            '/^https?:\/\/player\.vimeo\.com\/video\/\d+/',
+            '/^https?:\/\/(www\.)?vimeo\.com\/channels\/[\w-]+\/\d+/',
+            '/^https?:\/\/(www\.)?vimeo\.com\/groups\/[\w-]+\/videos\/\d+/'
+        );
+        
+        // Verificar patrones de YouTube
+        foreach ($youtube_patterns as $pattern) {
+            if (preg_match($pattern, $url)) {
+                return true;
+            }
+        }
+        
+        // Verificar patrones de Vimeo
+        foreach ($vimeo_patterns as $pattern) {
+            if (preg_match($pattern, $url)) {
+                return true;
+            }
+        }
+        
+        return false;
     }
     
 }

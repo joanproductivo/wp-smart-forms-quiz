@@ -57,11 +57,9 @@
                 if (settings.url && settings.url.includes('admin-ajax.php') && 
                     settings.data && settings.data.includes('action=sfq_')) {
                     
-                    console.log('SFQ Cache Compat: Intercepting AJAX request:', settings.data);
                     
                     // ✅ MEJORADO: Verificar si el nonce está próximo a expirar
                     if (self.isNonceNearExpiry()) {
-                        console.log('SFQ Cache Compat: Nonce near expiry, refreshing before request');
                         // Pausar la petición y refrescar nonce primero
                         xhr.abort();
                         self.refreshNonceAndRetry(settings);
@@ -72,7 +70,6 @@
                     if (self.nonce && settings.data) {
                         const oldData = settings.data;
                         settings.data = self.updateNonceInData(settings.data);
-                        console.log('SFQ Cache Compat: Updated nonce in request data');
                     }
                     
                     // ✅ NUEVO: Añadir headers anti-cache específicos para WP Cache
@@ -99,12 +96,7 @@
                     return;
                 }
                 
-                console.log('SFQ Cache Compat: AJAX error detected:', {
-                    status: xhr.status,
-                    statusText: xhr.statusText,
-                    responseText: xhr.responseText,
-                    responseJSON: xhr.responseJSON
-                });
+              
                 
                 let isNonceError = false;
                 
@@ -148,15 +140,12 @@
                 
                 // ✅ NUEVO: También considerar errores 403 como posibles errores de nonce
                 if (xhr.status === 403) {
-                    console.log('SFQ Cache Compat: 403 error detected, treating as potential nonce error');
                     isNonceError = true;
                 }
                 
                 if (isNonceError) {
-                    console.log('SFQ Cache Compat: Nonce error confirmed, attempting refresh and retry');
                     self.refreshNonceAndRetry(settings);
                 } else {
-                    console.log('SFQ Cache Compat: Non-nonce error, not retrying');
                 }
             });
         },
@@ -210,7 +199,6 @@
                 // Reintentar petición original
                 $.ajax(originalSettings);
             }).catch(function(error) {
-                console.error('SFQ Cache Compat: Error refreshing nonce:', error);
                 
                 // Mostrar mensaje de error al usuario
                 self.showNonceError();
@@ -248,7 +236,6 @@
                             // Actualizar nonce en todos los formularios
                             self.updateNonceInForms(response.data.nonce);
                             
-                            console.log('SFQ Cache Compat: Nonce refreshed successfully');
                             resolve(response.data.nonce);
                         } else {
                             reject(new Error('Invalid nonce refresh response'));
@@ -352,6 +339,12 @@
             $(document).on('sfq:form-loaded', function() {
                 self.setupNonceManagement();
             });
+
+            // ✅ NUEVO: Escuchar el evento de nonce actualizado desde el cargador AJAX
+            $(document).on('sfq:nonce-updated', function(event, newNonce) {
+                self.nonce = newNonce;
+                self.calculateNonceExpiry();
+            });
             
             // Escuchar cambios de visibilidad de página
             document.addEventListener('visibilitychange', function() {
@@ -437,7 +430,6 @@
             window.sfqCacheCompat.instance = CacheCompat;
         } else {
             // ✅ NUEVO: Inicialización de emergencia para casos de WP Cache
-            console.log('SFQ Cache Compat: No config found, initializing emergency mode');
             
             // Crear configuración mínima de emergencia
             window.sfqCacheCompat = {

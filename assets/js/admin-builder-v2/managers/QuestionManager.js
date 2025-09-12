@@ -214,9 +214,19 @@
                         this.repopulateImagePreviews(question.id, question);
                     }
                     
-                    // ✅ NUEVO: Repoblar imagen de pregunta para tipos objetivo
+        // ✅ NUEVO: Repoblar imagen de pregunta para tipos objetivo
+        if (['single_choice', 'multiple_choice', 'rating', 'text', 'email'].includes(question.type)) {
+            this.repopulateQuestionImage(question.id, question);
+        }
+        
+        // ✅ NUEVO: Repoblar video de pregunta para tipos objetivo
+        if (['single_choice', 'multiple_choice', 'rating', 'text', 'email'].includes(question.type)) {
+            this.repopulateQuestionVideo(question.id, question);
+        }
+                    
+                    // ✅ NUEVO: Repoblar video de pregunta para tipos objetivo
                     if (['single_choice', 'multiple_choice', 'rating', 'text', 'email'].includes(question.type)) {
-                        this.repopulateQuestionImage(question.id, question);
+                        this.repopulateQuestionVideo(question.id, question);
                     }
                     
                     // Load conditions if any
@@ -2520,6 +2530,11 @@
             if (question.type === 'image_choice') {
                 this.bindImageChoiceEvents($question, question);
             }
+            
+            // ✅ NUEVO: Eventos específicos para sección de video de pregunta
+            if (['single_choice', 'multiple_choice', 'rating', 'text', 'email'].includes(question.type)) {
+                this.bindQuestionVideoEvents($question, question);
+            }
         }
 
         /**
@@ -3689,6 +3704,337 @@
                     'animation-direction': 'normal'
                 });
                 $previewElement.off('mouseenter mouseleave');
+            }
+        }
+
+        /**
+         * ✅ NUEVO: Bind events específicos para sección de video de pregunta
+         */
+        bindQuestionVideoEvents($question, question) {
+            const self = this;
+            
+            // Evento para cambio de URL de video
+            $question.find('.sfq-question-video-url-input').off('input').on('input', function() {
+                const url = $(this).val().trim();
+                
+                if (url && self.isValidVideoUrl(url)) {
+                    self.updateQuestionVideoConfig(question, {
+                        url: url
+                    });
+                    self.showQuestionVideoConfig($question);
+                    $(this).removeClass('invalid').addClass('valid');
+                } else if (url) {
+                    $(this).removeClass('valid').addClass('invalid');
+                    self.hideQuestionVideoConfig($question);
+                } else {
+                    $(this).removeClass('valid invalid');
+                    self.hideQuestionVideoConfig($question);
+                    self.clearQuestionVideoConfig(question);
+                }
+                
+                self.formBuilder.isDirty = true;
+            });
+            
+            // Eventos para configuración
+            $question.find('.sfq-question-video-position').off('change').on('change', function() {
+                self.updateQuestionVideoSetting(question, 'position', $(this).val());
+            });
+            
+            $question.find('.sfq-question-video-width').off('input').on('input', function() {
+                const value = $(this).val();
+                $question.find('.video-width-display').text(value + 'px');
+                self.updateQuestionVideoSetting(question, 'width', parseInt(value));
+            });
+            
+            $question.find('.sfq-question-video-shadow').off('change').on('change', function() {
+                self.updateQuestionVideoSetting(question, 'shadow', $(this).is(':checked'));
+            });
+            
+            $question.find('.sfq-question-video-mobile-force').off('change').on('change', function() {
+                const isChecked = $(this).is(':checked');
+                self.updateQuestionVideoSetting(question, 'mobile_force_position', isChecked);
+                
+                // Mostrar/ocultar configuración de ancho móvil
+                const $mobileConfig = $question.find('.sfq-video-mobile-width-config');
+                if (isChecked) {
+                    $mobileConfig.show();
+                } else {
+                    $mobileConfig.hide();
+                }
+            });
+            
+            $question.find('.sfq-question-video-mobile-width').off('input').on('input', function() {
+                const value = $(this).val();
+                $question.find('.video-mobile-width-display').text(value + 'px');
+                self.updateQuestionVideoSetting(question, 'mobile_width', parseInt(value));
+            });
+            
+            // Evento para eliminar video
+            $question.find('.sfq-remove-question-video').off('click').on('click', function(e) {
+                e.preventDefault();
+                self.removeQuestionVideo($question, question);
+            });
+        }
+        
+        /**
+         * ✅ NUEVO: Validar URL de video YouTube/Vimeo
+         */
+        isValidVideoUrl(url) {
+            try {
+                new URL(url);
+                // Verificar que sea YouTube o Vimeo
+                return /(?:youtube\.com|youtu\.be|vimeo\.com)/.test(url);
+            } catch {
+                return false;
+            }
+        }
+        
+        /**
+         * ✅ NUEVO: Actualizar configuración de video de pregunta
+         */
+        updateQuestionVideoConfig(question, videoData) {
+            if (!question.settings) {
+                question.settings = {};
+            }
+            
+            if (!question.settings.question_video) {
+                question.settings.question_video = {};
+            }
+            
+            Object.assign(question.settings.question_video, videoData);
+            this.formBuilder.isDirty = true;
+        }
+        
+        /**
+         * ✅ NUEVO: Actualizar configuración específica de video
+         */
+        updateQuestionVideoSetting(question, setting, value) {
+            if (!question.settings) {
+                question.settings = {};
+            }
+            
+            if (!question.settings.question_video) {
+                question.settings.question_video = {};
+            }
+            
+            question.settings.question_video[setting] = value;
+            this.formBuilder.isDirty = true;
+        }
+        
+        /**
+         * ✅ NUEVO: Mostrar configuración de video
+         */
+        showQuestionVideoConfig($question) {
+            $question.find('.sfq-question-video-config').show();
+            $question.find('.sfq-question-video-preview').show();
+        }
+        
+        /**
+         * ✅ NUEVO: Ocultar configuración de video
+         */
+        hideQuestionVideoConfig($question) {
+            $question.find('.sfq-question-video-config').hide();
+            $question.find('.sfq-question-video-preview').hide();
+        }
+        
+        /**
+         * ✅ NUEVO: Limpiar configuración de video
+         */
+        clearQuestionVideoConfig(question) {
+            if (question.settings && question.settings.question_video) {
+                question.settings.question_video = {};
+            }
+        }
+        
+        /**
+         * ✅ NUEVO: Eliminar video de pregunta
+         */
+        removeQuestionVideo($question, question) {
+            // Limpiar input de URL
+            $question.find('.sfq-question-video-url-input').val('').removeClass('valid invalid');
+            
+            // Limpiar configuración
+            this.clearQuestionVideoConfig(question);
+            
+            // Ocultar configuración y preview
+            this.hideQuestionVideoConfig($question);
+            
+            this.formBuilder.isDirty = true;
+        }
+
+        /**
+         * ✅ NUEVO: Repoblar video de pregunta para tipos objetivo
+         */
+        repopulateQuestionVideo(questionId, question) {
+            console.log('SFQ: === STARTING QUESTION VIDEO REPOPULATION ===');
+            console.log('SFQ: Question ID:', questionId);
+            console.log('SFQ: Question type:', question.type);
+            console.log('SFQ: Question settings:', question.settings);
+            
+            // Verificar que sea un tipo de pregunta objetivo
+            const targetTypes = ['single_choice', 'multiple_choice', 'rating', 'text', 'email'];
+            if (!targetTypes.includes(question.type)) {
+                console.log('SFQ: Question type not supported for question video:', question.type);
+                return;
+            }
+            
+            // Verificar que tenga configuración de video
+            const videoConfig = question.settings?.question_video;
+            if (!videoConfig || !videoConfig.url) {
+                console.log('SFQ: No question video configuration found');
+                return;
+            }
+            
+            console.log('SFQ: Found question video config:', videoConfig);
+            
+            // ✅ CORREGIDO: Usar setTimeout para asegurar que el DOM esté completamente renderizado
+            setTimeout(() => {
+                this._performQuestionVideoRepopulation(questionId, question, videoConfig);
+            }, 150);
+        }
+        
+        /**
+         * ✅ NUEVO: Función interna para realizar la repoblación de video de pregunta
+         */
+        _performQuestionVideoRepopulation(questionId, question, videoConfig) {
+            console.log('SFQ: Performing delayed question video repopulation for question:', questionId);
+            
+            // Buscar el elemento de la pregunta
+            let $question = $(`#${questionId}`);
+            
+            if ($question.length === 0) {
+                $question = $(`.sfq-question-item[data-question-id="${questionId}"]`);
+            }
+            
+            if ($question.length === 0) {
+                $question = $(`#sfq-questions-container #${questionId}, #sfq-final-screens-container #${questionId}`);
+            }
+            
+            if ($question.length === 0) {
+                console.error('SFQ: Question element not found for video repopulation:', questionId);
+                return;
+            }
+            
+            console.log('SFQ: Found question element for video repopulation');
+            
+            // Buscar la sección de video de pregunta
+            let $videoSection = $question.find('.sfq-question-video-section');
+            
+            if ($videoSection.length === 0) {
+                console.warn('SFQ: Question video section not found, creating it...');
+                this._createQuestionVideoSection($question, question);
+                $videoSection = $question.find('.sfq-question-video-section');
+            }
+            
+            if ($videoSection.length === 0) {
+                console.error('SFQ: Could not create question video section');
+                return;
+            }
+            
+            // Actualizar el input de URL
+            const $urlInput = $videoSection.find('.sfq-question-video-url-input');
+            if ($urlInput.length > 0) {
+                $urlInput.val(videoConfig.url).removeClass('invalid').addClass('valid');
+                console.log('SFQ: Updated question video URL input');
+            }
+            
+            // Actualizar configuraciones
+            if (videoConfig.position) {
+                $videoSection.find('.sfq-question-video-position').val(videoConfig.position);
+            }
+            
+            if (videoConfig.width) {
+                const $widthSlider = $videoSection.find('.sfq-question-video-width');
+                $widthSlider.val(videoConfig.width);
+                $videoSection.find('.video-width-display').text(videoConfig.width + 'px');
+            }
+            
+            if (videoConfig.shadow !== undefined) {
+                $videoSection.find('.sfq-question-video-shadow').prop('checked', videoConfig.shadow);
+            }
+            
+            if (videoConfig.mobile_force_position !== undefined) {
+                $videoSection.find('.sfq-question-video-mobile-force').prop('checked', videoConfig.mobile_force_position);
+                
+                // Mostrar/ocultar configuración de ancho móvil
+                const $mobileConfig = $videoSection.find('.sfq-video-mobile-width-config');
+                if (videoConfig.mobile_force_position) {
+                    $mobileConfig.show();
+                    
+                    if (videoConfig.mobile_width) {
+                        const $mobileWidthSlider = $videoSection.find('.sfq-question-video-mobile-width');
+                        $mobileWidthSlider.val(videoConfig.mobile_width);
+                        $videoSection.find('.video-mobile-width-display').text(videoConfig.mobile_width + 'px');
+                    }
+                } else {
+                    $mobileConfig.hide();
+                }
+            }
+            
+            // Mostrar la configuración
+            $videoSection.find('.sfq-question-video-config').show();
+            
+            // Mostrar el preview del video
+            this._updateQuestionVideoPreview($videoSection, {
+                url: videoConfig.url
+            });
+            
+            console.log('SFQ: Successfully repopulated question video');
+            console.log('SFQ: === FINISHED QUESTION VIDEO REPOPULATION ===');
+        }
+        
+        /**
+         * ✅ NUEVO: Crear sección de video de pregunta si no existe
+         */
+        _createQuestionVideoSection($question, question) {
+            console.log('SFQ: Creating question video section');
+            
+            const videoSection = this.formBuilder.uiRenderer.renderQuestionVideoSection(question);
+            
+            // Insertar después de la sección de imagen o antes de los settings
+            const $insertPoint = $question.find('.sfq-question-image-section').next();
+            
+            if ($insertPoint.length > 0) {
+                $insertPoint.before(videoSection);
+            } else {
+                // Fallback: insertar después de la imagen o antes de los controles
+                const $fallbackPoint = $question.find('.sfq-next-button-controls-universal, .sfq-question-settings').first();
+                if ($fallbackPoint.length > 0) {
+                    $fallbackPoint.before(videoSection);
+                } else {
+                    $question.find('.sfq-question-content').append(videoSection);
+                }
+            }
+            
+            console.log('SFQ: Created question video section');
+        }
+        
+        /**
+         * ✅ NUEVO: Actualizar preview de video de pregunta
+         */
+        _updateQuestionVideoPreview($videoSection, videoData) {
+            console.log('SFQ: Updating question video preview with data:', videoData);
+            
+            const $previewContainer = $videoSection.find('.sfq-question-video-preview');
+            
+            if ($previewContainer.length === 0) {
+                console.error('SFQ: Question video preview container not found');
+                return;
+            }
+            
+            const $embedPreview = $previewContainer.find('.sfq-video-embed-preview');
+            
+            if ($embedPreview.length > 0) {
+                // Generar nuevo preview del video
+                const videoPreviewHtml = this.formBuilder.uiRenderer.generateVideoPreview(videoData.url);
+                $embedPreview.html(videoPreviewHtml);
+                
+                // Actualizar el tipo de video en el texto
+                const videoType = this.formBuilder.uiRenderer.getVideoTypeFromUrl(videoData.url);
+                $previewContainer.find('div:last-child').html(`🎥 ${videoType} - Vista previa`);
+                
+                $previewContainer.show();
+                console.log('SFQ: Successfully updated question video preview');
             }
         }
 

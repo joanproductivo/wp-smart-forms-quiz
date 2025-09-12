@@ -18,6 +18,31 @@ class SFQ_Frontend {
     public function init() {
         // Hooks para el frontend
         add_action('wp_head', array($this, 'add_custom_styles'));
+        add_action('wp_enqueue_scripts', array(__CLASS__, 'enqueue_ajax_loader_script'));
+    }
+    
+    /**
+     * Enqueue script de carga AJAX para formularios
+     */
+    public static function enqueue_ajax_loader_script() {
+        // Solo encolar si no estamos en el admin
+        if (is_admin()) {
+            return;
+        }
+
+        wp_enqueue_script(
+            'sfq-frontend-ajax-loader',
+            SFQ_PLUGIN_URL . 'assets/js/frontend-ajax-loader.js',
+            array('jquery'),
+            SFQ_VERSION,
+            true
+        );
+
+        // Localizar script con la URL de AJAX y un nonce inicial
+        wp_localize_script('sfq-frontend-ajax-loader', 'sfq_ajax', array(
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('sfq_nonce')
+        ));
     }
     
     /**
@@ -941,7 +966,7 @@ class SFQ_Frontend {
     }
     
     /**
-     * Renderizar tipo de pregunta específico con imagen posicionada
+     * Renderizar tipo de pregunta específico con imagen y video posicionados
      */
     private function render_question_type($question) {
         // Verificar si la pregunta tiene imagen configurada
@@ -950,38 +975,59 @@ class SFQ_Frontend {
                      is_array($settings['question_image']) && 
                      !empty($settings['question_image']['url']);
         
-        if ($has_image) {
-            $this->render_question_with_positioned_layout($question);
+        // ✅ NUEVO: Verificar si la pregunta tiene video configurado
+        $has_video = !empty($settings['question_video']) && 
+                     is_array($settings['question_video']) && 
+                     !empty($settings['question_video']['url']);
+        
+        if ($has_image || $has_video) {
+            $this->render_question_with_positioned_media($question);
         } else {
-            $this->render_question_without_image($question);
+            $this->render_question_without_media($question);
         }
     }
     
     /**
-     * Renderizar pregunta con imagen posicionada correctamente
+     * Renderizar pregunta con imagen y/o video posicionados correctamente
      */
-    private function render_question_with_positioned_layout($question) {
-        $image_config = $question->settings['question_image'];
-        $position = $image_config['position'] ?? 'top';
-        $width = $image_config['width'] ?? 300;
-        $shadow = $image_config['shadow'] ?? false;
-        $mobile_force = $image_config['mobile_force_position'] ?? false;
-        $mobile_width = $image_config['mobile_width'] ?? null; // ✅ NUEVO: Ancho personalizado para móvil
-        $image_url = $image_config['url'];
-        $image_alt = $image_config['alt'] ?? '';
+    private function render_question_with_positioned_media($question) {
+        $settings = $question->settings ?? array();
+        
+        // Configuración de imagen
+        $image_config = $settings['question_image'] ?? null;
+        $has_image = $image_config && !empty($image_config['url']);
+        
+        // ✅ NUEVO: Configuración de video
+        $video_config = $settings['question_video'] ?? null;
+        $has_video = $video_config && !empty($video_config['url']);
+        
+        // Determinar posición (priorizar imagen si ambos están presentes)
+        $position = 'top';
+        $width = 300;
+        $shadow = false;
+        $mobile_force = false;
+        $mobile_width = null;
+        
+        if ($has_image) {
+            $position = $image_config['position'] ?? 'top';
+            $width = $image_config['width'] ?? 300;
+            $shadow = $image_config['shadow'] ?? false;
+            $mobile_force = $image_config['mobile_force_position'] ?? false;
+            $mobile_width = $image_config['mobile_width'] ?? null;
+        } elseif ($has_video) {
+            $position = $video_config['position'] ?? 'top';
+            $width = $video_config['width'] ?? 300;
+            $shadow = $video_config['shadow'] ?? false;
+            $mobile_force = $video_config['mobile_force_position'] ?? false;
+            $mobile_width = $video_config['mobile_width'] ?? null;
+        }
         
         // Clases CSS para posicionamiento
-        $container_classes = array('sfq-question-with-image');
+        $container_classes = array('sfq-question-with-media');
         $container_classes[] = 'position-' . $position;
         
         if ($mobile_force) {
             $container_classes[] = 'mobile-force-position';
-        }
-        
-        // Clases para la imagen
-        $image_classes = array('sfq-question-image');
-        if ($shadow) {
-            $image_classes[] = 'with-shadow';
         }
         
         // ✅ NUEVO: Preparar atributos para ancho móvil personalizado
@@ -989,49 +1035,40 @@ class SFQ_Frontend {
         $mobile_width_style = '';
         if ($mobile_force && !empty($mobile_width)) {
             $mobile_width_attr = 'data-mobile-width="' . intval($mobile_width) . '"';
-            $mobile_width_style = '--sfq-mobile-image-width: ' . intval($mobile_width) . 'px;';
+            $mobile_width_style = '--sfq-mobile-media-width: ' . intval($mobile_width) . 'px;';
         }
         
         ?>
         <div class="<?php echo esc_attr(implode(' ', $container_classes)); ?>" 
              <?php echo !empty($mobile_width_style) ? 'style="' . esc_attr($mobile_width_style) . '"' : ''; ?>>
             <?php if ($position === 'top') : ?>
-                <!-- Imagen arriba -->
-                <div class="<?php echo esc_attr(implode(' ', $image_classes)); ?>" 
+                <!-- Media arriba -->
+                <div class="sfq-question-media-container" 
                      style="width: <?php echo intval($width); ?>px; max-width: 100%; margin: auto;"
                      <?php echo $mobile_width_attr; ?>>
-                    <img src="<?php echo esc_url($image_url); ?>" 
-                         alt="<?php echo esc_attr($image_alt); ?>"
-                         style="width: 100%; height: auto; display: block;"
-                         loading="lazy">
+                    <?php $this->render_question_media_content($question, $shadow); ?>
                 </div>
                 <!-- Contenido de la pregunta -->
-                <?php $this->render_question_without_image($question); ?>
+                <?php $this->render_question_without_media($question); ?>
             <?php elseif ($position === 'bottom') : ?>
                 <!-- Contenido de la pregunta -->
-                <?php $this->render_question_without_image($question); ?>
-                <!-- Imagen abajo -->
-                <div class="<?php echo esc_attr(implode(' ', $image_classes)); ?>" 
-                     style="width: <?php echo intval($width); ?>px; max-width: 100%; margin:auto;"
+                <?php $this->render_question_without_media($question); ?>
+                <!-- Media abajo -->
+                <div class="sfq-question-media-container" 
+                     style="width: <?php echo intval($width); ?>px; max-width: 100%; margin: auto;"
                      <?php echo $mobile_width_attr; ?>>
-                    <img src="<?php echo esc_url($image_url); ?>" 
-                         alt="<?php echo esc_attr($image_alt); ?>"
-                         style="width: 100%; height: auto; display: block;"
-                         loading="lazy">
+                    <?php $this->render_question_media_content($question, $shadow); ?>
                 </div>
             <?php else : ?>
-                <!-- Imagen a la izquierda o derecha -->
-                <div class="<?php echo esc_attr(implode(' ', $image_classes)); ?>" 
+                <!-- Media a la izquierda o derecha -->
+                <div class="sfq-question-media-container" 
                      style="width: <?php echo intval($width); ?>px; max-width: 100%;"
                      <?php echo $mobile_width_attr; ?>>
-                    <img src="<?php echo esc_url($image_url); ?>" 
-                         alt="<?php echo esc_attr($image_alt); ?>"
-                         style="width: 100%; height: auto; display: block;"
-                         loading="lazy">
+                    <?php $this->render_question_media_content($question, $shadow); ?>
                 </div>
                 <!-- Contenido de la pregunta -->
-                <div class="sfq-question-content-with-image">
-                    <?php $this->render_question_without_image($question); ?>
+                <div class="sfq-question-content-with-media">
+                    <?php $this->render_question_without_media($question); ?>
                 </div>
             <?php endif; ?>
         </div>
@@ -1039,9 +1076,91 @@ class SFQ_Frontend {
     }
     
     /**
-     * Renderizar pregunta sin imagen (método original)
+     * ✅ NUEVO: Renderizar contenido de media (imagen y/o video) de la pregunta
      */
-    private function render_question_without_image($question) {
+    private function render_question_media_content($question, $shadow = false) {
+        $settings = $question->settings ?? array();
+        
+        // Configuración de imagen
+        $image_config = $settings['question_image'] ?? null;
+        $has_image = $image_config && !empty($image_config['url']);
+        
+        // Configuración de video
+        $video_config = $settings['question_video'] ?? null;
+        $has_video = $video_config && !empty($video_config['url']);
+        
+        // Clases para el contenedor de media
+        $media_classes = array('sfq-question-media');
+        if ($shadow) {
+            $media_classes[] = 'with-shadow';
+        }
+        
+        ?>
+        <div class="<?php echo esc_attr(implode(' ', $media_classes)); ?>">
+            <?php if ($has_video) : ?>
+                <!-- ✅ NUEVO: Renderizar video primero si está presente -->
+                <?php $this->render_question_video_content($video_config); ?>
+                <?php if ($has_image) : ?>
+                    <!-- Separador entre video e imagen -->
+                    <div style="margin: 15px 0;"></div>
+                <?php endif; ?>
+            <?php endif; ?>
+            
+            <?php if ($has_image) : ?>
+                <!-- Renderizar imagen -->
+                <?php $this->render_question_image_content($image_config); ?>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+    
+    /**
+     * ✅ NUEVO: Renderizar contenido de video de pregunta
+     */
+    private function render_question_video_content($video_config) {
+        $video_url = $video_config['url'];
+        $video_alt = $video_config['alt'] ?? 'Video de la pregunta';
+        
+        // Convertir URL de video a embed
+        $video_embed = $this->convert_video_url_to_embed($video_url);
+        
+        if ($video_embed) {
+            ?>
+            <div class="sfq-question-video-embed" style="width: 100%; margin-bottom: 10px;">
+                <?php echo $video_embed; ?>
+            </div>
+            <?php
+        } else {
+            ?>
+            <div class="sfq-question-video-error" style="padding: 20px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; text-align: center;">
+                <p style="margin: 0; color: #6c757d;">
+                    <?php _e('No se pudo cargar el video. Verifica que la URL sea válida.', 'smart-forms-quiz'); ?>
+                </p>
+            </div>
+            <?php
+        }
+    }
+    
+    /**
+     * ✅ NUEVO: Renderizar contenido de imagen de pregunta
+     */
+    private function render_question_image_content($image_config) {
+        $image_url = $image_config['url'];
+        $image_alt = $image_config['alt'] ?? 'Imagen de la pregunta';
+        
+        ?>
+        <img src="<?php echo esc_url($image_url); ?>" 
+             alt="<?php echo esc_attr($image_alt); ?>"
+             class="sfq-question-image-element"
+             style="width: 100%; height: auto; display: block;"
+             loading="lazy">
+        <?php
+    }
+    
+    /**
+     * Renderizar pregunta sin media (método original renombrado)
+     */
+    private function render_question_without_media($question) {
         switch ($question->question_type) {
             case 'single_choice':
                 $this->render_single_choice($question);
@@ -1074,6 +1193,13 @@ class SFQ_Frontend {
             default:
                 echo '<p>' . __('Tipo de pregunta no soportado', 'smart-forms-quiz') . '</p>';
         }
+    }
+    
+    /**
+     * Renderizar pregunta sin imagen (método original - mantenido para compatibilidad)
+     */
+    private function render_question_without_image($question) {
+        return $this->render_question_without_media($question);
     }
     
     /**
@@ -2363,8 +2489,8 @@ class SFQ_Frontend {
         
         $url = trim($url);
         
-        // Detectar YouTube
-        if (preg_match('/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/', $url, $matches)) {
+        // Detectar YouTube (incluyendo Shorts)
+        if (preg_match('/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/)([^"&?\/\s]{11})/', $url, $matches)) {
             $video_id = $matches[1];
             return $this->create_youtube_embed($video_id);
         }
