@@ -123,7 +123,8 @@
                 gradient_blur: '0',
                 gradient_saturate: '100',
                 gradient_hover_pause: false,
-                gradient_reverse_animation: false
+                gradient_reverse_animation: false,
+                mark_as_completed_on_click: false // ✅ NUEVO: Marcar formulario como completado al hacer clic
             },
             rating: {
                 rating_type: 'stars',

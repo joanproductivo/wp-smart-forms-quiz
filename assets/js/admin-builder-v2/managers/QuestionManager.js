@@ -1605,6 +1605,16 @@
                                 Invertir dirección de la animación
                             </label>
                         </div>
+                        <!-- ✅ NUEVO: Opción para marcar formulario como completado -->
+                        <div class="sfq-config-row" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e9ecef;">
+                            <label class="sfq-config-label">
+                                <input type="checkbox" class="sfq-config-input" data-setting="mark_as_completed_on_click" ${settings.mark_as_completed_on_click ? 'checked' : ''}>
+                                ✅ Marcar formulario como completado al hacer clic
+                            </label>
+                            <small style="display: block; margin-left: 20px; margin-top: 4px; color: #666; font-size: 11px;">
+                                Si está activado, al hacer clic en este botón, el formulario se marcará como completado.
+                            </small>
+                        </div>
                     </div>
                 </div>
                 

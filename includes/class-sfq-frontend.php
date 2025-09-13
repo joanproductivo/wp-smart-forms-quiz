@@ -3057,6 +3057,7 @@ class SFQ_Frontend {
                    <?php if ($gradient_enabled && !empty($settings['gradient_hover_pause']) && $settings['gradient_hover_pause']) : ?>
                    data-hover-pause="true"
                    <?php endif; ?>
+                   data-settings='<?php echo json_encode($settings); ?>'
                    style="<?php echo esc_attr(trim($style_string)); ?>">
                     <?php echo esc_html($button_text); ?>
                 </a>
@@ -3071,6 +3072,7 @@ class SFQ_Frontend {
                         <?php if ($gradient_enabled && !empty($settings['gradient_hover_pause']) && $settings['gradient_hover_pause']) : ?>
                         data-hover-pause="true"
                         <?php endif; ?>
+                        data-settings='<?php echo json_encode($settings); ?>'
                         style="<?php echo esc_attr(trim($style_string)); ?>">
                     <?php echo esc_html($button_text); ?>
                 </button>

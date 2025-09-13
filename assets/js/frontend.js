@@ -2475,7 +2475,8 @@
                 this.responses[questionId] = {};
             }
 
-            this.responses[questionId][elementId] = 'clicked';
+            const buttonText = button.textContent?.trim() || button.innerText?.trim() || '';
+            this.responses[questionId][elementId] = buttonText;
 
             // Mostrar indicador de procesamiento
             const questionScreen = button.closest('.sfq-question-screen');
@@ -2488,7 +2489,7 @@
                 const trigger = {
                     type: 'answer',
                     hasAnswer: true,
-                    answer: 'clicked',
+                    answer: buttonText, // Ahora pasa el texto del botón
                     element: button
                 };
 
@@ -2551,6 +2552,29 @@
             }
 
             // Si es un botón con URL, el navegador manejará la navegación automáticamente
+            const buttonUrl = button.href || button.dataset.url;
+            
+            // Obtener la configuración del botón desde el atributo data-settings
+            let buttonSettings = {};
+            if (button.dataset.settings) {
+                try {
+                    buttonSettings = JSON.parse(button.dataset.settings);
+                } catch (e) {
+                    console.error('SFQ: Error parsing button settings:', e);
+                }
+            }
+
+            // ✅ NUEVO: Si la opción "marcar como completado" está activada, marcar el formulario
+            if (buttonSettings.mark_as_completed_on_click) {
+                await this.markFormAsCompleted();
+                // Si el formulario se marca como completado, no continuar con la navegación normal
+                return; 
+            }
+
+            if (!buttonUrl || buttonUrl.trim() === '') {
+                // Si no hay URL asignada, actuar como si se hiciera clic en el botón "Siguiente"
+                this.nextQuestion();
+            }
         }
 
         /**
