@@ -3387,7 +3387,7 @@ class SFQ_Frontend {
         ?>
         <div class="sfq-freestyle-legal-wrapper">
             <div class="sfq-legal-content">
-                <?php echo wp_kses_post($text_content); ?>
+                <?php echo do_shortcode($text_content); ?>
             </div>
             
             <?php if ($require_acceptance) : ?>
@@ -3802,7 +3802,7 @@ class SFQ_Frontend {
                  data-width-type="<?php echo esc_attr($width_type); ?>"
                  data-container-align="<?php echo esc_attr($container_align); ?>"
                  style="<?php echo esc_attr(trim($style_string)); ?>">
-                <?php echo wp_kses_post($text_content); ?>
+                <?php echo do_shortcode($text_content); ?>
             </<?php echo $tag; ?>>
             
             <!-- Campo oculto para registrar que se mostró el texto -->

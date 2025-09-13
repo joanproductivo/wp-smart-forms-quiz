@@ -288,33 +288,33 @@
                     return answerValue2 < compareValue2;
                     
                 case 'variable_greater':
-                    // ✅ CORREGIDO: Usar condition.condition_value como nombre de variable
-                    const varValue1 = variables[condition.condition_value] || 0;
-                    const compareValue3 = this.getComparisonValue(condition);
+                    // ✅ CORREGIDO: Usar condition.condition_value como nombre de variable y convertir a número
+                    const varValue1 = parseFloat(variables[condition.condition_value] || 0); // Convertir a número
+                    const compareValue3 = parseFloat(this.getComparisonValue(condition) || 0); // Convertir a número
                     return this.smartCompare(varValue1, compareValue3, '>');
                     
                 case 'variable_greater_equal':
-                    // ✅ NUEVO: Variable es mayor o igual que
-                    const varValue1_ge = variables[condition.condition_value] || 0;
-                    const compareValue3_ge = this.getComparisonValue(condition);
+                    // ✅ NUEVO: Variable es mayor o igual que y convertir a número
+                    const varValue1_ge = parseFloat(variables[condition.condition_value] || 0); // Convertir a número
+                    const compareValue3_ge = parseFloat(this.getComparisonValue(condition) || 0); // Convertir a número
                     return this.smartCompare(varValue1_ge, compareValue3_ge, '>=');
                     
                 case 'variable_less':
-                    // ✅ CORREGIDO: Usar condition.condition_value como nombre de variable
-                    const varValue2 = variables[condition.condition_value] || 0;
-                    const compareValue4 = this.getComparisonValue(condition);
+                    // ✅ CORREGIDO: Usar condition.condition_value como nombre de variable y convertir a número
+                    const varValue2 = parseFloat(variables[condition.condition_value] || 0); // Convertir a número
+                    const compareValue4 = parseFloat(this.getComparisonValue(condition) || 0); // Convertir a número
                     return this.smartCompare(varValue2, compareValue4, '<');
                     
                 case 'variable_less_equal':
-                    // ✅ NUEVO: Variable es menor o igual que
-                    const varValue2_le = variables[condition.condition_value] || 0;
-                    const compareValue4_le = this.getComparisonValue(condition);
+                    // ✅ NUEVO: Variable es menor o igual que y convertir a número
+                    const varValue2_le = parseFloat(variables[condition.condition_value] || 0); // Convertir a número
+                    const compareValue4_le = parseFloat(this.getComparisonValue(condition) || 0); // Convertir a número
                     return this.smartCompare(varValue2_le, compareValue4_le, '<=');
                     
                 case 'variable_equals':
-                    // ✅ CORREGIDO: Usar condition.condition_value como nombre de variable
-                    const varValue3 = variables[condition.condition_value] || 0;
-                    const compareValue5 = this.getComparisonValue(condition);
+                    // ✅ CORREGIDO: Usar condition.condition_value como nombre de variable y convertir a número
+                    const varValue3 = parseFloat(variables[condition.condition_value] || 0); // Convertir a número
+                    const compareValue5 = parseFloat(this.getComparisonValue(condition) || 0); // Convertir a número
                     return this.smartCompare(varValue3, compareValue5, '==');
                     
                 default:
@@ -350,7 +350,10 @@
                         break;
                         
                     case 'set_variable':
-                        result.variables[action.variable] = action.amount;
+                        // ✅ NUEVO: Convertir a número si el valor es numérico
+                        result.variables[action.variable] = !isNaN(action.amount) && action.amount !== null && action.amount !== '' 
+                            ? parseFloat(action.amount) 
+                            : action.amount;
                         break;
                         
                     case 'goto_question':
@@ -503,6 +506,12 @@
             if (variablesInput && variablesInput.value) {
                 try {
                     const globalVariables = JSON.parse(variablesInput.value);
+                    // ✅ NUEVO: Normalizar variables a números si son numéricas
+                    for (const key in globalVariables) {
+                        if (globalVariables.hasOwnProperty(key) && !isNaN(globalVariables[key]) && globalVariables[key] !== null && globalVariables[key] !== '') {
+                            globalVariables[key] = parseFloat(globalVariables[key]);
+                        }
+                    }
                     this.variables = { ...globalVariables };
                     
                     // ✅ NUEVO: Actualizar DOM inmediatamente después de inicializar variables
