@@ -181,7 +181,7 @@ class SFQ_Ajax {
                 'user_ip' => $this->get_user_ip(),
                 'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
                 'total_score' => $this->calculate_total_score($variables),
-                'variables' => json_encode($variables),
+                'variables' => json_encode($this->sanitize_variables_for_storage($variables)),
                 'status' => 'completed',
                 'started_at' => current_time('mysql'),
                 'completed_at' => current_time('mysql'),
@@ -448,7 +448,7 @@ class SFQ_Ajax {
         wp_send_json_success(array(
             'next_question_id' => $next_question_id,
             'redirect_url' => $redirect_url,
-            'variables' => $updated_variables,
+            'variables' => $this->sanitize_variables_for_storage($updated_variables), // Aplicar sanitización
             'has_conditional_navigation' => $has_conditional_navigation // ✅ NUEVO: Información adicional para debug
         ));
     }
@@ -3527,7 +3527,7 @@ class SFQ_Ajax {
                 'user_id' => get_current_user_id() ?: null,
                 'user_ip' => $this->get_user_ip(),
                 'responses' => json_encode($responses, JSON_UNESCAPED_UNICODE),
-                'variables' => json_encode($variables, JSON_UNESCAPED_UNICODE),
+                'variables' => json_encode($this->sanitize_variables_for_storage($variables), JSON_UNESCAPED_UNICODE),
                 'current_question' => $current_question,
                 'last_updated' => current_time('mysql'),
                 'expires_at' => date('Y-m-d H:i:s', strtotime('+7 days')) // Expira en 7 días
@@ -5185,6 +5185,30 @@ class SFQ_Ajax {
         }
         
         return false;
+    }
+    
+    /**
+     * ✅ NUEVO: Sanitizar variables para asegurar que los números se guarden como números
+     */
+    private function sanitize_variables_for_storage($variables) {
+        if (!is_array($variables)) {
+            return $variables;
+        }
+
+        $sanitized_variables = [];
+        foreach ($variables as $key => $value) {
+            // Intentar convertir a número si es numérico
+            if (is_numeric($value)) {
+                $sanitized_variables[$key] = floatval($value);
+            } elseif (is_array($value)) {
+                // Recursivamente sanitizar arrays anidados
+                $sanitized_variables[$key] = $this->sanitize_variables_for_storage($value);
+            } else {
+                // Para otros tipos, sanitizar como texto
+                $sanitized_variables[$key] = sanitize_text_field($value);
+            }
+        }
+        return $sanitized_variables;
     }
     
 }

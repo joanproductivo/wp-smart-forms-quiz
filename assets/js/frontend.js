@@ -344,8 +344,8 @@
                         break;
                         
                     case 'add_variable':
-                        const currentValue = result.variables[action.variable] || 0;
-                        const addAmount = parseInt(action.amount) || 0;
+                        const currentValue = parseFloat(result.variables[action.variable] || 0); // Convertir a número
+                        const addAmount = parseFloat(action.amount) || 0; // Convertir a número
                         result.variables[action.variable] = currentValue + addAmount;
                         break;
                         
