@@ -1242,7 +1242,7 @@ class SFQ_Admin {
                                 <div class="sfq-opacity-control">
                                     <label><?php _e('Opacidad', 'smart-forms-quiz'); ?></label>
                                     <input type="range" id="secondary-color-opacity" min="0" max="1" step="0.01" value="1" class="sfq-opacity-range">
-                                    <span class="sfq-opacity-value">100%</span>
+                                    <span class="sfq-opacity-value" data-for="secondary-color">100%</span>
                                 </div>
                             </div>
                         </div>
@@ -1254,7 +1254,7 @@ class SFQ_Admin {
                                 <div class="sfq-opacity-control">
                                     <label><?php _e('Opacidad', 'smart-forms-quiz'); ?></label>
                                     <input type="range" id="background-color-opacity" min="0" max="1" step="0.01" value="1" class="sfq-opacity-range">
-                                    <span class="sfq-opacity-value">100%</span>
+                                    <span class="sfq-opacity-value" data-for="background-color">100%</span>
                                 </div>
                             </div>
                         </div>
@@ -1266,7 +1266,7 @@ class SFQ_Admin {
                                 <div class="sfq-opacity-control">
                                     <label><?php _e('Opacidad', 'smart-forms-quiz'); ?></label>
                                     <input type="range" id="options-background-color-opacity" min="0" max="1" step="0.01" value="1" class="sfq-opacity-range">
-                                    <span class="sfq-opacity-value">100%</span>
+                                    <span class="sfq-opacity-value" data-for="options-background-color">100%</span>
                                 </div>
                             </div>
                             <p class="description"><?php _e('Color de fondo específico para las tarjetas de opciones (sfq-option-card)', 'smart-forms-quiz'); ?></p>
@@ -1279,7 +1279,7 @@ class SFQ_Admin {
                                 <div class="sfq-opacity-control">
                                     <label><?php _e('Opacidad', 'smart-forms-quiz'); ?></label>
                                     <input type="range" id="options-border-color-opacity" min="0" max="1" step="0.01" value="1" class="sfq-opacity-range">
-                                    <span class="sfq-opacity-value">100%</span>
+                                    <span class="sfq-opacity-value" data-for="options-border-color">100%</span>
                                 </div>
                             </div>
                             <p class="description"><?php _e('Color del borde para las tarjetas de opciones (sfq-option-card)', 'smart-forms-quiz'); ?></p>
@@ -1292,7 +1292,7 @@ class SFQ_Admin {
                                 <div class="sfq-opacity-control">
                                     <label><?php _e('Opacidad', 'smart-forms-quiz'); ?></label>
                                     <input type="range" id="text-color-opacity" min="0" max="1" step="0.01" value="1" class="sfq-opacity-range">
-                                    <span class="sfq-opacity-value">100%</span>
+                                    <span class="sfq-opacity-value" data-for="text-color">100%</span>
                                 </div>
                             </div>
                         </div>
@@ -1310,7 +1310,7 @@ class SFQ_Admin {
                                 <div class="sfq-opacity-control">
                                     <label><?php _e('Opacidad', 'smart-forms-quiz'); ?></label>
                                     <input type="range" id="input-border-color-opacity" min="0" max="1" step="0.01" value="1" class="sfq-opacity-range">
-                                    <span class="sfq-opacity-value">100%</span>
+                                    <span class="sfq-opacity-value" data-for="input-border-color">100%</span>
                                 </div>
                             </div>
                             <p class="description"><?php _e('Color del borde para campos de texto (.sfq-text-input) y contorno de estrellas (.sfq-star svg)', 'smart-forms-quiz'); ?></p>

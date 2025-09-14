@@ -326,8 +326,8 @@
             
             opacityFields.forEach(field => {
                 const opacityValue = styles[field + '_opacity'] !== undefined ? styles[field + '_opacity'] : '1';
-                $(`#${field.replace('_', '-')}-opacity`).val(opacityValue);
-                $(`.sfq-opacity-value[data-for="${field.replace('_', '-')}"]`).text(Math.round(opacityValue * 100) + '%');
+                $(`#${field.replace(/_/g, '-')}-opacity`).val(opacityValue);
+                $(`.sfq-opacity-value[data-for="${field.replace(/_/g, '-')}"]`).text(Math.round(opacityValue * 100) + '%');
             });
         }
 
