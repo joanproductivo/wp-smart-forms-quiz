@@ -71,12 +71,16 @@
             }
         });
         
-        // Settings checkboxes
-        $('.sfq-tab-content input[type="checkbox"]').on('change' + ns, () => {
-            if (!this.formBuilder.isDestroyed) {
-                this.formBuilder.isDirty = true;
-            }
-        });
+            // Settings checkboxes
+            $('.sfq-tab-content input[type="checkbox"]').on('change' + ns, (e) => {
+                if (!this.formBuilder.isDestroyed) {
+                    this.formBuilder.isDirty = true;
+                    // If auto-save checkbox changes, re-setup auto-save
+                    if ($(e.target).attr('id') === 'enable-auto-save') {
+                        this.formBuilder.setupAutoSave();
+                    }
+                }
+            });
         
         // Block form toggle
         $('#block-form').on('change' + ns, (e) => this.handleBlockFormToggle(e));

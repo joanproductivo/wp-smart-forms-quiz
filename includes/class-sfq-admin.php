@@ -1876,6 +1876,16 @@ class SFQ_Admin {
                         </div>
                         
                         <div class="sfq-field-group">
+                            <label>
+                                <input type="checkbox" id="enable-auto-save" <?php echo ($form && isset($form->settings['enable_auto_save']) && $form->settings['enable_auto_save'] === false) ? '' : 'checked'; ?>>
+                                <?php _e('✅ Activar guardado automático (cada 30 segundos)', 'smart-forms-quiz'); ?>
+                            </label>
+                            <p class="description" style="margin-left: 24px; margin-top: 5px; font-size: 12px; color: #666;">
+                                <?php _e('Guarda automáticamente los cambios del formulario cada 30 segundos', 'smart-forms-quiz'); ?>
+                            </p>
+                        </div>
+
+                        <div class="sfq-field-group">
                             <h3><?php _e('🔒 Seguridad de Preguntas', 'smart-forms-quiz'); ?></h3>
                             
                             <div class="sfq-field-group">

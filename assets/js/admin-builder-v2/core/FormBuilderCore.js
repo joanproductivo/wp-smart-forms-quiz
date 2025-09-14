@@ -223,6 +223,7 @@
             $('#auto-scroll-to-form').prop('checked', settings.auto_scroll_to_form === true);
             $('#show-processing-indicator').prop('checked', settings.show_processing_indicator === true);
             $('#show-submit-loading').prop('checked', settings.show_submit_loading !== false);
+            $('#enable-auto-save').prop('checked', settings.enable_auto_save !== false); // Default to true
             
             // Processing indicator settings
             $('#processing-indicator-text').val(settings.processing_indicator_text || '...');
@@ -645,7 +646,8 @@
                 enable_max_submissions: $('#enable-max-submissions').is(':checked'),
                 max_submissions: $('#max-submissions').val() || '',
                 max_submissions_limit_type: $('#max-submissions-limit-type').val() || 'session_id',
-                max_submissions_message: $('#max-submissions-message').val() || ''
+                max_submissions_message: $('#max-submissions-message').val() || '',
+                enable_auto_save: $('#enable-auto-save').is(':checked')
             };
         }
 
@@ -751,12 +753,20 @@
         }
 
         setupAutoSave() {
-            // Auto-save every 30 seconds if there are changes
-            this.autoSaveInterval = setInterval(() => {
-                if (this.isDirty && this.formId && !this.isSaving && !this.isDestroyed) {
-                    this.saveForm();
-                }
-            }, 30000);
+            // Clear any existing interval to prevent duplicates
+            if (this.autoSaveInterval) {
+                clearInterval(this.autoSaveInterval);
+                this.autoSaveInterval = null;
+            }
+
+            // Only set up auto-save if enabled
+            if ($('#enable-auto-save').is(':checked')) {
+                this.autoSaveInterval = setInterval(() => {
+                    if (this.isDirty && this.formId && !this.isSaving && !this.isDestroyed) {
+                        this.saveForm();
+                    }
+                }, 30000);
+            }
         }
 
         async showPreview() {
